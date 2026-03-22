@@ -5,8 +5,6 @@ interface Props {
   params: Promise<{ sessionId: string }>
 }
 
-const API = process.env.API_URL ?? process.env.NEXT_PUBLIC_API_URL ?? 'http://localhost:3001'
-const ADMIN_SECRET = process.env.ADMIN_SECRET ?? process.env.NEXT_PUBLIC_ADMIN_SECRET ?? ''
 
 export default async function ProcessPage({ params }: Props) {
   const { sessionId } = await params
@@ -26,28 +24,11 @@ export default async function ProcessPage({ params }: Props) {
     )
   }
 
-  // Pre-fetch all signed video URLs server-side (no COEP conflict here)
+  // Use the proxy route so the browser fetches videos over HTTPS (no mixed content)
   const videoUrls: Record<string, string> = {}
-  await Promise.all(
-    session.recordings
-      .filter((r: any) => r.rawVideoKey)
-      .map(async (r: any) => {
-        try {
-          const res = await fetch(
-            `${API}/api/sessions/${sessionId}/recordings/${r.id}/url`,
-            {
-              headers: { 'x-admin-secret': ADMIN_SECRET },
-              cache: 'no-store',
-            },
-          )
-          if (res.ok) {
-            videoUrls[r.id] = await res.text()
-          }
-        } catch {
-          // skip
-        }
-      }),
-  )
+  for (const r of session.recordings.filter((r: any) => r.rawVideoKey)) {
+    videoUrls[r.id] = `/api/video/${r.id}?sessionId=${sessionId}`
+  }
 
   // Deduplicate: keep only the most recent recording per questionId
   // (user may have retaken a question → multiple recordings for same questionId)

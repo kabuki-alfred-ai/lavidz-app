@@ -13,16 +13,24 @@ import { getSignedUrl } from '@aws-sdk/s3-request-presigner'
 export class StorageService implements OnModuleInit {
   private readonly logger = new Logger(StorageService.name)
   private readonly client: S3Client
+  private readonly presignClient: S3Client
   private readonly bucket: string
 
   constructor() {
+    const credentials = {
+      accessKeyId: process.env.RUSTFS_ACCESS_KEY ?? 'admin',
+      secretAccessKey: process.env.RUSTFS_SECRET_KEY ?? 'password123',
+    }
     this.client = new S3Client({
       endpoint: process.env.RUSTFS_ENDPOINT ?? 'http://localhost:9000',
       region: 'us-east-1',
-      credentials: {
-        accessKeyId: process.env.RUSTFS_ACCESS_KEY ?? 'admin',
-        secretAccessKey: process.env.RUSTFS_SECRET_KEY ?? 'password123',
-      },
+      credentials,
+      forcePathStyle: true,
+    })
+    this.presignClient = new S3Client({
+      endpoint: process.env.RUSTFS_PUBLIC_ENDPOINT ?? process.env.RUSTFS_ENDPOINT ?? 'http://localhost:9000',
+      region: 'us-east-1',
+      credentials,
       forcePathStyle: true,
     })
     this.bucket = process.env.RUSTFS_BUCKET ?? 'lavidz-videos'
@@ -55,7 +63,7 @@ export class StorageService implements OnModuleInit {
 
   getSignedUrl(key: string, expiresIn = 3600) {
     return getSignedUrl(
-      this.client,
+      this.presignClient,
       new GetObjectCommand({ Bucket: this.bucket, Key: key }),
       { expiresIn },
     )
