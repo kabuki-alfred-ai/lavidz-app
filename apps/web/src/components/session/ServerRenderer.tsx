@@ -18,6 +18,8 @@ interface Props {
   fps: number
   width: number
   height: number
+  sessionId?: string
+  onRenderComplete?: (outputUrl: string) => void
 }
 
 export interface ServerRendererHandle {
@@ -27,7 +29,7 @@ export interface ServerRendererHandle {
 }
 
 export const ServerRenderer = forwardRef<ServerRendererHandle, Props>(function ServerRenderer(
-  { segments, originalVideoUrls, voiceId, themeName, theme, intro, subtitleSettings, questionCardFrames, fps, width, height },
+  { segments, originalVideoUrls, voiceId, themeName, theme, intro, subtitleSettings, questionCardFrames, fps, width, height, sessionId, onRenderComplete },
   ref,
 ) {
   const [rendering, setRendering] = useState(false)
@@ -60,7 +62,7 @@ export const ServerRenderer = forwardRef<ServerRendererHandle, Props>(function S
       const res = await fetch('/api/render', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ segments: serverSegments, questionCardFrames, subtitleSettings, theme, intro, fps, width, height, voiceId, origin: window.location.origin }),
+        body: JSON.stringify({ segments: serverSegments, questionCardFrames, subtitleSettings, theme, intro, fps, width, height, voiceId, origin: window.location.origin, sessionId }),
       })
       if (!res.ok) throw new Error(await res.text())
 
@@ -86,10 +88,12 @@ export const ServerRenderer = forwardRef<ServerRendererHandle, Props>(function S
             const dlRes = await fetch(`/api/render/${jobId}/download`)
             if (!dlRes.ok) throw new Error('Download failed')
             const blob = await dlRes.blob()
-            setOutputUrl(URL.createObjectURL(blob))
+            const url = URL.createObjectURL(blob)
+            setOutputUrl(url)
             setProgress(100)
             setDone(true)
             setRendering(false)
+            onRenderComplete?.(url)
           }
         } catch (e) {
           stopPolling()

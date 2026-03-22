@@ -1,5 +1,5 @@
 import Link from 'next/link'
-import { LayoutGrid, ExternalLink } from 'lucide-react'
+import { LayoutGrid, Clapperboard } from 'lucide-react'
 import { Separator } from '@/components/ui/separator'
 
 export default function AdminLayout({ children }: { children: React.ReactNode }) {
@@ -28,6 +28,13 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
           >
             <LayoutGrid size={13} className="shrink-0" />
             Thèmes
+          </Link>
+          <Link
+            href="/admin/montage"
+            className="flex items-center gap-3 px-3 h-8 text-xs font-mono text-muted-foreground hover:text-foreground hover:bg-surface-raised transition-colors group"
+          >
+            <Clapperboard size={13} className="shrink-0" />
+            Montage
           </Link>
         </nav>
 

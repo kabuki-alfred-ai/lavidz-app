@@ -172,6 +172,11 @@ export function ProcessView({ recordings, themeName, sessionId, themeSlug }: Pro
   const [regenerating, setRegenerating] = useState(false)
   const [previewingVoiceId, setPreviewingVoiceId] = useState<string | null>(null)
 
+  const [renderOutputUrl, setRenderOutputUrl] = useState<string | null>(null)
+  const [delivering, setDelivering] = useState(false)
+  const [delivered, setDelivered] = useState(false)
+  const [deliverError, setDeliverError] = useState('')
+
   const serverRendererRef = useRef<ServerRendererHandle | null>(null)
   const previewAudioRef = useRef<HTMLAudioElement | null>(null)
   const blobUrlsRef = useRef<string[]>([])
@@ -540,6 +545,8 @@ export function ProcessView({ recordings, themeName, sessionId, themeSlug }: Pro
           fps={FPS}
           width={fmt.width}
           height={fmt.height}
+          sessionId={sessionId}
+          onRenderComplete={(url) => setRenderOutputUrl(url)}
         />
       )}
 
@@ -620,26 +627,57 @@ export function ProcessView({ recordings, themeName, sessionId, themeSlug }: Pro
       </div>
 
       {/* Bottom nav */}
-      <div style={{ padding: '12px 20px', borderTop: `1px solid ${S.border}`, display: 'flex', gap: 10, flexShrink: 0 }}>
-        {currentStep > 0 && (
-          <button onClick={() => setCurrentStep(s => s - 1)}
-            style={{ padding: '12px 18px', borderRadius: 14, background: S.surface, border: `1px solid ${S.border}`, color: 'rgba(255,255,255,0.6)', fontSize: 13, fontWeight: 600 }}>
-            ←
-          </button>
-        )}
-        {currentStep < STEPS.length - 1 && (
-          <button onClick={() => setCurrentStep(s => s + 1)}
-            style={{ flex: 1, padding: '12px', borderRadius: 14, background: '#fff', color: '#0a0a0a', fontSize: 13, fontWeight: 700, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8 }}>
-            {STEPS[currentStep + 1].label} <ChevronRight size={14} />
-          </button>
-        )}
-        {currentStep === STEPS.length - 1 && ready && segments && (
-          <button
-            onClick={() => serverRendererRef.current?.render()}
-            disabled={serverRendererRef.current?.rendering}
-            style={{ flex: 1, padding: '12px', borderRadius: 14, background: '#fff', color: '#0a0a0a', fontSize: 13, fontWeight: 700, opacity: serverRendererRef.current?.rendering ? 0.5 : 1 }}>
-            {serverRendererRef.current?.rendering ? 'Rendu en cours...' : serverRendererRef.current?.outputUrl ? 'Ré-exporter' : 'Exporter le montage'}
-          </button>
+      <div style={{ padding: '12px 20px', borderTop: `1px solid ${S.border}`, display: 'flex', flexDirection: 'column', gap: 8, flexShrink: 0 }}>
+        <div style={{ display: 'flex', gap: 10 }}>
+          {currentStep > 0 && (
+            <button onClick={() => setCurrentStep(s => s - 1)}
+              style={{ padding: '12px 18px', borderRadius: 14, background: S.surface, border: `1px solid ${S.border}`, color: 'rgba(255,255,255,0.6)', fontSize: 13, fontWeight: 600 }}>
+              ←
+            </button>
+          )}
+          {currentStep < STEPS.length - 1 && (
+            <button onClick={() => setCurrentStep(s => s + 1)}
+              style={{ flex: 1, padding: '12px', borderRadius: 14, background: '#fff', color: '#0a0a0a', fontSize: 13, fontWeight: 700, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8 }}>
+              {STEPS[currentStep + 1].label} <ChevronRight size={14} />
+            </button>
+          )}
+          {currentStep === STEPS.length - 1 && ready && segments && (
+            <button
+              onClick={() => serverRendererRef.current?.render()}
+              disabled={serverRendererRef.current?.rendering}
+              style={{ flex: 1, padding: '12px', borderRadius: 14, background: '#fff', color: '#0a0a0a', fontSize: 13, fontWeight: 700, opacity: serverRendererRef.current?.rendering ? 0.5 : 1 }}>
+              {serverRendererRef.current?.rendering ? 'Rendu en cours...' : renderOutputUrl ? 'Ré-exporter' : 'Exporter le montage'}
+            </button>
+          )}
+        </div>
+        {/* Deliver button — shown after render completes if this session has a recipient */}
+        {renderOutputUrl && sessionId && (
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+            {delivered ? (
+              <p style={{ textAlign: 'center', fontSize: 12, color: 'rgb(52,211,153)', fontFamily: 'monospace' }}>Email envoyé au client ✓</p>
+            ) : (
+              <button
+                onClick={async () => {
+                  setDelivering(true)
+                  setDeliverError('')
+                  try {
+                    const res = await fetch(`/api/admin/sessions/${sessionId}/deliver`, { method: 'POST' })
+                    if (!res.ok) throw new Error(await res.text())
+                    setDelivered(true)
+                  } catch (err) {
+                    setDeliverError(String(err))
+                  } finally {
+                    setDelivering(false)
+                  }
+                }}
+                disabled={delivering}
+                style={{ padding: '12px', borderRadius: 14, background: 'rgba(52,211,153,0.12)', border: '1px solid rgba(52,211,153,0.25)', color: 'rgb(52,211,153)', fontSize: 13, fontWeight: 700, opacity: delivering ? 0.6 : 1 }}
+              >
+                {delivering ? 'Envoi...' : 'Confirmer et envoyer au client ✉'}
+              </button>
+            )}
+            {deliverError && <p style={{ fontSize: 11, color: '#f87171', fontFamily: 'monospace', textAlign: 'center' }}>{deliverError}</p>}
+          </div>
         )}
       </div>
 

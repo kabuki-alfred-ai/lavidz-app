@@ -10,13 +10,17 @@ const API = process.env.NEXT_PUBLIC_API_URL ?? 'http://localhost:3001'
 
 interface Props {
   theme: ThemeDto
+  initialSessionId?: string
+  mode?: 'default' | 'shared'
 }
 
-export function RecordingSession({ theme }: Props) {
+export function RecordingSession({ theme, initialSessionId, mode = 'default' }: Props) {
   const router = useRouter()
   const [phase, setPhase] = useState<Phase>('intro')
   const [questionIndex, setQuestionIndex] = useState(0)
-  const [sessionId, setSessionId] = useState<string | null>(null)
+  const [sessionId, setSessionId] = useState<string | null>(initialSessionId ?? null)
+  const [submitted, setSubmitted] = useState(false)
+  const [submitting, setSubmitting] = useState(false)
   const [countdown, setCountdown] = useState(3)
   const [elapsed, setElapsed] = useState(0)
   const [uploadError, setUploadError] = useState('')
@@ -28,7 +32,7 @@ export function RecordingSession({ theme }: Props) {
   const chunksRef = useRef<Blob[]>([])
   const elapsedRef = useRef<ReturnType<typeof setInterval> | null>(null)
   const countdownRef = useRef<ReturnType<typeof setInterval> | null>(null)
-  const sessionIdRef = useRef<string | null>(null)
+  const sessionIdRef = useRef<string | null>(initialSessionId ?? null)
 
   const questions = theme.questions ?? []
   const currentQuestion = questions[questionIndex]
@@ -130,14 +134,16 @@ export function RecordingSession({ theme }: Props) {
     if (starting) return
     setStarting(true)
     try {
-      const res = await fetch(`${API}/api/sessions`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ themeId: theme.id }),
-      })
-      const session = await res.json()
-      setSessionId(session.id)
-      sessionIdRef.current = session.id
+      if (!initialSessionId) {
+        const res = await fetch(`${API}/api/sessions`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ themeId: theme.id }),
+        })
+        const session = await res.json()
+        setSessionId(session.id)
+        sessionIdRef.current = session.id
+      }
 
       const stream = await navigator.mediaDevices.getUserMedia({
         video: { facingMode: 'user' },
@@ -149,6 +155,17 @@ export function RecordingSession({ theme }: Props) {
     } catch (err) {
       console.error(err)
       setStarting(false)
+    }
+  }
+
+  const handleSubmit = async () => {
+    if (!sessionIdRef.current || submitting) return
+    setSubmitting(true)
+    try {
+      await fetch(`${API}/api/sessions/${sessionIdRef.current}/submit`, { method: 'POST' })
+      setSubmitted(true)
+    } catch {
+      setSubmitting(false)
     }
   }
 
@@ -236,6 +253,29 @@ export function RecordingSession({ theme }: Props) {
 
   // ─── DONE ─────────────────────────────────────────────────────────────────
   if (phase === 'done') {
+    // Thank-you screen after submit in shared mode
+    if (mode === 'shared' && submitted) {
+      return (
+        <div
+          className="fixed inset-0 flex flex-col items-center justify-center gap-8 px-8"
+          style={{ background: '#0a0a0a' }}
+        >
+          <div
+            className="w-16 h-16 rounded-2xl flex items-center justify-center"
+            style={{ background: 'rgba(52,211,153,0.12)', border: '1px solid rgba(52,211,153,0.25)' }}
+          >
+            <svg width="24" height="24" viewBox="0 0 24 24" fill="none">
+              <path d="M5 12l4 4 10-10" stroke="rgb(52,211,153)" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
+            </svg>
+          </div>
+          <div className="text-center">
+            <h1 className="text-3xl font-black text-white mb-2">Envoyé !</h1>
+            <p className="text-sm text-white/40">Vos réponses ont bien été reçues.<br />Vous recevrez un email quand le montage sera prêt.</p>
+          </div>
+        </div>
+      )
+    }
+
     return (
       <div
         className="fixed inset-0 flex flex-col items-center justify-center gap-8 px-8"
@@ -253,13 +293,24 @@ export function RecordingSession({ theme }: Props) {
           <h1 className="text-3xl font-black text-white mb-2">Dans la boîte.</h1>
           <p className="text-sm text-white/40">Toutes vos réponses ont été enregistrées.</p>
         </div>
-        <button
-          onClick={() => router.push(`/session/${theme.slug}/result?session=${sessionId}`)}
-          className="px-8 py-3 rounded-xl font-semibold text-sm transition-all active:scale-95"
-          style={{ background: 'rgba(255,255,255,0.08)', color: 'rgba(255,255,255,0.8)' }}
-        >
-          Voir les résultats
-        </button>
+        {mode === 'shared' ? (
+          <button
+            onClick={handleSubmit}
+            disabled={submitting}
+            className="px-8 py-4 rounded-2xl font-bold text-base transition-all active:scale-95 disabled:opacity-60"
+            style={{ background: accent, color: '#fff' }}
+          >
+            {submitting ? 'Envoi...' : 'Envoyer ✓'}
+          </button>
+        ) : (
+          <button
+            onClick={() => router.push(`/session/${theme.slug}/result?session=${sessionId}`)}
+            className="px-8 py-3 rounded-xl font-semibold text-sm transition-all active:scale-95"
+            style={{ background: 'rgba(255,255,255,0.08)', color: 'rgba(255,255,255,0.8)' }}
+          >
+            Voir les résultats
+          </button>
+        )}
       </div>
     )
   }

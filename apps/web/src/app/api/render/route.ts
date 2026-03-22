@@ -3,6 +3,7 @@ import { renderMedia, selectComposition } from '@remotion/renderer'
 import path from 'path'
 import fs from 'fs'
 import crypto from 'crypto'
+import { S3Client, PutObjectCommand } from '@aws-sdk/client-s3'
 
 export const runtime = 'nodejs'
 export const maxDuration = 600
@@ -12,6 +13,37 @@ let cachedBundle: string | null = null
 const DEFAULT_VOICE_ID = 'EXAVITQu4vr4xnSDxMaL'
 
 import { jobs } from './jobs-store'
+
+function getS3Client() {
+  return new S3Client({
+    endpoint: process.env.RUSTFS_ENDPOINT ?? 'http://localhost:9000',
+    region: 'us-east-1',
+    credentials: {
+      accessKeyId: process.env.RUSTFS_ACCESS_KEY ?? 'admin',
+      secretAccessKey: process.env.RUSTFS_SECRET_KEY ?? 'password123',
+    },
+    forcePathStyle: true,
+  })
+}
+
+async function uploadFinalToS3(filePath: string, sessionId: string): Promise<string> {
+  const key = `sessions/${sessionId}/final.mp4`
+  const buffer = fs.readFileSync(filePath)
+  const s3 = getS3Client()
+  const bucket = process.env.RUSTFS_BUCKET ?? 'lavidz-videos'
+  await s3.send(new PutObjectCommand({ Bucket: bucket, Key: key, Body: buffer, ContentType: 'video/mp4' }))
+  return key
+}
+
+async function notifySessionFinalKey(sessionId: string, key: string): Promise<void> {
+  const apiUrl = process.env.API_URL ?? 'http://localhost:3001'
+  const adminSecret = process.env.ADMIN_SECRET ?? ''
+  await fetch(`${apiUrl}/api/sessions/${sessionId}/final-video-key`, {
+    method: 'PUT',
+    headers: { 'Content-Type': 'application/json', 'x-admin-secret': adminSecret },
+    body: JSON.stringify({ key }),
+  })
+}
 
 function calcTotalFrames(segments: any[], questionCardFrames: number, intro: any, fps: number) {
   let total = 0
@@ -34,7 +66,7 @@ async function generateTTS(text: string, voiceId: string, apiKey: string): Promi
 }
 
 async function runRender(jobId: string, body: any) {
-  const { segments, questionCardFrames, subtitleSettings, theme, intro, fps, width, height, voiceId, origin } = body
+  const { segments, questionCardFrames, subtitleSettings, theme, intro, fps, width, height, voiceId, origin, sessionId } = body
   const apiKey = process.env.ELEVENLABS_API_KEY ?? ''
 
   const setProgress = (p: number) => {
@@ -93,6 +125,16 @@ async function runRender(jobId: string, body: any) {
     // Cleanup TTS
     for (const id of ttsIds) {
       if (id) try { fs.unlinkSync(path.join('/tmp', `tts-render-${id}.mp3`)) } catch {}
+    }
+
+    // If sessionId provided, upload final video to S3 and update session
+    if (sessionId) {
+      try {
+        const key = await uploadFinalToS3(outputPath, sessionId)
+        await notifySessionFinalKey(sessionId, key)
+      } catch (uploadErr) {
+        console.error('Failed to upload final video to S3:', uploadErr)
+      }
     }
 
     jobs.set(jobId, { progress: 100, done: true, outputPath, error: null })
