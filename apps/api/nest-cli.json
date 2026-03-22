@@ -4,6 +4,7 @@
   "sourceRoot": "src",
   "compilerOptions": {
     "webpack": true,
-    "deleteOutDir": true
+    "deleteOutDir": true,
+    "webpackConfigPath": "webpack.config.js"
   }
 }
