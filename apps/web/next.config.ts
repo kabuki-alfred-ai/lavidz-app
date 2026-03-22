@@ -21,7 +21,7 @@ const nextConfig: NextConfig = {
         // COEP only on the processing route that needs FFmpeg.wasm / SharedArrayBuffer
         source: '/process(.*)',
         headers: [
-          { key: 'Cross-Origin-Embedder-Policy', value: 'require-corp' },
+          { key: 'Cross-Origin-Embedder-Policy', value: 'credentialless' },
         ],
       },
     ]

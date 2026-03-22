@@ -21,6 +21,7 @@ RUN pnpm --filter @lavidz/web build
 FROM node:22-alpine AS runner
 WORKDIR /app
 ENV NODE_ENV=production
+RUN apk add --no-cache ffmpeg
 
 # Standalone bundle — self-contained Node.js server
 COPY --from=builder /app/apps/web/.next/standalone ./
