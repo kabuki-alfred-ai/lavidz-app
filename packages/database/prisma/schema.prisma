@@ -1,0 +1,76 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model Theme {
+  id           String     @id @default(cuid())
+  name         String
+  slug         String     @unique
+  description  String?
+  active       Boolean    @default(true)
+  order        Int        @default(0)
+  brandName    String?
+  brandColor   String?    @default("#FF4D1C")
+  logoUrl      String?
+  questions    Question[]
+  sessions     Session[]
+  createdAt    DateTime   @default(now())
+  updatedAt    DateTime   @updatedAt
+}
+
+model Question {
+  id         String      @id @default(cuid())
+  themeId    String
+  theme      Theme       @relation(fields: [themeId], references: [id], onDelete: Cascade)
+  text       String
+  hint       String?
+  order      Int
+  active     Boolean     @default(true)
+  recordings Recording[]
+  createdAt  DateTime    @default(now())
+  updatedAt  DateTime    @updatedAt
+}
+
+model Session {
+  id         String        @id @default(cuid())
+  themeId    String
+  theme      Theme         @relation(fields: [themeId], references: [id])
+  status     SessionStatus @default(PENDING)
+  recordings Recording[]
+  createdAt  DateTime      @default(now())
+  updatedAt  DateTime      @updatedAt
+}
+
+model Recording {
+  id           String          @id @default(cuid())
+  sessionId    String
+  session      Session         @relation(fields: [sessionId], references: [id], onDelete: Cascade)
+  questionId   String
+  question     Question        @relation(fields: [questionId], references: [id])
+  rawVideoKey  String?
+  finalVideoKey String?
+  transcript   String?
+  status       RecordingStatus @default(PENDING)
+  createdAt    DateTime        @default(now())
+  updatedAt    DateTime        @updatedAt
+}
+
+enum SessionStatus {
+  PENDING
+  RECORDING
+  PROCESSING
+  DONE
+  FAILED
+}
+
+enum RecordingStatus {
+  PENDING
+  TRANSCRIBING
+  DONE
+  FAILED
+}

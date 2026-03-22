@@ -1,0 +1,73 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  :root {
+    --background: 240 11% 4%;
+    --foreground: 220 14% 92%;
+
+    --card: 240 9% 6%;
+    --card-foreground: 220 14% 92%;
+
+    --surface: 240 9% 6%;
+    --surface-raised: 240 7% 10%;
+
+    --primary: 14 100% 55%;
+    --primary-foreground: 0 0% 100%;
+
+    --secondary: 240 7% 10%;
+    --secondary-foreground: 220 14% 92%;
+
+    --muted: 240 7% 10%;
+    --muted-foreground: 240 5% 42%;
+
+    --accent: 14 100% 55%;
+    --accent-foreground: 0 0% 100%;
+
+    --destructive: 0 80% 56%;
+    --destructive-foreground: 0 0% 100%;
+
+    --border: 240 6% 14%;
+    --input: 240 6% 14%;
+    --ring: 14 100% 55%;
+
+    --radius: 0.125rem;
+  }
+}
+
+@layer base {
+  * {
+    @apply border-border box-border;
+  }
+
+  html {
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+  }
+
+  body {
+    @apply bg-background text-foreground font-mono;
+  }
+
+  ::selection {
+    background: hsl(14 100% 55% / 0.3);
+  }
+}
+
+@layer utilities {
+  .text-balance {
+    text-wrap: balance;
+  }
+
+  .grid-bg {
+    background-image:
+      linear-gradient(hsl(240 6% 14% / 0.4) 1px, transparent 1px),
+      linear-gradient(90deg, hsl(240 6% 14% / 0.4) 1px, transparent 1px);
+    background-size: 32px 32px;
+  }
+
+  .vignette {
+    background: radial-gradient(ellipse at center, transparent 50%, hsl(240 11% 4% / 0.8) 100%);
+  }
+}

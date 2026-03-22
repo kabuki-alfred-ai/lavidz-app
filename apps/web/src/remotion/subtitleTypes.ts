@@ -1,0 +1,15 @@
+export type SubtitleStyle = 'hormozi' | 'minimal' | 'classic' | 'neon'
+
+export interface SubtitleSettings {
+  style: SubtitleStyle
+  size: number        // base font size in px (at 720p), e.g. 32–96
+  position: number   // vertical % from top, 0–100
+  wordsPerLine: number // 1–5 words shown at once
+}
+
+export const DEFAULT_SUBTITLE_SETTINGS: SubtitleSettings = {
+  style: 'hormozi',
+  size: 64,
+  position: 75,
+  wordsPerLine: 3,
+}

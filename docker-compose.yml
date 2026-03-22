@@ -1,0 +1,87 @@
+services:
+  postgres:
+    image: postgres:17-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: ${POSTGRES_DB:-lavidz}
+      POSTGRES_USER: ${POSTGRES_USER:-lavidz}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?POSTGRES_PASSWORD is required}
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-lavidz}"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  redis:
+    image: redis:7-alpine
+    restart: unless-stopped
+    volumes:
+      - redis_data:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  minio:
+    image: minio/minio:latest
+    restart: unless-stopped
+    environment:
+      MINIO_ROOT_USER: ${MINIO_ROOT_USER:-admin}
+      MINIO_ROOT_PASSWORD: ${MINIO_ROOT_PASSWORD:?MINIO_ROOT_PASSWORD is required}
+    volumes:
+      - minio_data:/data
+    command: server /data --console-address ":9001"
+    healthcheck:
+      test: ["CMD", "mc", "ready", "local"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  api:
+    build:
+      context: .
+      dockerfile: apps/api/Dockerfile
+    restart: unless-stopped
+    environment:
+      NODE_ENV: production
+      PORT: 3001
+      DATABASE_URL: postgresql://${POSTGRES_USER:-lavidz}:${POSTGRES_PASSWORD}@postgres:5432/${POSTGRES_DB:-lavidz}
+      REDIS_URL: redis://redis:6379
+      RUSTFS_ENDPOINT: http://minio:9000
+      RUSTFS_ACCESS_KEY: ${MINIO_ROOT_USER:-admin}
+      RUSTFS_SECRET_KEY: ${MINIO_ROOT_PASSWORD}
+      RUSTFS_BUCKET: ${RUSTFS_BUCKET:-lavidz-videos}
+      OPENAI_API_KEY: ${OPENAI_API_KEY:-}
+      ELEVENLABS_API_KEY: ${ELEVENLABS_API_KEY:-}
+      ADMIN_SECRET: ${ADMIN_SECRET:?ADMIN_SECRET is required}
+      WEB_URL: ${WEB_URL:-http://localhost:3000}
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      minio:
+        condition: service_healthy
+    ports:
+      - "${API_PORT:-3001}:3001"
+
+  web:
+    build:
+      context: .
+      dockerfile: apps/web/Dockerfile
+    restart: unless-stopped
+    environment:
+      NODE_ENV: production
+      NEXT_PUBLIC_API_URL: ${NEXT_PUBLIC_API_URL:-http://localhost:3001}
+    depends_on:
+      - api
+    ports:
+      - "${WEB_PORT:-3000}:3000"
+
+volumes:
+  postgres_data:
+  redis_data:
+  minio_data:

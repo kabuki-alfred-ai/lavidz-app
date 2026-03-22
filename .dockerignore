@@ -1,0 +1,14 @@
+node_modules
+.next
+dist
+.turbo
+.env
+.env.*
+!.env.example
+*.log
+.DS_Store
+.git
+_bmad
+_bmad-output
+design-artifacts
+docs
