@@ -11,29 +11,16 @@ RUN pnpm install --frozen-lockfile
 RUN pnpm --filter @lavidz/database run db:generate
 RUN pnpm --filter @lavidz/api build
 
-# ── Stage 2: prune to production deps + generate Prisma client ────────────────
-FROM base AS deployer
-WORKDIR /app
-COPY --from=builder /app .
-RUN pnpm --filter @lavidz/api --prod deploy /deploy
-
-# Generate Prisma client into the flat node_modules of the deploy output.
-# pnpm deploy creates a traditional flat node_modules (not virtual store),
-# so prisma generate will write to /deploy/node_modules/.prisma/client.
-# We use the prisma CLI from the full builder install.
-WORKDIR /deploy
-RUN /app/node_modules/.bin/prisma generate \
-    --schema=/app/packages/database/prisma/schema.prisma
-
-# ── Stage 3: minimal production image ─────────────────────────────────────────
+# ── Stage 2: minimal production image ─────────────────────────────────────────
 FROM node:22-alpine AS runner
 WORKDIR /app
 ENV NODE_ENV=production
 
-# Production node_modules + generated Prisma client (from deployer)
-COPY --from=deployer /deploy .
+# Copy pnpm virtual store — relative symlinks resolve correctly in the runner.
+# This includes the generated Prisma client from the db:generate step above.
+COPY --from=builder /app/node_modules ./node_modules
 
-# dist/ is in .gitignore so pnpm deploy excludes it — copy explicitly
+# dist/ is in .gitignore so it's not in node_modules — copy explicitly
 COPY --from=builder /app/apps/api/dist ./dist
 
 # Prisma schema (needed for prisma migrate deploy at startup)
