@@ -11,14 +11,7 @@ let cachedBundle: string | null = null
 
 const DEFAULT_VOICE_ID = 'EXAVITQu4vr4xnSDxMaL'
 
-// In-process job store (persists across requests in same Node.js instance)
-interface Job {
-  progress: number   // 0–100
-  done: boolean
-  outputPath: string | null
-  error: string | null
-}
-export const jobs = new Map<string, Job>()
+import { jobs } from './jobs-store'
 
 function calcTotalFrames(segments: any[], questionCardFrames: number, intro: any, fps: number) {
   let total = 0

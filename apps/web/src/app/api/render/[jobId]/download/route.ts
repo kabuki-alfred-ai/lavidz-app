@@ -1,5 +1,5 @@
 import fs from 'fs'
-import { jobs } from '../../route'
+import { jobs } from '../../jobs-store'
 
 export const runtime = 'nodejs'
 
