@@ -6,6 +6,13 @@ RUN corepack enable && corepack prepare pnpm@9.15.0 --activate
 # ── Stage 1: install all deps + build ─────────────────────────────────────────
 FROM base AS builder
 WORKDIR /app
+
+# Build-time env vars (NEXT_PUBLIC_* are baked into the client bundle)
+ARG NEXT_PUBLIC_API_URL
+ARG NEXT_PUBLIC_ADMIN_SECRET
+ENV NEXT_PUBLIC_API_URL=$NEXT_PUBLIC_API_URL
+ENV NEXT_PUBLIC_ADMIN_SECRET=$NEXT_PUBLIC_ADMIN_SECRET
+
 COPY . .
 RUN pnpm install --frozen-lockfile
 RUN pnpm --filter @lavidz/web build
