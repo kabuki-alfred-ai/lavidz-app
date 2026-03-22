@@ -13,6 +13,8 @@ services:
       interval: 10s
       timeout: 5s
       retries: 5
+    networks:
+      - lavidz
 
   redis:
     image: redis:7-alpine
@@ -24,6 +26,8 @@ services:
       interval: 10s
       timeout: 5s
       retries: 5
+    networks:
+      - lavidz
 
   minio:
     image: minio/minio:latest
@@ -39,6 +43,9 @@ services:
       interval: 10s
       timeout: 5s
       retries: 5
+    networks:
+      - lavidz
+      - coolify
 
   api:
     build:
@@ -67,6 +74,9 @@ services:
         condition: service_healthy
     ports:
       - "${API_PORT:-3001}:3001"
+    networks:
+      - lavidz
+      - coolify
 
   web:
     build:
@@ -80,8 +90,17 @@ services:
       - api
     ports:
       - "${WEB_PORT:-3000}:3000"
+    networks:
+      - lavidz
+      - coolify
 
 volumes:
   postgres_data:
   redis_data:
   minio_data:
+
+networks:
+  lavidz:
+    # Internal network for service-to-service communication
+  coolify:
+    external: true
