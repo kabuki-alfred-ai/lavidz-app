@@ -25,7 +25,11 @@ function findFfmpeg(): string | null {
 }
 
 export async function POST(req: Request) {
-  const { videoUrl } = await req.json()
+  let { videoUrl } = await req.json()
+  if (videoUrl.startsWith('/')) {
+    const origin = req.headers.get('origin') ?? `http://${req.headers.get('host')}`
+    videoUrl = `${origin}${videoUrl}`
+  }
 
   const ffmpeg = findFfmpeg()
   if (!ffmpeg) {
