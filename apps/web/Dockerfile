@@ -21,9 +21,6 @@ COPY --from=builder /app/apps/web/.next/standalone ./
 # Static assets must be served alongside the standalone server
 COPY --from=builder /app/apps/web/.next/static ./apps/web/.next/static
 
-# Public assets (may be empty but copy anyway)
-COPY --from=builder /app/apps/web/public ./apps/web/public
-
 EXPOSE 3000
 ENV PORT=3000
 ENV HOSTNAME=0.0.0.0
