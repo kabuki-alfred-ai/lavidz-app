@@ -72,8 +72,6 @@ services:
         condition: service_healthy
       minio:
         condition: service_healthy
-    ports:
-      - "${API_PORT:-3001}:3001"
     networks:
       - lavidz
       - coolify
@@ -88,8 +86,6 @@ services:
       NEXT_PUBLIC_API_URL: ${NEXT_PUBLIC_API_URL:-http://localhost:3001}
     depends_on:
       - api
-    ports:
-      - "${WEB_PORT:-3000}:3000"
     networks:
       - lavidz
       - coolify
