@@ -14,7 +14,7 @@ services:
       timeout: 5s
       retries: 5
     networks:
-      - lavidz
+      - coolify
 
   redis:
     image: redis:7-alpine
@@ -27,7 +27,7 @@ services:
       timeout: 5s
       retries: 5
     networks:
-      - lavidz
+      - coolify
 
   minio:
     image: minio/minio:latest
@@ -44,7 +44,6 @@ services:
       timeout: 5s
       retries: 5
     networks:
-      - lavidz
       - coolify
 
   api:
@@ -73,7 +72,6 @@ services:
       minio:
         condition: service_healthy
     networks:
-      - lavidz
       - coolify
 
   web:
@@ -87,7 +85,6 @@ services:
     depends_on:
       - api
     networks:
-      - lavidz
       - coolify
 
 volumes:
@@ -96,7 +93,5 @@ volumes:
   minio_data:
 
 networks:
-  lavidz:
-    # Internal network for service-to-service communication
   coolify:
     external: true
