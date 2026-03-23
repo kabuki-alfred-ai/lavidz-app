@@ -7,8 +7,8 @@ import { ArrowLeft, Play, RefreshCw, Loader2, ChevronRight } from 'lucide-react'
 import type { CompositionSegment } from '@/remotion/LavidzComposition'
 import type { SubtitleSettings, SubtitleStyle } from '@/remotion/subtitleTypes'
 import { DEFAULT_SUBTITLE_SETTINGS } from '@/remotion/subtitleTypes'
-import type { TransitionTheme, IntroSettings } from '@/remotion/themeTypes'
-import { DEFAULT_TRANSITION_THEME, DEFAULT_INTRO_SETTINGS, FONT_OPTIONS, THEME_PRESETS } from '@/remotion/themeTypes'
+import type { TransitionTheme, IntroSettings, MotionSettings, TransitionStyle } from '@/remotion/themeTypes'
+import { DEFAULT_TRANSITION_THEME, DEFAULT_INTRO_SETTINGS, DEFAULT_MOTION_SETTINGS, FONT_OPTIONS, THEME_PRESETS } from '@/remotion/themeTypes'
 import { ServerRenderer, type ServerRendererHandle } from './ServerRenderer'
 
 const Player = dynamic(() => import('@remotion/player').then((m) => m.Player), { ssr: false })
@@ -166,6 +166,7 @@ export function ProcessView({ recordings, themeName, sessionId, themeSlug }: Pro
   const [subtitleSettings, setSubtitleSettings] = useState<SubtitleSettings>(DEFAULT_SUBTITLE_SETTINGS)
   const [theme, setTheme] = useState<TransitionTheme>(DEFAULT_TRANSITION_THEME)
   const [intro, setIntro] = useState<IntroSettings>(DEFAULT_INTRO_SETTINGS)
+  const [motionSettings, setMotionSettings] = useState<MotionSettings>(DEFAULT_MOTION_SETTINGS)
   const [silenceCutEnabled, setSilenceCutEnabled] = useState(false)
   const [silenceThreshold, setSilenceThreshold] = useState(-35)
   const [silenceCutError, setSilenceCutError] = useState('')
@@ -450,6 +451,87 @@ export function ProcessView({ recordings, themeName, sessionId, themeSlug }: Pro
           ))}
         </div>
       </div>
+
+      {/* Transition style */}
+      <div>
+        <Label>Style de transition</Label>
+        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8 }}>
+          {([
+            { value: 'zoom-punch', label: 'Zoom Punch', desc: 'TikTok / Reels' },
+            { value: 'slide-up',   label: 'Slide Up',   desc: 'Story / Smooth' },
+            { value: 'flash',      label: 'Flash Cut',  desc: 'Énergie / Clip' },
+            { value: 'none',       label: 'Aucune',     desc: 'Cut direct' },
+          ] as { value: TransitionStyle; label: string; desc: string }[]).map(t => (
+            <button key={t.value} onClick={() => setMotionSettings(p => ({ ...p, transitionStyle: t.value }))}
+              style={{
+                padding: '12px 14px', borderRadius: 12, textAlign: 'left',
+                background: motionSettings.transitionStyle === t.value ? 'rgba(255,255,255,0.1)' : S.surface,
+                border: `1px solid ${motionSettings.transitionStyle === t.value ? 'rgba(255,255,255,0.3)' : S.border}`,
+              }}
+            >
+              <p style={{ color: motionSettings.transitionStyle === t.value ? S.text : S.muted, fontWeight: 700, fontSize: 13 }}>{t.label}</p>
+              <p style={{ color: S.dim, fontSize: 10, marginTop: 2, fontFamily: 'monospace' }}>{t.desc}</p>
+            </button>
+          ))}
+        </div>
+      </div>
+
+      {/* Visual effects */}
+      <div>
+        <Label>Effets visuels</Label>
+        <Card style={{ display: 'flex', flexDirection: 'column', gap: 0 }}>
+          {[
+            { key: 'wordPop'     as const, label: 'Word Pop',      desc: 'Bounce sur le mot actif' },
+            { key: 'progressBar' as const, label: 'Progress Bar',  desc: 'Barre de progression en haut' },
+            { key: 'kenBurns'    as const, label: 'Ken Burns',     desc: 'Zoom lent cinématique' },
+          ].map(({ key, label, desc }, idx, arr) => (
+            <div key={key} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '12px 0', borderBottom: idx < arr.length - 1 ? `1px solid ${S.border}` : 'none' }}>
+              <div>
+                <p style={{ color: S.text, fontWeight: 600, fontSize: 14 }}>{label}</p>
+                <p style={{ color: S.muted, fontSize: 11, marginTop: 2 }}>{desc}</p>
+              </div>
+              <Toggle value={!!motionSettings[key]} onChange={v => setMotionSettings(p => ({ ...p, [key]: v }))} />
+            </div>
+          ))}
+          {/* Lower Third */}
+          <div style={{ paddingTop: 12, borderTop: `1px solid ${S.border}` }}>
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: motionSettings.lowerThird !== undefined ? 16 : 0 }}>
+              <div>
+                <p style={{ color: S.text, fontWeight: 600, fontSize: 14 }}>Lower Third</p>
+                <p style={{ color: S.muted, fontSize: 11, marginTop: 2 }}>Name tag en bas à gauche</p>
+              </div>
+              <Toggle
+                value={motionSettings.lowerThird !== undefined}
+                onChange={v => setMotionSettings(p => ({ ...p, lowerThird: v ? { name: '', title: '' } : undefined }))}
+              />
+            </div>
+            {motionSettings.lowerThird !== undefined && (
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+                <div>
+                  <Label>Nom</Label>
+                  <input
+                    type="text"
+                    placeholder="Marie Dupont"
+                    value={motionSettings.lowerThird.name}
+                    onChange={e => setMotionSettings(p => ({ ...p, lowerThird: { ...p.lowerThird!, name: e.target.value } }))}
+                    style={{ width: '100%', background: 'rgba(255,255,255,0.06)', border: `1px solid ${S.border}`, borderRadius: 10, padding: '10px 14px', color: S.text, fontSize: 14, outline: 'none' }}
+                  />
+                </div>
+                <div>
+                  <Label>Titre (optionnel)</Label>
+                  <input
+                    type="text"
+                    placeholder="Co-fondatrice · Lavidz"
+                    value={motionSettings.lowerThird?.title ?? ''}
+                    onChange={e => setMotionSettings(p => ({ ...p, lowerThird: { ...p.lowerThird!, title: e.target.value || undefined } }))}
+                    style={{ width: '100%', background: 'rgba(255,255,255,0.06)', border: `1px solid ${S.border}`, borderRadius: 10, padding: '10px 14px', color: S.text, fontSize: 14, outline: 'none' }}
+                  />
+                </div>
+              </div>
+            )}
+          </div>
+        </Card>
+      </div>
     </div>
   )
 
@@ -518,7 +600,7 @@ export function ProcessView({ recordings, themeName, sessionId, themeSlug }: Pro
         ) : segments && (
           <Player
             component={LavidzComposition as any}
-            inputProps={{ segments, questionCardFrames: QUESTION_CARD_FRAMES, subtitleSettings, theme, intro, fps: FPS }}
+            inputProps={{ segments, questionCardFrames: QUESTION_CARD_FRAMES, subtitleSettings, theme, intro, fps: FPS, motionSettings }}
             durationInFrames={totalFrames}
             fps={FPS}
             compositionWidth={fmt.width}
@@ -546,6 +628,7 @@ export function ProcessView({ recordings, themeName, sessionId, themeSlug }: Pro
           width={fmt.width}
           height={fmt.height}
           sessionId={sessionId}
+          motionSettings={motionSettings}
           onRenderComplete={(url) => setRenderOutputUrl(url)}
         />
       )}

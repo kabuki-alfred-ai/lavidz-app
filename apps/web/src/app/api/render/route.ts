@@ -66,7 +66,7 @@ async function generateTTS(text: string, voiceId: string, apiKey: string): Promi
 }
 
 async function runRender(jobId: string, body: any) {
-  const { segments, questionCardFrames, subtitleSettings, theme, intro, fps, width, height, voiceId, origin, sessionId } = body
+  const { segments, questionCardFrames, subtitleSettings, theme, intro, fps, width, height, voiceId, origin, sessionId, motionSettings } = body
   const apiKey = process.env.ELEVENLABS_API_KEY ?? ''
 
   const setProgress = (p: number) => {
@@ -103,7 +103,7 @@ async function runRender(jobId: string, body: any) {
     setProgress(15)
 
     const totalFrames = calcTotalFrames(serverSegments, questionCardFrames, intro, fps)
-    const inputProps = { segments: serverSegments, questionCardFrames, subtitleSettings, theme, intro, fps }
+    const inputProps = { segments: serverSegments, questionCardFrames, subtitleSettings, theme, intro, fps, motionSettings }
 
     const composition = await selectComposition({ serveUrl: cachedBundle, id: 'LavidzComposition', inputProps })
     const comp = { ...composition, width: width ?? composition.width, height: height ?? composition.height, durationInFrames: totalFrames, fps }

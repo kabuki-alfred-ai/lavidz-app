@@ -1,17 +1,20 @@
-import { AbsoluteFill, Video, useCurrentFrame, useVideoConfig } from 'remotion'
+import { AbsoluteFill, Video, interpolate, spring, useCurrentFrame, useVideoConfig } from 'remotion'
 import type { SubtitleSettings } from './subtitleTypes'
 import { DEFAULT_SUBTITLE_SETTINGS } from './subtitleTypes'
+import type { MotionSettings } from './themeTypes'
 
 interface Props {
   videoUrl: string
   transcript: string | null
   durationInFrames: number
   subtitleSettings?: SubtitleSettings
+  motionSettings?: MotionSettings
 }
 
 interface WordWindow {
   words: string[]
   activeIndex: number
+  framesIntoActiveWord: number
 }
 
 function getWordWindow(
@@ -21,17 +24,18 @@ function getWordWindow(
   wordsPerLine: number,
 ): WordWindow {
   const words = transcript.split(/\s+/).filter(Boolean)
-  if (words.length === 0) return { words: [], activeIndex: 0 }
+  if (words.length === 0) return { words: [], activeIndex: 0, framesIntoActiveWord: 0 }
 
   const framesPerWord = totalFrames / words.length
   const currentWordIndex = Math.min(Math.floor(frame / framesPerWord), words.length - 1)
+  const framesIntoActiveWord = frame - currentWordIndex * framesPerWord
 
   // Snap window: floor to multiple of wordsPerLine
   const windowStart = Math.floor(currentWordIndex / wordsPerLine) * wordsPerLine
   const windowWords = words.slice(windowStart, windowStart + wordsPerLine)
   const activeIndex = currentWordIndex - windowStart
 
-  return { words: windowWords, activeIndex }
+  return { words: windowWords, activeIndex, framesIntoActiveWord }
 }
 
 // ─── Style renderers ──────────────────────────────────────────────────────────
@@ -40,10 +44,12 @@ function HormoziSubtitle({
   words,
   activeIndex,
   size,
+  wordPopScale,
 }: {
   words: string[]
   activeIndex: number
   size: number
+  wordPopScale: number
 }) {
   return (
     <div
@@ -73,6 +79,9 @@ function HormoziSubtitle({
               ` 0    4px 0 #000`,
             ].join(','),
             lineHeight: 1.15,
+            display: 'inline-block',
+            transform: i === activeIndex ? `scale(${wordPopScale})` : 'scale(1)',
+            transformOrigin: 'center bottom',
           }}
         >
           {word}
@@ -86,10 +95,12 @@ function MinimalSubtitle({
   words,
   activeIndex,
   size,
+  wordPopScale,
 }: {
   words: string[]
   activeIndex: number
   size: number
+  wordPopScale: number
 }) {
   return (
     <div
@@ -114,6 +125,9 @@ function MinimalSubtitle({
             fontWeight: 600,
             color: i === activeIndex ? '#FF4D1C' : 'rgba(255,255,255,0.9)',
             lineHeight: 1.3,
+            display: 'inline-block',
+            transform: i === activeIndex ? `scale(${wordPopScale})` : 'scale(1)',
+            transformOrigin: 'center bottom',
           }}
         >
           {word}
@@ -127,10 +141,12 @@ function ClassicSubtitle({
   words,
   activeIndex,
   size,
+  wordPopScale,
 }: {
   words: string[]
   activeIndex: number
   size: number
+  wordPopScale: number
 }) {
   return (
     <div
@@ -153,6 +169,9 @@ function ClassicSubtitle({
             textShadow: '2px 2px 4px #000, -2px 2px 4px #000, 2px -2px 4px #000, -2px -2px 4px #000',
             lineHeight: 1.3,
             borderBottom: i === activeIndex ? `3px solid #FFFFFF` : '3px solid transparent',
+            display: 'inline-block',
+            transform: i === activeIndex ? `scale(${wordPopScale})` : 'scale(1)',
+            transformOrigin: 'center bottom',
           }}
         >
           {word}
@@ -166,10 +185,12 @@ function NeonSubtitle({
   words,
   activeIndex,
   size,
+  wordPopScale,
 }: {
   words: string[]
   activeIndex: number
   size: number
+  wordPopScale: number
 }) {
   return (
     <div
@@ -193,6 +214,9 @@ function NeonSubtitle({
               ? '0 0 10px #00F5FF, 0 0 30px #00F5FF, 0 0 60px #00A8FF'
               : '0 0 8px rgba(255,255,255,0.3)',
             lineHeight: 1.3,
+            display: 'inline-block',
+            transform: i === activeIndex ? `scale(${wordPopScale})` : 'scale(1)',
+            transformOrigin: 'center bottom',
           }}
         >
           {word}
@@ -209,16 +233,47 @@ export function RecordingClip({
   transcript,
   durationInFrames,
   subtitleSettings,
+  motionSettings,
 }: Props) {
   const frame = useCurrentFrame()
+  const { width, height, fps } = useVideoConfig()
   const settings = subtitleSettings ?? DEFAULT_SUBTITLE_SETTINGS
   const { style, size, position, wordsPerLine } = settings
 
-  const { words, activeIndex } = transcript
+  const transitionStyle = motionSettings?.transitionStyle ?? 'zoom-punch'
+  const isVertical = height > width
+
+  // ─── Entry transition (first frames) ───────────────────────────────────────
+  const entryScale =
+    transitionStyle === 'zoom-punch'
+      ? interpolate(frame, [0, 5], [1.08, 1.0], { extrapolateRight: 'clamp' })
+      : 1
+  const entryTranslateY =
+    transitionStyle === 'slide-up'
+      ? interpolate(frame, [0, 8], [60, 0], { extrapolateRight: 'clamp' })
+      : 0
+  const entryOpacity =
+    transitionStyle === 'flash'
+      ? interpolate(frame, [0, 3], [0, 1], { extrapolateRight: 'clamp' })
+      : 1
+
+  // ─── Ken Burns ──────────────────────────────────────────────────────────────
+  const kenBurnsScale = motionSettings?.kenBurns
+    ? interpolate(frame, [0, durationInFrames], [1.0, 1.04], { extrapolateRight: 'clamp' })
+    : 1.0
+  const finalVideoScale = entryScale * kenBurnsScale
+  const videoTransform = `scale(${finalVideoScale}) translateY(${entryTranslateY}px)`
+
+  // ─── Subtitles with Word Pop ────────────────────────────────────────────────
+  const { words, activeIndex, framesIntoActiveWord } = transcript
     ? getWordWindow(transcript, frame, durationInFrames, wordsPerLine)
-    : { words: [], activeIndex: 0 }
+    : { words: [], activeIndex: 0, framesIntoActiveWord: 0 }
 
   const hasWords = words.length > 0
+
+  const wordPopScale = motionSettings?.wordPop
+    ? interpolate(framesIntoActiveWord, [0, 2, 5], [1.0, 1.3, 1.0], { extrapolateRight: 'clamp' })
+    : 1.0
 
   const StyleComponent =
     style === 'hormozi' ? HormoziSubtitle
@@ -226,26 +281,119 @@ export function RecordingClip({
     : style === 'neon' ? NeonSubtitle
     : ClassicSubtitle
 
-  return (
-    <AbsoluteFill style={{ background: 'black' }}>
-      <Video src={videoUrl} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+  const subtitlesNode = hasWords && (
+    <div
+      style={{
+        position: 'absolute',
+        top: `${position}%`,
+        left: 0,
+        right: 0,
+        transform: 'translateY(-50%)',
+        display: 'flex',
+        justifyContent: 'center',
+        padding: '0 40px',
+        zIndex: 2,
+      }}
+    >
+      <StyleComponent words={words} activeIndex={activeIndex} size={size} wordPopScale={wordPopScale} />
+    </div>
+  )
 
-      {hasWords && (
+  // ─── Progress bar ───────────────────────────────────────────────────────────
+  const progressBarNode = motionSettings?.progressBar && (
+    <div
+      style={{
+        position: 'absolute',
+        top: 0,
+        left: 0,
+        zIndex: 4,
+        height: 3,
+        background: '#fff',
+        width: `${Math.min((frame / durationInFrames) * 100, 100)}%`,
+      }}
+    />
+  )
+
+  // ─── Lower third ────────────────────────────────────────────────────────────
+  const lowerThird = motionSettings?.lowerThird
+  const ltSpring = lowerThird ? spring({ frame, fps, config: { damping: 20, stiffness: 80 } }) : 0
+  const ltOpacity = lowerThird
+    ? interpolate(frame, [fps * 3, fps * 3.5], [1, 0], { extrapolateLeft: 'clamp', extrapolateRight: 'clamp' })
+    : 0
+  const ltTranslateX = interpolate(ltSpring, [0, 1], [-220, 0])
+
+  const lowerThirdNode = lowerThird && (
+    <div
+      style={{
+        position: 'absolute',
+        bottom: 80,
+        left: 40,
+        zIndex: 3,
+        opacity: ltOpacity,
+        transform: `translateX(${ltTranslateX}px)`,
+        display: 'flex',
+        alignItems: 'stretch',
+        gap: 0,
+      }}
+    >
+      <div style={{ width: 4, background: '#fff', borderRadius: 2, marginRight: 12, flexShrink: 0 }} />
+      <div>
+        <p style={{ color: '#fff', fontWeight: 800, fontSize: 22, lineHeight: 1.2, margin: 0, textShadow: '0 2px 8px rgba(0,0,0,0.7)' }}>
+          {lowerThird.name}
+        </p>
+        {lowerThird.title && (
+          <p style={{ color: 'rgba(255,255,255,0.75)', fontWeight: 400, fontSize: 14, margin: 0, marginTop: 3, textShadow: '0 1px 4px rgba(0,0,0,0.5)' }}>
+            {lowerThird.title}
+          </p>
+        )}
+      </div>
+    </div>
+  )
+
+  if (isVertical) {
+    return (
+      <AbsoluteFill style={{ background: 'black', overflow: 'hidden', opacity: entryOpacity }}>
+        {/* Blurred background */}
+        <Video
+          src={videoUrl}
+          style={{
+            position: 'absolute',
+            width: '100%',
+            height: '100%',
+            objectFit: 'cover',
+            filter: 'blur(22px)',
+            transform: 'scale(1.12)',
+            opacity: 0.55,
+          }}
+        />
+        {/* Centered main video with entry + ken burns */}
         <div
           style={{
             position: 'absolute',
-            top: `${position}%`,
-            left: 0,
-            right: 0,
-            transform: 'translateY(-50%)',
+            inset: 0,
             display: 'flex',
+            alignItems: 'center',
             justifyContent: 'center',
-            padding: '0 40px',
+            transform: videoTransform,
           }}
         >
-          <StyleComponent words={words} activeIndex={activeIndex} size={size} />
+          <Video src={videoUrl} style={{ width: '100%', objectFit: 'contain' }} />
         </div>
-      )}
+        {progressBarNode}
+        {subtitlesNode}
+        {lowerThirdNode}
+      </AbsoluteFill>
+    )
+  }
+
+  return (
+    <AbsoluteFill style={{ background: 'black', opacity: entryOpacity }}>
+      <div style={{ position: 'absolute', inset: 0, transform: videoTransform }}>
+        <Video src={videoUrl} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+      </div>
+      {progressBarNode}
+      {subtitlesNode}
+      {lowerThirdNode}
     </AbsoluteFill>
   )
 }

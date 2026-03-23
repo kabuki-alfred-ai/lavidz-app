@@ -4,7 +4,7 @@ import { QuestionCard } from './QuestionCard'
 import { RecordingClip } from './RecordingClip'
 import { IntroCard } from './IntroCard'
 import type { SubtitleSettings } from './subtitleTypes'
-import type { TransitionTheme, IntroSettings } from './themeTypes'
+import type { TransitionTheme, IntroSettings, MotionSettings } from './themeTypes'
 
 export interface CompositionSegment {
   id: string
@@ -24,6 +24,7 @@ interface Props {
   theme: TransitionTheme
   intro: IntroSettings
   fps: number
+  motionSettings?: MotionSettings
 }
 
 export function LavidzComposition({
@@ -33,6 +34,7 @@ export function LavidzComposition({
   theme,
   intro,
   fps,
+  motionSettings,
 }: Props) {
   let offset = 0
   const sequences: ReactNode[] = []
@@ -67,6 +69,7 @@ export function LavidzComposition({
           transcript={seg.transcript}
           durationInFrames={seg.videoDurationFrames}
           subtitleSettings={subtitleSettings}
+          motionSettings={motionSettings}
         />
       </Sequence>,
     )

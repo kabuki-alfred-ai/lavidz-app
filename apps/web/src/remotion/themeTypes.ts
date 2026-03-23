@@ -1,3 +1,25 @@
+export type TransitionStyle = 'none' | 'zoom-punch' | 'slide-up' | 'flash'
+
+export interface LowerThirdSettings {
+  name: string
+  title?: string
+}
+
+export interface MotionSettings {
+  transitionStyle: TransitionStyle
+  wordPop: boolean
+  progressBar: boolean
+  kenBurns: boolean
+  lowerThird?: LowerThirdSettings
+}
+
+export const DEFAULT_MOTION_SETTINGS: MotionSettings = {
+  transitionStyle: 'zoom-punch',
+  wordPop: false,
+  progressBar: false,
+  kenBurns: false,
+}
+
 export interface TransitionTheme {
   backgroundColor: string
   textColor: string

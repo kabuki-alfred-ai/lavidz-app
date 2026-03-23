@@ -2,7 +2,7 @@
 
 import { useState, forwardRef, useImperativeHandle, useEffect, useRef } from 'react'
 import type { CompositionSegment } from '@/remotion/LavidzComposition'
-import type { TransitionTheme, IntroSettings } from '@/remotion/themeTypes'
+import type { TransitionTheme, IntroSettings, MotionSettings } from '@/remotion/themeTypes'
 import type { SubtitleSettings } from '@/remotion/subtitleTypes'
 import { Download, CheckCircle2 } from 'lucide-react'
 
@@ -19,6 +19,7 @@ interface Props {
   width: number
   height: number
   sessionId?: string
+  motionSettings?: MotionSettings
   onRenderComplete?: (outputUrl: string) => void
 }
 
@@ -29,7 +30,7 @@ export interface ServerRendererHandle {
 }
 
 export const ServerRenderer = forwardRef<ServerRendererHandle, Props>(function ServerRenderer(
-  { segments, originalVideoUrls, voiceId, themeName, theme, intro, subtitleSettings, questionCardFrames, fps, width, height, sessionId, onRenderComplete },
+  { segments, originalVideoUrls, voiceId, themeName, theme, intro, subtitleSettings, questionCardFrames, fps, width, height, sessionId, motionSettings, onRenderComplete },
   ref,
 ) {
   const [rendering, setRendering] = useState(false)
@@ -62,7 +63,7 @@ export const ServerRenderer = forwardRef<ServerRendererHandle, Props>(function S
       const res = await fetch('/api/render', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ segments: serverSegments, questionCardFrames, subtitleSettings, theme, intro, fps, width, height, voiceId, origin: window.location.origin, sessionId }),
+        body: JSON.stringify({ segments: serverSegments, questionCardFrames, subtitleSettings, theme, intro, fps, width, height, voiceId, origin: window.location.origin, sessionId, motionSettings }),
       })
       if (!res.ok) throw new Error(await res.text())
 
