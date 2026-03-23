@@ -4,7 +4,12 @@ import { useState, useRef, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
 import type { ThemeDto } from '@lavidz/types'
 
-type Phase = 'intro' | 'countdown' | 'recording' | 'review' | 'uploading' | 'done'
+type Phase = 'intro' | 'reading' | 'countdown' | 'recording' | 'review' | 'uploading' | 'done'
+
+function readingDuration(text: string): number {
+  const words = text.trim().split(/\s+/).length
+  return Math.max(3, Math.min(10, Math.ceil(words * 0.45)))
+}
 
 const API = process.env.NEXT_PUBLIC_API_URL ?? 'http://localhost:3001'
 
@@ -21,6 +26,7 @@ export function RecordingSession({ theme, initialSessionId, mode = 'default' }: 
   const [sessionId, setSessionId] = useState<string | null>(initialSessionId ?? null)
   const [submitted, setSubmitted] = useState(false)
   const [submitting, setSubmitting] = useState(false)
+  const [readingCountdown, setReadingCountdown] = useState(0)
   const [countdown, setCountdown] = useState(3)
   const [elapsed, setElapsed] = useState(0)
   const [uploadError, setUploadError] = useState('')
@@ -32,6 +38,7 @@ export function RecordingSession({ theme, initialSessionId, mode = 'default' }: 
   const chunksRef = useRef<Blob[]>([])
   const elapsedRef = useRef<ReturnType<typeof setInterval> | null>(null)
   const countdownRef = useRef<ReturnType<typeof setInterval> | null>(null)
+  const readingRef = useRef<ReturnType<typeof setInterval> | null>(null)
   const sessionIdRef = useRef<string | null>(initialSessionId ?? null)
 
   const questions = theme.questions ?? []
@@ -43,6 +50,7 @@ export function RecordingSession({ theme, initialSessionId, mode = 'default' }: 
       streamRef.current?.getTracks().forEach((t) => t.stop())
       if (elapsedRef.current) clearInterval(elapsedRef.current)
       if (countdownRef.current) clearInterval(countdownRef.current)
+      if (readingRef.current) clearInterval(readingRef.current)
     }
   }, [])
 
@@ -53,6 +61,21 @@ export function RecordingSession({ theme, initialSessionId, mode = 'default' }: 
       videoRef.current.muted = true
     }
   }, [phase])
+
+  const beginReading = (question: typeof currentQuestion) => {
+    const duration = readingDuration(question?.text ?? '')
+    setReadingCountdown(duration)
+    setPhase('reading')
+    let c = duration
+    readingRef.current = setInterval(() => {
+      c -= 1
+      setReadingCountdown(c)
+      if (c <= 0) {
+        clearInterval(readingRef.current!)
+        beginCountdown()
+      }
+    }, 1000)
+  }
 
   const beginCountdown = () => {
     setPhase('countdown')
@@ -95,7 +118,7 @@ export function RecordingSession({ theme, initialSessionId, mode = 'default' }: 
   const redo = () => {
     chunksRef.current = []
     setElapsed(0)
-    beginCountdown()
+    beginReading(currentQuestion)
   }
 
   const saveAndNext = async () => {
@@ -119,7 +142,7 @@ export function RecordingSession({ theme, initialSessionId, mode = 'default' }: 
 
       if (questionIndex < questions.length - 1) {
         setQuestionIndex((i) => i + 1)
-        beginCountdown()
+        beginReading(questions[questionIndex + 1])
       } else {
         streamRef.current?.getTracks().forEach((t) => t.stop())
         setPhase('done')
@@ -151,7 +174,7 @@ export function RecordingSession({ theme, initialSessionId, mode = 'default' }: 
       })
       streamRef.current = stream
 
-      beginCountdown()
+      beginReading(questions[0])
     } catch (err) {
       console.error(err)
       setStarting(false)
@@ -311,6 +334,71 @@ export function RecordingSession({ theme, initialSessionId, mode = 'default' }: 
             Voir les résultats
           </button>
         )}
+      </div>
+    )
+  }
+
+  // ─── READING PHASE ────────────────────────────────────────────────────────
+  if (phase === 'reading') {
+    const total = readingDuration(currentQuestion?.text ?? '')
+    const progress = ((total - readingCountdown) / total) * 100
+    return (
+      <div
+        className="fixed inset-0 flex flex-col items-center justify-center px-8"
+        style={{ background: '#0a0a0a' }}
+      >
+        {/* Progress bar */}
+        <div className="absolute top-0 inset-x-0 h-1" style={{ background: 'rgba(255,255,255,0.08)' }}>
+          <div
+            className="h-full transition-all duration-1000 ease-linear"
+            style={{ width: `${progress}%`, background: accent }}
+          />
+        </div>
+
+        {/* Question number */}
+        <p className="text-xs font-mono uppercase tracking-widest mb-6" style={{ color: accent }}>
+          Question {String(questionIndex + 1).padStart(2, '0')} / {questions.length}
+        </p>
+
+        {/* Question text */}
+        <h1
+          key={questionIndex}
+          className="text-white font-black text-3xl leading-tight tracking-tight text-center max-w-sm"
+          style={{ animation: 'fadeSlideIn 0.4s ease forwards' }}
+        >
+          {currentQuestion?.text}
+        </h1>
+
+        {currentQuestion?.hint && (
+          <p className="text-white/40 text-sm mt-6 text-center max-w-xs leading-relaxed">
+            {currentQuestion.hint}
+          </p>
+        )}
+
+        {/* Countdown */}
+        <div className="absolute bottom-16 flex flex-col items-center gap-2">
+          <span
+            key={readingCountdown}
+            className="text-white font-black tabular-nums"
+            style={{ fontSize: 64, lineHeight: 1, animation: 'countPop 0.8s ease forwards' }}
+          >
+            {readingCountdown}
+          </span>
+          <p className="text-white/30 text-xs font-mono tracking-widest uppercase">Enregistrement dans</p>
+        </div>
+
+        <style>{`
+          @keyframes fadeSlideIn {
+            from { opacity: 0; transform: translateY(8px); }
+            to { opacity: 1; transform: translateY(0); }
+          }
+          @keyframes countPop {
+            0% { opacity: 0; transform: scale(1.3); }
+            20% { opacity: 1; transform: scale(1); }
+            80% { opacity: 1; transform: scale(1); }
+            100% { opacity: 0.6; transform: scale(0.95); }
+          }
+        `}</style>
       </div>
     )
   }
