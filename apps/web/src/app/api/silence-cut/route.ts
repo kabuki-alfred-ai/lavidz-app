@@ -48,15 +48,57 @@ export async function POST(req: Request) {
     if (!videoRes.ok) throw new Error(`Impossible de télécharger la vidéo (${videoRes.status})`)
     fs.writeFileSync(inputPath, Buffer.from(await videoRes.arrayBuffer()))
 
-    const result = spawnSync(ffmpeg, [
-      '-y',
-      '-fflags', '+genpts',
+    // Use silencedetect to find silent ranges, then cut both audio+video together
+    const detectResult = spawnSync(ffmpeg, [
       '-i', inputPath,
-      '-af', `silenceremove=start_periods=1:start_threshold=${threshold}dB:start_duration=0.1:stop_periods=-1:stop_threshold=${threshold}dB:stop_duration=0.4:detection=peak,aresample=async=1`,
-      '-c:v', 'libx264',
-      '-c:a', 'aac',
-      '-vsync', 'cfr',
-      '-movflags', '+faststart',
+      '-af', `silencedetect=noise=${threshold}dB:duration=0.4`,
+      '-f', 'null', '-',
+    ], { timeout: 30_000 })
+
+    const detectOutput = (detectResult.stderr?.toString() ?? '') + (detectResult.stdout?.toString() ?? '')
+
+    // Parse silence intervals
+    const silenceStarts = [...detectOutput.matchAll(/silence_start: ([\d.]+)/g)].map(m => parseFloat(m[1]))
+    const silenceEnds = [...detectOutput.matchAll(/silence_end: ([\d.]+)/g)].map(m => parseFloat(m[1]))
+
+    // Get total duration
+    const durationMatch = detectOutput.match(/Duration: (\d+):(\d+):([\d.]+)/)
+    const totalDuration = durationMatch
+      ? parseInt(durationMatch[1]) * 3600 + parseInt(durationMatch[2]) * 60 + parseFloat(durationMatch[3])
+      : null
+
+    // Build keep intervals (non-silent segments)
+    const keepIntervals: { start: number; end: number }[] = []
+    let pos = 0
+    for (let i = 0; i < silenceStarts.length; i++) {
+      if (silenceStarts[i] > pos + 0.05) keepIntervals.push({ start: pos, end: silenceStarts[i] })
+      pos = silenceEnds[i] ?? silenceStarts[i]
+    }
+    if (totalDuration && pos < totalDuration - 0.05) keepIntervals.push({ start: pos, end: totalDuration })
+
+    // If no silence detected, just remux
+    if (keepIntervals.length === 0) {
+      const remux = spawnSync(ffmpeg, [
+        '-y', '-fflags', '+genpts', '-i', inputPath,
+        '-c:v', 'libx264', '-c:a', 'aac', '-movflags', '+faststart', outputPath,
+      ], { timeout: 60_000 })
+      if (remux.status !== 0) throw new Error(`FFmpeg remux failed: ${remux.stderr?.toString().slice(-300)}`)
+      return Response.json({ id })
+    }
+
+    // Build filtergraph: trim each keep interval for video and audio, then concat
+    const vParts = keepIntervals.map((seg, i) => `[0:v]trim=start=${seg.start}:end=${seg.end},setpts=PTS-STARTPTS[v${i}]`).join(';')
+    const aParts = keepIntervals.map((seg, i) => `[0:a]atrim=start=${seg.start}:end=${seg.end},asetpts=PTS-STARTPTS[a${i}]`).join(';')
+    const vInputs = keepIntervals.map((_, i) => `[v${i}]`).join('')
+    const aInputs = keepIntervals.map((_, i) => `[a${i}]`).join('')
+    const n = keepIntervals.length
+    const filterComplex = `${vParts};${aParts};${vInputs}concat=n=${n}:v=1:a=0[vout];${aInputs}concat=n=${n}:v=0:a=1[aout]`
+
+    const result = spawnSync(ffmpeg, [
+      '-y', '-i', inputPath,
+      '-filter_complex', filterComplex,
+      '-map', '[vout]', '-map', '[aout]',
+      '-c:v', 'libx264', '-c:a', 'aac', '-movflags', '+faststart',
       outputPath,
     ], { timeout: 60_000 })
 
