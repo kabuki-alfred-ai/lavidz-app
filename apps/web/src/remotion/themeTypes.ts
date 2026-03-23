@@ -18,7 +18,7 @@ export interface SfxTrack {
 }
 
 export interface AudioSettings {
-  backgroundMusic?: SfxTrack
+  bgMusic?: SfxTrack
   transitionSfx?: SfxTrack
 }
 

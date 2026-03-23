@@ -88,7 +88,7 @@ export function LavidzComposition({
     offset += qFrames + seg.videoDurationFrames
   }
 
-  const bgMusic = audioSettings?.backgroundMusic
+  const bgMusic = audioSettings?.bgMusic
   const totalFrames = offset
 
   return (
