@@ -87,6 +87,8 @@ services:
       NEXT_PUBLIC_API_URL: ${NEXT_PUBLIC_API_URL:-http://localhost:3001}
       ELEVENLABS_API_KEY: ${ELEVENLABS_API_KEY:-}
       ADMIN_SECRET: ${ADMIN_SECRET:?ADMIN_SECRET is required}
+      DATABASE_URL: postgresql://${POSTGRES_USER:-lavidz}:${POSTGRES_PASSWORD}@postgres:5432/${POSTGRES_DB:-lavidz}
+      JWT_SECRET: ${JWT_SECRET:?JWT_SECRET is required}
     depends_on:
       - api
     networks:
