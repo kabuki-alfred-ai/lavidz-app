@@ -15,6 +15,7 @@ ENV NEXT_PUBLIC_ADMIN_SECRET=$NEXT_PUBLIC_ADMIN_SECRET
 
 COPY . .
 RUN pnpm install --frozen-lockfile
+RUN pnpm --filter @lavidz/database run db:generate
 RUN pnpm --filter @lavidz/web build
 
 # ── Stage 2: minimal production image (Next.js standalone) ────────────────────
