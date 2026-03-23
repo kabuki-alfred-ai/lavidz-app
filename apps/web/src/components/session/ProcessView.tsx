@@ -177,6 +177,8 @@ export function ProcessView({ recordings, themeName, sessionId, themeSlug }: Pro
   const [silenceCutEnabled, setSilenceCutEnabled] = useState(false)
   const [silenceThreshold, setSilenceThreshold] = useState(-35)
   const [silenceCutError, setSilenceCutError] = useState('')
+  const [denoiseEnabled, setDenoiseEnabled] = useState(false)
+  const [denoiseStrength, setDenoiseStrength] = useState<'light' | 'moderate' | 'strong'>('moderate')
   const [regenerating, setRegenerating] = useState(false)
   const [previewingVoiceId, setPreviewingVoiceId] = useState<string | null>(null)
 
@@ -191,7 +193,7 @@ export function ProcessView({ recordings, themeName, sessionId, themeSlug }: Pro
   const blobUrlsRef = useRef<string[]>([])
   const durationsRef = useRef<number[]>([])
   const effectiveVideoUrlsRef = useRef<string[]>([])
-  const lastProcessedSettingsRef = useRef<{ enabled: boolean; threshold: number } | null>(null)
+  const lastProcessedSettingsRef = useRef<{ enabled: boolean; threshold: number; denoiseEnabled: boolean; denoiseStrength: string } | null>(null)
 
   useEffect(() => { localTranscriptsRef.current = localTranscripts }, [localTranscripts])
   useEffect(() => { wordTimestampsRef.current = wordTimestampsMap }, [wordTimestampsMap])
@@ -205,7 +207,9 @@ export function ProcessView({ recordings, themeName, sessionId, themeSlug }: Pro
     setSilenceCutError('')
     const silenceCutChanged = !lastProcessedSettingsRef.current ||
       lastProcessedSettingsRef.current.enabled !== silenceCutEnabled ||
-      lastProcessedSettingsRef.current.threshold !== silenceThreshold
+      lastProcessedSettingsRef.current.threshold !== silenceThreshold ||
+      lastProcessedSettingsRef.current.denoiseEnabled !== denoiseEnabled ||
+      lastProcessedSettingsRef.current.denoiseStrength !== denoiseStrength
 
     if (blobUrlsRef.current.length === 0 || silenceCutChanged) {
       blobUrlsRef.current = []; effectiveVideoUrlsRef.current = []; durationsRef.current = []
@@ -227,12 +231,20 @@ export function ProcessView({ recordings, themeName, sessionId, themeSlug }: Pro
           } catch {}
         }
 
+        if (denoiseEnabled) {
+          try {
+            setLoadingStep(`Réduction bruit ${i+1}/${recordings.length}...`)
+            const res = await fetch('/api/denoise-video', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ videoUrl: realUrl, strength: denoiseStrength }) })
+            if (res.ok) { const { id } = await res.json(); realUrl = `${window.location.origin}/api/denoise-video/${id}` }
+          } catch {}
+        }
+
         effectiveVideoUrlsRef.current.push(realUrl)
         const blobUrl = await downloadAsBlob(realUrl)
         blobUrlsRef.current.push(blobUrl)
         durationsRef.current.push(await getVideoDuration(blobUrl))
       }
-      lastProcessedSettingsRef.current = { enabled: silenceCutEnabled, threshold: silenceThreshold }
+      lastProcessedSettingsRef.current = { enabled: silenceCutEnabled, threshold: silenceThreshold, denoiseEnabled, denoiseStrength }
     }
 
     const ttsUrls: (string | null)[] = []
@@ -332,6 +344,40 @@ export function ProcessView({ recordings, themeName, sessionId, themeSlug }: Pro
           />
         )}
         {silenceCutError && <p style={{ color: '#f87171', fontSize: 11, marginTop: 8, fontFamily: 'monospace' }}>{silenceCutError}</p>}
+      </Card>
+
+      {/* Denoise */}
+      <Card>
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: denoiseEnabled ? 16 : 0 }}>
+          <div>
+            <p style={{ color: S.text, fontWeight: 600, fontSize: 14 }}>Réduire les bruits de fond</p>
+            <p style={{ color: S.muted, fontSize: 11, marginTop: 2 }}>Supprime hum, ventilation, ambiance</p>
+          </div>
+          <Toggle value={denoiseEnabled} onChange={setDenoiseEnabled} />
+        </div>
+        {denoiseEnabled && (
+          <div>
+            <Label>Intensité</Label>
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 8 }}>
+              {([
+                { value: 'light',    label: 'Léger',  desc: 'Discret' },
+                { value: 'moderate', label: 'Modéré', desc: 'Recommandé' },
+                { value: 'strong',   label: 'Fort',   desc: 'Agressif' },
+              ] as { value: 'light' | 'moderate' | 'strong'; label: string; desc: string }[]).map(opt => (
+                <button key={opt.value} onClick={() => setDenoiseStrength(opt.value)}
+                  style={{
+                    padding: '10px 8px', borderRadius: 12, textAlign: 'center',
+                    background: denoiseStrength === opt.value ? 'rgba(255,255,255,0.1)' : S.surface,
+                    border: `1px solid ${denoiseStrength === opt.value ? 'rgba(255,255,255,0.3)' : S.border}`,
+                  }}
+                >
+                  <p style={{ color: denoiseStrength === opt.value ? S.text : S.muted, fontWeight: 700, fontSize: 12 }}>{opt.label}</p>
+                  <p style={{ color: S.dim, fontSize: 9, marginTop: 2, fontFamily: 'monospace' }}>{opt.desc}</p>
+                </button>
+              ))}
+            </div>
+          </div>
+        )}
       </Card>
 
       {/* Current voice */}
