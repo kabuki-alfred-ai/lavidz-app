@@ -10,7 +10,8 @@
     "db:studio": "dotenv -e ../../.env -- prisma studio",
     "db:push": "dotenv -e ../../.env -- prisma db push",
     "db:seed": "dotenv -e ../../.env -- ts-node --skip-project prisma/seed.ts",
-    "create-superadmin": "dotenv -e ../../.env -- ts-node --skip-project scripts/create-superadmin.ts"
+    "create-superadmin": "dotenv -e ../../.env -- ts-node --skip-project scripts/create-superadmin.ts",
+    "create-superadmin-cli": "dotenv -e ../../.env -- ts-node --skip-project scripts/create-superadmin-cli.ts"
   },
   "dependencies": {
     "@prisma/client": "^6.4.0",
