@@ -92,11 +92,12 @@ async function generateTTS(text: string, voiceId: string, retries = 2): Promise<
 }
 
 const STEPS = [
-  { id: 'voice',     label: 'Voix',        desc: 'Voix IA & silences' },
-  { id: 'intro',     label: 'Intro',       desc: 'Slide d\'accroche' },
-  { id: 'theme',     label: 'Transitions', desc: 'Style visuel' },
-  { id: 'subtitles', label: 'Sous-titres', desc: 'Texte & position' },
-  { id: 'preview',   label: 'Aperçu',      desc: 'Format & export' },
+  { id: 'voice',       label: 'Voix',        desc: 'Voix IA & silences' },
+  { id: 'transcripts', label: 'Transcripts', desc: 'Vérifier & régénérer' },
+  { id: 'intro',       label: 'Intro',       desc: 'Slide d\'accroche' },
+  { id: 'theme',       label: 'Transitions', desc: 'Style visuel' },
+  { id: 'subtitles',   label: 'Sous-titres', desc: 'Texte & position' },
+  { id: 'preview',     label: 'Aperçu',      desc: 'Format & export' },
 ]
 
 // ─── Reusable UI primitives ───────────────────────────────────────────────────
@@ -167,6 +168,10 @@ export function ProcessView({ recordings, themeName, sessionId, themeSlug }: Pro
   const [theme, setTheme] = useState<TransitionTheme>(DEFAULT_TRANSITION_THEME)
   const [intro, setIntro] = useState<IntroSettings>(DEFAULT_INTRO_SETTINGS)
   const [motionSettings, setMotionSettings] = useState<MotionSettings>(DEFAULT_MOTION_SETTINGS)
+  const [localTranscripts, setLocalTranscripts] = useState<Record<string, string>>(() =>
+    Object.fromEntries(recordings.map(r => [r.id, r.transcript ?? '']))
+  )
+  const [transcribing, setTranscribing] = useState<Record<string, boolean>>({})
   const [silenceCutEnabled, setSilenceCutEnabled] = useState(false)
   const [silenceThreshold, setSilenceThreshold] = useState(-35)
   const [silenceCutError, setSilenceCutError] = useState('')
@@ -178,6 +183,7 @@ export function ProcessView({ recordings, themeName, sessionId, themeSlug }: Pro
   const [delivered, setDelivered] = useState(false)
   const [deliverError, setDeliverError] = useState('')
 
+  const localTranscriptsRef = useRef<Record<string, string>>({})
   const serverRendererRef = useRef<ServerRendererHandle | null>(null)
   const previewAudioRef = useRef<HTMLAudioElement | null>(null)
   const blobUrlsRef = useRef<string[]>([])
@@ -185,6 +191,7 @@ export function ProcessView({ recordings, themeName, sessionId, themeSlug }: Pro
   const effectiveVideoUrlsRef = useRef<string[]>([])
   const lastProcessedSettingsRef = useRef<{ enabled: boolean; threshold: number } | null>(null)
 
+  useEffect(() => { localTranscriptsRef.current = localTranscripts }, [localTranscripts])
   useEffect(() => { fetchVoices(); prepare('EXAVITQu4vr4xnSDxMaL') }, [])
 
   const fetchVoices = async () => {
@@ -236,7 +243,7 @@ export function ProcessView({ recordings, themeName, sessionId, themeSlug }: Pro
       const ttsSecs = ttsDurations[i]
       return {
         id: rec.id, questionText: rec.questionText, videoUrl: blobUrlsRef.current[i],
-        transcript: rec.transcript,
+        transcript: localTranscriptsRef.current[rec.id] ?? rec.transcript,
         videoDurationFrames: Math.max(Math.ceil((isFinite(durationsRef.current[i]) ? durationsRef.current[i] : 60) * FPS), FPS),
         ttsUrl: ttsUrls[i],
         questionDurationFrames: Math.max(Math.ceil((ttsSecs + 0.5) * FPS), 3 * FPS),
@@ -257,6 +264,35 @@ export function ProcessView({ recordings, themeName, sessionId, themeSlug }: Pro
     setPreviewingVoiceId(voice.id)
     const audio = new Audio(voice.previewUrl); previewAudioRef.current = audio
     audio.onended = () => setPreviewingVoiceId(null); audio.play()
+  }
+
+  const updateTranscript = (recordingId: string, text: string) => {
+    setLocalTranscripts(p => ({ ...p, [recordingId]: text }))
+    setSegments(prev => prev ? prev.map(seg =>
+      seg.id === recordingId ? { ...seg, transcript: text || null } : seg
+    ) : prev)
+  }
+
+  const regenerateTranscript = async (recording: RawRecording) => {
+    setTranscribing(p => ({ ...p, [recording.id]: true }))
+    try {
+      const res = await fetch('/api/transcribe', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ videoUrl: recording.videoUrl }),
+      })
+      if (res.ok) {
+        const { transcript } = await res.json()
+        updateTranscript(recording.id, transcript)
+      } else {
+        const err = await res.text()
+        console.error('[transcribe] error:', err)
+      }
+    } catch (e) {
+      console.error('[transcribe] fetch error:', e)
+    } finally {
+      setTranscribing(p => ({ ...p, [recording.id]: false }))
+    }
   }
 
   const introFrames = intro.enabled && intro.hookText ? Math.round(intro.durationSeconds * FPS) : 0
@@ -353,6 +389,69 @@ export function ProcessView({ recordings, themeName, sessionId, themeSlug }: Pro
         </div>
       )}
 
+    </div>
+  )
+
+  const stepTranscripts = (
+    <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
+      <Card>
+        <p style={{ color: S.muted, fontSize: 12 }}>
+          Les sous-titres sont générés à partir de ces transcriptions. Modifiez-les ou régénérez-les si elles sont vides ou incorrectes.
+        </p>
+      </Card>
+      {recordings.map((rec) => {
+        const isTranscribing = !!transcribing[rec.id]
+        const text = localTranscripts[rec.id] ?? ''
+        const hasText = text.trim().length > 0
+        return (
+          <Card key={rec.id} style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+            {/* Header */}
+            <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: 12 }}>
+              <div style={{ flex: 1, minWidth: 0 }}>
+                <p style={{ color: S.text, fontWeight: 600, fontSize: 13, lineHeight: 1.4 }}>
+                  {rec.questionText.length > 80 ? rec.questionText.slice(0, 80) + '…' : rec.questionText}
+                </p>
+                <span style={{
+                  display: 'inline-block', marginTop: 6, padding: '2px 8px', borderRadius: 20, fontSize: 10,
+                  fontFamily: 'monospace',
+                  background: hasText ? 'rgba(52,211,153,0.12)' : 'rgba(248,113,113,0.12)',
+                  color: hasText ? 'rgb(52,211,153)' : 'rgb(248,113,113)',
+                  border: `1px solid ${hasText ? 'rgba(52,211,153,0.25)' : 'rgba(248,113,113,0.25)'}`,
+                }}>
+                  {hasText ? `${text.split(/\s+/).filter(Boolean).length} mots` : 'Aucun transcript'}
+                </span>
+              </div>
+              <button
+                onClick={() => regenerateTranscript(rec)}
+                disabled={isTranscribing}
+                style={{
+                  display: 'flex', alignItems: 'center', gap: 6, padding: '8px 14px', flexShrink: 0,
+                  borderRadius: 10, background: isTranscribing ? 'rgba(255,255,255,0.06)' : 'rgba(255,255,255,0.1)',
+                  border: `1px solid ${S.border}`, color: isTranscribing ? S.muted : S.text,
+                  fontSize: 12, fontWeight: 600,
+                }}
+              >
+                {isTranscribing
+                  ? <><Loader2 size={12} className="animate-spin" /> Transcription...</>
+                  : <><RefreshCw size={12} /> Régénérer</>
+                }
+              </button>
+            </div>
+            {/* Editable transcript */}
+            <textarea
+              value={text}
+              onChange={e => updateTranscript(rec.id, e.target.value)}
+              placeholder="Pas de transcription — cliquez sur Régénérer pour analyser la vidéo avec Whisper"
+              rows={4}
+              style={{
+                width: '100%', background: 'rgba(255,255,255,0.04)', border: `1px solid ${S.border}`,
+                borderRadius: 10, padding: '10px 14px', color: S.text, fontSize: 13, outline: 'none',
+                resize: 'vertical', lineHeight: 1.6, fontFamily: 'inherit',
+              }}
+            />
+          </Card>
+        )
+      })}
     </div>
   )
 
@@ -641,7 +740,7 @@ export function ProcessView({ recordings, themeName, sessionId, themeSlug }: Pro
     </div>
   )
 
-  const stepContent = [stepVoice, stepIntro, stepTheme, stepSubtitles, stepPreview]
+  const stepContent = [stepVoice, stepTranscripts, stepIntro, stepTheme, stepSubtitles, stepPreview]
 
   // ─── Render ────────────────────────────────────────────────────────────────
   return (
