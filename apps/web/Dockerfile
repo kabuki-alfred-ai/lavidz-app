@@ -29,6 +29,9 @@ COPY --from=builder /app/apps/web/.next/standalone ./
 # Static assets must be served alongside the standalone server
 COPY --from=builder /app/apps/web/.next/static ./apps/web/.next/static
 
+# Remotion bundler needs the TypeScript sources at runtime
+COPY --from=builder /app/apps/web/src/remotion ./apps/web/src/remotion
+
 EXPOSE 3000
 ENV PORT=3000
 ENV HOSTNAME=0.0.0.0

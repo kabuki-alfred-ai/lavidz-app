@@ -50,10 +50,12 @@ export async function POST(req: Request) {
 
     const result = spawnSync(ffmpeg, [
       '-y',
+      '-fflags', '+genpts',
       '-i', inputPath,
-      '-af', `silenceremove=start_periods=1:start_threshold=${threshold}dB:start_duration=0.1:stop_periods=-1:stop_threshold=${threshold}dB:stop_duration=0.4:detection=peak`,
+      '-af', `silenceremove=start_periods=1:start_threshold=${threshold}dB:start_duration=0.1:stop_periods=-1:stop_threshold=${threshold}dB:stop_duration=0.4:detection=peak,aresample=async=1`,
       '-c:v', 'libx264',
       '-c:a', 'aac',
+      '-vsync', 'cfr',
       '-movflags', '+faststart',
       outputPath,
     ], { timeout: 60_000 })

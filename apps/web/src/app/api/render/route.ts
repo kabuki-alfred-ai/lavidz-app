@@ -97,7 +97,7 @@ async function runRender(jobId: string, body: any) {
     setProgress(10)
 
     if (!cachedBundle) {
-      cachedBundle = await bundle({ entryPoint: path.join(process.cwd(), 'src/remotion/Root.tsx'), onProgress: () => {} })
+      cachedBundle = await bundle({ entryPoint: path.join(process.cwd(), 'apps/web/src/remotion/Root.tsx'), onProgress: () => {} })
     }
 
     setProgress(15)
