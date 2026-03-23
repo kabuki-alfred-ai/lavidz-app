@@ -3,6 +3,7 @@ export interface ThemeDto {
   name: string
   slug: string
   description: string | null
+  introduction: string | null
   active: boolean
   order: number
   brandName: string | null

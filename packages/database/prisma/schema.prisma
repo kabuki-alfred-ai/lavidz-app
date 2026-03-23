@@ -12,6 +12,7 @@ model Theme {
   name           String
   slug           String        @unique
   description    String?
+  introduction   String?
   active         Boolean       @default(true)
   order          Int           @default(0)
   brandName      String?

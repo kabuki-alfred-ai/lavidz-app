@@ -37,6 +37,23 @@ export function ThemeEditor({ theme }: { theme: ThemeDto }) {
   })
   const [savingBrand, setSavingBrand] = useState(false)
   const [brandSaved, setBrandSaved] = useState(false)
+  const [introduction, setIntroduction] = useState(theme.introduction ?? '')
+  const [savingIntro, setSavingIntro] = useState(false)
+  const [introSaved, setIntroSaved] = useState(false)
+
+  const saveIntroduction = async () => {
+    setSavingIntro(true)
+    try {
+      await adminFetch(`/themes/${theme.id}`, {
+        method: 'PUT',
+        body: JSON.stringify({ introduction: introduction || null }),
+      })
+      setIntroSaved(true)
+      setTimeout(() => setIntroSaved(false), 2000)
+    } finally {
+      setSavingIntro(false)
+    }
+  }
 
   const saveBrand = async () => {
     setSavingBrand(true)
@@ -139,46 +156,95 @@ export function ThemeEditor({ theme }: { theme: ThemeDto }) {
           </div>
         </CardHeader>
 
-        {questions.length > 0 && (
-          <CardContent className="p-0">
-            {questions.map((q, i) => (
-              <div key={q.id}>
-                <div className="flex items-start gap-3 px-6 py-4 group hover:bg-surface-raised transition-colors">
-                  {/* Index */}
-                  <div className="shrink-0 w-6 h-6 flex items-center justify-center mt-0.5">
-                    <span className="text-[10px] font-mono text-muted-foreground/50 group-hover:hidden">
-                      {String(i + 1).padStart(2, '0')}
-                    </span>
-                    <GripVertical size={12} className="text-muted-foreground/30 hidden group-hover:block cursor-grab" />
-                  </div>
-
-                  {/* Content */}
-                  <div className="flex-1 min-w-0">
-                    <p className="text-sm text-foreground leading-snug">{q.text}</p>
-                    {q.hint && (
-                      <p className="text-xs text-muted-foreground mt-1 italic">
-                        Relance : {q.hint}
-                      </p>
-                    )}
-                  </div>
-
-                  {/* Actions */}
-                  <button
-                    onClick={() => deleteQuestion(q.id)}
-                    disabled={deletingId === q.id}
-                    className="shrink-0 opacity-0 group-hover:opacity-100 transition-opacity text-muted-foreground hover:text-destructive disabled:opacity-40"
-                  >
-                    {deletingId === q.id
-                      ? <Loader2 size={13} className="animate-spin" />
-                      : <Trash2 size={13} />
-                    }
-                  </button>
+        <CardContent className="p-0">
+          {questions.map((q, i) => (
+            <div key={q.id}>
+              <div className="flex items-start gap-3 px-6 py-4 group hover:bg-surface-raised transition-colors">
+                <div className="shrink-0 w-6 h-6 flex items-center justify-center mt-0.5">
+                  <span className="text-[10px] font-mono text-muted-foreground/50 group-hover:hidden">
+                    {String(i + 1).padStart(2, '0')}
+                  </span>
+                  <GripVertical size={12} className="text-muted-foreground/30 hidden group-hover:block cursor-grab" />
                 </div>
-                {i < questions.length - 1 && <Separator />}
+                <div className="flex-1 min-w-0">
+                  <p className="text-sm text-foreground leading-snug">{q.text}</p>
+                  {q.hint && (
+                    <p className="text-xs text-muted-foreground mt-1 italic">
+                      Relance : {q.hint}
+                    </p>
+                  )}
+                </div>
+                <button
+                  onClick={() => deleteQuestion(q.id)}
+                  disabled={deletingId === q.id}
+                  className="shrink-0 opacity-0 group-hover:opacity-100 transition-opacity text-muted-foreground hover:text-destructive disabled:opacity-40"
+                >
+                  {deletingId === q.id
+                    ? <Loader2 size={13} className="animate-spin" />
+                    : <Trash2 size={13} />
+                  }
+                </button>
               </div>
-            ))}
-          </CardContent>
-        )}
+              <Separator />
+            </div>
+          ))}
+
+          {/* Add question form */}
+          <div className="flex flex-col gap-3 px-6 py-4">
+            <Textarea
+              placeholder="ex. En une phrase, qu'est-ce que vous faites ?"
+              value={newQ.text}
+              onChange={(e) => setNewQ((n) => ({ ...n, text: e.target.value }))}
+              onKeyDown={handleKeyDown}
+              rows={2}
+            />
+            <div className="flex items-center gap-3">
+              <Input
+                placeholder="Relance (optionnel)"
+                value={newQ.hint}
+                onChange={(e) => setNewQ((n) => ({ ...n, hint: e.target.value }))}
+                onKeyDown={handleKeyDown}
+                className="flex-1"
+              />
+              <Button
+                onClick={addQuestion}
+                disabled={saving || !newQ.text.trim()}
+                size="sm"
+              >
+                {saving ? <Loader2 size={12} className="animate-spin" /> : <Plus size={12} />}
+                {saving ? 'Ajout...' : 'Ajouter'}
+              </Button>
+            </div>
+            <p className="text-[10px] text-muted-foreground/50 font-mono">⌘ + Entrée pour ajouter rapidement</p>
+          </div>
+        </CardContent>
+      </Card>
+
+      {/* Introduction */}
+      <Card className="mb-4">
+        <CardHeader>
+          <CardTitle>Introduction vocale</CardTitle>
+          <CardDescription>Texte lu à voix haute par l&apos;IA au démarrage de la session, avant les questions.</CardDescription>
+        </CardHeader>
+        <CardContent className="flex flex-col gap-4">
+          <div className="flex flex-col gap-2">
+            <Label htmlFor="introduction">
+              Texte d&apos;introduction <span className="text-muted-foreground/50 normal-case tracking-normal">(optionnel)</span>
+            </Label>
+            <Textarea
+              id="introduction"
+              placeholder="Ex : Bonjour, nous allons vous poser quelques questions sur votre expérience avec notre produit. Prenez le temps de répondre naturellement."
+              value={introduction}
+              onChange={(e) => setIntroduction(e.target.value)}
+              rows={4}
+            />
+            <p className="text-[11px] text-muted-foreground/60">Ce texte sera affiché et énoncé par la voix IA avant que l&apos;utilisateur démarre l&apos;enregistrement.</p>
+          </div>
+          <Button onClick={saveIntroduction} disabled={savingIntro} size="sm" className="self-start">
+            {savingIntro && <Loader2 size={12} className="animate-spin mr-1" />}
+            {introSaved ? 'Sauvegardé ✓' : 'Sauvegarder'}
+          </Button>
+        </CardContent>
       </Card>
 
       {/* Branding */}
@@ -234,53 +300,6 @@ export function ThemeEditor({ theme }: { theme: ThemeDto }) {
         </CardContent>
       </Card>
 
-      {/* Add question */}
-      <Card>
-        <CardHeader>
-          <CardTitle>Ajouter une question</CardTitle>
-          <CardDescription>
-            ⌘ + Entrée pour ajouter rapidement
-          </CardDescription>
-        </CardHeader>
-        <CardContent className="flex flex-col gap-4">
-          <div className="flex flex-col gap-2">
-            <Label htmlFor="q-text">Question *</Label>
-            <Textarea
-              id="q-text"
-              placeholder="ex. En une phrase, qu'est-ce que vous faites ?"
-              value={newQ.text}
-              onChange={(e) => setNewQ((n) => ({ ...n, text: e.target.value }))}
-              onKeyDown={handleKeyDown}
-              rows={2}
-              autoFocus
-            />
-          </div>
-
-          <div className="flex flex-col gap-2">
-            <Label htmlFor="q-hint">
-              Relance <span className="text-muted-foreground/50 normal-case tracking-normal">(optionnel)</span>
-            </Label>
-            <Input
-              id="q-hint"
-              placeholder="ex. Racontez-le comme à un ami"
-              value={newQ.hint}
-              onChange={(e) => setNewQ((n) => ({ ...n, hint: e.target.value }))}
-              onKeyDown={handleKeyDown}
-            />
-          </div>
-
-          <div className="flex items-center gap-3 pt-1">
-            <Button
-              onClick={addQuestion}
-              disabled={saving || !newQ.text.trim()}
-              size="sm"
-            >
-              {saving ? <Loader2 size={12} className="animate-spin" /> : <Plus size={12} />}
-              {saving ? 'Ajout...' : 'Ajouter'}
-            </Button>
-          </div>
-        </CardContent>
-      </Card>
     </div>
   )
 }

@@ -12,7 +12,7 @@ import { ArrowLeft, Loader2 } from 'lucide-react'
 
 export default function NewThemePage() {
   const router = useRouter()
-  const [form, setForm] = useState({ name: '', slug: '', description: '' })
+  const [form, setForm] = useState({ name: '', slug: '', description: '', introduction: '' })
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState('')
 
@@ -115,6 +115,20 @@ export default function NewThemePage() {
                 onChange={(e) => setForm((f) => ({ ...f, description: e.target.value }))}
                 rows={3}
               />
+            </div>
+
+            <div className="flex flex-col gap-2">
+              <Label htmlFor="introduction">
+                Introduction <span className="text-muted-foreground/50 normal-case tracking-normal">(optionnel)</span>
+              </Label>
+              <Textarea
+                id="introduction"
+                placeholder="Texte lu à voix haute par l'IA au lancement de la session, avant les questions. Ex : « Bonjour, nous allons vous poser quelques questions sur… »"
+                value={form.introduction}
+                onChange={(e) => setForm((f) => ({ ...f, introduction: e.target.value }))}
+                rows={4}
+              />
+              <p className="text-[11px] text-muted-foreground/60">Ce texte sera énoncé par la voix IA au démarrage de la session.</p>
             </div>
 
             {error && (

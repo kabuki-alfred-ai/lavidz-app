@@ -31,7 +31,8 @@ export function RecordingSession({ theme, initialSessionId, mode = 'default' }: 
   const [elapsed, setElapsed] = useState(0)
   const [uploadError, setUploadError] = useState('')
   const [starting, setStarting] = useState(false)
-  const [introStep, setIntroStep] = useState<1 | 2>(1)
+  const [introStep, setIntroStep] = useState<1 | 2 | 3>(1)
+  const introAnnouncedRef = useRef(false)
 
   const videoRef = useRef<HTMLVideoElement>(null)
   const mediaRecorderRef = useRef<MediaRecorder | null>(null)
@@ -290,6 +291,48 @@ export function RecordingSession({ theme, initialSessionId, mode = 'default' }: 
       )
     }
 
+    // Step 3: introduction vocale (only if introduction exists)
+    if (introStep === 3 && theme.introduction) {
+      if (!introAnnouncedRef.current) {
+        introAnnouncedRef.current = true
+        announceQuestion(theme.introduction)
+      }
+      return (
+        <div
+          className="fixed inset-0 flex flex-col items-center justify-between px-6 py-12 overflow-hidden"
+          style={{ background: '#0a0a0a' }}
+        >
+          {noise}
+
+          <div />
+
+          <div
+            className="w-full max-w-sm px-6 py-6 rounded-2xl z-10 text-center"
+            style={{ background: 'rgba(255,255,255,0.05)', border: '1px solid rgba(255,255,255,0.08)' }}
+          >
+            <p className="text-base text-white/80 leading-relaxed">{theme.introduction}</p>
+          </div>
+
+          <div className="flex flex-col items-center gap-4 z-10 w-full max-w-sm">
+            <button
+              onClick={handleStart}
+              disabled={starting}
+              className="w-full py-4 rounded-2xl font-bold text-base tracking-wide transition-all active:scale-95 disabled:opacity-60"
+              style={{ background: accent, color: '#fff' }}
+            >
+              {starting ? 'Démarrage...' : "C'est parti !"}
+            </button>
+            <button
+              onClick={() => setIntroStep(2)}
+              className="text-xs text-white/25 font-mono"
+            >
+              ← Retour
+            </button>
+          </div>
+        </div>
+      )
+    }
+
     // Step 2: tips for good conditions
     const tips = [
       {
@@ -346,12 +389,12 @@ export function RecordingSession({ theme, initialSessionId, mode = 'default' }: 
 
         <div className="flex flex-col items-center gap-4 z-10 w-full max-w-sm">
           <button
-            onClick={handleStart}
+            onClick={() => theme.introduction ? setIntroStep(3) : handleStart()}
             disabled={starting}
             className="w-full py-4 rounded-2xl font-bold text-base tracking-wide transition-all active:scale-95 disabled:opacity-60"
             style={{ background: accent, color: '#fff' }}
           >
-            {starting ? 'Démarrage...' : "C'est parti !"}
+            {starting ? 'Démarrage...' : theme.introduction ? 'Continuer →' : "C'est parti !"}
           </button>
           <button
             onClick={() => setIntroStep(1)}

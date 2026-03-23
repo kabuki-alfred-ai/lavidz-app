@@ -13,6 +13,10 @@ export class CreateThemeDto {
   description?: string
 
   @IsOptional()
+  @IsString()
+  introduction?: string
+
+  @IsOptional()
   @IsBoolean()
   active?: boolean
 
