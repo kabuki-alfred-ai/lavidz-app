@@ -7,7 +7,7 @@ import { ArrowLeft, Play, RefreshCw, Loader2, ChevronRight } from 'lucide-react'
 import type { CompositionSegment } from '@/remotion/LavidzComposition'
 import type { SubtitleSettings, SubtitleStyle } from '@/remotion/subtitleTypes'
 import { DEFAULT_SUBTITLE_SETTINGS } from '@/remotion/subtitleTypes'
-import type { TransitionTheme, IntroSettings, MotionSettings, TransitionStyle } from '@/remotion/themeTypes'
+import type { TransitionTheme, IntroSettings, MotionSettings, TransitionStyle, WordTimestamp } from '@/remotion/themeTypes'
 import { DEFAULT_TRANSITION_THEME, DEFAULT_INTRO_SETTINGS, DEFAULT_MOTION_SETTINGS, FONT_OPTIONS, THEME_PRESETS } from '@/remotion/themeTypes'
 import { ServerRenderer, type ServerRendererHandle } from './ServerRenderer'
 
@@ -171,6 +171,8 @@ export function ProcessView({ recordings, themeName, sessionId, themeSlug }: Pro
   const [localTranscripts, setLocalTranscripts] = useState<Record<string, string>>(() =>
     Object.fromEntries(recordings.map(r => [r.id, r.transcript ?? '']))
   )
+  const [wordTimestampsMap, setWordTimestampsMap] = useState<Record<string, WordTimestamp[]>>({})
+  const wordTimestampsRef = useRef<Record<string, WordTimestamp[]>>({})
   const [transcribing, setTranscribing] = useState<Record<string, boolean>>({})
   const [silenceCutEnabled, setSilenceCutEnabled] = useState(false)
   const [silenceThreshold, setSilenceThreshold] = useState(-35)
@@ -192,6 +194,7 @@ export function ProcessView({ recordings, themeName, sessionId, themeSlug }: Pro
   const lastProcessedSettingsRef = useRef<{ enabled: boolean; threshold: number } | null>(null)
 
   useEffect(() => { localTranscriptsRef.current = localTranscripts }, [localTranscripts])
+  useEffect(() => { wordTimestampsRef.current = wordTimestampsMap }, [wordTimestampsMap])
   useEffect(() => { fetchVoices(); prepare('EXAVITQu4vr4xnSDxMaL') }, [])
 
   const fetchVoices = async () => {
@@ -244,6 +247,7 @@ export function ProcessView({ recordings, themeName, sessionId, themeSlug }: Pro
       return {
         id: rec.id, questionText: rec.questionText, videoUrl: blobUrlsRef.current[i],
         transcript: localTranscriptsRef.current[rec.id] ?? rec.transcript,
+        wordTimestamps: wordTimestampsRef.current[rec.id],
         videoDurationFrames: Math.max(Math.ceil((isFinite(durationsRef.current[i]) ? durationsRef.current[i] : 60) * FPS), FPS),
         ttsUrl: ttsUrls[i],
         questionDurationFrames: Math.max(Math.ceil((ttsSecs + 0.5) * FPS), 3 * FPS),
@@ -282,8 +286,14 @@ export function ProcessView({ recordings, themeName, sessionId, themeSlug }: Pro
         body: JSON.stringify({ videoUrl: recording.videoUrl }),
       })
       if (res.ok) {
-        const { transcript } = await res.json()
+        const { transcript, wordTimestamps } = await res.json()
         updateTranscript(recording.id, transcript)
+        if (wordTimestamps?.length) {
+          setWordTimestampsMap(p => ({ ...p, [recording.id]: wordTimestamps }))
+          setSegments(prev => prev ? prev.map(seg =>
+            seg.id === recording.id ? { ...seg, wordTimestamps } : seg
+          ) : prev)
+        }
       } else {
         const err = await res.text()
         console.error('[transcribe] error:', err)
@@ -670,47 +680,6 @@ export function ProcessView({ recordings, themeName, sessionId, themeSlug }: Pro
   const fmt = FORMATS[format]
   const stepPreview = (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 20 }}>
-      {/* Format selector */}
-      <div>
-        <Label>Format</Label>
-        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 8 }}>
-          {(Object.entries(FORMATS) as [FormatKey, typeof FORMATS[FormatKey]][]).map(([key, f]) => (
-            <button key={key} onClick={() => setFormat(key)}
-              style={{
-                padding: '12px 8px', borderRadius: 12, textAlign: 'center',
-                background: format === key ? 'rgba(255,255,255,0.1)' : S.surface,
-                border: `1px solid ${format === key ? 'rgba(255,255,255,0.3)' : S.border}`,
-              }}
-            >
-              <p style={{ color: format === key ? S.text : S.muted, fontWeight: 700, fontSize: 13, fontFamily: 'monospace' }}>{f.label}</p>
-              <p style={{ color: S.dim, fontSize: 9, marginTop: 3, fontFamily: 'monospace' }}>{f.description}</p>
-            </button>
-          ))}
-        </div>
-      </div>
-
-      {/* Player */}
-      <div style={{ borderRadius: 16, overflow: 'hidden', background: '#000', border: `1px solid ${S.border}` }}>
-        {!ready ? (
-          <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 12, padding: 48 }}>
-            <div style={{ width: 24, height: 24, border: '2px solid rgba(255,255,255,0.1)', borderTopColor: '#fff', borderRadius: '50%', animation: 'spin 0.8s linear infinite' }} />
-            <p style={{ color: S.muted, fontSize: 11, fontFamily: 'monospace' }}>{loadingStep}</p>
-          </div>
-        ) : segments && (
-          <Player
-            component={LavidzComposition as any}
-            inputProps={{ segments, questionCardFrames: QUESTION_CARD_FRAMES, subtitleSettings, theme, intro, fps: FPS, motionSettings }}
-            durationInFrames={totalFrames}
-            fps={FPS}
-            compositionWidth={fmt.width}
-            compositionHeight={fmt.height}
-            style={{ width: '100%', aspectRatio: `${fmt.width} / ${fmt.height}`, maxHeight: '60vh', display: 'block' }}
-            controls
-            clickToPlay
-          />
-        )}
-      </div>
-
       {/* Export */}
       {ready && segments && (
         <ServerRenderer
@@ -794,73 +763,124 @@ export function ProcessView({ recordings, themeName, sessionId, themeSlug }: Pro
         })}
       </div>
 
-      {/* Step content */}
-      <div style={{ flex: 1, overflowY: 'auto', padding: '24px 20px' }}>
-        {/* Step header */}
-        <div style={{ marginBottom: 24 }}>
-          <p style={{ fontSize: 10, fontFamily: 'monospace', color: S.muted, textTransform: 'uppercase', letterSpacing: '0.1em', marginBottom: 4 }}>
-            Étape {currentStep + 1} / {STEPS.length}
-          </p>
-          <h2 style={{ fontSize: 22, fontWeight: 800, letterSpacing: '-0.02em' }}>{STEPS[currentStep].label}</h2>
-          <p style={{ color: S.muted, fontSize: 13, marginTop: 4 }}>{STEPS[currentStep].desc}</p>
-        </div>
+      {/* Main body: split layout */}
+      <div style={{ flex: 1, display: 'flex', overflow: 'hidden' }}>
 
-        {stepContent[currentStep]}
-      </div>
+        {/* Left panel: step controls + bottom nav */}
+        <div style={{ display: 'flex', flexDirection: 'column', width: '42%', minWidth: 320, maxWidth: 480, borderRight: `1px solid ${S.border}`, overflow: 'hidden', flexShrink: 0 }}>
+          {/* Step content */}
+          <div style={{ flex: 1, overflowY: 'auto', padding: '24px 20px' }}>
+            {/* Step header */}
+            <div style={{ marginBottom: 24 }}>
+              <p style={{ fontSize: 10, fontFamily: 'monospace', color: S.muted, textTransform: 'uppercase', letterSpacing: '0.1em', marginBottom: 4 }}>
+                Étape {currentStep + 1} / {STEPS.length}
+              </p>
+              <h2 style={{ fontSize: 22, fontWeight: 800, letterSpacing: '-0.02em' }}>{STEPS[currentStep].label}</h2>
+              <p style={{ color: S.muted, fontSize: 13, marginTop: 4 }}>{STEPS[currentStep].desc}</p>
+            </div>
 
-      {/* Bottom nav */}
-      <div style={{ padding: '12px 20px', borderTop: `1px solid ${S.border}`, display: 'flex', flexDirection: 'column', gap: 8, flexShrink: 0 }}>
-        <div style={{ display: 'flex', gap: 10 }}>
-          {currentStep > 0 && (
-            <button onClick={() => setCurrentStep(s => s - 1)}
-              style={{ padding: '12px 18px', borderRadius: 14, background: S.surface, border: `1px solid ${S.border}`, color: 'rgba(255,255,255,0.6)', fontSize: 13, fontWeight: 600 }}>
-              ←
-            </button>
-          )}
-          {currentStep < STEPS.length - 1 && (
-            <button onClick={() => setCurrentStep(s => s + 1)}
-              style={{ flex: 1, padding: '12px', borderRadius: 14, background: '#fff', color: '#0a0a0a', fontSize: 13, fontWeight: 700, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8 }}>
-              {STEPS[currentStep + 1].label} <ChevronRight size={14} />
-            </button>
-          )}
-          {currentStep === STEPS.length - 1 && ready && segments && (
-            <button
-              onClick={() => serverRendererRef.current?.render()}
-              disabled={serverRendererRef.current?.rendering}
-              style={{ flex: 1, padding: '12px', borderRadius: 14, background: '#fff', color: '#0a0a0a', fontSize: 13, fontWeight: 700, opacity: serverRendererRef.current?.rendering ? 0.5 : 1 }}>
-              {serverRendererRef.current?.rendering ? 'Rendu en cours...' : renderOutputUrl ? 'Ré-exporter' : 'Exporter le montage'}
-            </button>
-          )}
-        </div>
-        {/* Deliver button — shown after render completes if this session has a recipient */}
-        {renderOutputUrl && sessionId && (
-          <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
-            {delivered ? (
-              <p style={{ textAlign: 'center', fontSize: 12, color: 'rgb(52,211,153)', fontFamily: 'monospace' }}>Email envoyé au client ✓</p>
-            ) : (
-              <button
-                onClick={async () => {
-                  setDelivering(true)
-                  setDeliverError('')
-                  try {
-                    const res = await fetch(`/api/admin/sessions/${sessionId}/deliver`, { method: 'POST' })
-                    if (!res.ok) throw new Error(await res.text())
-                    setDelivered(true)
-                  } catch (err) {
-                    setDeliverError(String(err))
-                  } finally {
-                    setDelivering(false)
-                  }
-                }}
-                disabled={delivering}
-                style={{ padding: '12px', borderRadius: 14, background: 'rgba(52,211,153,0.12)', border: '1px solid rgba(52,211,153,0.25)', color: 'rgb(52,211,153)', fontSize: 13, fontWeight: 700, opacity: delivering ? 0.6 : 1 }}
-              >
-                {delivering ? 'Envoi...' : 'Confirmer et envoyer au client ✉'}
-              </button>
-            )}
-            {deliverError && <p style={{ fontSize: 11, color: '#f87171', fontFamily: 'monospace', textAlign: 'center' }}>{deliverError}</p>}
+            {stepContent[currentStep]}
           </div>
-        )}
+
+          {/* Bottom nav */}
+          <div style={{ padding: '12px 20px', borderTop: `1px solid ${S.border}`, display: 'flex', flexDirection: 'column', gap: 8, flexShrink: 0 }}>
+            <div style={{ display: 'flex', gap: 10 }}>
+              {currentStep > 0 && (
+                <button onClick={() => setCurrentStep(s => s - 1)}
+                  style={{ padding: '12px 18px', borderRadius: 14, background: S.surface, border: `1px solid ${S.border}`, color: 'rgba(255,255,255,0.6)', fontSize: 13, fontWeight: 600 }}>
+                  ←
+                </button>
+              )}
+              {currentStep < STEPS.length - 1 && (
+                <button onClick={() => setCurrentStep(s => s + 1)}
+                  style={{ flex: 1, padding: '12px', borderRadius: 14, background: '#fff', color: '#0a0a0a', fontSize: 13, fontWeight: 700, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8 }}>
+                  {STEPS[currentStep + 1].label} <ChevronRight size={14} />
+                </button>
+              )}
+              {currentStep === STEPS.length - 1 && ready && segments && (
+                <button
+                  onClick={() => serverRendererRef.current?.render()}
+                  disabled={serverRendererRef.current?.rendering}
+                  style={{ flex: 1, padding: '12px', borderRadius: 14, background: '#fff', color: '#0a0a0a', fontSize: 13, fontWeight: 700, opacity: serverRendererRef.current?.rendering ? 0.5 : 1 }}>
+                  {serverRendererRef.current?.rendering ? 'Rendu en cours...' : renderOutputUrl ? 'Ré-exporter' : 'Exporter le montage'}
+                </button>
+              )}
+            </div>
+            {/* Deliver button — shown after render completes if this session has a recipient */}
+            {renderOutputUrl && sessionId && (
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+                {delivered ? (
+                  <p style={{ textAlign: 'center', fontSize: 12, color: 'rgb(52,211,153)', fontFamily: 'monospace' }}>Email envoyé au client ✓</p>
+                ) : (
+                  <button
+                    onClick={async () => {
+                      setDelivering(true)
+                      setDeliverError('')
+                      try {
+                        const res = await fetch(`/api/admin/sessions/${sessionId}/deliver`, { method: 'POST' })
+                        if (!res.ok) throw new Error(await res.text())
+                        setDelivered(true)
+                      } catch (err) {
+                        setDeliverError(String(err))
+                      } finally {
+                        setDelivering(false)
+                      }
+                    }}
+                    disabled={delivering}
+                    style={{ padding: '12px', borderRadius: 14, background: 'rgba(52,211,153,0.12)', border: '1px solid rgba(52,211,153,0.25)', color: 'rgb(52,211,153)', fontSize: 13, fontWeight: 700, opacity: delivering ? 0.6 : 1 }}
+                  >
+                    {delivering ? 'Envoi...' : 'Confirmer et envoyer au client ✉'}
+                  </button>
+                )}
+                {deliverError && <p style={{ fontSize: 11, color: '#f87171', fontFamily: 'monospace', textAlign: 'center' }}>{deliverError}</p>}
+              </div>
+            )}
+          </div>
+        </div>
+
+        {/* Right panel: format selector + persistent Player */}
+        <div style={{ flex: 1, display: 'flex', flexDirection: 'column', gap: 16, padding: '20px', overflow: 'hidden', minWidth: 0 }}>
+          {/* Format selector */}
+          <div style={{ flexShrink: 0 }}>
+            <Label>Format</Label>
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 8 }}>
+              {(Object.entries(FORMATS) as [FormatKey, typeof FORMATS[FormatKey]][]).map(([key, f]) => (
+                <button key={key} onClick={() => setFormat(key)}
+                  style={{
+                    padding: '10px 8px', borderRadius: 12, textAlign: 'center',
+                    background: format === key ? 'rgba(255,255,255,0.1)' : S.surface,
+                    border: `1px solid ${format === key ? 'rgba(255,255,255,0.3)' : S.border}`,
+                  }}
+                >
+                  <p style={{ color: format === key ? S.text : S.muted, fontWeight: 700, fontSize: 13, fontFamily: 'monospace' }}>{f.label}</p>
+                  <p style={{ color: S.dim, fontSize: 9, marginTop: 3, fontFamily: 'monospace' }}>{f.description}</p>
+                </button>
+              ))}
+            </div>
+          </div>
+          {/* Player */}
+          <div style={{ flex: 1, minHeight: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', borderRadius: 16, overflow: 'hidden', background: '#000', border: `1px solid ${S.border}` }}>
+            {!ready ? (
+              <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 12, padding: 48 }}>
+                <div style={{ width: 24, height: 24, border: '2px solid rgba(255,255,255,0.1)', borderTopColor: '#fff', borderRadius: '50%', animation: 'spin 0.8s linear infinite' }} />
+                <p style={{ color: S.muted, fontSize: 11, fontFamily: 'monospace' }}>{loadingStep}</p>
+              </div>
+            ) : segments && (
+              <Player
+                component={LavidzComposition as any}
+                inputProps={{ segments, questionCardFrames: QUESTION_CARD_FRAMES, subtitleSettings, theme, intro, fps: FPS, motionSettings }}
+                durationInFrames={totalFrames}
+                fps={FPS}
+                compositionWidth={fmt.width}
+                compositionHeight={fmt.height}
+                style={{ width: '100%', aspectRatio: `${fmt.width} / ${fmt.height}`, maxHeight: '100%', display: 'block' }}
+                controls
+                clickToPlay
+              />
+            )}
+          </div>
+        </div>
+
       </div>
 
       <style>{`

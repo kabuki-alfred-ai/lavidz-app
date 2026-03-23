@@ -1,3 +1,9 @@
+export interface WordTimestamp {
+  word: string
+  start: number  // seconds
+  end: number    // seconds
+}
+
 export type TransitionStyle = 'none' | 'zoom-punch' | 'slide-up' | 'flash'
 
 export interface LowerThirdSettings {

@@ -70,7 +70,8 @@ export async function POST(req: Request) {
     const formData = new FormData()
     formData.append('file', new Blob([audioBuffer], { type: 'audio/mpeg' }), 'audio.mp3')
     formData.append('model', 'whisper-1')
-    formData.append('response_format', 'text')
+    formData.append('response_format', 'verbose_json')
+    formData.append('timestamp_granularities[]', 'word')
 
     const whisperRes = await fetch('https://api.openai.com/v1/audio/transcriptions', {
       method: 'POST',
@@ -83,8 +84,19 @@ export async function POST(req: Request) {
       throw new Error(`Whisper API error: ${err}`)
     }
 
-    const transcript = (await whisperRes.text()).trim()
-    return Response.json({ transcript })
+    const data = await whisperRes.json() as {
+      text: string
+      words?: { word: string; start: number; end: number }[]
+    }
+
+    const transcript = data.text.trim()
+    const wordTimestamps = data.words?.map(w => ({
+      word: w.word.trim(),
+      start: w.start,
+      end: w.end,
+    })) ?? []
+
+    return Response.json({ transcript, wordTimestamps })
 
   } catch (err) {
     return new Response(String(err), { status: 500 })

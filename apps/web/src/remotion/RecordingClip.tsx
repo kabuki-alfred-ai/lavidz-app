@@ -1,11 +1,12 @@
 import { AbsoluteFill, Video, interpolate, spring, useCurrentFrame, useVideoConfig } from 'remotion'
 import type { SubtitleSettings } from './subtitleTypes'
 import { DEFAULT_SUBTITLE_SETTINGS } from './subtitleTypes'
-import type { MotionSettings } from './themeTypes'
+import type { MotionSettings, WordTimestamp } from './themeTypes'
 
 interface Props {
   videoUrl: string
   transcript: string | null
+  wordTimestamps?: WordTimestamp[]
   durationInFrames: number
   subtitleSettings?: SubtitleSettings
   motionSettings?: MotionSettings
@@ -22,13 +23,33 @@ function getWordWindow(
   frame: number,
   totalFrames: number,
   wordsPerLine: number,
+  fps: number,
+  wordTimestamps?: WordTimestamp[],
 ): WordWindow {
   const words = transcript.split(/\s+/).filter(Boolean)
   if (words.length === 0) return { words: [], activeIndex: 0, framesIntoActiveWord: 0 }
 
-  const framesPerWord = totalFrames / words.length
-  const currentWordIndex = Math.min(Math.floor(frame / framesPerWord), words.length - 1)
-  const framesIntoActiveWord = frame - currentWordIndex * framesPerWord
+  let currentWordIndex: number
+  let framesIntoActiveWord: number
+
+  if (wordTimestamps && wordTimestamps.length > 0) {
+    const currentTimeSec = frame / fps
+    // Find the word being spoken right now
+    let idx = wordTimestamps.findIndex(w => currentTimeSec >= w.start && currentTimeSec <= w.end)
+    if (idx === -1) {
+      // Between words: use the last word whose start <= currentTime
+      const past = wordTimestamps.filter(w => w.start <= currentTimeSec)
+      idx = past.length > 0 ? past.length - 1 : 0
+    }
+    currentWordIndex = Math.min(idx, words.length - 1)
+    const wordStartFrame = Math.floor((wordTimestamps[currentWordIndex]?.start ?? 0) * fps)
+    framesIntoActiveWord = Math.max(0, frame - wordStartFrame)
+  } else {
+    // Fallback: uniform distribution
+    const framesPerWord = totalFrames / words.length
+    currentWordIndex = Math.min(Math.floor(frame / framesPerWord), words.length - 1)
+    framesIntoActiveWord = frame - currentWordIndex * framesPerWord
+  }
 
   // Snap window: floor to multiple of wordsPerLine
   const windowStart = Math.floor(currentWordIndex / wordsPerLine) * wordsPerLine
@@ -231,6 +252,7 @@ function NeonSubtitle({
 export function RecordingClip({
   videoUrl,
   transcript,
+  wordTimestamps,
   durationInFrames,
   subtitleSettings,
   motionSettings,
@@ -266,7 +288,7 @@ export function RecordingClip({
 
   // ─── Subtitles with Word Pop ────────────────────────────────────────────────
   const { words, activeIndex, framesIntoActiveWord } = transcript
-    ? getWordWindow(transcript, frame, durationInFrames, wordsPerLine)
+    ? getWordWindow(transcript, frame, durationInFrames, wordsPerLine, fps, wordTimestamps)
     : { words: [], activeIndex: 0, framesIntoActiveWord: 0 }
 
   const hasWords = words.length > 0

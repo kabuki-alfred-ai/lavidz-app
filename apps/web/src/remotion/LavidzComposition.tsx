@@ -4,13 +4,14 @@ import { QuestionCard } from './QuestionCard'
 import { RecordingClip } from './RecordingClip'
 import { IntroCard } from './IntroCard'
 import type { SubtitleSettings } from './subtitleTypes'
-import type { TransitionTheme, IntroSettings, MotionSettings } from './themeTypes'
+import type { TransitionTheme, IntroSettings, MotionSettings, WordTimestamp } from './themeTypes'
 
 export interface CompositionSegment {
   id: string
   questionText: string
   videoUrl: string
   transcript: string | null
+  wordTimestamps?: WordTimestamp[]
   videoDurationFrames: number
   ttsUrl: string | null
   /** Per-segment question card duration (frames). Falls back to global questionCardFrames. */
@@ -67,6 +68,7 @@ export function LavidzComposition({
         <RecordingClip
           videoUrl={seg.videoUrl}
           transcript={seg.transcript}
+          wordTimestamps={seg.wordTimestamps}
           durationInFrames={seg.videoDurationFrames}
           subtitleSettings={subtitleSettings}
           motionSettings={motionSettings}
