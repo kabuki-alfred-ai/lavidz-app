@@ -31,6 +31,7 @@ export function RecordingSession({ theme, initialSessionId, mode = 'default' }: 
   const [elapsed, setElapsed] = useState(0)
   const [uploadError, setUploadError] = useState('')
   const [starting, setStarting] = useState(false)
+  const [introStep, setIntroStep] = useState<1 | 2>(1)
 
   const videoRef = useRef<HTMLVideoElement>(null)
   const mediaRecorderRef = useRef<MediaRecorder | null>(null)
@@ -40,6 +41,28 @@ export function RecordingSession({ theme, initialSessionId, mode = 'default' }: 
   const countdownRef = useRef<ReturnType<typeof setInterval> | null>(null)
   const readingRef = useRef<ReturnType<typeof setInterval> | null>(null)
   const sessionIdRef = useRef<string | null>(initialSessionId ?? null)
+  const questionAudioRef = useRef<HTMLAudioElement | null>(null)
+
+  const QUESTION_VOICE_ID = 'MmafIMKg28Wr0yMh8CEB'
+
+  const announceQuestion = async (text: string) => {
+    try {
+      questionAudioRef.current?.pause()
+      questionAudioRef.current = null
+      const res = await fetch('/api/tts', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ text, voiceId: QUESTION_VOICE_ID }),
+      })
+      if (!res.ok) return
+      const blob = await res.blob()
+      const url = URL.createObjectURL(blob)
+      const audio = new Audio(url)
+      questionAudioRef.current = audio
+      audio.play()
+      audio.onended = () => URL.revokeObjectURL(url)
+    } catch {}
+  }
 
   const questions = theme.questions ?? []
   const currentQuestion = questions[questionIndex]
@@ -51,6 +74,7 @@ export function RecordingSession({ theme, initialSessionId, mode = 'default' }: 
       if (elapsedRef.current) clearInterval(elapsedRef.current)
       if (countdownRef.current) clearInterval(countdownRef.current)
       if (readingRef.current) clearInterval(readingRef.current)
+      questionAudioRef.current?.pause()
     }
   }, [])
 
@@ -66,6 +90,7 @@ export function RecordingSession({ theme, initialSessionId, mode = 'default' }: 
     const duration = readingDuration(question?.text ?? '')
     setReadingCountdown(duration)
     setPhase('reading')
+    if (question?.text) announceQuestion(question.text)
     let c = duration
     readingRef.current = setInterval(() => {
       c -= 1
@@ -197,66 +222,128 @@ export function RecordingSession({ theme, initialSessionId, mode = 'default' }: 
 
   // ─── INTRO ────────────────────────────────────────────────────────────────
   if (phase === 'intro') {
+    const noise = (
+      <div className="absolute inset-0 opacity-[0.03] pointer-events-none"
+        style={{ backgroundImage: 'url("data:image/svg+xml,%3Csvg viewBox=\'0 0 256 256\' xmlns=\'http://www.w3.org/2000/svg\'%3E%3Cfilter id=\'noise\'%3E%3CfeTurbulence type=\'fractalNoise\' baseFrequency=\'0.9\' numOctaves=\'4\' stitchTiles=\'stitch\'/%3E%3C/filter%3E%3Crect width=\'100%25\' height=\'100%25\' filter=\'url(%23noise)\'/%3E%3C/svg%3E")' }}
+      />
+    )
+
+    const brand = (
+      <div className="flex flex-col items-center gap-3 z-10">
+        {theme.logoUrl ? (
+          <img src={theme.logoUrl} alt={theme.brandName ?? ''} className="h-8 object-contain" />
+        ) : (
+          <div className="flex items-center gap-2">
+            <span className="w-2 h-2 rounded-full" style={{ background: accent }} />
+            <span className="text-xs font-mono text-white/40 tracking-widest uppercase">
+              {theme.brandName ?? 'Lavidz'}
+            </span>
+          </div>
+        )}
+      </div>
+    )
+
+    // Step 1: purpose of the interview
+    if (introStep === 1) {
+      return (
+        <div
+          className="fixed inset-0 flex flex-col items-center justify-between px-6 py-12 overflow-hidden"
+          style={{ background: '#0a0a0a' }}
+        >
+          {noise}
+          {brand}
+
+          <div className="flex flex-col items-center gap-8 z-10 text-center max-w-sm w-full">
+            <div className="flex flex-col gap-4">
+              <h1 className="text-4xl font-black text-white leading-tight tracking-tight">
+                {theme.name}
+              </h1>
+              {theme.description && (
+                <p className="text-sm text-white/50 leading-relaxed">
+                  {theme.description}
+                </p>
+              )}
+            </div>
+
+            <p className="text-sm text-white/40 leading-relaxed">
+              Vous allez répondre à{' '}
+              <span className="text-white font-semibold">
+                {questions.length} question{questions.length > 1 ? 's' : ''}
+              </span>{' '}
+              face caméra. Chaque réponse sera enregistrée en vidéo.
+            </p>
+          </div>
+
+          <div className="flex flex-col items-center gap-4 z-10 w-full max-w-sm">
+            <button
+              onClick={() => setIntroStep(2)}
+              className="w-full py-4 rounded-2xl font-bold text-base tracking-wide transition-all active:scale-95"
+              style={{ background: accent, color: '#fff' }}
+            >
+              Continuer →
+            </button>
+            <p className="text-[10px] font-mono text-white/25 text-center">
+              {questions.length} question{questions.length > 1 ? 's' : ''}
+            </p>
+          </div>
+        </div>
+      )
+    }
+
+    // Step 2: tips for good conditions
+    const tips = [
+      {
+        icon: '☀️',
+        title: 'Lumière naturelle',
+        desc: 'Placez-vous face à une fenêtre ou une source lumineuse. Évitez d\'avoir la lumière dans le dos.',
+      },
+      {
+        icon: '🔇',
+        title: 'Pièce calme',
+        desc: 'Choisissez un endroit sans bruit de fond — télé, musique, rue animée.',
+      },
+      {
+        icon: '↩️',
+        title: 'Pas de pression',
+        desc: 'Vous pouvez refaire chaque réponse autant de fois que vous le souhaitez avant de passer à la suivante.',
+      },
+      {
+        icon: '📱',
+        title: 'Stabilité',
+        desc: 'Posez votre téléphone ou tenez-le bien droit pour une image nette.',
+      },
+    ]
+
     return (
       <div
         className="fixed inset-0 flex flex-col items-center justify-between px-6 py-12 overflow-hidden"
         style={{ background: '#0a0a0a' }}
       >
-        {/* Subtle noise texture */}
-        <div className="absolute inset-0 opacity-[0.03] pointer-events-none"
-          style={{ backgroundImage: 'url("data:image/svg+xml,%3Csvg viewBox=\'0 0 256 256\' xmlns=\'http://www.w3.org/2000/svg\'%3E%3Cfilter id=\'noise\'%3E%3CfeTurbulence type=\'fractalNoise\' baseFrequency=\'0.9\' numOctaves=\'4\' stitchTiles=\'stitch\'/%3E%3C/filter%3E%3Crect width=\'100%25\' height=\'100%25\' filter=\'url(%23noise)\'/%3E%3C/svg%3E")' }}
-        />
+        {noise}
+        {brand}
 
-        {/* Brand */}
-        <div className="flex flex-col items-center gap-3 z-10">
-          {theme.logoUrl ? (
-            <img src={theme.logoUrl} alt={theme.brandName ?? ''} className="h-8 object-contain" />
-          ) : (
-            <div className="flex items-center gap-2">
-              <span className="w-2 h-2 rounded-full" style={{ background: accent }} />
-              <span className="text-xs font-mono text-white/40 tracking-widest uppercase">
-                {theme.brandName ?? 'Lavidz'}
-              </span>
-            </div>
-          )}
-        </div>
-
-        {/* Center content */}
-        <div className="flex flex-col items-center gap-8 z-10 text-center max-w-sm w-full">
-          <div className="flex flex-col gap-4">
-            <h1 className="text-4xl font-black text-white leading-tight tracking-tight">
-              {theme.name}
-            </h1>
-            {theme.description && (
-              <p className="text-sm text-white/40 leading-relaxed">
-                {theme.description}
-              </p>
-            )}
+        <div className="flex flex-col gap-6 z-10 w-full max-w-sm">
+          <div className="text-center">
+            <h2 className="text-2xl font-black text-white mb-2">Avant de commencer</h2>
+            <p className="text-sm text-white/40">Quelques conseils pour une vidéo de qualité</p>
           </div>
-
-          {/* Questions preview */}
-          <div className="flex flex-col gap-2 w-full">
-            {questions.slice(0, 4).map((q, i) => (
+          <div className="flex flex-col gap-3">
+            {tips.map((tip) => (
               <div
-                key={q.id}
-                className="flex items-start gap-3 px-4 py-3 rounded-xl text-left"
-                style={{ background: 'rgba(255,255,255,0.04)' }}
+                key={tip.title}
+                className="flex items-start gap-4 px-4 py-4 rounded-2xl"
+                style={{ background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.06)' }}
               >
-                <span className="text-[10px] font-mono mt-0.5 shrink-0" style={{ color: accent }}>
-                  {String(i + 1).padStart(2, '0')}
-                </span>
-                <p className="text-xs text-white/60 line-clamp-2 leading-relaxed">{q.text}</p>
+                <span className="text-xl shrink-0 mt-0.5">{tip.icon}</span>
+                <div>
+                  <p className="text-sm font-semibold text-white mb-0.5">{tip.title}</p>
+                  <p className="text-xs text-white/40 leading-relaxed">{tip.desc}</p>
+                </div>
               </div>
             ))}
-            {questions.length > 4 && (
-              <p className="text-[10px] font-mono text-white/30 text-center">
-                +{questions.length - 4} autres questions
-              </p>
-            )}
           </div>
         </div>
 
-        {/* CTA */}
         <div className="flex flex-col items-center gap-4 z-10 w-full max-w-sm">
           <button
             onClick={handleStart}
@@ -264,11 +351,14 @@ export function RecordingSession({ theme, initialSessionId, mode = 'default' }: 
             className="w-full py-4 rounded-2xl font-bold text-base tracking-wide transition-all active:scale-95 disabled:opacity-60"
             style={{ background: accent, color: '#fff' }}
           >
-            {starting ? 'Démarrage...' : 'Commencer'}
+            {starting ? 'Démarrage...' : "C'est parti !"}
           </button>
-          <p className="text-[10px] font-mono text-white/25 text-center">
-            {questions.length} question{questions.length > 1 ? 's' : ''} · Accès caméra requis
-          </p>
+          <button
+            onClick={() => setIntroStep(1)}
+            className="text-xs text-white/25 font-mono"
+          >
+            ← Retour
+          </button>
         </div>
       </div>
     )
