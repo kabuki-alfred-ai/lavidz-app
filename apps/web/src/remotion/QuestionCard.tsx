@@ -5,9 +5,10 @@ interface Props {
   question: string
   ttsUrl: string | null
   theme: TransitionTheme
+  backgroundColor?: string
 }
 
-export function QuestionCard({ question, ttsUrl, theme }: Props) {
+export function QuestionCard({ question, ttsUrl, theme, backgroundColor }: Props) {
   const frame = useCurrentFrame()
   const { fps } = useVideoConfig()
 
@@ -17,7 +18,7 @@ export function QuestionCard({ question, ttsUrl, theme }: Props) {
   return (
     <AbsoluteFill
       style={{
-        background: theme.backgroundColor,
+        background: backgroundColor ?? theme.backgroundColor,
         display: 'flex',
         alignItems: 'center',
         justifyContent: 'center',

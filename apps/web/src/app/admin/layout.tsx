@@ -1,8 +1,11 @@
 import Link from 'next/link'
-import { LayoutGrid, Clapperboard } from 'lucide-react'
-import { Separator } from '@/components/ui/separator'
+import { LayoutGrid, Clapperboard, Building2, LogOut, Activity } from 'lucide-react'
+import { getSessionUser } from '@/lib/auth'
+import { LogoutButton } from './LogoutButton'
 
-export default function AdminLayout({ children }: { children: React.ReactNode }) {
+export default async function AdminLayout({ children }: { children: React.ReactNode }) {
+  const user = await getSessionUser()
+
   return (
     <div className="flex h-screen bg-background overflow-hidden">
       {/* Sidebar */}
@@ -26,6 +29,13 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
             href="/admin"
             className="flex items-center gap-3 px-3 h-8 text-xs font-mono text-muted-foreground hover:text-foreground hover:bg-surface-raised transition-colors group"
           >
+            <Activity size={13} className="shrink-0" />
+            Vue d'ensemble
+          </Link>
+          <Link
+            href="/admin/themes"
+            className="flex items-center gap-3 px-3 h-8 text-xs font-mono text-muted-foreground hover:text-foreground hover:bg-surface-raised transition-colors group"
+          >
             <LayoutGrid size={13} className="shrink-0" />
             Thèmes
           </Link>
@@ -36,13 +46,32 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
             <Clapperboard size={13} className="shrink-0" />
             Montage
           </Link>
+
+          {user?.role === 'SUPERADMIN' && (
+            <>
+              <p className="text-[9px] font-mono uppercase tracking-widest text-muted-foreground px-3 pb-2 pt-4">
+                Superadmin
+              </p>
+              <Link
+                href="/admin/organizations"
+                className="flex items-center gap-3 px-3 h-8 text-xs font-mono text-muted-foreground hover:text-foreground hover:bg-surface-raised transition-colors group"
+              >
+                <Building2 size={13} className="shrink-0" />
+                Organisations
+              </Link>
+            </>
+          )}
         </nav>
 
-        {/* Footer */}
-        <div className="p-4 border-t border-border">
-          <p className="text-[9px] font-mono text-muted-foreground/60 tracking-widest uppercase">
-            v0.1.0 — MVP
-          </p>
+        {/* Footer — user info + logout */}
+        <div className="p-4 border-t border-border flex flex-col gap-2">
+          {user && (
+            <div className="min-w-0">
+              <p className="text-[10px] font-mono text-foreground truncate">{user.email}</p>
+              <p className="text-[9px] font-mono text-muted-foreground/60 uppercase tracking-widest">{user.role}</p>
+            </div>
+          )}
+          <LogoutButton />
         </div>
       </aside>
 

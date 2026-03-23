@@ -11,12 +11,24 @@ export interface LowerThirdSettings {
   title?: string
 }
 
+export interface SfxTrack {
+  prompt: string
+  url: string
+  volume: number
+}
+
+export interface AudioSettings {
+  backgroundMusic?: SfxTrack
+  transitionSfx?: SfxTrack
+}
+
 export interface MotionSettings {
   transitionStyle: TransitionStyle
   wordPop: boolean
   progressBar: boolean
   kenBurns: boolean
   lowerThird?: LowerThirdSettings
+  questionCardColors?: string[]
 }
 
 export const DEFAULT_MOTION_SETTINGS: MotionSettings = {

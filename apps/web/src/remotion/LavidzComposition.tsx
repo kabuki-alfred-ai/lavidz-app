@@ -1,10 +1,10 @@
 import type { ReactNode } from 'react'
-import { AbsoluteFill, Sequence } from 'remotion'
+import { AbsoluteFill, Audio, Sequence } from 'remotion'
 import { QuestionCard } from './QuestionCard'
 import { RecordingClip } from './RecordingClip'
 import { IntroCard } from './IntroCard'
 import type { SubtitleSettings } from './subtitleTypes'
-import type { TransitionTheme, IntroSettings, MotionSettings, WordTimestamp } from './themeTypes'
+import type { TransitionTheme, IntroSettings, MotionSettings, AudioSettings, WordTimestamp } from './themeTypes'
 
 export interface CompositionSegment {
   id: string
@@ -26,6 +26,7 @@ interface Props {
   intro: IntroSettings
   fps: number
   motionSettings?: MotionSettings
+  audioSettings?: AudioSettings
 }
 
 export function LavidzComposition({
@@ -36,6 +37,7 @@ export function LavidzComposition({
   intro,
   fps,
   motionSettings,
+  audioSettings,
 }: Props) {
   let offset = 0
   const sequences: ReactNode[] = []
@@ -57,9 +59,14 @@ export function LavidzComposition({
     const questionFrom = offset
     const recordingFrom = offset + qFrames
 
+    const cardColors = motionSettings?.questionCardColors
+    const cardBg = cardColors?.length
+      ? cardColors[i % cardColors.length]
+      : undefined
+
     sequences.push(
       <Sequence key={`q-${seg.id}`} from={questionFrom} durationInFrames={qFrames}>
-        <QuestionCard question={seg.questionText} ttsUrl={seg.ttsUrl} theme={theme} />
+        <QuestionCard question={seg.questionText} ttsUrl={seg.ttsUrl} theme={theme} backgroundColor={cardBg} />
       </Sequence>,
     )
 
@@ -72,6 +79,8 @@ export function LavidzComposition({
           durationInFrames={seg.videoDurationFrames}
           subtitleSettings={subtitleSettings}
           motionSettings={motionSettings}
+          sfxUrl={audioSettings?.transitionSfx?.url}
+          sfxVolume={audioSettings?.transitionSfx?.volume}
         />
       </Sequence>,
     )
@@ -79,8 +88,16 @@ export function LavidzComposition({
     offset += qFrames + seg.videoDurationFrames
   }
 
+  const bgMusic = audioSettings?.backgroundMusic
+  const totalFrames = offset
+
   return (
     <AbsoluteFill style={{ background: theme.backgroundColor }}>
+      {bgMusic?.url && (
+        <Sequence from={0} durationInFrames={totalFrames}>
+          <Audio src={bgMusic.url} volume={bgMusic.volume} loop />
+        </Sequence>
+      )}
       {sequences}
     </AbsoluteFill>
   )

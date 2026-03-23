@@ -9,7 +9,9 @@
     "typecheck": "turbo typecheck",
     "db:generate": "pnpm --filter @lavidz/database run db:generate",
     "db:migrate": "pnpm --filter @lavidz/database run db:migrate",
-    "db:studio": "pnpm --filter @lavidz/database run db:studio"
+    "db:studio": "pnpm --filter @lavidz/database run db:studio",
+    "db:seed": "pnpm --filter @lavidz/database run db:seed",
+    "create-superadmin": "pnpm --filter @lavidz/database run create-superadmin"
   },
   "devDependencies": {
     "turbo": "^2.3.3",

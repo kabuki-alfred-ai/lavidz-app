@@ -18,4 +18,8 @@ export type {
   Recording,
   SessionStatus,
   RecordingStatus,
+  User,
+  Organization,
+  UserRole,
+  OrgStatus,
 } from '@prisma/client'

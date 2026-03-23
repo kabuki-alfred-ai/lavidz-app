@@ -1,4 +1,4 @@
-import { AbsoluteFill, Video, interpolate, spring, useCurrentFrame, useVideoConfig } from 'remotion'
+import { AbsoluteFill, Audio, Video, interpolate, spring, useCurrentFrame, useVideoConfig } from 'remotion'
 import type { SubtitleSettings } from './subtitleTypes'
 import { DEFAULT_SUBTITLE_SETTINGS } from './subtitleTypes'
 import type { MotionSettings, WordTimestamp } from './themeTypes'
@@ -10,6 +10,8 @@ interface Props {
   durationInFrames: number
   subtitleSettings?: SubtitleSettings
   motionSettings?: MotionSettings
+  sfxUrl?: string
+  sfxVolume?: number
 }
 
 interface WordWindow {
@@ -256,6 +258,8 @@ export function RecordingClip({
   durationInFrames,
   subtitleSettings,
   motionSettings,
+  sfxUrl,
+  sfxVolume = 1,
 }: Props) {
   const frame = useCurrentFrame()
   const { width, height, fps } = useVideoConfig()
@@ -381,9 +385,12 @@ export function RecordingClip({
     <div style={{ position: 'absolute', inset: 0, background: '#fff', opacity: flashOverlayOpacity, zIndex: 10, pointerEvents: 'none' }} />
   )
 
+  const sfxNode = sfxUrl && <Audio src={sfxUrl} volume={sfxVolume} />
+
   if (isVertical) {
     return (
       <AbsoluteFill style={{ background: 'black', overflow: 'hidden', opacity: entryOpacity }}>
+        {sfxNode}
         {/* Blurred background */}
         <Video
           src={videoUrl}
@@ -420,6 +427,7 @@ export function RecordingClip({
 
   return (
     <AbsoluteFill style={{ background: 'black', opacity: entryOpacity }}>
+      {sfxNode}
       <div style={{ position: 'absolute', inset: 0, transform: videoTransform }}>
         <Video src={videoUrl} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
       </div>

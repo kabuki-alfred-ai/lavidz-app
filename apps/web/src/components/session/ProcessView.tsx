@@ -7,7 +7,7 @@ import { ArrowLeft, Play, RefreshCw, Loader2, ChevronRight } from 'lucide-react'
 import type { CompositionSegment } from '@/remotion/LavidzComposition'
 import type { SubtitleSettings, SubtitleStyle } from '@/remotion/subtitleTypes'
 import { DEFAULT_SUBTITLE_SETTINGS } from '@/remotion/subtitleTypes'
-import type { TransitionTheme, IntroSettings, MotionSettings, TransitionStyle, WordTimestamp } from '@/remotion/themeTypes'
+import type { TransitionTheme, IntroSettings, MotionSettings, TransitionStyle, AudioSettings, WordTimestamp } from '@/remotion/themeTypes'
 import { DEFAULT_TRANSITION_THEME, DEFAULT_INTRO_SETTINGS, DEFAULT_MOTION_SETTINGS, FONT_OPTIONS, THEME_PRESETS } from '@/remotion/themeTypes'
 import { ServerRenderer, type ServerRendererHandle } from './ServerRenderer'
 
@@ -19,6 +19,87 @@ const LavidzComposition = dynamic(
 
 const FPS = 30
 const QUESTION_CARD_FRAMES = 4 * FPS
+
+const STYLE_PRESETS = [
+  {
+    id: 'fast-curious',
+    label: 'Fast & Curious',
+    desc: 'Dark · Impact · Zoom punch',
+    format: '9/16' as FormatKey,
+    theme: {
+      backgroundColor: '#0A0A0A',
+      textColor: '#FFFFFF',
+      fontFamily: "Impact, 'Arial Narrow', sans-serif",
+      fontWeight: 400,
+    },
+    motionSettings: {
+      transitionStyle: 'zoom-punch' as TransitionStyle,
+      wordPop: true,
+      progressBar: true,
+      kenBurns: false,
+    },
+    subtitleSettings: {
+      style: 'hormozi' as SubtitleStyle,
+      size: 72,
+      position: 75,
+      wordsPerLine: 3,
+    },
+    questionCardFrames: Math.round(2.5 * FPS),
+  },
+  {
+    id: 'konbini',
+    label: 'Konbini',
+    desc: 'Couleurs vives · Flash cut',
+    format: '9/16' as FormatKey,
+    theme: {
+      backgroundColor: '#FF2D55',
+      textColor: '#FFFFFF',
+      fontFamily: "'Arial Black', Gadget, sans-serif",
+      fontWeight: 400,
+    },
+    motionSettings: {
+      transitionStyle: 'flash' as TransitionStyle,
+      wordPop: true,
+      progressBar: false,
+      kenBurns: false,
+      questionCardColors: ['#FF2D55', '#FFD60A', '#30D158', '#0A84FF', '#FF6B35'],
+    },
+    subtitleSettings: {
+      style: 'hormozi' as SubtitleStyle,
+      size: 68,
+      position: 75,
+      wordsPerLine: 2,
+    },
+    questionCardFrames: 2 * FPS,
+  },
+]
+
+const AUDIO_SUGGESTIONS: Record<string, { bgMusic: string[]; transitionSfx: string[] }> = {
+  'fast-curious': {
+    bgMusic: [
+      'dark trap instrumental, hard hitting bass, high energy interview music',
+      'aggressive hip-hop beat, 95 BPM, no vocals',
+      'intense electronic music, punchy kick, cinematic energy',
+    ],
+    transitionSfx: [
+      'hard bass punch impact sound effect',
+      'deep cinematic boom hit transition',
+      'rapid whoosh slam impact sound effect',
+    ],
+  },
+  'konbini': {
+    bgMusic: [
+      'fun upbeat pop music, playful and colorful, background interview music',
+      'cheerful synth pop, light and positive vibes, no vocals',
+      'bouncy indie pop background music, bright and energetic',
+    ],
+    transitionSfx: [
+      'bright camera flash pop sound effect',
+      'quick playful whoosh transition, fun and light',
+      'short swipe swoosh sound effect, crisp',
+    ],
+  },
+}
 
 const FORMATS = {
   '16/9': { width: 1280, height: 720, label: '16/9', description: 'YouTube · LinkedIn' },
@@ -168,6 +249,12 @@ export function ProcessView({ recordings, themeName, sessionId, themeSlug }: Pro
   const [theme, setTheme] = useState<TransitionTheme>(DEFAULT_TRANSITION_THEME)
   const [intro, setIntro] = useState<IntroSettings>(DEFAULT_INTRO_SETTINGS)
   const [motionSettings, setMotionSettings] = useState<MotionSettings>(DEFAULT_MOTION_SETTINGS)
+  const [questionCardFrames, setQuestionCardFrames] = useState(QUESTION_CARD_FRAMES)
+  const [activePresetId, setActivePresetId] = useState<string | null>(null)
+  const [audioSettings, setAudioSettings] = useState<AudioSettings>({})
+  const [generatingSfx, setGeneratingSfx] = useState<{ bgMusic: boolean; transitionSfx: boolean }>({ bgMusic: false, transitionSfx: false })
+  const [bgMusicPrompt, setBgMusicPrompt] = useState('upbeat background music for a fast-paced interview video')
+  const [transitionSfxPrompt, setTransitionSfxPrompt] = useState('short cinematic whoosh transition sound effect')
   const [localTranscripts, setLocalTranscripts] = useState<Record<string, string>>(() =>
     Object.fromEntries(recordings.map(r => [r.id, r.transcript ?? '']))
   )
@@ -201,6 +288,26 @@ export function ProcessView({ recordings, themeName, sessionId, themeSlug }: Pro
 
   const fetchVoices = async () => {
     try { const res = await fetch('/api/tts/voices'); if (res.ok) setVoices(await res.json()) } catch {}
+  }
+
+  const generateSfx = async (type: 'bgMusic' | 'transitionSfx', prompt: string) => {
+    setGeneratingSfx(p => ({ ...p, [type]: true }))
+    try {
+      const res = await fetch('/api/sfx', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ text: prompt, durationSeconds: type === 'bgMusic' ? 22 : 3 }),
+      })
+      if (!res.ok) return
+      const { id } = await res.json()
+      const url = `${window.location.origin}/api/sfx-asset/${id}`
+      setAudioSettings(p => ({
+        ...p,
+        [type]: { prompt, url, volume: type === 'bgMusic' ? 0.25 : 0.8 },
+      }))
+    } finally {
+      setGeneratingSfx(p => ({ ...p, [type]: false }))
+    }
   }
 
   const prepare = async (voiceId: string) => {
@@ -319,7 +426,7 @@ export function ProcessView({ recordings, themeName, sessionId, themeSlug }: Pro
 
   const introFrames = intro.enabled && intro.hookText ? Math.round(intro.durationSeconds * FPS) : 0
   const totalFrames = segments?.length
-    ? Math.max(introFrames + segments.reduce((a, s) => a + (s.questionDurationFrames ?? QUESTION_CARD_FRAMES) + s.videoDurationFrames, 0), 1)
+    ? Math.max(introFrames + segments.reduce((a, s) => a + (s.questionDurationFrames ?? questionCardFrames) + s.videoDurationFrames, 0), 1)
     : 1
 
   const selectedVoice = voices.find(v => v.id === selectedVoiceId)
@@ -549,6 +656,43 @@ export function ProcessView({ recordings, themeName, sessionId, themeSlug }: Pro
 
   const stepTheme = (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 20 }}>
+      {/* Style Presets */}
+      <div>
+        <Label>Style format</Label>
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+          {STYLE_PRESETS.map(preset => {
+            const isActive = activePresetId === preset.id
+            return (
+              <button
+                key={preset.id}
+                onClick={() => {
+                  setActivePresetId(preset.id)
+                  setFormat(preset.format)
+                  setTheme({ ...preset.theme })
+                  setMotionSettings({ ...preset.motionSettings })
+                  setSubtitleSettings({ ...preset.subtitleSettings })
+                  setQuestionCardFrames(preset.questionCardFrames)
+                }}
+                style={{
+                  display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+                  padding: '14px 16px', borderRadius: 14, textAlign: 'left',
+                  background: isActive ? 'rgba(255,255,255,0.1)' : S.surface,
+                  border: `1px solid ${isActive ? 'rgba(255,255,255,0.35)' : S.border}`,
+                }}
+              >
+                <div>
+                  <p style={{ color: isActive ? S.text : S.muted, fontWeight: 700, fontSize: 14 }}>{preset.label}</p>
+                  <p style={{ color: S.dim, fontSize: 11, marginTop: 2, fontFamily: 'monospace' }}>{preset.desc}</p>
+                </div>
+                {isActive && <span style={{ fontSize: 11, color: S.muted, fontFamily: 'monospace' }}>actif</span>}
+              </button>
+            )
+          })}
+        </div>
+      </div>
+
+      <div style={{ height: 1, background: S.border }} />
+
       {/* Presets */}
       <div>
         <Label>Preset couleurs</Label>
@@ -687,6 +831,98 @@ export function ProcessView({ recordings, themeName, sessionId, themeSlug }: Pro
           </div>
         </Card>
       </div>
+
+      <div style={{ height: 1, background: S.border }} />
+
+      {/* Audio */}
+      <div>
+        <Label>Audio</Label>
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+          {([
+            { key: 'bgMusic' as const, label: 'Musique de fond', prompt: bgMusicPrompt, setPrompt: setBgMusicPrompt },
+            { key: 'transitionSfx' as const, label: 'Sound effect transition', prompt: transitionSfxPrompt, setPrompt: setTransitionSfxPrompt },
+          ]).map(({ key, label, prompt, setPrompt }) => {
+            const track = audioSettings[key]
+            const loading = generatingSfx[key]
+            const suggestions = activePresetId ? (AUDIO_SUGGESTIONS[activePresetId]?.[key] ?? []) : []
+            return (
+              <Card key={key} style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+                <p style={{ color: S.text, fontWeight: 600, fontSize: 13 }}>{label}</p>
+                {suggestions.length > 0 && (
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+                    <p style={{ fontSize: 10, color: S.muted, fontFamily: 'monospace', textTransform: 'uppercase', letterSpacing: '0.08em' }}>
+                      Suggestions {STYLE_PRESETS.find(p => p.id === activePresetId)?.label}
+                    </p>
+                    <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6 }}>
+                      {suggestions.map(s => (
+                        <button
+                          key={s}
+                          onClick={() => setPrompt(s)}
+                          style={{
+                            padding: '5px 10px', borderRadius: 20, fontSize: 11,
+                            background: prompt === s ? 'rgba(255,255,255,0.12)' : 'transparent',
+                            border: `1px solid ${prompt === s ? 'rgba(255,255,255,0.25)' : S.border}`,
+                            color: prompt === s ? S.text : S.muted,
+                            textAlign: 'left', lineHeight: 1.3,
+                          }}
+                        >
+                          {s}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+                )}
+                <input
+                  type="text"
+                  value={prompt}
+                  onChange={e => setPrompt(e.target.value)}
+                  style={{ width: '100%', background: 'rgba(255,255,255,0.06)', border: `1px solid ${S.border}`, borderRadius: 10, padding: '10px 14px', color: S.text, fontSize: 13, outline: 'none', boxSizing: 'border-box' }}
+                />
+                <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
+                  <button
+                    onClick={() => generateSfx(key, prompt)}
+                    disabled={loading || !prompt.trim()}
+                    style={{
+                      padding: '8px 16px', borderRadius: 10, fontSize: 12, fontWeight: 700,
+                      background: loading ? 'rgba(255,255,255,0.05)' : 'rgba(255,255,255,0.12)',
+                      border: `1px solid ${S.border}`, color: loading ? S.muted : S.text,
+                      display: 'flex', alignItems: 'center', gap: 6,
+                    }}
+                  >
+                    {loading && <Loader2 size={12} className="animate-spin" />}
+                    {loading ? 'Génération...' : track ? 'Regénérer' : 'Générer'}
+                  </button>
+                  {track?.url && (
+                    <button
+                      onClick={() => { const a = new Audio(track.url); a.play() }}
+                      style={{ padding: '8px 14px', borderRadius: 10, fontSize: 12, background: S.surface, border: `1px solid ${S.border}`, color: S.muted, display: 'flex', alignItems: 'center', gap: 4 }}
+                    >
+                      <Play size={11} /> Écouter
+                    </button>
+                  )}
+                  {track?.url && (
+                    <button
+                      onClick={() => setAudioSettings(p => ({ ...p, [key]: undefined }))}
+                      style={{ padding: '8px 14px', borderRadius: 10, fontSize: 12, background: 'transparent', border: `1px solid ${S.border}`, color: S.muted }}
+                    >
+                      Retirer
+                    </button>
+                  )}
+                </div>
+                {track?.url && (
+                  <SliderRow
+                    label="Volume"
+                    value={Math.round((track.volume ?? 0.5) * 100)}
+                    min={0} max={100} step={5}
+                    format={v => `${v}%`}
+                    onChange={v => setAudioSettings(p => ({ ...p, [key]: { ...p[key]!, volume: v / 100 } }))}
+                  />
+                )}
+              </Card>
+            )
+          })}
+        </div>
+      </div>
     </div>
   )
 
@@ -737,12 +973,13 @@ export function ProcessView({ recordings, themeName, sessionId, themeSlug }: Pro
           theme={theme}
           intro={intro}
           subtitleSettings={subtitleSettings}
-          questionCardFrames={QUESTION_CARD_FRAMES}
+          questionCardFrames={questionCardFrames}
           fps={FPS}
           width={fmt.width}
           height={fmt.height}
           sessionId={sessionId}
           motionSettings={motionSettings}
+          audioSettings={audioSettings}
           onRenderComplete={(url) => setRenderOutputUrl(url)}
         />
       )}
@@ -914,7 +1151,7 @@ export function ProcessView({ recordings, themeName, sessionId, themeSlug }: Pro
             ) : segments && (
               <Player
                 component={LavidzComposition as any}
-                inputProps={{ segments, questionCardFrames: QUESTION_CARD_FRAMES, subtitleSettings, theme, intro, fps: FPS, motionSettings }}
+                inputProps={{ segments, questionCardFrames, subtitleSettings, theme, intro, fps: FPS, motionSettings, audioSettings }}
                 durationInFrames={totalFrames}
                 fps={FPS}
                 compositionWidth={fmt.width}

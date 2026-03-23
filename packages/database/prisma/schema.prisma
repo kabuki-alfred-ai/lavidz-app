@@ -8,19 +8,21 @@ datasource db {
 }
 
 model Theme {
-  id           String     @id @default(cuid())
-  name         String
-  slug         String     @unique
-  description  String?
-  active       Boolean    @default(true)
-  order        Int        @default(0)
-  brandName    String?
-  brandColor   String?    @default("#FF4D1C")
-  logoUrl      String?
-  questions    Question[]
-  sessions     Session[]
-  createdAt    DateTime   @default(now())
-  updatedAt    DateTime   @updatedAt
+  id             String        @id @default(cuid())
+  name           String
+  slug           String        @unique
+  description    String?
+  active         Boolean       @default(true)
+  order          Int           @default(0)
+  brandName      String?
+  brandColor     String?       @default("#FF4D1C")
+  logoUrl        String?
+  questions      Question[]
+  sessions       Session[]
+  organizationId String?
+  organization   Organization? @relation(fields: [organizationId], references: [id])
+  createdAt      DateTime      @default(now())
+  updatedAt      DateTime      @updatedAt
 }
 
 model Question {
@@ -63,6 +65,41 @@ model Recording {
   status       RecordingStatus @default(PENDING)
   createdAt    DateTime        @default(now())
   updatedAt    DateTime        @updatedAt
+}
+
+enum UserRole {
+  SUPERADMIN
+  ADMIN
+  USER
+}
+
+enum OrgStatus {
+  PENDING
+  ACTIVE
+  SUSPENDED
+}
+
+model Organization {
+  id        String    @id @default(cuid())
+  name      String
+  slug      String    @unique
+  status    OrgStatus @default(PENDING)
+  users     User[]
+  themes    Theme[]
+  createdAt DateTime  @default(now())
+  updatedAt DateTime  @updatedAt
+}
+
+model User {
+  id             String        @id @default(cuid())
+  email          String        @unique
+  passwordHash   String
+  name           String?
+  role           UserRole      @default(USER)
+  organizationId String?
+  organization   Organization? @relation(fields: [organizationId], references: [id])
+  createdAt      DateTime      @default(now())
+  updatedAt      DateTime      @updatedAt
 }
 
 enum SessionStatus {
