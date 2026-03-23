@@ -70,6 +70,7 @@ export async function POST(req: Request) {
     const formData = new FormData()
     formData.append('file', new Blob([audioBuffer], { type: 'audio/mpeg' }), 'audio.mp3')
     formData.append('model', 'whisper-1')
+    formData.append('language', 'fr')
     formData.append('response_format', 'verbose_json')
     formData.append('timestamp_granularities[]', 'word')
 

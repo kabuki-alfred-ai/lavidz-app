@@ -268,16 +268,21 @@ export function RecordingClip({
   // ─── Entry transition (first frames) ───────────────────────────────────────
   const entryScale =
     transitionStyle === 'zoom-punch'
-      ? interpolate(frame, [0, 5], [1.08, 1.0], { extrapolateRight: 'clamp' })
+      ? interpolate(frame, [0, 10], [1.4, 1.0], { extrapolateRight: 'clamp' })
       : 1
   const entryTranslateY =
     transitionStyle === 'slide-up'
-      ? interpolate(frame, [0, 8], [60, 0], { extrapolateRight: 'clamp' })
+      ? interpolate(frame, [0, 12], [160, 0], { extrapolateRight: 'clamp' })
       : 0
   const entryOpacity =
-    transitionStyle === 'flash'
-      ? interpolate(frame, [0, 3], [0, 1], { extrapolateRight: 'clamp' })
+    transitionStyle === 'slide-up'
+      ? interpolate(frame, [0, 8], [0, 1], { extrapolateRight: 'clamp' })
       : 1
+  // Flash: white overlay that burns in then disappears
+  const flashOverlayOpacity =
+    transitionStyle === 'flash'
+      ? interpolate(frame, [0, 7], [1, 0], { extrapolateRight: 'clamp' })
+      : 0
 
   // ─── Ken Burns ──────────────────────────────────────────────────────────────
   const kenBurnsScale = motionSettings?.kenBurns
@@ -372,6 +377,10 @@ export function RecordingClip({
     </div>
   )
 
+  const flashNode = flashOverlayOpacity > 0 && (
+    <div style={{ position: 'absolute', inset: 0, background: '#fff', opacity: flashOverlayOpacity, zIndex: 10, pointerEvents: 'none' }} />
+  )
+
   if (isVertical) {
     return (
       <AbsoluteFill style={{ background: 'black', overflow: 'hidden', opacity: entryOpacity }}>
@@ -404,6 +413,7 @@ export function RecordingClip({
         {progressBarNode}
         {subtitlesNode}
         {lowerThirdNode}
+        {flashNode}
       </AbsoluteFill>
     )
   }
@@ -416,6 +426,7 @@ export function RecordingClip({
       {progressBarNode}
       {subtitlesNode}
       {lowerThirdNode}
+      {flashNode}
     </AbsoluteFill>
   )
 }
