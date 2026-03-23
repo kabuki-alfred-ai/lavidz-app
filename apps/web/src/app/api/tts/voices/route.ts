@@ -16,7 +16,15 @@ export async function GET(req: Request) {
     voices: Array<{ voice_id: string; name: string; preview_url: string; labels: Record<string, string> }>
   }
 
-  let voices = data.voices.map((v) => ({
+  const CREATOR_VOICE_IDS = [
+    'odOFTFZU3DvAZ3EV3KHi',
+    'KSyQzmsYhFbuOhqj1Xxv',
+    'jGpnMdbhtKgQbVrYezOx',
+    'nVPCtAFzgyMX3FZKNzH0',
+    'jsScnYkNNda9Q1NES5nn',
+  ]
+
+  const allVoices = data.voices.map((v) => ({
     id: v.voice_id,
     name: v.name,
     previewUrl: v.preview_url,
@@ -25,13 +33,7 @@ export async function GET(req: Request) {
     language: v.labels?.language ?? '',
   }))
 
-  if (language) {
-    voices = voices.filter(
-      (v) =>
-        v.language.toLowerCase().includes(language) ||
-        v.accent.toLowerCase().includes(language),
-    )
-  }
+  const voices = allVoices.filter(v => CREATOR_VOICE_IDS.includes(v.id))
 
   return Response.json(voices)
 }

@@ -67,12 +67,14 @@ export async function POST(req: Request) {
       ? parseInt(durationMatch[1]) * 3600 + parseInt(durationMatch[2]) * 60 + parseFloat(durationMatch[3])
       : null
 
-    // Build keep intervals (non-silent segments)
+    // Build keep intervals with 200ms padding around speech to avoid abrupt cuts
+    const PAD = 0.2
     const keepIntervals: { start: number; end: number }[] = []
     let pos = 0
     for (let i = 0; i < silenceStarts.length; i++) {
-      if (silenceStarts[i] > pos + 0.05) keepIntervals.push({ start: pos, end: silenceStarts[i] })
-      pos = silenceEnds[i] ?? silenceStarts[i]
+      const segEnd = Math.min(silenceStarts[i] + PAD, totalDuration ?? silenceStarts[i] + PAD)
+      if (segEnd > pos + 0.05) keepIntervals.push({ start: pos, end: segEnd })
+      pos = Math.max(0, (silenceEnds[i] ?? silenceStarts[i]) - PAD)
     }
     if (totalDuration && pos < totalDuration - 0.05) keepIntervals.push({ start: pos, end: totalDuration })
 
