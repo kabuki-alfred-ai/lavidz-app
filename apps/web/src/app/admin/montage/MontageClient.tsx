@@ -205,79 +205,119 @@ export function MontageClient({ themes, initialSessions }: Props) {
           Sessions soumises
         </p>
 
-        {sessions.length === 0 ? (
+        {sessions.filter((s) => s.status !== 'DONE').length === 0 ? (
           <div className="border border-border border-dashed p-12 text-center">
             <p className="text-xs font-mono text-muted-foreground">Aucune session soumise pour l'instant.</p>
           </div>
         ) : (
-          <div className="border border-border overflow-hidden">
-            {/* Header */}
-            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 140px 100px 160px' }} className="border-b border-border bg-surface">
-              {['Destinataire', 'Thème', 'Soumise le', 'Statut', 'Actions'].map((h) => (
-                <div key={h} className="px-4 py-3 text-[10px] font-mono uppercase tracking-widest text-muted-foreground">
-                  {h}
-                </div>
-              ))}
-            </div>
-
-            {sessions.map((session, i) => {
-              const statusInfo = STATUS_LABELS[session.status] ?? { label: session.status, color: 'rgba(255,255,255,0.4)' }
-              const canDeliver = session.status === 'PROCESSING' || (session.finalVideoKey != null && session.status !== 'DONE')
-              return (
-                <div
-                  key={session.id}
-                  style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 140px 100px 160px' }}
-                  className={`items-center border-b border-border last:border-0 hover:bg-surface-raised transition-colors ${i % 2 === 0 ? '' : 'bg-surface/50'}`}
-                >
-                  <div className="px-4 py-3.5">
-                    <p className="font-sans font-semibold text-sm text-foreground">{session.recipientName ?? '—'}</p>
-                    <p className="text-[11px] text-muted-foreground mt-0.5">{session.recipientEmail}</p>
-                  </div>
-                  <div className="px-4 py-3.5">
-                    <span className="text-xs text-foreground">{session.theme?.name}</span>
-                  </div>
-                  <div className="px-4 py-3.5">
-                    <span className="text-[11px] font-mono text-muted-foreground">{formatDate(session.submittedAt)}</span>
-                  </div>
-                  <div className="px-4 py-3.5">
-                    <span
-                      className="text-[10px] font-mono uppercase tracking-wider px-2 py-1"
-                      style={{ color: statusInfo.color, background: `${statusInfo.color}18`, border: `1px solid ${statusInfo.color}30` }}
-                    >
-                      {statusInfo.label}
-                    </span>
-                  </div>
-                  <div className="px-4 py-3.5 flex items-center gap-2 flex-wrap">
-                    <Link
-                      href={`/process/${session.id}`}
-                      className="text-[10px] font-mono uppercase tracking-widest text-muted-foreground hover:text-primary transition-colors whitespace-nowrap"
-                    >
-                      Montage →
-                    </Link>
-                    {canDeliver && (
-                      <button
-                        onClick={() => handleDeliver(session.id)}
-                        disabled={delivering === session.id}
-                        className="text-[10px] font-mono uppercase tracking-widest transition-colors whitespace-nowrap disabled:opacity-50"
-                        style={{ color: 'rgb(52,211,153)' }}
-                      >
-                        {delivering === session.id ? 'Envoi...' : 'Envoyer ✉'}
-                      </button>
-                    )}
-                    {deliverSuccess === session.id && (
-                      <span className="text-[10px] font-mono" style={{ color: 'rgb(52,211,153)' }}>Email envoyé ✓</span>
-                    )}
-                  </div>
-                </div>
-              )
-            })}
-          </div>
+          <SessionTable
+            sessions={sessions.filter((s) => s.status !== 'DONE')}
+            delivering={delivering}
+            deliverSuccess={deliverSuccess}
+            onDeliver={handleDeliver}
+          />
         )}
 
         {deliverError && (
           <p className="text-xs font-mono mt-3" style={{ color: '#f87171' }}>{deliverError}</p>
         )}
       </section>
+
+      {/* ── History ── */}
+      <section>
+        <p className="text-[10px] font-mono uppercase tracking-widest text-muted-foreground mb-4">
+          Historique
+        </p>
+
+        {sessions.filter((s) => s.status === 'DONE').length === 0 ? (
+          <div className="border border-border border-dashed p-12 text-center">
+            <p className="text-xs font-mono text-muted-foreground">Aucune vidéo envoyée pour l'instant.</p>
+          </div>
+        ) : (
+          <SessionTable
+            sessions={sessions.filter((s) => s.status === 'DONE')}
+            delivering={delivering}
+            deliverSuccess={deliverSuccess}
+            onDeliver={handleDeliver}
+          />
+        )}
+      </section>
+    </div>
+  )
+}
+
+function SessionTable({
+  sessions,
+  delivering,
+  deliverSuccess,
+  onDeliver,
+}: {
+  sessions: SubmittedSession[]
+  delivering: string | null
+  deliverSuccess: string | null
+  onDeliver: (id: string) => void
+}) {
+  return (
+    <div className="border border-border overflow-hidden">
+      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 140px 100px 160px' }} className="border-b border-border bg-surface">
+        {['Destinataire', 'Thème', 'Soumise le', 'Statut', 'Actions'].map((h) => (
+          <div key={h} className="px-4 py-3 text-[10px] font-mono uppercase tracking-widest text-muted-foreground">
+            {h}
+          </div>
+        ))}
+      </div>
+
+      {sessions.map((session, i) => {
+        const statusInfo = STATUS_LABELS[session.status] ?? { label: session.status, color: 'rgba(255,255,255,0.4)' }
+        const canDeliver = session.status === 'PROCESSING' || (session.finalVideoKey != null && session.status !== 'DONE')
+        return (
+          <div
+            key={session.id}
+            style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 140px 100px 160px' }}
+            className={`items-center border-b border-border last:border-0 hover:bg-surface-raised transition-colors ${i % 2 === 0 ? '' : 'bg-surface/50'}`}
+          >
+            <div className="px-4 py-3.5">
+              <p className="font-sans font-semibold text-sm text-foreground">{session.recipientName ?? '—'}</p>
+              <p className="text-[11px] text-muted-foreground mt-0.5">{session.recipientEmail}</p>
+            </div>
+            <div className="px-4 py-3.5">
+              <span className="text-xs text-foreground">{session.theme?.name}</span>
+            </div>
+            <div className="px-4 py-3.5">
+              <span className="text-[11px] font-mono text-muted-foreground">{formatDate(session.submittedAt)}</span>
+            </div>
+            <div className="px-4 py-3.5">
+              <span
+                className="text-[10px] font-mono uppercase tracking-wider px-2 py-1"
+                style={{ color: statusInfo.color, background: `${statusInfo.color}18`, border: `1px solid ${statusInfo.color}30` }}
+              >
+                {statusInfo.label}
+              </span>
+            </div>
+            <div className="px-4 py-3.5 flex items-center gap-2 flex-wrap">
+              <Link
+                href={`/process/${session.id}`}
+                className="text-[10px] font-mono uppercase tracking-widest text-muted-foreground hover:text-primary transition-colors whitespace-nowrap"
+              >
+                Montage →
+              </Link>
+              {canDeliver && (
+                <button
+                  onClick={() => onDeliver(session.id)}
+                  disabled={delivering === session.id}
+                  className="text-[10px] font-mono uppercase tracking-widest transition-colors whitespace-nowrap disabled:opacity-50"
+                  style={{ color: 'rgb(52,211,153)' }}
+                >
+                  {delivering === session.id ? 'Envoi...' : 'Envoyer ✉'}
+                </button>
+              )}
+              {deliverSuccess === session.id && (
+                <span className="text-[10px] font-mono" style={{ color: 'rgb(52,211,153)' }}>Email envoyé ✓</span>
+              )}
+            </div>
+          </div>
+        )
+      })}
     </div>
   )
 }
