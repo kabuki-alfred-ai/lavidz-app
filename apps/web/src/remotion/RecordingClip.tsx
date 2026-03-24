@@ -28,32 +28,41 @@ function getWordWindow(
   fps: number,
   wordTimestamps?: WordTimestamp[],
 ): WordWindow {
+  if (wordTimestamps && wordTimestamps.length > 0) {
+    // Use wordTimestamps as the single source of truth for both words and timing.
+    // This avoids mismatch between transcript tokenization and Whisper tokenization.
+    const words = wordTimestamps.map(w => w.word)
+    const currentTimeSec = frame / fps
+
+    let idx = wordTimestamps.findIndex(w => currentTimeSec >= w.start && currentTimeSec <= w.end)
+    if (idx === -1) {
+      // Between words: find the last word whose start <= currentTime
+      idx = 0
+      for (let i = 0; i < wordTimestamps.length; i++) {
+        if (wordTimestamps[i].start <= currentTimeSec) idx = i
+        else break
+      }
+    }
+
+    const currentWordIndex = Math.min(idx, words.length - 1)
+    const wordStartFrame = Math.floor(wordTimestamps[currentWordIndex].start * fps)
+    const framesIntoActiveWord = Math.max(0, frame - wordStartFrame)
+
+    const windowStart = Math.floor(currentWordIndex / wordsPerLine) * wordsPerLine
+    const windowWords = words.slice(windowStart, windowStart + wordsPerLine)
+    const activeIndex = currentWordIndex - windowStart
+
+    return { words: windowWords, activeIndex, framesIntoActiveWord }
+  }
+
+  // Fallback: uniform distribution across transcript words
   const words = transcript.split(/\s+/).filter(Boolean)
   if (words.length === 0) return { words: [], activeIndex: 0, framesIntoActiveWord: 0 }
 
-  let currentWordIndex: number
-  let framesIntoActiveWord: number
+  const framesPerWord = totalFrames / words.length
+  const currentWordIndex = Math.min(Math.floor(frame / framesPerWord), words.length - 1)
+  const framesIntoActiveWord = frame - currentWordIndex * framesPerWord
 
-  if (wordTimestamps && wordTimestamps.length > 0) {
-    const currentTimeSec = frame / fps
-    // Find the word being spoken right now
-    let idx = wordTimestamps.findIndex(w => currentTimeSec >= w.start && currentTimeSec <= w.end)
-    if (idx === -1) {
-      // Between words: use the last word whose start <= currentTime
-      const past = wordTimestamps.filter(w => w.start <= currentTimeSec)
-      idx = past.length > 0 ? past.length - 1 : 0
-    }
-    currentWordIndex = Math.min(idx, words.length - 1)
-    const wordStartFrame = Math.floor((wordTimestamps[currentWordIndex]?.start ?? 0) * fps)
-    framesIntoActiveWord = Math.max(0, frame - wordStartFrame)
-  } else {
-    // Fallback: uniform distribution
-    const framesPerWord = totalFrames / words.length
-    currentWordIndex = Math.min(Math.floor(frame / framesPerWord), words.length - 1)
-    framesIntoActiveWord = frame - currentWordIndex * framesPerWord
-  }
-
-  // Snap window: floor to multiple of wordsPerLine
   const windowStart = Math.floor(currentWordIndex / wordsPerLine) * wordsPerLine
   const windowWords = words.slice(windowStart, windowStart + wordsPerLine)
   const activeIndex = currentWordIndex - windowStart
