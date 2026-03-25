@@ -7,7 +7,6 @@ RUN corepack enable && corepack prepare pnpm@9.15.0 --activate
 FROM base AS builder
 WORKDIR /app
 
-# Build-time env vars (NEXT_PUBLIC_* are baked into the client bundle)
 ARG NEXT_PUBLIC_API_URL
 ARG NEXT_PUBLIC_ADMIN_SECRET
 ENV NEXT_PUBLIC_API_URL=$NEXT_PUBLIC_API_URL
@@ -18,28 +17,55 @@ RUN pnpm install --frozen-lockfile
 RUN pnpm --filter @lavidz/database run db:generate
 RUN pnpm --filter @lavidz/web build
 
-# Collect Remotion compositor binaries into a known path for the runner stage
-RUN mkdir -p /remotion-bins && \
-    find /app/node_modules/.pnpm -maxdepth 1 -type d -name "@remotion+compositor*" \
-      -exec cp -r {} /remotion-bins/ \;
-
-# ── Stage 2: minimal production image (Next.js standalone) ────────────────────
-FROM node:22-alpine AS runner
+# ── Stage 2: production runner — Debian slim (glibc, required for chrome-headless-shell) ──
+FROM node:22-slim AS runner
 WORKDIR /app
 ENV NODE_ENV=production
-RUN apk add --no-cache ffmpeg
+
+# ffmpeg + Chrome headless shell system dependencies
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    ffmpeg \
+    libnss3 \
+    libdbus-1-3 \
+    libatk1.0-0 \
+    libgbm1 \
+    libasound2 \
+    libxrandr2 \
+    libxkbcommon0 \
+    libxfixes3 \
+    libxcomposite1 \
+    libxdamage1 \
+    libatk-bridge2.0-0 \
+    libpango-1.0-0 \
+    libcairo2 \
+    libcups2 \
+    && rm -rf /var/lib/apt/lists/*
 
 # Standalone bundle — self-contained Node.js server
 COPY --from=builder /app/apps/web/.next/standalone ./
 
-# Static assets must be served alongside the standalone server
+# Static assets
 COPY --from=builder /app/apps/web/.next/static ./apps/web/.next/static
 
-# Remotion bundler needs the TypeScript sources at runtime
+# Remotion TypeScript sources (needed for bundler at runtime)
 COPY --from=builder /app/apps/web/src/remotion ./apps/web/src/remotion
 
-# Remotion compositor binaries — not included in standalone output but required at runtime
-COPY --from=builder /remotion-bins /app/node_modules/.pnpm/
+# Download Remotion chrome-headless-shell at image build time
+RUN node --input-type=module <<'EOF'
+import { createRequire } from 'module';
+const require = createRequire(import.meta.url);
+const candidates = [
+  '/app/node_modules/@remotion/renderer',
+  '/app/apps/web/node_modules/@remotion/renderer',
+];
+let mod;
+for (const p of candidates) {
+  try { mod = require(p); break; } catch {}
+}
+if (!mod) { console.error('Could not find @remotion/renderer'); process.exit(1); }
+await mod.ensureBrowser();
+console.log('Remotion browser ready');
+EOF
 
 EXPOSE 3000
 ENV PORT=3000
