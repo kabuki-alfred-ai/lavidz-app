@@ -20,6 +20,7 @@ export interface SfxTrack {
 export interface AudioSettings {
   bgMusic?: SfxTrack
   transitionSfx?: SfxTrack
+  ttsVolume?: number  // volume of the TTS voice (0–2), default 1
 }
 
 export interface MotionSettings {
@@ -79,6 +80,22 @@ export const DEFAULT_TRANSITION_THEME: TransitionTheme = {
 export const DEFAULT_INTRO_SETTINGS: IntroSettings = {
   enabled: false,
   hookText: '',
+  logoUrl: '',
+  durationSeconds: 3,
+}
+
+export interface OutroSettings {
+  enabled: boolean
+  ctaText: string       // e.g. "Abonne-toi pour plus 🔥"
+  subText: string       // e.g. "@handle" or secondary CTA
+  logoUrl: string
+  durationSeconds: number
+}
+
+export const DEFAULT_OUTRO_SETTINGS: OutroSettings = {
+  enabled: false,
+  ctaText: '',
+  subText: '',
   logoUrl: '',
   durationSeconds: 3,
 }

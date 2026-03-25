@@ -1,10 +1,10 @@
 'use client'
 
-import { useState, useRef, useEffect } from 'react'
+import { useState, useRef, useEffect, useCallback } from 'react'
 import { useRouter } from 'next/navigation'
 import type { ThemeDto } from '@lavidz/types'
 
-type Phase = 'intro' | 'reading' | 'countdown' | 'recording' | 'review' | 'uploading' | 'done'
+type Phase = 'intro' | 'check' | 'reading' | 'countdown' | 'recording' | 'review' | 'uploading' | 'done'
 
 function readingDuration(text: string): number {
   const words = text.trim().split(/\s+/).length
@@ -31,8 +31,12 @@ export function RecordingSession({ theme, initialSessionId, mode = 'default' }: 
   const [elapsed, setElapsed] = useState(0)
   const [uploadError, setUploadError] = useState('')
   const [starting, setStarting] = useState(false)
+  const [checkError, setCheckError] = useState('')
+  const [micLevel, setMicLevel] = useState(0)
   const [introStep, setIntroStep] = useState<1 | 2 | 3>(1)
   const introAnnouncedRef = useRef(false)
+  const audioContextRef = useRef<AudioContext | null>(null)
+  const micRafRef = useRef<number | null>(null)
 
   const videoRef = useRef<HTMLVideoElement>(null)
   const mediaRecorderRef = useRef<MediaRecorder | null>(null)
@@ -69,6 +73,34 @@ export function RecordingSession({ theme, initialSessionId, mode = 'default' }: 
   const currentQuestion = questions[questionIndex]
   const accent = theme.brandColor ?? '#FF4D1C'
 
+  const stopMicMeter = useCallback(() => {
+    if (micRafRef.current) cancelAnimationFrame(micRafRef.current)
+    audioContextRef.current?.close()
+    audioContextRef.current = null
+    setMicLevel(0)
+  }, [])
+
+  const startMicMeter = useCallback((stream: MediaStream) => {
+    try {
+      const ctx = new AudioContext()
+      audioContextRef.current = ctx
+      const source = ctx.createMediaStreamSource(stream)
+      const analyser = ctx.createAnalyser()
+      analyser.fftSize = 256
+      source.connect(analyser)
+      const data = new Uint8Array(analyser.frequencyBinCount)
+      const tick = () => {
+        analyser.getByteFrequencyData(data)
+        const avg = data.reduce((s, v) => s + v, 0) / data.length
+        setMicLevel(Math.min(100, Math.round((avg / 128) * 100)))
+        micRafRef.current = requestAnimationFrame(tick)
+      }
+      micRafRef.current = requestAnimationFrame(tick)
+    } catch {
+      // AudioContext unavailable — mic meter won't show but check phase still works
+    }
+  }, [])
+
   useEffect(() => {
     return () => {
       streamRef.current?.getTracks().forEach((t) => t.stop())
@@ -76,16 +108,25 @@ export function RecordingSession({ theme, initialSessionId, mode = 'default' }: 
       if (countdownRef.current) clearInterval(countdownRef.current)
       if (readingRef.current) clearInterval(readingRef.current)
       questionAudioRef.current?.pause()
+      stopMicMeter()
     }
-  }, [])
+  }, [stopMicMeter])
 
-  // Attach stream to video element whenever camera phase is active
+  // Attach stream to video element whenever a camera phase becomes active
   useEffect(() => {
     if (phase !== 'intro' && phase !== 'done' && streamRef.current && videoRef.current) {
       videoRef.current.srcObject = streamRef.current
       videoRef.current.muted = true
     }
   }, [phase])
+
+  // In check phase, the video ref mounts after the render — set srcObject on mount
+  const checkVideoCallbackRef = useCallback((el: HTMLVideoElement | null) => {
+    if (el && streamRef.current) {
+      el.srcObject = streamRef.current
+      el.muted = true
+    }
+  }, [])
 
   const beginReading = (question: typeof currentQuestion) => {
     const duration = readingDuration(question?.text ?? '')
@@ -182,6 +223,32 @@ export function RecordingSession({ theme, initialSessionId, mode = 'default' }: 
   const handleStart = async () => {
     if (starting) return
     setStarting(true)
+    setCheckError('')
+    try {
+      const stream = await navigator.mediaDevices.getUserMedia({
+        video: { facingMode: 'user' },
+        audio: true,
+      })
+      streamRef.current = stream
+      if (videoRef.current) {
+        videoRef.current.srcObject = stream
+        videoRef.current.muted = true
+      }
+      startMicMeter(stream)
+      setPhase('check')
+    } catch (err: any) {
+      const denied = err?.name === 'NotAllowedError' || err?.name === 'PermissionDeniedError'
+      setCheckError(denied
+        ? 'Accès refusé. Autorisez la caméra et le micro dans les réglages de votre navigateur.'
+        : 'Impossible d\'accéder à la caméra ou au micro.')
+    } finally {
+      setStarting(false)
+    }
+  }
+
+  const handleConfirmStart = async () => {
+    stopMicMeter()
+    setStarting(true)
     try {
       if (!initialSessionId) {
         const res = await fetch(`${API}/api/sessions`, {
@@ -193,16 +260,10 @@ export function RecordingSession({ theme, initialSessionId, mode = 'default' }: 
         setSessionId(session.id)
         sessionIdRef.current = session.id
       }
-
-      const stream = await navigator.mediaDevices.getUserMedia({
-        video: { facingMode: 'user' },
-        audio: true,
-      })
-      streamRef.current = stream
-
       beginReading(questions[0])
     } catch (err) {
       console.error(err)
+    } finally {
       setStarting(false)
     }
   }
@@ -314,6 +375,9 @@ export function RecordingSession({ theme, initialSessionId, mode = 'default' }: 
           </div>
 
           <div className="flex flex-col items-center gap-4 z-10 w-full max-w-sm">
+            {checkError && (
+              <p className="text-xs font-mono text-red-400 text-center">{checkError}</p>
+            )}
             <button
               onClick={handleStart}
               disabled={starting}
@@ -467,6 +531,69 @@ export function RecordingSession({ theme, initialSessionId, mode = 'default' }: 
             Voir les résultats
           </button>
         )}
+      </div>
+    )
+  }
+
+  // ─── CHECK PHASE ──────────────────────────────────────────────────────────
+  if (phase === 'check') {
+    return (
+      <div className="fixed inset-0 flex flex-col items-center justify-center px-6 py-12 overflow-hidden" style={{ background: '#0a0a0a' }}>
+        <div className="flex flex-col items-center gap-6 w-full max-w-sm z-10">
+          {/* Camera preview */}
+          <div className="relative w-full rounded-2xl overflow-hidden bg-black border border-white/10" style={{ aspectRatio: '4/3' }}>
+            <video
+              ref={checkVideoCallbackRef}
+              autoPlay
+              playsInline
+              muted
+              className="w-full h-full object-cover scale-x-[-1]"
+            />
+            <div className="absolute top-3 left-3 flex items-center gap-1.5">
+              <span className="w-2 h-2 rounded-full bg-red-500 animate-pulse" />
+              <span className="text-[10px] font-mono text-white/60 uppercase tracking-widest">Prévisualisation</span>
+            </div>
+          </div>
+
+          {/* Mic meter */}
+          <div className="w-full flex flex-col gap-2">
+            <p className="text-[10px] font-mono text-white/40 uppercase tracking-widest">Micro</p>
+            <div className="w-full h-2 rounded-full bg-white/10 overflow-hidden">
+              <div
+                className="h-full rounded-full transition-all duration-75"
+                style={{
+                  width: `${micLevel}%`,
+                  background: micLevel > 70 ? '#ef4444' : micLevel > 30 ? accent : '#4ade80',
+                }}
+              />
+            </div>
+            <p className="text-[10px] font-mono text-white/30">
+              {micLevel === 0 ? 'Parlez pour tester le micro…' : micLevel > 70 ? 'Niveau élevé' : 'Micro détecté ✓'}
+            </p>
+          </div>
+
+          {/* CTA */}
+          <button
+            onClick={handleConfirmStart}
+            disabled={starting}
+            className="w-full py-4 rounded-2xl font-bold text-sm tracking-wide transition-opacity disabled:opacity-50"
+            style={{ background: accent, color: '#fff' }}
+          >
+            {starting ? 'Démarrage…' : 'Tout est bon — Commencer'}
+          </button>
+
+          <button
+            onClick={() => {
+              stopMicMeter()
+              streamRef.current?.getTracks().forEach(t => t.stop())
+              streamRef.current = null
+              setPhase('intro')
+            }}
+            className="text-xs font-mono text-white/30 hover:text-white/60 transition-colors"
+          >
+            ← Retour
+          </button>
+        </div>
       </div>
     )
   }

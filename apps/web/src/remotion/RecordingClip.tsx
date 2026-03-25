@@ -30,18 +30,39 @@ function getWordWindow(
 ): WordWindow {
   if (wordTimestamps && wordTimestamps.length > 0) {
     // Use wordTimestamps as the single source of truth for both words and timing.
-    // This avoids mismatch between transcript tokenization and Whisper tokenization.
     const words = wordTimestamps.map(w => w.word)
     const currentTimeSec = frame / fps
+    const SILENCE_THRESHOLD_SEC = 0.15 // hide subtitles during pauses longer than this
+
+    // Before first word: blank
+    if (currentTimeSec < wordTimestamps[0].start - SILENCE_THRESHOLD_SEC) {
+      return { words: [], activeIndex: 0, framesIntoActiveWord: 0 }
+    }
+    // After last word: blank
+    if (currentTimeSec > wordTimestamps[wordTimestamps.length - 1].end + SILENCE_THRESHOLD_SEC) {
+      return { words: [], activeIndex: 0, framesIntoActiveWord: 0 }
+    }
 
     let idx = wordTimestamps.findIndex(w => currentTimeSec >= w.start && currentTimeSec <= w.end)
     if (idx === -1) {
-      // Between words: find the last word whose start <= currentTime
-      idx = 0
+      // Between words — find surrounding words
+      let prevIdx = -1
+      let nextIdx = -1
       for (let i = 0; i < wordTimestamps.length; i++) {
-        if (wordTimestamps[i].start <= currentTimeSec) idx = i
-        else break
+        if (wordTimestamps[i].end < currentTimeSec) prevIdx = i
+        else if (nextIdx === -1) nextIdx = i
       }
+
+      // Hide subtitles if the gap to the next word is large (mid-sentence silence)
+      if (prevIdx >= 0 && nextIdx >= 0) {
+        const gap = wordTimestamps[nextIdx].start - wordTimestamps[prevIdx].end
+        const timeSincePrev = currentTimeSec - wordTimestamps[prevIdx].end
+        if (gap > 0.5 && timeSincePrev > SILENCE_THRESHOLD_SEC) {
+          return { words: [], activeIndex: 0, framesIntoActiveWord: 0 }
+        }
+      }
+
+      idx = prevIdx >= 0 ? prevIdx : 0
     }
 
     const currentWordIndex = Math.min(idx, words.length - 1)
@@ -273,7 +294,7 @@ export function RecordingClip({
   const frame = useCurrentFrame()
   const { width, height, fps } = useVideoConfig()
   const settings = subtitleSettings ?? DEFAULT_SUBTITLE_SETTINGS
-  const { style, size, position, wordsPerLine } = settings
+  const { style, size, position, wordsPerLine, offsetMs = 0 } = settings
 
   const transitionStyle = motionSettings?.transitionStyle ?? 'zoom-punch'
   const isVertical = height > width
@@ -305,8 +326,15 @@ export function RecordingClip({
   const videoTransform = `scale(${finalVideoScale}) translateY(${entryTranslateY}px)`
 
   // ─── Subtitles with Word Pop ────────────────────────────────────────────────
+  // Apply offset: shift timestamps by -offsetMs (negative = subtitles appear earlier)
+  const shiftedTimestamps = wordTimestamps?.map(w => ({
+    ...w,
+    start: Math.max(0, w.start - offsetMs / 1000),
+    end: Math.max(0, w.end - offsetMs / 1000),
+  }))
+
   const { words, activeIndex, framesIntoActiveWord } = transcript
-    ? getWordWindow(transcript, frame, durationInFrames, wordsPerLine, fps, wordTimestamps)
+    ? getWordWindow(transcript, frame, durationInFrames, wordsPerLine, fps, shiftedTimestamps)
     : { words: [], activeIndex: 0, framesIntoActiveWord: 0 }
 
   const hasWords = words.length > 0
@@ -321,7 +349,7 @@ export function RecordingClip({
     : style === 'neon' ? NeonSubtitle
     : ClassicSubtitle
 
-  const subtitlesNode = hasWords && (
+  const subtitlesNode = settings.enabled && hasWords && (
     <div
       style={{
         position: 'absolute',
@@ -400,9 +428,10 @@ export function RecordingClip({
     return (
       <AbsoluteFill style={{ background: 'black', overflow: 'hidden', opacity: entryOpacity }}>
         {sfxNode}
-        {/* Blurred background */}
+        {/* Blurred background — muted to avoid double audio */}
         <Video
           src={videoUrl}
+          muted
           style={{
             position: 'absolute',
             width: '100%',

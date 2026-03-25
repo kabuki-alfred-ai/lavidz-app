@@ -6,6 +6,40 @@ import path from 'path'
 export const runtime = 'nodejs'
 export const maxDuration = 120
 
+// ─── Provider config ──────────────────────────────────────────────────────────
+// TRANSCRIPTION_PROVIDER: 'groq' | 'openai'  (default: groq if key set, else openai)
+// TRANSCRIPTION_MODEL: override model name (e.g. 'whisper-large-v3')
+
+const PROVIDERS = {
+  groq: {
+    endpoint: 'https://api.groq.com/openai/v1/audio/transcriptions',
+    defaultModel: 'whisper-large-v3-turbo',
+    apiKeyEnv: 'GROQ_API_KEY',
+  },
+  openai: {
+    endpoint: 'https://api.openai.com/v1/audio/transcriptions',
+    defaultModel: 'whisper-1',
+    apiKeyEnv: 'OPENAI_API_KEY',
+  },
+} as const
+
+type ProviderKey = keyof typeof PROVIDERS
+
+function resolveProvider(): { endpoint: string; model: string; apiKey: string; name: ProviderKey } {
+  const forced = process.env.TRANSCRIPTION_PROVIDER as ProviderKey | undefined
+  const modelOverride = process.env.TRANSCRIPTION_MODEL
+
+  // Auto-select: groq if key present, else openai
+  const name: ProviderKey = forced ?? (process.env.GROQ_API_KEY ? 'groq' : 'openai')
+  const provider = PROVIDERS[name]
+  const apiKey = process.env[provider.apiKeyEnv] ?? ''
+  const model = modelOverride ?? provider.defaultModel
+
+  return { endpoint: provider.endpoint, model, apiKey, name }
+}
+
+// ─── FFmpeg ───────────────────────────────────────────────────────────────────
+
 const FFMPEG_CANDIDATES = [
   process.env.FFMPEG_PATH,
   '/opt/homebrew/bin/ffmpeg',
@@ -24,6 +58,8 @@ function findFfmpeg(): string | null {
   return null
 }
 
+// ─── Route ────────────────────────────────────────────────────────────────────
+
 export async function POST(req: Request) {
   let { videoUrl } = await req.json()
   if (!videoUrl) return new Response('videoUrl requis', { status: 400 })
@@ -33,8 +69,8 @@ export async function POST(req: Request) {
     videoUrl = `${origin}${videoUrl}`
   }
 
-  const apiKey = process.env.OPENAI_API_KEY
-  if (!apiKey) return new Response('OPENAI_API_KEY non configuré', { status: 500 })
+  const { endpoint, model, apiKey, name } = resolveProvider()
+  if (!apiKey) return new Response(`Clé API manquante pour le provider "${name}"`, { status: 500 })
 
   const ffmpeg = findFfmpeg()
   if (!ffmpeg) return new Response('FFmpeg introuvable', { status: 500 })
@@ -52,38 +88,28 @@ export async function POST(req: Request) {
     // Extract audio: mono, 16kHz — optimal for Whisper
     const ffResult = spawnSync(ffmpeg, [
       '-i', inputPath,
-      '-vn',
-      '-ar', '16000',
-      '-ac', '1',
-      '-b:a', '64k',
+      '-vn', '-ar', '16000', '-ac', '1', '-b:a', '64k',
       '-y', audioPath,
     ], { timeout: 60_000 })
 
-    if (ffResult.status !== 0) {
-      throw new Error(`FFmpeg audio extraction échouée: ${ffResult.stderr?.toString()}`)
-    }
-
+    if (ffResult.status !== 0) throw new Error(`FFmpeg: ${ffResult.stderr?.toString()}`)
     if (!fs.existsSync(audioPath)) throw new Error('Fichier audio non généré')
 
-    // Call OpenAI Whisper
     const audioBuffer = fs.readFileSync(audioPath)
     const formData = new FormData()
     formData.append('file', new Blob([audioBuffer], { type: 'audio/mpeg' }), 'audio.mp3')
-    formData.append('model', 'whisper-1')
+    formData.append('model', model)
     formData.append('language', 'fr')
     formData.append('response_format', 'verbose_json')
     formData.append('timestamp_granularities[]', 'word')
 
-    const whisperRes = await fetch('https://api.openai.com/v1/audio/transcriptions', {
+    const whisperRes = await fetch(endpoint, {
       method: 'POST',
       headers: { Authorization: `Bearer ${apiKey}` },
       body: formData,
     })
 
-    if (!whisperRes.ok) {
-      const err = await whisperRes.text()
-      throw new Error(`Whisper API error: ${err}`)
-    }
+    if (!whisperRes.ok) throw new Error(`${name} API error: ${await whisperRes.text()}`)
 
     const data = await whisperRes.json() as {
       text: string
@@ -97,7 +123,7 @@ export async function POST(req: Request) {
       end: w.end,
     })) ?? []
 
-    return Response.json({ transcript, wordTimestamps })
+    return Response.json({ transcript, wordTimestamps, provider: name, model })
 
   } catch (err) {
     return new Response(String(err), { status: 500 })

@@ -45,10 +45,11 @@ async function notifySessionFinalKey(sessionId: string, key: string): Promise<vo
   })
 }
 
-function calcTotalFrames(segments: any[], questionCardFrames: number, intro: any, fps: number) {
+function calcTotalFrames(segments: any[], questionCardFrames: number, intro: any, outro: any, fps: number) {
   let total = 0
   if (intro?.enabled && intro?.hookText) total += Math.round(intro.durationSeconds * fps)
   for (const s of segments) total += (s.questionDurationFrames ?? questionCardFrames) + s.videoDurationFrames
+  if (outro?.enabled && (outro?.ctaText || outro?.subText || outro?.logoUrl)) total += Math.round(outro.durationSeconds * fps)
   return Math.max(total, 1)
 }
 
@@ -66,7 +67,7 @@ async function generateTTS(text: string, voiceId: string, apiKey: string): Promi
 }
 
 async function runRender(jobId: string, body: any) {
-  const { segments, questionCardFrames, subtitleSettings, theme, intro, fps, width, height, voiceId, origin, sessionId, motionSettings, audioSettings } = body
+  const { segments, questionCardFrames, subtitleSettings, theme, intro, outro, fps, width, height, voiceId, origin, sessionId, motionSettings, audioSettings } = body
   const apiKey = process.env.ELEVENLABS_API_KEY ?? ''
 
   const setProgress = (p: number) => {
@@ -103,8 +104,8 @@ async function runRender(jobId: string, body: any) {
 
     setProgress(15)
 
-    const totalFrames = calcTotalFrames(serverSegments, questionCardFrames, intro, fps)
-    const inputProps = { segments: serverSegments, questionCardFrames, subtitleSettings, theme, intro, fps, motionSettings, audioSettings }
+    const totalFrames = calcTotalFrames(serverSegments, questionCardFrames, intro, outro, fps)
+    const inputProps = { segments: serverSegments, questionCardFrames, subtitleSettings, theme, intro, outro, fps, motionSettings, audioSettings }
 
     const composition = await selectComposition({ serveUrl: cachedBundle, id: 'LavidzComposition', inputProps })
     const comp = { ...composition, width: width ?? composition.width, height: height ?? composition.height, durationInFrames: totalFrames, fps }

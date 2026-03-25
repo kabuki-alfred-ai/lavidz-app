@@ -2,7 +2,7 @@
 
 import { useState, forwardRef, useImperativeHandle, useEffect, useRef } from 'react'
 import type { CompositionSegment } from '@/remotion/LavidzComposition'
-import type { TransitionTheme, IntroSettings, MotionSettings, AudioSettings } from '@/remotion/themeTypes'
+import type { TransitionTheme, IntroSettings, OutroSettings, MotionSettings, AudioSettings } from '@/remotion/themeTypes'
 import type { SubtitleSettings } from '@/remotion/subtitleTypes'
 import { Download, CheckCircle2 } from 'lucide-react'
 
@@ -13,6 +13,7 @@ interface Props {
   themeName: string
   theme: TransitionTheme
   intro: IntroSettings
+  outro?: OutroSettings
   subtitleSettings: SubtitleSettings
   questionCardFrames: number
   fps: number
@@ -31,7 +32,7 @@ export interface ServerRendererHandle {
 }
 
 export const ServerRenderer = forwardRef<ServerRendererHandle, Props>(function ServerRenderer(
-  { segments, originalVideoUrls, voiceId, themeName, theme, intro, subtitleSettings, questionCardFrames, fps, width, height, sessionId, motionSettings, audioSettings, onRenderComplete },
+  { segments, originalVideoUrls, voiceId, themeName, theme, intro, outro, subtitleSettings, questionCardFrames, fps, width, height, sessionId, motionSettings, audioSettings, onRenderComplete },
   ref,
 ) {
   const [rendering, setRendering] = useState(false)
@@ -64,7 +65,7 @@ export const ServerRenderer = forwardRef<ServerRendererHandle, Props>(function S
       const res = await fetch('/api/render', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ segments: serverSegments, questionCardFrames, subtitleSettings, theme, intro, fps, width, height, voiceId, origin: window.location.origin, sessionId, motionSettings, audioSettings }),
+        body: JSON.stringify({ segments: serverSegments, questionCardFrames, subtitleSettings, theme, intro, outro, fps, width, height, voiceId, origin: window.location.origin, sessionId, motionSettings, audioSettings }),
       })
       if (!res.ok) throw new Error(await res.text())
 

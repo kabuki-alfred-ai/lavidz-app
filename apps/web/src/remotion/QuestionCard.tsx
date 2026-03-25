@@ -6,9 +6,12 @@ interface Props {
   ttsUrl: string | null
   theme: TransitionTheme
   backgroundColor?: string
+  ttsVolume?: number
+  sfxUrl?: string
+  sfxVolume?: number
 }
 
-export function QuestionCard({ question, ttsUrl, theme, backgroundColor }: Props) {
+export function QuestionCard({ question, ttsUrl, theme, backgroundColor, ttsVolume = 1, sfxUrl, sfxVolume = 1 }: Props) {
   const frame = useCurrentFrame()
   const { fps } = useVideoConfig()
 
@@ -25,7 +28,8 @@ export function QuestionCard({ question, ttsUrl, theme, backgroundColor }: Props
         padding: 80,
       }}
     >
-      {ttsUrl && <Audio src={ttsUrl} />}
+      {sfxUrl && <Audio src={sfxUrl} volume={sfxVolume} />}
+      {ttsUrl && <Audio src={ttsUrl} volume={ttsVolume} />}
 
       <h2
         style={{

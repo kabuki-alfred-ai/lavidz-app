@@ -13,27 +13,23 @@ export async function GET(req: Request) {
   if (!res.ok) return new Response('ElevenLabs error', { status: res.status })
 
   const data = await res.json() as {
-    voices: Array<{ voice_id: string; name: string; preview_url: string; labels: Record<string, string> }>
+    voices: Array<{ voice_id: string; name: string; preview_url: string; category: string; labels: Record<string, string> }>
   }
 
-  const CREATOR_VOICE_IDS = [
-    'odOFTFZU3DvAZ3EV3KHi',
-    'KSyQzmsYhFbuOhqj1Xxv',
-    'jGpnMdbhtKgQbVrYezOx',
-    'nVPCtAFzgyMX3FZKNzH0',
-    'jsScnYkNNda9Q1NES5nn',
-  ]
+  const { searchParams: sp } = new URL(req.url)
+  const onlyCreator = sp.get('creator') !== 'false'
 
-  const allVoices = data.voices.map((v) => ({
-    id: v.voice_id,
-    name: v.name,
-    previewUrl: v.preview_url,
-    accent: v.labels?.accent ?? '',
-    gender: v.labels?.gender ?? '',
-    language: v.labels?.language ?? '',
-  }))
-
-  const voices = allVoices.filter(v => CREATOR_VOICE_IDS.includes(v.id))
+  const voices = data.voices
+    .filter(v => !onlyCreator || v.category !== 'premade')
+    .map((v) => ({
+      id: v.voice_id,
+      name: v.name,
+      previewUrl: v.preview_url,
+      category: v.category,
+      accent: v.labels?.accent ?? '',
+      gender: v.labels?.gender ?? '',
+      language: v.labels?.language ?? '',
+    }))
 
   return Response.json(voices)
 }

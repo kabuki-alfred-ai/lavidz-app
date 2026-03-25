@@ -3,8 +3,9 @@ import { AbsoluteFill, Audio, Sequence } from 'remotion'
 import { QuestionCard } from './QuestionCard'
 import { RecordingClip } from './RecordingClip'
 import { IntroCard } from './IntroCard'
+import { OutroCard } from './OutroCard'
 import type { SubtitleSettings } from './subtitleTypes'
-import type { TransitionTheme, IntroSettings, MotionSettings, AudioSettings, WordTimestamp } from './themeTypes'
+import type { TransitionTheme, IntroSettings, OutroSettings, MotionSettings, AudioSettings, WordTimestamp } from './themeTypes'
 
 export interface CompositionSegment {
   id: string
@@ -27,6 +28,7 @@ interface Props {
   fps: number
   motionSettings?: MotionSettings
   audioSettings?: AudioSettings
+  outro?: OutroSettings
 }
 
 export function LavidzComposition({
@@ -38,6 +40,7 @@ export function LavidzComposition({
   fps,
   motionSettings,
   audioSettings,
+  outro,
 }: Props) {
   let offset = 0
   const sequences: ReactNode[] = []
@@ -66,7 +69,7 @@ export function LavidzComposition({
 
     sequences.push(
       <Sequence key={`q-${seg.id}`} from={questionFrom} durationInFrames={qFrames}>
-        <QuestionCard question={seg.questionText} ttsUrl={seg.ttsUrl} theme={theme} backgroundColor={cardBg} />
+        <QuestionCard question={seg.questionText} ttsUrl={seg.ttsUrl} theme={theme} backgroundColor={cardBg} ttsVolume={audioSettings?.ttsVolume} sfxUrl={audioSettings?.transitionSfx?.url} sfxVolume={audioSettings?.transitionSfx?.volume} />
       </Sequence>,
     )
 
@@ -79,8 +82,6 @@ export function LavidzComposition({
           durationInFrames={seg.videoDurationFrames}
           subtitleSettings={subtitleSettings}
           motionSettings={motionSettings}
-          sfxUrl={audioSettings?.transitionSfx?.url}
-          sfxVolume={audioSettings?.transitionSfx?.volume}
         />
       </Sequence>,
     )
@@ -88,8 +89,52 @@ export function LavidzComposition({
     offset += qFrames + seg.videoDurationFrames
   }
 
+  // Outro slide
+  if (outro?.enabled && (outro.ctaText || outro.subText || outro.logoUrl)) {
+    const outroDurationFrames = Math.round(outro.durationSeconds * fps)
+    sequences.push(
+      <Sequence key="outro" from={offset} durationInFrames={outroDurationFrames}>
+        <OutroCard outro={outro} theme={theme} />
+      </Sequence>,
+    )
+    offset += outroDurationFrames
+  }
+
   const bgMusic = audioSettings?.bgMusic
   const totalFrames = offset
+
+  const watermark = (
+    <div
+      style={{
+        position: 'absolute',
+        bottom: 28,
+        right: 28,
+        zIndex: 20,
+        display: 'flex',
+        alignItems: 'center',
+        gap: 8,
+        opacity: 0.35,
+        pointerEvents: 'none',
+      }}
+    >
+      <svg width="22" height="22" viewBox="0 0 14 14" fill="none">
+        <rect x="2" y="2" width="4" height="10" rx="1.5" fill="white" />
+        <rect x="2" y="9" width="10" height="3" rx="1.5" fill="white" />
+      </svg>
+      <span
+        style={{
+          fontFamily: "'Arial Black', sans-serif",
+          fontWeight: 900,
+          fontSize: 22,
+          color: '#ffffff',
+          letterSpacing: 2,
+          textTransform: 'lowercase',
+        }}
+      >
+        lavidz
+      </span>
+    </div>
+  )
 
   return (
     <AbsoluteFill style={{ background: theme.backgroundColor }}>
@@ -99,6 +144,7 @@ export function LavidzComposition({
         </Sequence>
       )}
       {sequences}
+      {watermark}
     </AbsoluteFill>
   )
 }

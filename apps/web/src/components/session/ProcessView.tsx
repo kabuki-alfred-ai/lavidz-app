@@ -7,8 +7,8 @@ import { ArrowLeft, Play, RefreshCw, Loader2, ChevronRight } from 'lucide-react'
 import type { CompositionSegment } from '@/remotion/LavidzComposition'
 import type { SubtitleSettings, SubtitleStyle } from '@/remotion/subtitleTypes'
 import { DEFAULT_SUBTITLE_SETTINGS } from '@/remotion/subtitleTypes'
-import type { TransitionTheme, IntroSettings, MotionSettings, TransitionStyle, AudioSettings, WordTimestamp } from '@/remotion/themeTypes'
-import { DEFAULT_TRANSITION_THEME, DEFAULT_INTRO_SETTINGS, DEFAULT_MOTION_SETTINGS, FONT_OPTIONS, THEME_PRESETS } from '@/remotion/themeTypes'
+import type { TransitionTheme, IntroSettings, OutroSettings, MotionSettings, TransitionStyle, AudioSettings, WordTimestamp } from '@/remotion/themeTypes'
+import { DEFAULT_TRANSITION_THEME, DEFAULT_INTRO_SETTINGS, DEFAULT_OUTRO_SETTINGS, DEFAULT_MOTION_SETTINGS, FONT_OPTIONS, THEME_PRESETS } from '@/remotion/themeTypes'
 import { ServerRenderer, type ServerRendererHandle } from './ServerRenderer'
 
 const Player = dynamic(() => import('@remotion/player').then((m) => m.Player), { ssr: false })
@@ -39,10 +39,12 @@ const STYLE_PRESETS = [
       kenBurns: false,
     },
     subtitleSettings: {
+      enabled: true,
       style: 'hormozi' as SubtitleStyle,
       size: 72,
       position: 75,
       wordsPerLine: 3,
+      offsetMs: 0,
     },
     questionCardFrames: Math.round(2.5 * FPS),
   },
@@ -65,10 +67,12 @@ const STYLE_PRESETS = [
       questionCardColors: ['#FF2D55', '#FFD60A', '#30D158', '#0A84FF', '#FF6B35'],
     },
     subtitleSettings: {
+      enabled: true,
       style: 'hormozi' as SubtitleStyle,
       size: 68,
       position: 75,
       wordsPerLine: 2,
+      offsetMs: 0,
     },
     questionCardFrames: 2 * FPS,
   },
@@ -176,6 +180,7 @@ const STEPS = [
   { id: 'voice',       label: 'Voix',        desc: 'Voix IA & silences' },
   { id: 'transcripts', label: 'Transcripts', desc: 'Vérifier & régénérer' },
   { id: 'intro',       label: 'Intro',       desc: 'Slide d\'accroche' },
+  { id: 'outro',       label: 'Outro',       desc: 'CTA final' },
   { id: 'theme',       label: 'Transitions', desc: 'Style visuel' },
   { id: 'subtitles',   label: 'Sous-titres', desc: 'Texte & position' },
   { id: 'preview',     label: 'Aperçu',      desc: 'Format & export' },
@@ -240,7 +245,7 @@ function Card({ children, style }: { children: React.ReactNode; style?: React.CS
 export function ProcessView({ recordings, themeName, sessionId, themeSlug }: Props) {
   const [currentStep, setCurrentStep] = useState(0)
   const [segments, setSegments] = useState<CompositionSegment[] | null>(null)
-  const [loadingStep, setLoadingStep] = useState<string>('Initialisation...')
+  const [loadingStep, setLoadingStep] = useState<string>('')
   const [ready, setReady] = useState(false)
   const [voices, setVoices] = useState<Voice[]>([])
   const [selectedVoiceId, setSelectedVoiceId] = useState('EXAVITQu4vr4xnSDxMaL')
@@ -248,6 +253,7 @@ export function ProcessView({ recordings, themeName, sessionId, themeSlug }: Pro
   const [subtitleSettings, setSubtitleSettings] = useState<SubtitleSettings>(DEFAULT_SUBTITLE_SETTINGS)
   const [theme, setTheme] = useState<TransitionTheme>(DEFAULT_TRANSITION_THEME)
   const [intro, setIntro] = useState<IntroSettings>(DEFAULT_INTRO_SETTINGS)
+  const [outro, setOutro] = useState<OutroSettings>(DEFAULT_OUTRO_SETTINGS)
   const [motionSettings, setMotionSettings] = useState<MotionSettings>(DEFAULT_MOTION_SETTINGS)
   const [questionCardFrames, setQuestionCardFrames] = useState(QUESTION_CARD_FRAMES)
   const [activePresetId, setActivePresetId] = useState<string | null>(null)
@@ -255,6 +261,7 @@ export function ProcessView({ recordings, themeName, sessionId, themeSlug }: Pro
   const [generatingSfx, setGeneratingSfx] = useState<{ bgMusic: boolean; transitionSfx: boolean }>({ bgMusic: false, transitionSfx: false })
   const [bgMusicPrompt, setBgMusicPrompt] = useState('upbeat background music for a fast-paced interview video')
   const [transitionSfxPrompt, setTransitionSfxPrompt] = useState('short cinematic whoosh transition sound effect')
+  const [sfxLibrary, setSfxLibrary] = useState<{ filename: string; name: string }[]>([])
   const [localTranscripts, setLocalTranscripts] = useState<Record<string, string>>(() =>
     Object.fromEntries(recordings.map(r => [r.id, r.transcript ?? '']))
   )
@@ -265,8 +272,9 @@ export function ProcessView({ recordings, themeName, sessionId, themeSlug }: Pro
   const [silenceThreshold, setSilenceThreshold] = useState(-35)
   const [silenceCutError, setSilenceCutError] = useState('')
   const [denoiseEnabled, setDenoiseEnabled] = useState(false)
-  const [denoiseStrength, setDenoiseStrength] = useState<'light' | 'moderate' | 'strong'>('moderate')
+  const [denoiseStrength, setDenoiseStrength] = useState<'light' | 'moderate' | 'strong' | 'isolate'>('moderate')
   const [regenerating, setRegenerating] = useState(false)
+  const [voiceEnabled, setVoiceEnabled] = useState(false)
   const [previewingVoiceId, setPreviewingVoiceId] = useState<string | null>(null)
 
   const [renderOutputUrl, setRenderOutputUrl] = useState<string | null>(null)
@@ -280,11 +288,14 @@ export function ProcessView({ recordings, themeName, sessionId, themeSlug }: Pro
   const blobUrlsRef = useRef<string[]>([])
   const durationsRef = useRef<number[]>([])
   const effectiveVideoUrlsRef = useRef<string[]>([])
-  const lastProcessedSettingsRef = useRef<{ enabled: boolean; threshold: number; denoiseEnabled: boolean; denoiseStrength: string } | null>(null)
+  const lastProcessedSettingsRef = useRef<{ enabled: boolean; threshold: number; denoiseEnabled: boolean; denoiseStrength: 'light' | 'moderate' | 'strong' | 'isolate' } | null>(null)
 
   useEffect(() => { localTranscriptsRef.current = localTranscripts }, [localTranscripts])
   useEffect(() => { wordTimestampsRef.current = wordTimestampsMap }, [wordTimestampsMap])
-  useEffect(() => { fetchVoices(); prepare('EXAVITQu4vr4xnSDxMaL') }, [])
+  useEffect(() => {
+    fetchVoices()
+    fetch('/api/sfx-library').then(r => r.ok ? r.json() : []).then(setSfxLibrary).catch(() => {})
+  }, [])
 
   const fetchVoices = async () => {
     try { const res = await fetch('/api/tts/voices'); if (res.ok) setVoices(await res.json()) } catch {}
@@ -310,7 +321,7 @@ export function ProcessView({ recordings, themeName, sessionId, themeSlug }: Pro
     }
   }
 
-  const prepare = async (voiceId: string) => {
+  const prepare = async (voiceId: string | null) => {
     setSilenceCutError('')
     const silenceCutChanged = !lastProcessedSettingsRef.current ||
       lastProcessedSettingsRef.current.enabled !== silenceCutEnabled ||
@@ -355,9 +366,13 @@ export function ProcessView({ recordings, themeName, sessionId, themeSlug }: Pro
     }
 
     const ttsUrls: (string | null)[] = []
-    for (let i = 0; i < recordings.length; i++) {
-      setLoadingStep(`Voix IA ${i+1}/${recordings.length}...`)
-      ttsUrls.push(await generateTTS(recordings[i].questionText, voiceId))
+    if (voiceId) {
+      for (let i = 0; i < recordings.length; i++) {
+        setLoadingStep(`Voix IA ${i+1}/${recordings.length}...`)
+        ttsUrls.push(await generateTTS(recordings[i].questionText, voiceId))
+      }
+    } else {
+      ttsUrls.push(...recordings.map(() => null))
     }
 
     const ttsDurations = await Promise.all(ttsUrls.map(u => u ? getAudioDuration(u) : Promise.resolve(4)))
@@ -377,7 +392,7 @@ export function ProcessView({ recordings, themeName, sessionId, themeSlug }: Pro
 
   const applyVoice = async () => {
     setRegenerating(true); setReady(false)
-    await prepare(selectedVoiceId)
+    await prepare(voiceEnabled ? selectedVoiceId : null)
     setRegenerating(false)
   }
 
@@ -425,8 +440,9 @@ export function ProcessView({ recordings, themeName, sessionId, themeSlug }: Pro
   }
 
   const introFrames = intro.enabled && intro.hookText ? Math.round(intro.durationSeconds * FPS) : 0
+  const outroFrames = outro.enabled && (outro.ctaText || outro.subText || outro.logoUrl) ? Math.round(outro.durationSeconds * FPS) : 0
   const totalFrames = segments?.length
-    ? Math.max(introFrames + segments.reduce((a, s) => a + (s.questionDurationFrames ?? questionCardFrames) + s.videoDurationFrames, 0), 1)
+    ? Math.max(introFrames + outroFrames + segments.reduce((a, s) => a + (s.questionDurationFrames ?? questionCardFrames) + s.videoDurationFrames, 0), 1)
     : 1
 
   const selectedVoice = voices.find(v => v.id === selectedVoiceId)
@@ -435,7 +451,7 @@ export function ProcessView({ recordings, themeName, sessionId, themeSlug }: Pro
 
   const stepVoice = (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 20 }}>
-      {/* Silence cut — top */}
+      {/* Silence cut */}
       <Card>
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: silenceCutEnabled ? 16 : 0 }}>
           <div>
@@ -457,14 +473,14 @@ export function ProcessView({ recordings, themeName, sessionId, themeSlug }: Pro
       <Card>
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: denoiseEnabled ? 16 : 0 }}>
           <div>
-            <p style={{ color: S.text, fontWeight: 600, fontSize: 14 }}>Réduire les bruits de fond</p>
-            <p style={{ color: S.muted, fontSize: 11, marginTop: 2 }}>Supprime hum, ventilation, ambiance</p>
+            <p style={{ color: S.text, fontWeight: 600, fontSize: 14 }}>Amélioration audio</p>
+            <p style={{ color: S.muted, fontSize: 11, marginTop: 2 }}>FFmpeg ou Voice Isolator IA (ElevenLabs)</p>
           </div>
           <Toggle value={denoiseEnabled} onChange={setDenoiseEnabled} />
         </div>
         {denoiseEnabled && (
-          <div>
-            <Label>Intensité</Label>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+            <Label>Méthode</Label>
             <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 8 }}>
               {([
                 { value: 'light',    label: 'Léger',  desc: 'Discret' },
@@ -483,39 +499,36 @@ export function ProcessView({ recordings, themeName, sessionId, themeSlug }: Pro
                 </button>
               ))}
             </div>
+            <button onClick={() => setDenoiseStrength('isolate')}
+              style={{
+                padding: '10px 12px', borderRadius: 12, textAlign: 'left', display: 'flex', alignItems: 'center', gap: 10,
+                background: denoiseStrength === 'isolate' ? 'rgba(139,92,246,0.15)' : S.surface,
+                border: `1px solid ${denoiseStrength === 'isolate' ? 'rgba(139,92,246,0.6)' : S.border}`,
+              }}
+            >
+              <span style={{ fontSize: 16 }}>✨</span>
+              <div>
+                <p style={{ color: denoiseStrength === 'isolate' ? '#c4b5fd' : S.muted, fontWeight: 700, fontSize: 12 }}>Voice Isolator IA</p>
+                <p style={{ color: S.dim, fontSize: 9, marginTop: 2, fontFamily: 'monospace' }}>ElevenLabs · Isole la voix, supprime tout le reste</p>
+              </div>
+            </button>
           </div>
         )}
       </Card>
 
-      {/* Current voice */}
-      {selectedVoice && (
-        <Card>
-          <Label>Voix sélectionnée</Label>
-          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-            <div>
-              <p style={{ color: S.text, fontWeight: 700, fontSize: 15 }}>{selectedVoice.name}</p>
-              {(selectedVoice.gender || selectedVoice.accent) && (
-                <p style={{ color: S.muted, fontSize: 11, marginTop: 2 }}>{[selectedVoice.gender, selectedVoice.accent].filter(Boolean).join(' · ')}</p>
-              )}
-            </div>
-            <button
-              onClick={applyVoice}
-              disabled={regenerating || !ready}
-              style={{
-                display: 'flex', alignItems: 'center', gap: 6, padding: '8px 16px',
-                borderRadius: 10, background: '#fff', color: '#0a0a0a',
-                fontSize: 12, fontWeight: 700, opacity: (regenerating || !ready) ? 0.4 : 1,
-              }}
-            >
-              {regenerating ? <Loader2 size={12} className="animate-spin" /> : <RefreshCw size={12} />}
-              Appliquer
-            </button>
+      {/* Voice toggle */}
+      <Card>
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+          <div>
+            <p style={{ color: S.text, fontWeight: 600, fontSize: 14 }}>Voix IA pour les questions</p>
+            <p style={{ color: S.muted, fontSize: 11, marginTop: 2 }}>Lit chaque question à voix haute avant l'enregistrement</p>
           </div>
-        </Card>
-      )}
+          <Toggle value={voiceEnabled} onChange={setVoiceEnabled} />
+        </div>
+      </Card>
 
-      {/* Voice list */}
-      {voices.length > 0 && (
+      {/* Voice selection — only when enabled */}
+      {voiceEnabled && voices.length > 0 && (
         <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
           <Label>Choisir une voix</Label>
           {voices.map(voice => {
@@ -551,6 +564,40 @@ export function ProcessView({ recordings, themeName, sessionId, themeSlug }: Pro
           })}
         </div>
       )}
+
+      {/* TTS volume — only when enabled */}
+      {voiceEnabled && (
+        <Card>
+          <SliderRow
+            label="Volume voix IA"
+            value={audioSettings.ttsVolume ?? 1}
+            min={0.1}
+            max={2}
+            step={0.05}
+            format={v => `${Math.round(v * 100)}%`}
+            onChange={v => setAudioSettings(p => ({ ...p, ttsVolume: v }))}
+          />
+          <p style={{ fontSize: 10, color: S.dim, fontFamily: 'monospace', marginTop: 8 }}>
+            Ajuste le volume de la voix IA par rapport à la vidéo de l'utilisateur
+          </p>
+        </Card>
+      )}
+
+      {/* Generate button — always visible */}
+      <button
+        onClick={applyVoice}
+        disabled={regenerating}
+        style={{
+          display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8,
+          padding: '14px 0', borderRadius: 12,
+          background: '#fff', color: '#0a0a0a',
+          fontSize: 13, fontWeight: 700, opacity: regenerating ? 0.5 : 1,
+          transition: 'opacity 0.15s',
+        }}
+      >
+        {regenerating ? <Loader2 size={14} className="animate-spin" /> : <RefreshCw size={14} />}
+        {regenerating ? 'Génération en cours…' : ready ? 'Appliquer les changements' : 'Générer la preview'}
+      </button>
 
     </div>
   )
@@ -647,6 +694,53 @@ export function ProcessView({ recordings, themeName, sessionId, themeSlug }: Pro
             </div>
             <SliderRow label="Durée" value={intro.durationSeconds} min={2} max={6} step={0.5}
               format={v => `${v}s`} onChange={v => setIntro(p => ({ ...p, durationSeconds: v }))}
+            />
+          </div>
+        )}
+      </Card>
+
+    </div>
+  )
+
+  const stepOutro = (
+    <div style={{ display: 'flex', flexDirection: 'column', gap: 20 }}>
+      <Card>
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: outro.enabled ? 20 : 0 }}>
+          <div>
+            <p style={{ color: S.text, fontWeight: 600, fontSize: 14 }}>Slide d'outro</p>
+            <p style={{ color: S.muted, fontSize: 11, marginTop: 2 }}>CTA final après le dernier clip</p>
+          </div>
+          <Toggle value={outro.enabled} onChange={v => setOutro(p => ({ ...p, enabled: v }))} />
+        </div>
+
+        {outro.enabled && (
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
+            <div>
+              <Label>CTA principal</Label>
+              <input type="text" placeholder="Abonne-toi pour plus de contenu 🔥"
+                value={outro.ctaText} onChange={e => setOutro(p => ({ ...p, ctaText: e.target.value }))}
+                style={{ width: '100%', background: 'rgba(255,255,255,0.06)', border: `1px solid ${S.border}`, borderRadius: 10, padding: '10px 14px', color: S.text, fontSize: 14, outline: 'none' }}
+              />
+              <p style={{ fontSize: 10, color: S.dim, fontFamily: 'monospace', marginTop: 6 }}>
+                Phrase courte · action directe · max 8 mots
+              </p>
+            </div>
+            <div>
+              <Label>Texte secondaire</Label>
+              <input type="text" placeholder="@tonhandle · Commente si tu veux la suite"
+                value={outro.subText} onChange={e => setOutro(p => ({ ...p, subText: e.target.value }))}
+                style={{ width: '100%', background: 'rgba(255,255,255,0.06)', border: `1px solid ${S.border}`, borderRadius: 10, padding: '10px 14px', color: S.text, fontSize: 14, outline: 'none' }}
+              />
+            </div>
+            <div>
+              <Label>URL du logo (optionnel)</Label>
+              <input type="text" placeholder="https://..."
+                value={outro.logoUrl} onChange={e => setOutro(p => ({ ...p, logoUrl: e.target.value }))}
+                style={{ width: '100%', background: 'rgba(255,255,255,0.06)', border: `1px solid ${S.border}`, borderRadius: 10, padding: '10px 14px', color: S.text, fontSize: 14, outline: 'none' }}
+              />
+            </div>
+            <SliderRow label="Durée" value={outro.durationSeconds} min={2} max={6} step={0.5}
+              format={v => `${v}s`} onChange={v => setOutro(p => ({ ...p, durationSeconds: v }))}
             />
           </div>
         )}
@@ -872,6 +966,49 @@ export function ProcessView({ recordings, themeName, sessionId, themeSlug }: Pro
                     </div>
                   </div>
                 )}
+                {/* Local SFX library — only for transitionSfx */}
+                {key === 'transitionSfx' && sfxLibrary.length > 0 && (
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+                    <p style={{ fontSize: 10, color: S.muted, fontFamily: 'monospace', textTransform: 'uppercase', letterSpacing: '0.08em' }}>
+                      Bibliothèque locale
+                    </p>
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
+                      {sfxLibrary.map(sfx => {
+                        const url = `/api/sfx-library/${encodeURIComponent(sfx.filename)}`
+                        const isActive = audioSettings.transitionSfx?.url === url
+                        return (
+                          <div key={sfx.filename} style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                            <button
+                              onClick={() => setAudioSettings(p => ({
+                                ...p,
+                                transitionSfx: isActive ? undefined : { prompt: sfx.name, url, volume: 0.8 },
+                              }))}
+                              style={{
+                                flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+                                padding: '8px 12px', borderRadius: 10, textAlign: 'left',
+                                background: isActive ? 'rgba(255,255,255,0.1)' : S.surface,
+                                border: `1px solid ${isActive ? 'rgba(255,255,255,0.3)' : S.border}`,
+                              }}
+                            >
+                              <span style={{ color: isActive ? S.text : S.muted, fontSize: 12 }}>{sfx.name}</span>
+                              {isActive && <span style={{ fontSize: 10, color: S.dim, fontFamily: 'monospace' }}>actif</span>}
+                            </button>
+                            <button
+                              onClick={() => { const a = new Audio(url); a.play() }}
+                              style={{ padding: '8px 10px', borderRadius: 10, background: S.surface, border: `1px solid ${S.border}`, color: S.muted, display: 'flex', alignItems: 'center' }}
+                            >
+                              <Play size={11} />
+                            </button>
+                          </div>
+                        )
+                      })}
+                    </div>
+                  </div>
+                )}
+
+                <p style={{ fontSize: 10, color: S.dim, fontFamily: 'monospace', textTransform: 'uppercase', letterSpacing: '0.08em' }}>
+                  Générer avec IA
+                </p>
                 <input
                   type="text"
                   value={prompt}
@@ -928,26 +1065,36 @@ export function ProcessView({ recordings, themeName, sessionId, themeSlug }: Pro
 
   const stepSubtitles = (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 20 }}>
-      {/* Style */}
-      <div>
-        <Label>Style</Label>
-        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8 }}>
-          {(['hormozi', 'minimal', 'classic', 'neon'] as SubtitleStyle[]).map(s => (
-            <button key={s} onClick={() => setSubtitleSettings(p => ({ ...p, style: s }))}
-              style={{
-                padding: '12px 14px', borderRadius: 12, fontSize: 13, fontFamily: 'monospace', textTransform: 'capitalize',
-                background: subtitleSettings.style === s ? 'rgba(255,255,255,0.1)' : S.surface,
-                border: `1px solid ${subtitleSettings.style === s ? 'rgba(255,255,255,0.3)' : S.border}`,
-                color: subtitleSettings.style === s ? S.text : S.muted,
-              }}
-            >
-              {s}
-            </button>
-          ))}
+      {/* Enable/disable toggle */}
+      <Card style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+        <div>
+          <p style={{ color: S.text, fontWeight: 600, fontSize: 14 }}>Sous-titres</p>
+          <p style={{ color: S.muted, fontSize: 11, marginTop: 2 }}>Afficher les sous-titres sur la vidéo</p>
         </div>
-      </div>
+        <Toggle value={subtitleSettings.enabled} onChange={v => setSubtitleSettings(p => ({ ...p, enabled: v }))} />
+      </Card>
 
-      <Card style={{ display: 'flex', flexDirection: 'column', gap: 20 }}>
+      {/* Style + settings — only when enabled */}
+      {subtitleSettings.enabled && <>
+        <div>
+          <Label>Style</Label>
+          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8 }}>
+            {(['hormozi', 'minimal', 'classic', 'neon'] as SubtitleStyle[]).map(s => (
+              <button key={s} onClick={() => setSubtitleSettings(p => ({ ...p, style: s }))}
+                style={{
+                  padding: '12px 14px', borderRadius: 12, fontSize: 13, fontFamily: 'monospace', textTransform: 'capitalize',
+                  background: subtitleSettings.style === s ? 'rgba(255,255,255,0.1)' : S.surface,
+                  border: `1px solid ${subtitleSettings.style === s ? 'rgba(255,255,255,0.3)' : S.border}`,
+                  color: subtitleSettings.style === s ? S.text : S.muted,
+                }}
+              >
+                {s}
+              </button>
+            ))}
+          </div>
+        </div>
+
+        <Card style={{ display: 'flex', flexDirection: 'column', gap: 20 }}>
         <SliderRow label="Mots par ligne" value={subtitleSettings.wordsPerLine} min={1} max={5} step={1}
           format={v => `${v} mot${v > 1 ? 's' : ''}`} onChange={v => setSubtitleSettings(p => ({ ...p, wordsPerLine: v }))} />
         <SliderRow label="Taille" value={subtitleSettings.size} min={24} max={120} step={4}
@@ -955,7 +1102,39 @@ export function ProcessView({ recordings, themeName, sessionId, themeSlug }: Pro
         <SliderRow label="Position verticale" value={subtitleSettings.position} min={5} max={95} step={5}
           format={v => v <= 25 ? 'Haut' : v <= 60 ? 'Centre' : 'Bas'}
           onChange={v => setSubtitleSettings(p => ({ ...p, position: v }))} />
-      </Card>
+
+        {/* Subtitle offset */}
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+            <Label>Décalage temporel</Label>
+            <span style={{ fontSize: 11, color: S.muted, fontFamily: 'monospace' }}>
+              {subtitleSettings.offsetMs === 0 ? '0 ms' : subtitleSettings.offsetMs > 0 ? `+${subtitleSettings.offsetMs} ms` : `${subtitleSettings.offsetMs} ms`}
+            </span>
+          </div>
+          <div style={{ display: 'flex', gap: 6, alignItems: 'center' }}>
+            {[-300, -200, -100].map(step => (
+              <button key={step} onClick={() => setSubtitleSettings(p => ({ ...p, offsetMs: p.offsetMs + step }))}
+                style={{ flex: 1, padding: '6px 0', borderRadius: 8, fontSize: 11, fontFamily: 'monospace', background: S.surface, border: `1px solid ${S.border}`, color: S.muted }}>
+                {step} ms
+              </button>
+            ))}
+            <button onClick={() => setSubtitleSettings(p => ({ ...p, offsetMs: 0 }))}
+              style={{ padding: '6px 10px', borderRadius: 8, fontSize: 11, fontFamily: 'monospace', background: S.surface, border: `1px solid ${S.border}`, color: S.dim }}>
+              0
+            </button>
+            {[100, 200, 300].map(step => (
+              <button key={step} onClick={() => setSubtitleSettings(p => ({ ...p, offsetMs: p.offsetMs + step }))}
+                style={{ flex: 1, padding: '6px 0', borderRadius: 8, fontSize: 11, fontFamily: 'monospace', background: S.surface, border: `1px solid ${S.border}`, color: S.muted }}>
+                +{step} ms
+              </button>
+            ))}
+          </div>
+          <p style={{ fontSize: 10, color: S.dim, fontFamily: 'monospace' }}>
+            Valeur négative = sous-titres en avance · Positive = sous-titres en retard
+          </p>
+        </div>
+        </Card>
+      </>}
     </div>
   )
 
@@ -972,6 +1151,7 @@ export function ProcessView({ recordings, themeName, sessionId, themeSlug }: Pro
           themeName={themeName}
           theme={theme}
           intro={intro}
+          outro={outro}
           subtitleSettings={subtitleSettings}
           questionCardFrames={questionCardFrames}
           fps={FPS}
@@ -992,7 +1172,7 @@ export function ProcessView({ recordings, themeName, sessionId, themeSlug }: Pro
     </div>
   )
 
-  const stepContent = [stepVoice, stepTranscripts, stepIntro, stepTheme, stepSubtitles, stepPreview]
+  const stepContent = [stepVoice, stepTranscripts, stepIntro, stepOutro, stepTheme, stepSubtitles, stepPreview]
 
   // ─── Render ────────────────────────────────────────────────────────────────
   return (
@@ -1145,13 +1325,21 @@ export function ProcessView({ recordings, themeName, sessionId, themeSlug }: Pro
           <div style={{ flex: 1, minHeight: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', borderRadius: 16, overflow: 'hidden', background: '#000', border: `1px solid ${S.border}` }}>
             {!ready ? (
               <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 12, padding: 48 }}>
-                <div style={{ width: 24, height: 24, border: '2px solid rgba(255,255,255,0.1)', borderTopColor: '#fff', borderRadius: '50%', animation: 'spin 0.8s linear infinite' }} />
-                <p style={{ color: S.muted, fontSize: 11, fontFamily: 'monospace' }}>{loadingStep}</p>
+                {loadingStep ? (
+                  <>
+                    <div style={{ width: 24, height: 24, border: '2px solid rgba(255,255,255,0.1)', borderTopColor: '#fff', borderRadius: '50%', animation: 'spin 0.8s linear infinite' }} />
+                    <p style={{ color: S.muted, fontSize: 11, fontFamily: 'monospace' }}>{loadingStep}</p>
+                  </>
+                ) : (
+                  <p style={{ color: S.dim, fontSize: 11, fontFamily: 'monospace', textAlign: 'center' }}>
+                    Configurez vos paramètres<br />puis cliquez sur <strong style={{ color: S.muted }}>Générer</strong>
+                  </p>
+                )}
               </div>
             ) : segments && (
               <Player
                 component={LavidzComposition as any}
-                inputProps={{ segments, questionCardFrames, subtitleSettings, theme, intro, fps: FPS, motionSettings, audioSettings }}
+                inputProps={{ segments, questionCardFrames, subtitleSettings, theme, intro, outro, fps: FPS, motionSettings, audioSettings }}
                 durationInFrames={totalFrames}
                 fps={FPS}
                 compositionWidth={fmt.width}
