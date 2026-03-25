@@ -8,7 +8,8 @@ import { Input } from '@/components/ui/input'
 import {
   ArrowRight, Sparkles, Play, MessageSquare,
   Loader2, Mail, Check, Zap, Shield, Clock,
-  Video, ChevronRight, Star, Target, TrendingUp, Eye
+  Video, ChevronRight, Star, Target, TrendingUp, Eye,
+  Brain, Mic, Users, Lightbulb, Bot
 } from 'lucide-react'
 import { cn } from '@/lib/utils'
 
@@ -73,7 +74,7 @@ export default function Home() {
       <div className="fixed inset-0 z-0 pointer-events-none">
         <div className="absolute top-[-20%] left-[-10%] w-[60%] h-[60%] bg-primary/10 blur-[150px] rounded-full mix-blend-screen animate-[pulse_12s_infinite] duration-1000" />
         <div className="absolute top-[40%] right-[-10%] w-[50%] h-[50%] bg-blue-500/10 blur-[150px] rounded-full mix-blend-screen" />
-        <div className="absolute inset-0 bg-transparent opacity-[0.15]" style={{ backgroundImage: 'url("data:image/svg+xml,%3Csvg viewBox=%220 0 400 400%22 xmlns=%22http://www.w3.org/2000/svg%22%3E%3Cfilter id=%22noiseFilter%22%3E%3CfeTurbulence type=%22fractalNoise%22 baseFrequency=%222.5%22 numOctaves=%224%22 stitchTiles=%22stitch%22/%3E%3C/filter%3E%3Crect width=%22100%25%22 height=%22100%25%22 filter=%22url(%23noiseFilter)%22/%3E%3C/svg%3E")', mixBlendMode: 'overlay' }} />
+        <div className="absolute inset-0 bg-transparent opacity-[0.12]" style={{ backgroundImage: 'url("data:image/svg+xml,%3Csvg viewBox=%220 0 400 400%22 xmlns=%22http://www.w3.org/2000/svg%22%3E%3Cfilter id=%22noiseFilter%22%3E%3CfeTurbulence type=%22fractalNoise%22 baseFrequency=%222.5%22 numOctaves=%224%22 stitchTiles=%22stitch%22/%3E%3C/filter%3E%3Crect width=%22100%25%22 height=%22100%25%22 filter=%22url(%23noiseFilter)%22/%3E%3C/svg%3E")', mixBlendMode: 'overlay' }} />
       </div>
 
       {/* Navigation */}
@@ -83,7 +84,7 @@ export default function Home() {
             <span className="block w-4 h-4 bg-primary rounded-none transition-all duration-500 group-hover:rotate-90 group-hover:scale-75" />
             <span className="absolute -top-1 -right-1 w-2 h-2 bg-primary/40 rounded-none group-hover:translate-x-2 group-hover:-translate-y-2 transition-transform duration-500" />
           </div>
-          <span className="font-syne font-bold text-xl uppercase text-foreground">
+          <span className="font-inter font-bold text-xl uppercase text-foreground">
             Lavidz
           </span>
         </div>
@@ -104,28 +105,25 @@ export default function Home() {
             {/* Eyebrow — Pattern Interrupt */}
             <div className="flex items-center gap-3">
               <span className="w-8 h-[1px] bg-primary/60" />
-              <p className="text-[10px] font-mono uppercase tracking-[0.3em] text-primary/80 font-bold">
-                La vidéo qui vend à votre place
+              <p className="text-[10px] font-mono uppercase tracking-[0.3em] text-primary/80 font-bold flex items-center gap-2">
+                <Bot size={12} /> Votre machine à contenu vidéo
               </p>
             </div>
 
-            {/* Headline — Hormozi-style: Outcome + Mechanism */}
-            <h1 className="text-4xl sm:text-5xl lg:text-6xl xl:text-[4.2rem] font-syne font-bold leading-[1.3] pb-8">
-              Récoltez des témoignages vidéo{' '}
-              <span className="inline-block text-transparent bg-clip-text bg-gradient-to-r from-primary via-orange-400 to-yellow-500 pb-4 mb-[-1rem]">
-                à la demande.
-              </span>
+            {/* Headline */}
+            <h1 className="text-4xl sm:text-5xl lg:text-6xl xl:text-[4.2rem] font-inter font-extrabold leading-[1.15]">
+              L'IA pose les questions.{' '}
               <br />
-              <span className="text-white/60 text-3xl sm:text-4xl lg:text-[2.8rem] font-syne leading-relaxed block mt-4">
-                Sans agenda. Sans plateau. Sans excuse.
+              <span className="text-transparent bg-clip-text bg-gradient-to-r from-primary via-orange-400 to-yellow-500">
+                Vous récoltez le contenu.
               </span>
             </h1>
 
-            {/* Sub-head — Agitate the pain */}
+            {/* Sub-head */}
             <p className="text-lg lg:text-xl text-zinc-300 font-inter max-w-xl leading-relaxed border-l-2 border-primary/40 pl-5">
-              Vos clients sont satisfaits mais personne ne le sait.
-              Lavidz envoie un lien, guide la personne face caméra,
-              et vous livre un rush prêt à monter — <strong className="text-white">pendant que vous dormez.</strong>
+              Témoignages clients. Personal branding. Idées de contenu.
+              Une IA qui comprend votre business et fait parler les gens face caméra.{' '}
+              <strong className="text-white">Sans script. Sans vidéaste. Sans effort.</strong>
             </p>
 
             {/* Waitlist Form */}
@@ -194,7 +192,7 @@ export default function Home() {
                     <div className="absolute inset-0 bg-gradient-to-br from-white/5 to-transparent pointer-events-none" />
                     {!isRecording && (
                       <p className="text-[10px] font-mono text-primary uppercase tracking-widest mb-3 font-bold flex items-center gap-2">
-                        <MessageSquare size={12} /> La question
+                        <Brain size={12} /> Question générée par l'IA
                       </p>
                     )}
                     <p className={`${isRecording ? 'text-sm' : 'text-lg'} font-inter font-bold text-white leading-snug transition-all duration-700`}>
@@ -239,6 +237,22 @@ export default function Home() {
           </div>
 
         </div>
+
+        {/* Powered by Kabuki - Hero Section */}
+        <div className="mt-20 flex flex-col items-center gap-4 animate-in fade-in slide-in-from-bottom-4 duration-1000 delay-500 fill-mode-both">
+          <p className="text-[10px] font-mono uppercase tracking-[0.2em] text-zinc-500">Powered by</p>
+          <Link href="https://kabuki.fr" target="_blank" className="group/logo flex items-center gap-3 grayscale hover:grayscale-0 transition-all duration-500 opacity-60 hover:opacity-100">
+            <svg viewBox="0 0 32 32" aria-hidden="true" className="h-8 w-8">
+              <rect clipPath="url(#hero-clip)" className="h-8 transition-all duration-300 fill-primary w-0 group-hover/logo:w-8"></rect>
+              <use href="#hero-path" className="stroke-white" fill="none" strokeWidth="1.5"></use>
+              <defs>
+                <path id="hero-path" d="M3.25 26v.75H7c1.305 0 2.384-.21 3.346-.627.96-.415 1.763-1.02 2.536-1.752.695-.657 1.39-1.443 2.152-2.306l.233-.263c.864-.975 1.843-2.068 3.071-3.266 1.209-1.18 2.881-1.786 4.621-1.786h5.791V5.25H25c-1.305 0-2.384.21-3.346.627-.96.415-1.763 1.02-2.536 1.751-.695.658-1.39 1.444-2.152 2.307l-.233.263c-.864.975-1.843 2.068-3.071 3.266-1.209 1.18-2.881 1.786-4.621 1.786H3.25V26Z"></path>
+                <clipPath id="hero-clip"><use href="#hero-path"></use></clipPath>
+              </defs>
+            </svg>
+            <span className="font-inter font-bold text-xl tracking-tight text-white">Kabuki</span>
+          </Link>
+        </div>
       </main>
 
       {/* ═══════════════════════════════════════════════════════════════════ */}
@@ -250,51 +264,50 @@ export default function Home() {
         <div className="max-w-5xl mx-auto px-6 py-24 lg:py-32">
           <div className="text-center mb-16">
             <p className="text-[10px] font-mono uppercase tracking-[0.3em] text-primary/80 mb-4">Le vrai problème</p>
-            <h2 className="text-3xl sm:text-4xl lg:text-5xl font-syne font-bold leading-snug text-white pb-2">
-              Vos clients adorent ce que vous faites.<br />
-              <span className="text-zinc-400">Mais personne ne les entend.</span>
+            <h2 className="text-3xl sm:text-4xl lg:text-5xl font-inter font-extrabold leading-snug text-white">
+              La vidéo convertit 5x plus.<br />
+              <span className="text-zinc-400">Vous en produisez 0.</span>
             </h2>
           </div>
 
           <div className="grid grid-cols-1 md:grid-cols-3 gap-6 lg:gap-8">
             {[
               {
-                emoji: '📅',
-                title: 'Impossible de caler un créneau',
-                desc: 'Entre leur agenda et le vôtre, un témoignage vidéo prend des semaines à organiser. La plupart ne se font jamais.',
+                emoji: '🧠',
+                title: 'Page blanche',
+                desc: 'Vous vous filmez. Rien ne sort. Zéro contenu publié cette semaine.',
               },
               {
-                emoji: '😬',
-                title: 'Les gens sont mal à l\'aise',
-                desc: 'Face à une caméra, sans cadre ni guidance, même votre meilleur client devient muet. Le résultat ? Du contenu inutilisable.',
+                emoji: '📅',
+                title: 'Clients fantômes',
+                desc: '"Oui je fais le témoignage." Ça fait 6 mois. Toujours rien.',
               },
               {
                 emoji: '💸',
-                title: 'Ça coûte une fortune à produire',
-                desc: 'Vidéaste, monteur, studio. Pour 3 minutes de témoignage, vous dépensez plus que ce que ça vous rapporte.',
+                title: 'Budget explosé',
+                desc: 'Vidéaste + monteur + studio = 2000€ pour 3 minutes. Non merci.',
               },
             ].map((item, i) => (
               <div key={i} className="p-8 bg-background border border-border/60 hover:border-primary/20 transition-all duration-500 group relative overflow-hidden">
                 <div className="absolute top-0 right-0 w-32 h-32 bg-primary/5 blur-3xl opacity-0 group-hover:opacity-100 transition-opacity" />
                 <span className="text-3xl mb-6 block">{item.emoji}</span>
-                <h3 className="text-lg font-syne font-bold text-foreground mb-3 pb-1 leading-normal">{item.title}</h3>
+                <h3 className="text-lg font-inter font-bold text-white mb-3 leading-normal">{item.title}</h3>
                 <p className="text-sm text-zinc-400 font-inter leading-relaxed">{item.desc}</p>
               </div>
             ))}
           </div>
 
           <div className="text-center mt-16">
-            <p className="text-xl sm:text-2xl font-syne font-bold text-foreground leading-relaxed pb-2">
-              Résultat : votre meilleure preuve sociale{' '}
-              <span className="text-transparent bg-clip-text bg-gradient-to-r from-primary to-orange-400 py-1">reste bloquée dans la tête</span>
-              {' '}de vos clients.
+            <p className="text-xl sm:text-2xl font-inter font-bold text-white leading-relaxed">
+              Vos concurrents publient tous les jours.{' '}
+              <span className="text-transparent bg-clip-text bg-gradient-to-r from-primary to-orange-400">Pas vous.</span>
             </p>
           </div>
         </div>
       </section>
 
       {/* ═══════════════════════════════════════════════════════════════════ */}
-      {/* SOLUTION — How It Works (3 Steps)                                  */}
+      {/* SECRET WEAPON — AI + Smart Questioning                             */}
       {/* ═══════════════════════════════════════════════════════════════════ */}
       <section className="relative z-10 border-t border-white/5 bg-black">
         <div className="absolute top-0 left-1/2 -translate-x-1/2 w-1/3 h-[1px] bg-gradient-to-r from-transparent via-emerald-500/50 to-transparent shadow-[0_0_20px_theme(colors.emerald.500)]" />
@@ -302,11 +315,11 @@ export default function Home() {
         <div className="max-w-5xl mx-auto px-6 py-24 lg:py-32">
           <div className="text-center mb-20">
             <p className="text-[10px] font-mono uppercase tracking-[0.3em] text-emerald-500/80 mb-4">
-              Stupidement simple
+              Comment ça marche
             </p>
-            <h2 className="text-3xl sm:text-4xl lg:text-5xl font-syne font-bold leading-snug pb-2">
-              3 étapes. Zéro friction.<br />
-              <span className="text-emerald-400">Des vidéos qui convertissent.</span>
+            <h2 className="text-3xl sm:text-4xl lg:text-5xl font-inter font-extrabold leading-snug text-white">
+              3 étapes.<br />
+              <span className="text-emerald-400">Du contenu en 10 minutes.</span>
             </h2>
           </div>
 
@@ -314,27 +327,24 @@ export default function Home() {
             {[
               {
                 step: '01',
-                icon: Zap,
-                title: 'Envoyez un lien',
-                desc: 'Choisissez un parcours de questions. Personnalisez-le avec votre marque. Envoyez le lien à votre client — par email, SMS, WhatsApp. 10 secondes.',
+                icon: Lightbulb,
+                title: 'Décrivez votre business',
+                desc: '2 phrases. L\'IA comprend votre marché, votre cible, ce qui vous rend unique.',
                 color: 'text-primary',
-                borderColor: 'border-primary/20',
               },
               {
                 step: '02',
-                icon: Video,
-                title: 'Il s\'enregistre seul',
-                desc: 'Votre client ouvre le lien sur son téléphone. Les questions défilent une par une. Il répond face caméra, guidé naturellement. Aucune app à télécharger.',
+                icon: Brain,
+                title: 'L\'IA génère les questions',
+                desc: 'Sur mesure. Pas du générique. Calibrées pour faire sortir les meilleures réponses face caméra.',
                 color: 'text-blue-400',
-                borderColor: 'border-blue-500/20',
               },
               {
                 step: '03',
                 icon: Sparkles,
-                title: 'Vous recevez les rushs',
-                desc: 'Chaque réponse est isolée, nommée, prête à être montée. Transcription automatique incluse. Vous n\'avez plus qu\'à assembler votre chef-d\'œuvre.',
+                title: 'Filmez. Recevez. Publiez.',
+                desc: 'Vous ou vos clients. Rushs isolés, transcrits, prêts à poster.',
                 color: 'text-emerald-400',
-                borderColor: 'border-emerald-500/20',
               },
             ].map((item, i) => (
               <div key={i} className={cn(
@@ -348,7 +358,7 @@ export default function Home() {
                   <div className="flex-1 h-[1px] bg-border/40" />
                   <item.icon size={18} className={cn(item.color, "opacity-60 group-hover:opacity-100 transition-opacity")} />
                 </div>
-                <h3 className="text-xl font-syne font-bold text-foreground mb-4 pb-1 group-hover:text-foreground transition-colors leading-normal">{item.title}</h3>
+                <h3 className="text-xl font-inter font-bold text-white mb-4 leading-normal">{item.title}</h3>
                 <p className="text-sm text-zinc-400 font-inter leading-relaxed">{item.desc}</p>
               </div>
             ))}
@@ -357,25 +367,23 @@ export default function Home() {
       </section>
 
       {/* ═══════════════════════════════════════════════════════════════════ */}
-      {/* USE CASES — Who It's For                                           */}
+      {/* 3 MODES — The Power of Lavidz                                      */}
       {/* ═══════════════════════════════════════════════════════════════════ */}
       <section className="relative z-10 border-t border-white/5 bg-zinc-950/50 backdrop-blur-3xl">
         <div className="absolute top-0 left-1/2 -translate-x-1/2 w-1/2 h-[1px] bg-gradient-to-r from-transparent via-primary/50 to-transparent shadow-[0_0_20px_theme(colors.primary.DEFAULT)]" />
 
         <div className="max-w-6xl mx-auto px-6 py-24 lg:py-32">
           <div className="text-center mb-20">
-            <p className="text-[10px] font-mono uppercase tracking-[0.3em] text-primary/60 mb-4">Qui utilise Lavidz</p>
-            <h2 className="text-3xl sm:text-4xl lg:text-5xl font-syne font-bold leading-snug pb-2">
-              Un outil. <span className="text-primary">Des dizaines de cas d'usage.</span>
+            <p className="text-[10px] font-mono uppercase tracking-[0.3em] text-primary/60 mb-4">Un outil, quatre armes</p>
+            <h2 className="text-3xl sm:text-4xl lg:text-5xl font-inter font-extrabold leading-snug text-white">
+              Preuve sociale. Branding.{' '}
+              <span className="text-primary">RH. Idéation.</span>
             </h2>
-            <p className="mt-6 text-zinc-300 font-inter max-w-2xl mx-auto text-lg leading-relaxed">
-              À chaque fois qu'une voix authentique vaut plus qu'un PowerPoint, Lavidz entre en jeu.
-            </p>
           </div>
 
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
 
-            {/* Case 1 */}
+            {/* Mode 1 — Preuve Sociale */}
             <div className="p-8 lg:p-10 bg-background border border-border/60 hover:border-blue-500/30 transition-all duration-500 group relative overflow-hidden">
               <div className="absolute top-0 right-0 w-48 h-48 bg-blue-500/5 blur-3xl group-hover:bg-blue-500/10 transition-colors" />
               <div className="flex items-center gap-4 mb-6 relative z-10">
@@ -383,79 +391,83 @@ export default function Home() {
                   <Target size={18} className="text-blue-400" />
                 </div>
                 <div>
-                  <h3 className="text-lg font-syne font-bold text-white tracking-normal">Coaches & Consultants</h3>
-                  <p className="text-[10px] font-mono text-zinc-400 uppercase tracking-widest">Personal branding</p>
+                  <h3 className="text-lg font-inter font-bold text-white">Mode Preuve Sociale</h3>
+                  <p className="text-[10px] font-mono text-zinc-400 uppercase tracking-widest">Témoignages clients</p>
                 </div>
               </div>
               <p className="text-sm text-zinc-400 font-inter leading-relaxed relative z-10 mb-6">
-                Transformez chaque client satisfait en machine à générer de la confiance. Un témoignage vidéo authentique vaut plus que 100 posts LinkedIn.
+                Un lien. L'IA pose les questions. Vos clients répondent face caméra. Vous récoltez des témoignages <strong className="text-white">pendant que vous dormez</strong>.
               </p>
               <div className="flex flex-wrap gap-2 relative z-10">
                 <Badge variant="outline" className="font-mono text-[9px] bg-blue-500/5 text-blue-400 border-blue-500/15 uppercase tracking-widest px-2.5 py-1 rounded-none">Témoignages clients</Badge>
                 <Badge variant="outline" className="font-mono text-[9px] bg-blue-500/5 text-blue-400 border-blue-500/15 uppercase tracking-widest px-2.5 py-1 rounded-none">Études de cas</Badge>
-                <Badge variant="outline" className="font-mono text-[9px] bg-blue-500/5 text-blue-400 border-blue-500/15 uppercase tracking-widest px-2.5 py-1 rounded-none">Preuve sociale</Badge>
+                <Badge variant="outline" className="font-mono text-[9px] bg-blue-500/5 text-blue-400 border-blue-500/15 uppercase tracking-widest px-2.5 py-1 rounded-none">Avis vidéo</Badge>
               </div>
             </div>
 
-            {/* Case 2 */}
+            {/* Mode 2 — Personal Branding */}
             <div className="p-8 lg:p-10 bg-background border border-border/60 hover:border-primary/30 transition-all duration-500 group relative overflow-hidden">
               <div className="absolute top-0 right-0 w-48 h-48 bg-primary/5 blur-3xl group-hover:bg-primary/10 transition-colors" />
               <div className="flex items-center gap-4 mb-6 relative z-10">
                 <div className="w-10 h-10 bg-primary/10 border border-primary/20 flex items-center justify-center group-hover:scale-110 transition-transform">
-                  <TrendingUp size={18} className="text-primary" />
+                  <Mic size={18} className="text-primary" />
                 </div>
                 <div>
-                  <h3 className="text-lg font-syne font-bold text-white tracking-normal">Agences & Marques</h3>
-                  <p className="text-[10px] font-mono text-zinc-400 uppercase tracking-widest">UGC & contenu</p>
+                  <h3 className="text-lg font-inter font-bold text-white">Mode Personal Branding</h3>
+                  <p className="text-[10px] font-mono text-zinc-400 uppercase tracking-widest">Votre Ghostwriter vidéo</p>
                 </div>
               </div>
               <p className="text-sm text-zinc-400 font-inter leading-relaxed relative z-10 mb-6">
-                Récoltez du contenu vidéo authentique à grande échelle. Plus besoin de courir après les influenceurs : vos vrais clients sont vos meilleurs ambassadeurs.
+                L'IA vous challenge. Vous répondez. <strong className="text-white">30 jours de contenu en 1 session</strong>. Votre ghostwriter vidéo.
               </p>
               <div className="flex flex-wrap gap-2 relative z-10">
-                <Badge variant="outline" className="font-mono text-[9px] bg-primary/5 text-primary border-primary/15 uppercase tracking-widest px-2.5 py-1 rounded-none">UGC scalable</Badge>
-                <Badge variant="outline" className="font-mono text-[9px] bg-primary/5 text-primary border-primary/15 uppercase tracking-widest px-2.5 py-1 rounded-none">Feedback produit</Badge>
-                <Badge variant="outline" className="font-mono text-[9px] bg-primary/5 text-primary border-primary/15 uppercase tracking-widest px-2.5 py-1 rounded-none">Social Ads</Badge>
+                <Badge variant="outline" className="font-mono text-[9px] bg-primary/5 text-primary border-primary/15 uppercase tracking-widest px-2.5 py-1 rounded-none">Contenu LinkedIn</Badge>
+                <Badge variant="outline" className="font-mono text-[9px] bg-primary/5 text-primary border-primary/15 uppercase tracking-widest px-2.5 py-1 rounded-none">Reels & Shorts</Badge>
+                <Badge variant="outline" className="font-mono text-[9px] bg-primary/5 text-primary border-primary/15 uppercase tracking-widest px-2.5 py-1 rounded-none">Podcasts solo</Badge>
               </div>
             </div>
 
-            {/* Case 3 — Full Width */}
-            <div className="md:col-span-2 p-8 lg:p-10 bg-surface/40 border border-border/60 hover:border-emerald-500/30 transition-all duration-500 group relative overflow-hidden">
-              <div className="absolute inset-x-0 bottom-0 h-48 bg-emerald-500/5 blur-3xl group-hover:bg-emerald-500/10 transition-colors pointer-events-none" />
-
-              <div className="flex flex-col md:flex-row items-start lg:items-center justify-between gap-10 relative z-10">
-                <div className="max-w-xl">
-                  <div className="flex items-center gap-4 mb-6">
-                    <div className="w-10 h-10 bg-emerald-500/10 border border-emerald-500/20 flex items-center justify-center group-hover:scale-110 transition-transform">
-                      <Eye size={18} className="text-emerald-400" />
-                    </div>
-                    <div>
-                      <h3 className="text-lg font-syne font-bold text-white tracking-normal">RH & Marque employeur</h3>
-                      <p className="text-[10px] font-mono text-zinc-400 uppercase tracking-widest">Recrutement & culture</p>
-                    </div>
-                  </div>
-                  <p className="text-sm text-zinc-400 font-inter leading-relaxed mb-6">
-                    Donnez la parole à vos équipes. Les meilleurs talents ne lisent pas vos offres : ils veulent <strong className="text-white">sentir votre culture</strong> avant de postuler. La vidéo rend ça possible. Sans organiser un seul tournage.
-                  </p>
-                  <div className="flex flex-wrap gap-2">
-                    <Badge variant="outline" className="font-mono text-[9px] bg-emerald-500/5 text-emerald-400 border-emerald-500/15 uppercase tracking-widest px-2.5 py-1 rounded-none">Témoignages employés</Badge>
-                    <Badge variant="outline" className="font-mono text-[9px] bg-emerald-500/5 text-emerald-400 border-emerald-500/15 uppercase tracking-widest px-2.5 py-1 rounded-none">Onboarding stories</Badge>
-                    <Badge variant="outline" className="font-mono text-[9px] bg-emerald-500/5 text-emerald-400 border-emerald-500/15 uppercase tracking-widest px-2.5 py-1 rounded-none">"Vis ma vie"</Badge>
-                  </div>
+            {/* Mode 3 — Challenge Entrepreneur */}
+            <div className="p-8 lg:p-10 bg-background border border-border/60 hover:border-emerald-500/30 transition-all duration-500 group relative overflow-hidden">
+              <div className="absolute top-0 right-0 w-48 h-48 bg-emerald-500/5 blur-3xl group-hover:bg-emerald-500/10 transition-colors" />
+              <div className="flex items-center gap-4 mb-6 relative z-10">
+                <div className="w-10 h-10 bg-emerald-500/10 border border-emerald-500/20 flex items-center justify-center group-hover:scale-110 transition-transform">
+                  <Brain size={18} className="text-emerald-400" />
                 </div>
-
-                <div className="hidden md:flex flex-col gap-3 w-full max-w-xs shrink-0">
-                  {[
-                    { icon: Clock, text: 'Set-up en 2 minutes' },
-                    { icon: Shield, text: 'Données hébergées en France' },
-                    { icon: Star, text: 'Parcours 100% personnalisable' },
-                  ].map((f, i) => (
-                    <div key={i} className="bg-background/80 backdrop-blur-md border border-border p-4 group-hover:border-emerald-500/20 transition-colors flex items-center gap-3">
-                      <f.icon size={14} className="text-emerald-400 shrink-0" />
-                      <span className="text-xs font-inter text-muted-foreground">{f.text}</span>
-                    </div>
-                  ))}
+                <div>
+                  <h3 className="text-lg font-inter font-bold text-white">Mode Challenge</h3>
+                  <p className="text-[10px] font-mono text-zinc-400 uppercase tracking-widest">Idéation business</p>
                 </div>
+              </div>
+              <p className="text-sm text-zinc-400 font-inter leading-relaxed relative z-10 mb-6">
+                L'IA creuse votre vision, vos process, vos convictions. Elle vous pousse à <strong className="text-white">dire ce que personne d'autre ne peut dire</strong>. Chaque réponse = du contenu.
+              </p>
+              <div className="flex flex-wrap gap-2 relative z-10">
+                <Badge variant="outline" className="font-mono text-[9px] bg-emerald-500/5 text-emerald-400 border-emerald-500/15 uppercase tracking-widest px-2.5 py-1 rounded-none">Vision & Stratégie</Badge>
+                <Badge variant="outline" className="font-mono text-[9px] bg-emerald-500/5 text-emerald-400 border-emerald-500/15 uppercase tracking-widest px-2.5 py-1 rounded-none">Positionnement</Badge>
+                <Badge variant="outline" className="font-mono text-[9px] bg-emerald-500/5 text-emerald-400 border-emerald-500/15 uppercase tracking-widest px-2.5 py-1 rounded-none">Idéation contenu</Badge>
+              </div>
+            </div>
+
+            {/* Mode 4 — RH & Marque Employeur */}
+            <div className="p-8 lg:p-10 bg-background border border-border/60 hover:border-violet-500/30 transition-all duration-500 group relative overflow-hidden">
+              <div className="absolute top-0 right-0 w-48 h-48 bg-violet-500/5 blur-3xl group-hover:bg-violet-500/10 transition-colors" />
+              <div className="flex items-center gap-4 mb-6 relative z-10">
+                <div className="w-10 h-10 bg-violet-500/10 border border-violet-500/20 flex items-center justify-center group-hover:scale-110 transition-transform">
+                  <Users size={18} className="text-violet-400" />
+                </div>
+                <div>
+                  <h3 className="text-lg font-inter font-bold text-white">Mode RH</h3>
+                  <p className="text-[10px] font-mono text-zinc-400 uppercase tracking-widest">Marque employeur</p>
+                </div>
+              </div>
+              <p className="text-sm text-zinc-400 font-inter leading-relaxed relative z-10 mb-6">
+                Vos équipes parlent de leur quotidien face caméra. <strong className="text-white">Les meilleurs talents ne lisent pas vos offres — ils veulent sentir votre culture</strong>. Zéro tournage. Zéro coordo.
+              </p>
+              <div className="flex flex-wrap gap-2 relative z-10">
+                <Badge variant="outline" className="font-mono text-[9px] bg-violet-500/5 text-violet-400 border-violet-500/15 uppercase tracking-widest px-2.5 py-1 rounded-none">Témoignages employés</Badge>
+                <Badge variant="outline" className="font-mono text-[9px] bg-violet-500/5 text-violet-400 border-violet-500/15 uppercase tracking-widest px-2.5 py-1 rounded-none">Onboarding</Badge>
+                <Badge variant="outline" className="font-mono text-[9px] bg-violet-500/5 text-violet-400 border-violet-500/15 uppercase tracking-widest px-2.5 py-1 rounded-none">Recrutement</Badge>
               </div>
             </div>
           </div>
@@ -471,19 +483,17 @@ export default function Home() {
         <div className="max-w-4xl mx-auto px-6 py-24 lg:py-32 text-center">
           <div className="space-y-8">
             <p className="text-[10px] font-mono uppercase tracking-[0.3em] text-primary/60">La vision</p>
-            <h2 className="text-3xl sm:text-4xl lg:text-5xl font-syne font-bold leading-[1.3] pb-4">
-              Imaginez un monde où chaque client satisfait{' '}
-              <span className="text-transparent bg-clip-text bg-gradient-to-r from-primary via-orange-400 to-yellow-500 py-1">
-                devient une preuve vivante
+            <h2 className="text-3xl sm:text-4xl lg:text-5xl font-inter font-extrabold leading-snug text-white">
+              Zéro script. Zéro tournage.{' '}
+              <span className="text-transparent bg-clip-text bg-gradient-to-r from-primary via-orange-400 to-yellow-500">
+                Du contenu vidéo tous les jours.
               </span>
-              {' '}de votre valeur.
             </h2>
             <p className="text-lg text-zinc-300 font-inter max-w-2xl mx-auto leading-relaxed">
-              Plus besoin de supplier pour un avis Google. Plus besoin de scripter des faux témoignages. Plus besoin de payer un vidéaste.
-              Juste un lien, une question, et la vérité brute face caméra.
+              Une IA. Une caméra. La vérité brute.
             </p>
-            <p className="text-lg font-inter font-bold text-foreground max-w-xl mx-auto">
-              C'est ça, l'avenir de la preuve sociale. Et il commence ici.
+            <p className="text-lg font-inter font-bold text-white max-w-xl mx-auto">
+              Le futur du contenu commence ici.
             </p>
           </div>
         </div>
@@ -500,12 +510,12 @@ export default function Home() {
 
         <div className="max-w-3xl mx-auto px-6 py-24 lg:py-32 text-center relative z-10">
           <div className="space-y-8">
-            <h2 className="text-3xl sm:text-4xl lg:text-5xl font-syne font-bold leading-snug pb-2">
-              Prêt à transformer vos clients<br />
-              <span className="text-transparent bg-clip-text bg-gradient-to-r from-primary via-orange-400 to-yellow-500 py-1">en arme commerciale ?</span>
+            <h2 className="text-3xl sm:text-4xl lg:text-5xl font-inter font-extrabold leading-snug text-white">
+              Arrêtez de réfléchir.<br />
+              <span className="text-transparent bg-clip-text bg-gradient-to-r from-primary via-orange-400 to-yellow-500">Commencez à filmer.</span>
             </h2>
             <p className="text-zinc-300 font-inter text-lg">
-              Inscrivez-vous à la bêta. Les premiers inscrits auront un accès gratuit et illimité.
+              Accès gratuit et illimité pour les premiers inscrits.
             </p>
 
             <div className="flex justify-center">
@@ -522,11 +532,27 @@ export default function Home() {
       {/* Footer */}
       <footer className="border-t border-border/40 py-12 px-6 bg-background relative z-10">
         <div className="max-w-7xl mx-auto flex flex-col md:flex-row items-center justify-between gap-6">
-          <div className="flex items-center gap-3">
-            <div className="w-2 h-2 bg-primary rounded-none" />
-            <span className="font-syne font-bold text-lg uppercase text-white">
-              Lavidz
-            </span>
+          <div className="flex flex-col items-start gap-4">
+            <div className="flex items-center gap-3">
+              <div className="w-2 h-2 bg-primary rounded-none" />
+              <span className="font-inter font-bold text-lg uppercase text-white">
+                Lavidz
+              </span>
+            </div>
+            <div className="flex items-center gap-3 opacity-60">
+              <span className="text-[9px] font-mono uppercase tracking-widest text-zinc-500">Un produit</span>
+              <div className="flex items-center gap-2 group/logo-footer grayscale hover:grayscale-0 transition-all duration-500 hover:opacity-100">
+                <svg viewBox="0 0 32 32" aria-hidden="true" className="h-5 w-5">
+                  <rect clipPath="url(#footer-clip)" className="h-5 transition-all duration-300 fill-primary w-0 group-hover/logo-footer:w-5"></rect>
+                  <use href="#footer-path" className="stroke-white" fill="none" strokeWidth="1.5"></use>
+                  <defs>
+                    <path id="footer-path" d="M3.25 26v.75H7c1.305 0 2.384-.21 3.346-.627.96-.415 1.763-1.02 2.536-1.752.695-.657 1.39-1.443 2.152-2.306l.233-.263c.864-.975 1.843-2.068 3.071-3.266 1.209-1.18 2.881-1.786 4.621-1.786h5.791V5.25H25c-1.305 0-2.384.21-3.346.627-.96.415-1.763 1.02-2.536 1.751-.695.658-1.39 1.444-2.152 2.307l-.233.263c-.864.975-1.843 2.068-3.071 3.266-1.209 1.18-2.881 1.786-4.621 1.786H3.25V26Z"></path>
+                    <clipPath id="footer-clip"><use href="#footer-path"></use></clipPath>
+                  </defs>
+                </svg>
+                <span className="font-inter font-bold text-sm tracking-tight text-white">Kabuki</span>
+              </div>
+            </div>
           </div>
           <p className="text-xs font-mono text-zinc-400">
             © {new Date().getFullYear()} Lavidz. Tous droits réservés.

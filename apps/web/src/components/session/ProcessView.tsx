@@ -117,6 +117,10 @@ interface RawRecording {
   questionText: string
   videoUrl: string
   transcript: string | null
+  ttsAudioKey: string | null
+  ttsVoiceId: string | null
+  processedVideoKey: string | null
+  processingHash: string | null
 }
 
 const STANDARD_VOICE_IDS = new Set([
@@ -136,6 +140,7 @@ interface Props {
   themeName: string
   sessionId: string
   themeSlug: string
+  montageSettings?: Record<string, any> | null
 }
 
 function getVideoDuration(url: string): Promise<number> {
@@ -242,7 +247,7 @@ function Card({ children, style }: { children: React.ReactNode; style?: React.CS
 
 // ─── Main Component ───────────────────────────────────────────────────────────
 
-export function ProcessView({ recordings, themeName, sessionId, themeSlug }: Props) {
+export function ProcessView({ recordings, themeName, sessionId, themeSlug, montageSettings }: Props) {
   const [currentStep, setCurrentStep] = useState(0)
   const [segments, setSegments] = useState<CompositionSegment[] | null>(null)
   const [loadingStep, setLoadingStep] = useState<string>('')
@@ -282,6 +287,12 @@ export function ProcessView({ recordings, themeName, sessionId, themeSlug }: Pro
   const [delivered, setDelivered] = useState(false)
   const [deliverError, setDeliverError] = useState('')
 
+  // Cache for processed assets (S3-backed)
+  const [ttsCache, setTtsCache] = useState<Record<string, { voiceId: string; url: string }>>({})
+  const [processedCache, setProcessedCache] = useState<Record<string, { hash: string; url: string }>>({})
+  // Auto-save status
+  const [saveStatus, setSaveStatus] = useState<'idle' | 'saving' | 'saved' | 'error'>('idle')
+
   const localTranscriptsRef = useRef<Record<string, string>>({})
   const serverRendererRef = useRef<ServerRendererHandle | null>(null)
   const previewAudioRef = useRef<HTMLAudioElement | null>(null)
@@ -292,10 +303,79 @@ export function ProcessView({ recordings, themeName, sessionId, themeSlug }: Pro
 
   useEffect(() => { localTranscriptsRef.current = localTranscripts }, [localTranscripts])
   useEffect(() => { wordTimestampsRef.current = wordTimestampsMap }, [wordTimestampsMap])
+
+  // Restore settings from DB on mount
   useEffect(() => {
     fetchVoices()
     fetch('/api/sfx-library').then(r => r.ok ? r.json() : []).then(setSfxLibrary).catch(() => {})
-  }, [])
+
+    // Restore montageSettings if present
+    if (montageSettings) {
+      const s = montageSettings
+      if (s.selectedVoiceId) setSelectedVoiceId(s.selectedVoiceId)
+      if (typeof s.voiceEnabled === 'boolean') setVoiceEnabled(s.voiceEnabled)
+      if (s.format) setFormat(s.format)
+      if (s.subtitleSettings) setSubtitleSettings(s.subtitleSettings)
+      if (s.theme) setTheme(s.theme)
+      if (s.intro) setIntro(s.intro)
+      if (s.outro) setOutro(s.outro)
+      if (s.motionSettings) setMotionSettings(s.motionSettings)
+      if (s.questionCardFrames) setQuestionCardFrames(s.questionCardFrames)
+      if (s.activePresetId !== undefined) setActivePresetId(s.activePresetId)
+      if (s.audioSettings) setAudioSettings(s.audioSettings)
+      if (s.bgMusicPrompt) setBgMusicPrompt(s.bgMusicPrompt)
+      if (s.transitionSfxPrompt) setTransitionSfxPrompt(s.transitionSfxPrompt)
+      if (typeof s.silenceCutEnabled === 'boolean') setSilenceCutEnabled(s.silenceCutEnabled)
+      if (s.silenceThreshold !== undefined) setSilenceThreshold(s.silenceThreshold)
+      if (typeof s.denoiseEnabled === 'boolean') setDenoiseEnabled(s.denoiseEnabled)
+      if (s.denoiseStrength) setDenoiseStrength(s.denoiseStrength)
+      if (s.localTranscripts) setLocalTranscripts(s.localTranscripts)
+      if (s.wordTimestampsMap) setWordTimestampsMap(s.wordTimestampsMap)
+    }
+
+    // Initialize asset caches from recording DB fields
+    const initTts: Record<string, { voiceId: string; url: string }> = {}
+    const initProcessed: Record<string, { hash: string; url: string }> = {}
+    for (const r of recordings) {
+      if (r.ttsAudioKey && r.ttsVoiceId) {
+        // Fetch signed URL lazily when needed (stored as S3 key, resolved on demand)
+        initTts[r.id] = { voiceId: r.ttsVoiceId, url: '' } // url filled lazily
+      }
+      if (r.processedVideoKey && r.processingHash) {
+        initProcessed[r.id] = { hash: r.processingHash, url: '' } // url filled lazily
+      }
+    }
+    if (Object.keys(initTts).length) setTtsCache(initTts)
+    if (Object.keys(initProcessed).length) setProcessedCache(initProcessed)
+  }, []) // eslint-disable-line react-hooks/exhaustive-deps
+
+  // Auto-save settings to DB (debounced 1500ms)
+  const settingsForSave = JSON.stringify({
+    selectedVoiceId, voiceEnabled, format, subtitleSettings, theme, intro, outro,
+    motionSettings, questionCardFrames, activePresetId, audioSettings,
+    bgMusicPrompt, transitionSfxPrompt, silenceCutEnabled, silenceThreshold,
+    denoiseEnabled, denoiseStrength, localTranscripts, wordTimestampsMap,
+  })
+  const settingsForSaveRef = useRef(settingsForSave)
+  useEffect(() => {
+    if (settingsForSave === settingsForSaveRef.current) return
+    settingsForSaveRef.current = settingsForSave
+    setSaveStatus('saving')
+    const timeout = setTimeout(async () => {
+      try {
+        const res = await fetch(`/api/admin/sessions/${sessionId}/montage-settings`, {
+          method: 'PATCH',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ montageSettings: JSON.parse(settingsForSaveRef.current) }),
+        })
+        setSaveStatus(res.ok ? 'saved' : 'error')
+        if (res.ok) setTimeout(() => setSaveStatus('idle'), 2500)
+      } catch {
+        setSaveStatus('error')
+      }
+    }, 1500)
+    return () => clearTimeout(timeout)
+  }, [settingsForSave]) // eslint-disable-line react-hooks/exhaustive-deps
 
   const fetchVoices = async () => {
     try { const res = await fetch('/api/tts/voices'); if (res.ok) setVoices(await res.json()) } catch {}
@@ -321,8 +401,41 @@ export function ProcessView({ recordings, themeName, sessionId, themeSlug }: Pro
     }
   }
 
+  // Fetch a signed URL for a cached recording asset
+  const getCachedUrl = async (recordingId: string, type: 'tts' | 'processed'): Promise<string | null> => {
+    try {
+      const endpoint = type === 'tts' ? 'tts-url' : 'processed-url'
+      const res = await fetch(`/api/admin/recordings/${recordingId}/${endpoint}?sessionId=${sessionId}`)
+      if (!res.ok) return null
+      const data = await res.json()
+      return typeof data === 'string' ? data : null
+    } catch { return null }
+  }
+
+  // Upload a processed asset blob to S3 via NestJS and update recording cache in DB
+  const uploadToCache = async (
+    recordingId: string,
+    blobUrl: string,
+    type: 'tts' | 'processed',
+    extra: { voiceId?: string; processingHash?: string },
+  ) => {
+    try {
+      const blob = await (await fetch(blobUrl)).blob()
+      const form = new FormData()
+      form.append('file', blob, type === 'tts' ? 'audio.mp3' : 'video.mp4')
+      form.append('type', type)
+      if (extra.voiceId) form.append('voiceId', extra.voiceId)
+      if (extra.processingHash) form.append('processingHash', extra.processingHash)
+      const params = new URLSearchParams({ sessionId, type })
+      if (extra.voiceId) params.set('voiceId', extra.voiceId)
+      if (extra.processingHash) params.set('processingHash', extra.processingHash)
+      await fetch(`/api/admin/recordings/${recordingId}/cache?${params}`, { method: 'POST', body: form })
+    } catch (e) { console.warn('[cache] upload failed', e) }
+  }
+
   const prepare = async (voiceId: string | null) => {
     setSilenceCutError('')
+    const currentProcessingHash = `${silenceCutEnabled}-${silenceThreshold}-${denoiseEnabled}-${denoiseStrength}`
     const silenceCutChanged = !lastProcessedSettingsRef.current ||
       lastProcessedSettingsRef.current.enabled !== silenceCutEnabled ||
       lastProcessedSettingsRef.current.threshold !== silenceThreshold ||
@@ -333,8 +446,33 @@ export function ProcessView({ recordings, themeName, sessionId, themeSlug }: Pro
       blobUrlsRef.current = []; effectiveVideoUrlsRef.current = []; durationsRef.current = []
 
       for (let i = 0; i < recordings.length; i++) {
+        const rec = recordings[i]
+        // Check processed video cache
+        const cachedProcessed = processedCache[rec.id]
+        if (cachedProcessed?.hash === currentProcessingHash && cachedProcessed.url) {
+          console.log(`[cache] using cached processed video for recording ${rec.id}`)
+          effectiveVideoUrlsRef.current.push(cachedProcessed.url)
+          const blobUrl = await downloadAsBlob(cachedProcessed.url)
+          blobUrlsRef.current.push(blobUrl)
+          durationsRef.current.push(await getVideoDuration(blobUrl))
+          continue
+        }
+        // If we have a cached entry with empty url, fetch the signed URL
+        if (cachedProcessed?.hash === currentProcessingHash && !cachedProcessed.url) {
+          const signedUrl = await getCachedUrl(rec.id, 'processed')
+          if (signedUrl) {
+            setProcessedCache(p => ({ ...p, [rec.id]: { hash: currentProcessingHash, url: signedUrl } }))
+            console.log(`[cache] resolved processed URL for recording ${rec.id}`)
+            effectiveVideoUrlsRef.current.push(signedUrl)
+            const blobUrl = await downloadAsBlob(signedUrl)
+            blobUrlsRef.current.push(blobUrl)
+            durationsRef.current.push(await getVideoDuration(blobUrl))
+            continue
+          }
+        }
+
         setLoadingStep(silenceCutEnabled ? `Coupure silences ${i+1}/${recordings.length}...` : `Traitement vidéo ${i+1}/${recordings.length}...`)
-        let realUrl = recordings[i].videoUrl
+        let realUrl = rec.videoUrl
 
         if (silenceCutEnabled) {
           try {
@@ -361,6 +499,10 @@ export function ProcessView({ recordings, themeName, sessionId, themeSlug }: Pro
         const blobUrl = await downloadAsBlob(realUrl)
         blobUrlsRef.current.push(blobUrl)
         durationsRef.current.push(await getVideoDuration(blobUrl))
+
+        // Upload processed video to S3 cache in background
+        setProcessedCache(p => ({ ...p, [rec.id]: { hash: currentProcessingHash, url: realUrl } }))
+        uploadToCache(rec.id, realUrl, 'processed', { processingHash: currentProcessingHash })
       }
       lastProcessedSettingsRef.current = { enabled: silenceCutEnabled, threshold: silenceThreshold, denoiseEnabled, denoiseStrength }
     }
@@ -368,8 +510,34 @@ export function ProcessView({ recordings, themeName, sessionId, themeSlug }: Pro
     const ttsUrls: (string | null)[] = []
     if (voiceId) {
       for (let i = 0; i < recordings.length; i++) {
+        const rec = recordings[i]
+        // Check TTS cache
+        const cachedTts = ttsCache[rec.id]
+        if (cachedTts?.voiceId === voiceId && cachedTts.url) {
+          console.log(`[cache] using cached TTS for recording ${rec.id}`)
+          ttsUrls.push(cachedTts.url)
+          continue
+        }
+        // Resolve lazy cache entry
+        if (cachedTts?.voiceId === voiceId && !cachedTts.url) {
+          const signedUrl = await getCachedUrl(rec.id, 'tts')
+          if (signedUrl) {
+            setTtsCache(p => ({ ...p, [rec.id]: { voiceId, url: signedUrl } }))
+            console.log(`[cache] resolved TTS URL for recording ${rec.id}`)
+            ttsUrls.push(signedUrl)
+            continue
+          }
+        }
+
         setLoadingStep(`Voix IA ${i+1}/${recordings.length}...`)
-        ttsUrls.push(await generateTTS(recordings[i].questionText, voiceId))
+        const ttsUrl = await generateTTS(rec.questionText, voiceId)
+        ttsUrls.push(ttsUrl)
+
+        // Upload TTS audio to S3 cache in background
+        if (ttsUrl) {
+          setTtsCache(p => ({ ...p, [rec.id]: { voiceId, url: ttsUrl } }))
+          uploadToCache(rec.id, ttsUrl, 'tts', { voiceId })
+        }
       }
     } else {
       ttsUrls.push(...recordings.map(() => null))
@@ -1192,8 +1360,17 @@ export function ProcessView({ recordings, themeName, sessionId, themeSlug }: Pro
           </div>
           <p style={{ color: S.muted, fontSize: 10, fontFamily: 'monospace', textTransform: 'uppercase', letterSpacing: '0.08em' }}>{themeName}</p>
         </div>
-        <div style={{ width: 32, display: 'flex', alignItems: 'center', justifyContent: 'flex-end' }}>
-          {!ready && <div style={{ width: 6, height: 6, borderRadius: 3, background: '#f59e0b', animation: 'pulse 1.5s ease infinite' }} />}
+        <div style={{ width: 80, display: 'flex', alignItems: 'center', justifyContent: 'flex-end', gap: 6 }}>
+          {saveStatus === 'saving' && (
+            <span style={{ fontSize: 9, fontFamily: 'monospace', color: 'rgba(255,255,255,0.3)', textTransform: 'uppercase', letterSpacing: '0.08em' }}>Sauvegarde...</span>
+          )}
+          {saveStatus === 'saved' && (
+            <span style={{ fontSize: 9, fontFamily: 'monospace', color: 'rgba(52,211,153,0.7)', textTransform: 'uppercase', letterSpacing: '0.08em' }}>Sauvegardé ✓</span>
+          )}
+          {saveStatus === 'error' && (
+            <span style={{ fontSize: 9, fontFamily: 'monospace', color: 'rgba(248,113,113,0.7)', textTransform: 'uppercase', letterSpacing: '0.08em' }}>Erreur</span>
+          )}
+          {!ready && saveStatus === 'idle' && <div style={{ width: 6, height: 6, borderRadius: 3, background: '#f59e0b', animation: 'pulse 1.5s ease infinite' }} />}
         </div>
       </header>
 

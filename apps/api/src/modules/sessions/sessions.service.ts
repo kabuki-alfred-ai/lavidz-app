@@ -58,6 +58,65 @@ export class SessionsService {
     })
   }
 
+  async saveMontageSettings(sessionId: string, settings: Record<string, unknown>): Promise<any> {
+    return prisma.session.update({
+      where: { id: sessionId },
+      data: { montageSettings: settings },
+    })
+  }
+
+  async saveRecordingCache(
+    recordingId: string,
+    data: {
+      ttsAudioKey?: string
+      ttsVoiceId?: string
+      processedVideoKey?: string
+      processingHash?: string
+    },
+  ): Promise<any> {
+    return prisma.recording.update({
+      where: { id: recordingId },
+      data,
+    })
+  }
+
+  async getRecordingTtsUrl(recordingId: string): Promise<string> {
+    const recording = await prisma.recording.findUnique({ where: { id: recordingId } })
+    if (!recording?.ttsAudioKey) throw new NotFoundException('No TTS audio cached for this recording')
+    return this.storageService.getSignedUrl(recording.ttsAudioKey)
+  }
+
+  async getRecordingProcessedUrl(recordingId: string): Promise<string> {
+    const recording = await prisma.recording.findUnique({ where: { id: recordingId } })
+    if (!recording?.processedVideoKey) throw new NotFoundException('No processed video cached for this recording')
+    return this.storageService.getSignedUrl(recording.processedVideoKey)
+  }
+
+  async uploadRecordingCache(
+    sessionId: string,
+    recordingId: string,
+    buffer: Buffer,
+    mimetype: string,
+    type: 'tts' | 'processed',
+    voiceId?: string,
+    processingHash?: string,
+  ): Promise<any> {
+    const ext = type === 'tts' ? 'mp3' : 'mp4'
+    const key = `sessions/${sessionId}/cache/${type}-${recordingId}.${ext}`
+    await this.storageService.upload(key, buffer, mimetype)
+
+    const data: Record<string, string> = {}
+    if (type === 'tts') {
+      data.ttsAudioKey = key
+      if (voiceId) data.ttsVoiceId = voiceId
+    } else {
+      data.processedVideoKey = key
+      if (processingHash) data.processingHash = processingHash
+    }
+
+    return prisma.recording.update({ where: { id: recordingId }, data })
+  }
+
   async sendInvite(sessionId: string, shareUrl: string): Promise<void> {
     const session = await this.findOne(sessionId)
     if (!session.recipientEmail) {

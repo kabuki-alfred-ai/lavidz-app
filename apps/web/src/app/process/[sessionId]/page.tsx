@@ -53,6 +53,10 @@ export default async function ProcessPage({ params }: Props) {
         session.theme.questions.find((q: any) => q.id === r.questionId)?.text ?? '',
       videoUrl: videoUrls[r.id],
       transcript: r.transcript ?? null,
+      ttsAudioKey: r.ttsAudioKey ?? null,
+      ttsVoiceId: r.ttsVoiceId ?? null,
+      processedVideoKey: r.processedVideoKey ?? null,
+      processingHash: r.processingHash ?? null,
     }))
 
   return (
@@ -61,6 +65,7 @@ export default async function ProcessPage({ params }: Props) {
       themeName={session.theme.name}
       sessionId={sessionId}
       themeSlug={session.theme.slug}
+      montageSettings={session.montageSettings ?? null}
     />
   )
 }

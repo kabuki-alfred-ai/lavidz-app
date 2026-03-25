@@ -1,5 +1,5 @@
 import {
-  Controller, Post, Get, Put, Param, Body,
+  Controller, Post, Get, Put, Patch, Param, Body,
   UploadedFile, UseInterceptors, UseGuards,
 } from '@nestjs/common'
 import { FileInterceptor } from '@nestjs/platform-express'
@@ -35,6 +35,44 @@ export class SessionsController {
   @UseGuards(AdminGuard)
   saveFinalVideoKey(@Param('id') id: string, @Body() body: { key: string }): Promise<any> {
     return this.sessionsService.saveFinalVideoKey(id, body.key)
+  }
+
+  @Patch(':id/montage-settings')
+  @UseGuards(AdminGuard)
+  saveMontageSettings(@Param('id') id: string, @Body() body: { montageSettings: Record<string, unknown> }): Promise<any> {
+    return this.sessionsService.saveMontageSettings(id, body.montageSettings)
+  }
+
+  @Post(':sessionId/recordings/:recordingId/cache')
+  @UseGuards(AdminGuard)
+  @UseInterceptors(FileInterceptor('file'))
+  uploadRecordingCache(
+    @Param('sessionId') sessionId: string,
+    @Param('recordingId') recordingId: string,
+    @Body() body: { type: 'tts' | 'processed'; voiceId?: string; processingHash?: string },
+    @UploadedFile() file: Express.Multer.File,
+  ): Promise<any> {
+    return this.sessionsService.uploadRecordingCache(
+      sessionId,
+      recordingId,
+      file.buffer,
+      file.mimetype,
+      body.type,
+      body.voiceId,
+      body.processingHash,
+    )
+  }
+
+  @Get(':sessionId/recordings/:recordingId/tts-url')
+  @UseGuards(AdminGuard)
+  getRecordingTtsUrl(@Param('recordingId') recordingId: string): Promise<string> {
+    return this.sessionsService.getRecordingTtsUrl(recordingId)
+  }
+
+  @Get(':sessionId/recordings/:recordingId/processed-url')
+  @UseGuards(AdminGuard)
+  getRecordingProcessedUrl(@Param('recordingId') recordingId: string): Promise<string> {
+    return this.sessionsService.getRecordingProcessedUrl(recordingId)
   }
 
   @Post(':id/invite')

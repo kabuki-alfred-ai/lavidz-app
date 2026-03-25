@@ -41,32 +41,37 @@ model Question {
 }
 
 model Session {
-  id             String        @id @default(cuid())
-  themeId        String
-  theme          Theme         @relation(fields: [themeId], references: [id])
-  status         SessionStatus @default(PENDING)
-  recipientEmail String?
-  recipientName  String?
-  finalVideoKey  String?
-  submittedAt    DateTime?
-  deliveredAt    DateTime?
-  recordings     Recording[]
-  createdAt      DateTime      @default(now())
-  updatedAt      DateTime      @updatedAt
+  id              String        @id @default(cuid())
+  themeId         String
+  theme           Theme         @relation(fields: [themeId], references: [id])
+  status          SessionStatus @default(PENDING)
+  recipientEmail  String?
+  recipientName   String?
+  finalVideoKey   String?
+  montageSettings Json?
+  submittedAt     DateTime?
+  deliveredAt     DateTime?
+  recordings      Recording[]
+  createdAt       DateTime      @default(now())
+  updatedAt       DateTime      @updatedAt
 }
 
 model Recording {
-  id           String          @id @default(cuid())
-  sessionId    String
-  session      Session         @relation(fields: [sessionId], references: [id], onDelete: Cascade)
-  questionId   String
-  question     Question        @relation(fields: [questionId], references: [id])
-  rawVideoKey  String?
-  finalVideoKey String?
-  transcript   String?
-  status       RecordingStatus @default(PENDING)
-  createdAt    DateTime        @default(now())
-  updatedAt    DateTime        @updatedAt
+  id                String          @id @default(cuid())
+  sessionId         String
+  session           Session         @relation(fields: [sessionId], references: [id], onDelete: Cascade)
+  questionId        String
+  question          Question        @relation(fields: [questionId], references: [id])
+  rawVideoKey       String?
+  finalVideoKey     String?
+  transcript        String?
+  ttsAudioKey       String?
+  ttsVoiceId        String?
+  processedVideoKey String?
+  processingHash    String?
+  status            RecordingStatus @default(PENDING)
+  createdAt         DateTime        @default(now())
+  updatedAt         DateTime        @updatedAt
 }
 
 enum UserRole {
