@@ -60,9 +60,15 @@ export function MontageClient({ themes, initialSessions }: Props) {
   const [recipientEmail, setRecipientEmail] = useState('')
   const [recipientName, setRecipientName] = useState('')
   const [creating, setCreating] = useState(false)
+  const [createdSessionId, setCreatedSessionId] = useState<string | null>(null)
   const [shareUrl, setShareUrl] = useState<string | null>(null)
   const [copied, setCopied] = useState(false)
   const [createError, setCreateError] = useState('')
+
+  // Invite
+  const [inviting, setInviting] = useState(false)
+  const [inviteSuccess, setInviteSuccess] = useState(false)
+  const [inviteError, setInviteError] = useState('')
 
   // Deliver
   const [delivering, setDelivering] = useState<string | null>(null)
@@ -103,7 +109,10 @@ export function MontageClient({ themes, initialSessions }: Props) {
       })
       if (!res.ok) throw new Error(await res.text())
       const data = await res.json()
+      setCreatedSessionId(data.sessionId)
       setShareUrl(data.shareUrl)
+      setInviteSuccess(false)
+      setInviteError('')
       setRecipientEmail('')
       setRecipientName('')
     } catch (err) {
@@ -118,6 +127,25 @@ export function MontageClient({ themes, initialSessions }: Props) {
     await navigator.clipboard.writeText(shareUrl)
     setCopied(true)
     setTimeout(() => setCopied(false), 2000)
+  }
+
+  const handleInvite = async () => {
+    if (!createdSessionId || !shareUrl) return
+    setInviting(true)
+    setInviteError('')
+    try {
+      const res = await fetch(`/api/admin/sessions/${createdSessionId}/invite`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ shareUrl }),
+      })
+      if (!res.ok) throw new Error(await res.text())
+      setInviteSuccess(true)
+    } catch (err) {
+      setInviteError(String(err))
+    } finally {
+      setInviting(false)
+    }
   }
 
   const handleDeliver = async (sessionId: string) => {
@@ -240,24 +268,51 @@ export function MontageClient({ themes, initialSessions }: Props) {
 
             {/* Share URL */}
             {shareUrl && (
-              <div className="border-t border-border/40 p-6 bg-primary/[0.03] animate-in slide-in-from-top-4 duration-500">
-                <p className="text-[10px] font-mono uppercase tracking-[0.2em] text-primary mb-3 font-bold">
-                  Lien prêt — à envoyer au destinataire
-                </p>
+              <div className="border-t border-border/40 p-6 bg-primary/[0.03] animate-in slide-in-from-top-4 duration-500 space-y-4">
+                <div className="flex items-center justify-between">
+                  <p className="text-[10px] font-mono uppercase tracking-[0.2em] text-primary font-bold">
+                    Lien prêt — à envoyer au destinataire
+                  </p>
+                  {inviteSuccess && (
+                    <span className="text-[10px] font-mono uppercase tracking-widest text-emerald-400 flex items-center gap-1.5">
+                      <Check size={11} /> Email envoyé
+                    </span>
+                  )}
+                </div>
+
                 <div className="flex items-center gap-3">
-                  <div className="flex-1 bg-background/60 border border-primary/20 p-3 rounded-none overflow-hidden flex items-center gap-3">
+                  <div className="flex-1 bg-background/60 border border-primary/20 p-3 rounded-none overflow-hidden flex items-center gap-3 min-w-0">
                     <LinkIcon size={12} className="text-primary/40 shrink-0" />
                     <code className="text-xs font-mono text-foreground truncate select-all">{shareUrl}</code>
                   </div>
                   <Button
                     variant={copied ? 'default' : 'outline'}
                     onClick={handleCopy}
-                    className="h-11 px-6 rounded-none font-mono text-[10px] uppercase tracking-widest border border-primary/20"
+                    className="h-11 px-5 rounded-none font-mono text-[10px] uppercase tracking-widest border border-primary/20 shrink-0"
                   >
                     {copied ? <Check size={14} className="mr-2" /> : <Copy size={14} className="mr-2" />}
                     {copied ? 'Copié' : 'Copier'}
                   </Button>
+                  <Button
+                    onClick={handleInvite}
+                    disabled={inviting || inviteSuccess}
+                    className="h-11 px-5 rounded-none font-mono text-[10px] uppercase tracking-widest shrink-0 bg-emerald-600 hover:bg-emerald-500 text-white disabled:opacity-50"
+                  >
+                    {inviting
+                      ? <Loader2 size={14} className="animate-spin mr-2" />
+                      : inviteSuccess
+                        ? <Check size={14} className="mr-2" />
+                        : <Send size={14} className="mr-2" />
+                    }
+                    {inviting ? 'Envoi...' : inviteSuccess ? 'Envoyé' : 'Envoyer par email'}
+                  </Button>
                 </div>
+
+                {inviteError && (
+                  <p className="text-[11px] font-mono text-destructive bg-destructive/5 px-3 py-2 border border-destructive/20">
+                    {inviteError}
+                  </p>
+                )}
               </div>
             )}
           </CardContent>

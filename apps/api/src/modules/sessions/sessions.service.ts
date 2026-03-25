@@ -70,13 +70,19 @@ export class SessionsService {
     const themeName = session.theme?.name ?? ''
 
     await this.resend.emails.send({
-      from: process.env.RESEND_FROM ?? 'Lavidz <noreply@lavidz.fr>',
+      from: process.env.EMAIL_FROM ?? process.env.RESEND_FROM ?? 'Lavidz <noreply@lavidz.fr>',
       to: session.recipientEmail,
       subject: `Votre lien d'enregistrement — ${themeName}`,
       html: `
         <div style="font-family: sans-serif; max-width: 520px; margin: 0 auto; padding: 40px 24px; background: #0a0a0a; color: #fff;">
           <div style="margin-bottom: 32px;">
-            <span style="font-size: 11px; font-family: monospace; color: rgba(255,255,255,0.3); text-transform: uppercase; letter-spacing: 0.1em;">LAVIDZ</span>
+            <div style="display: inline-flex; align-items: center; gap: 10px;">
+              <div style="position: relative; width: 14px; height: 14px; flex-shrink: 0;">
+                <span style="display: block; width: 12px; height: 12px; background: hsl(14, 100%, 55%);"></span>
+                <span style="display: block; position: absolute; top: -2px; right: -2px; width: 6px; height: 6px; background: rgba(255, 107, 46, 0.4);"></span>
+              </div>
+              <span style="font-family: sans-serif; font-weight: 900; font-size: 15px; letter-spacing: -0.04em; text-transform: uppercase; color: #fff;">LAVIDZ</span>
+            </div>
           </div>
           <h1 style="font-size: 26px; font-weight: 800; margin: 0 0 12px; letter-spacing: -0.02em;">Bonjour ${recipientName},</h1>
           <p style="font-size: 15px; color: rgba(255,255,255,0.6); margin: 0 0 8px; line-height: 1.6;">
@@ -114,13 +120,19 @@ export class SessionsService {
     if (this.resend) {
       const recipientName = session.recipientName ?? 'vous'
       await this.resend.emails.send({
-        from: process.env.RESEND_FROM ?? 'Lavidz <noreply@lavidz.fr>',
+        from: process.env.EMAIL_FROM ?? process.env.RESEND_FROM ?? 'Lavidz <noreply@lavidz.fr>',
         to: session.recipientEmail,
         subject: 'Votre montage est prêt 🎬',
         html: `
-          <div style="font-family: sans-serif; max-width: 520px; margin: 0 auto; padding: 40px 24px; background: #0a0a0a; color: #fff; border-radius: 16px;">
+          <div style="font-family: sans-serif; max-width: 520px; margin: 0 auto; padding: 40px 24px; background: #0a0a0a; color: #fff;">
             <div style="margin-bottom: 32px;">
-              <span style="font-size: 11px; font-family: monospace; color: rgba(255,255,255,0.3); text-transform: uppercase; letter-spacing: 0.1em;">LAVIDZ</span>
+              <div style="display: inline-flex; align-items: center; gap: 10px;">
+                <div style="position: relative; width: 14px; height: 14px; flex-shrink: 0;">
+                  <span style="display: block; width: 12px; height: 12px; background: hsl(14, 100%, 55%);"></span>
+                  <span style="display: block; position: absolute; top: -2px; right: -2px; width: 6px; height: 6px; background: rgba(255, 107, 46, 0.4);"></span>
+                </div>
+                <span style="font-family: sans-serif; font-weight: 900; font-size: 15px; letter-spacing: -0.04em; text-transform: uppercase; color: #fff;">LAVIDZ</span>
+              </div>
             </div>
             <h1 style="font-size: 28px; font-weight: 800; margin: 0 0 12px; letter-spacing: -0.02em;">Bonjour ${recipientName},</h1>
             <p style="font-size: 16px; color: rgba(255,255,255,0.6); margin: 0 0 32px; line-height: 1.6;">
