@@ -61,7 +61,7 @@ export class SessionsService {
   async saveMontageSettings(sessionId: string, settings: Record<string, unknown>): Promise<any> {
     return prisma.session.update({
       where: { id: sessionId },
-      data: { montageSettings: settings },
+      data: { montageSettings: settings as any },
     })
   }
 
