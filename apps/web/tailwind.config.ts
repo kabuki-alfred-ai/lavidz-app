@@ -46,6 +46,7 @@ const config: Config = {
       },
       fontFamily: {
         sans: ['var(--font-syne)', 'sans-serif'],
+        inter: ['var(--font-inter)', 'sans-serif'],
         mono: ['var(--font-dm-mono)', 'monospace'],
       },
       borderRadius: {
@@ -66,11 +67,17 @@ const config: Config = {
           from: { transform: 'translateX(-100%)' },
           to: { transform: 'translateX(0)' },
         },
+        'float': {
+          '0%, 100%': { transform: 'translateY(0)' },
+          '50%': { transform: 'translateY(-15px)' },
+        },
       },
       animation: {
         'rec-pulse': 'rec-pulse 1.5s ease-in-out infinite',
         'fade-in': 'fade-in 0.4s ease-out',
         'slide-in': 'slide-in 0.3s ease-out',
+        'float': 'float 6s ease-in-out infinite',
+        'float-delayed': 'float 6s ease-in-out infinite -3s',
       },
     },
   },

@@ -58,6 +58,47 @@ export class SessionsService {
     })
   }
 
+  async sendInvite(sessionId: string, shareUrl: string): Promise<void> {
+    const session = await this.findOne(sessionId)
+    if (!session.recipientEmail) {
+      throw new BadRequestException('No recipient email for this session')
+    }
+
+    if (!this.resend) return
+
+    const recipientName = session.recipientName ?? 'vous'
+    const themeName = session.theme?.name ?? ''
+
+    await this.resend.emails.send({
+      from: process.env.RESEND_FROM ?? 'Lavidz <noreply@lavidz.fr>',
+      to: session.recipientEmail,
+      subject: `Votre lien d'enregistrement — ${themeName}`,
+      html: `
+        <div style="font-family: sans-serif; max-width: 520px; margin: 0 auto; padding: 40px 24px; background: #0a0a0a; color: #fff;">
+          <div style="margin-bottom: 32px;">
+            <span style="font-size: 11px; font-family: monospace; color: rgba(255,255,255,0.3); text-transform: uppercase; letter-spacing: 0.1em;">LAVIDZ</span>
+          </div>
+          <h1 style="font-size: 26px; font-weight: 800; margin: 0 0 12px; letter-spacing: -0.02em;">Bonjour ${recipientName},</h1>
+          <p style="font-size: 15px; color: rgba(255,255,255,0.6); margin: 0 0 8px; line-height: 1.6;">
+            Vous avez été invité(e) à enregistrer une vidéo pour le projet
+          </p>
+          <p style="font-size: 18px; font-weight: 700; color: #fff; margin: 0 0 32px;">
+            ${themeName}
+          </p>
+          <p style="font-size: 14px; color: rgba(255,255,255,0.5); margin: 0 0 28px; line-height: 1.6;">
+            Cliquez sur le bouton ci-dessous pour accéder à votre session d'enregistrement. Vous pourrez répondre aux questions à votre rythme, depuis votre téléphone ou ordinateur.
+          </p>
+          <a href="${shareUrl}" style="display: inline-block; padding: 14px 28px; background: hsl(14, 100%, 55%); color: #fff; text-decoration: none; font-weight: 700; font-size: 15px; letter-spacing: -0.01em;">
+            Commencer l'enregistrement →
+          </a>
+          <p style="margin-top: 40px; font-size: 11px; color: rgba(255,255,255,0.2); font-family: monospace; word-break: break-all;">
+            ${shareUrl}
+          </p>
+        </div>
+      `,
+    })
+  }
+
   async deliver(sessionId: string): Promise<any> {
     const session = await this.findOne(sessionId)
     if (!session.finalVideoKey) {

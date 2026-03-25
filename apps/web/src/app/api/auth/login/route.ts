@@ -25,6 +25,8 @@ export async function POST(req: Request) {
   await setSessionCookie({
     userId: user.id,
     email: user.email,
+    firstName: user.firstName,
+    lastName: user.lastName,
     role: user.role as UserRole,
     organizationId: user.organizationId ?? null,
   })

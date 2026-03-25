@@ -1,8 +1,26 @@
 'use client'
 
-import { useState } from 'react'
+import React, { useState } from 'react'
 import Link from 'next/link'
+import { Badge } from '@/components/ui/badge'
+import { Button } from '@/components/ui/button'
+import { Input } from '@/components/ui/input'
+import { Label } from '@/components/ui/label'
+import { Card, CardContent } from '@/components/ui/card'
+import { 
+  Loader2, Scissors, Send, Copy, Check, ExternalLink, 
+  History, Clock, Video, Play, Download, ChevronDown, ChevronUp,
+  Link as LinkIcon, Plus, Mail, User, Sparkles
+} from 'lucide-react'
+import { cn } from '@/lib/utils'
 import type { ThemeDto } from '@lavidz/types'
+
+interface RawRecording {
+  id: string
+  questionText: string
+  questionOrder: number
+  signedUrl: string
+}
 
 interface SubmittedSession {
   id: string
@@ -20,21 +38,24 @@ interface Props {
   initialSessions: SubmittedSession[]
 }
 
-const STATUS_LABELS: Record<string, { label: string; color: string }> = {
-  SUBMITTED: { label: 'Soumise', color: '#f59e0b' },
-  PROCESSING: { label: 'En cours', color: '#3b82f6' },
-  DONE: { label: 'Envoyée', color: 'rgb(52,211,153)' },
+const STATUS: Record<string, { label: string; variant: 'default' | 'active' | 'secondary' | 'destructive' | 'outline' | 'inactive' }> = {
+  SUBMITTED:  { label: 'Soumise',   variant: 'default' },
+  PROCESSING: { label: 'En cours',  variant: 'secondary' },
+  DONE:       { label: 'Livrée',    variant: 'active' },
 }
 
 function formatDate(iso?: string) {
   if (!iso) return '—'
-  return new Date(iso).toLocaleDateString('fr-FR', { day: '2-digit', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' })
+  return new Intl.DateTimeFormat('fr-FR', {
+    day: '2-digit', month: 'short',
+    hour: '2-digit', minute: '2-digit',
+  }).format(new Date(iso))
 }
 
 export function MontageClient({ themes, initialSessions }: Props) {
   const [sessions, setSessions] = useState<SubmittedSession[]>(initialSessions)
 
-  // Form state
+  // Form
   const [themeId, setThemeId] = useState(themes[0]?.id ?? '')
   const [recipientEmail, setRecipientEmail] = useState('')
   const [recipientName, setRecipientName] = useState('')
@@ -43,10 +64,31 @@ export function MontageClient({ themes, initialSessions }: Props) {
   const [copied, setCopied] = useState(false)
   const [createError, setCreateError] = useState('')
 
-  // Deliver state
+  // Deliver
   const [delivering, setDelivering] = useState<string | null>(null)
   const [deliverSuccess, setDeliverSuccess] = useState<string | null>(null)
   const [deliverError, setDeliverError] = useState<string | null>(null)
+
+  // Raws
+  const [expandedRaws, setExpandedRaws] = useState<string | null>(null)
+  const [rawsCache, setRawsCache] = useState<Record<string, RawRecording[]>>({})
+  const [loadingRaws, setLoadingRaws] = useState<string | null>(null)
+
+  const handleToggleRaws = async (sessionId: string) => {
+    if (expandedRaws === sessionId) { setExpandedRaws(null); return }
+    setExpandedRaws(sessionId)
+    if (rawsCache[sessionId]) return
+    setLoadingRaws(sessionId)
+    try {
+      const res = await fetch(`/api/admin/sessions/${sessionId}/recordings`)
+      if (res.ok) {
+        const data = await res.json()
+        setRawsCache(p => ({ ...p, [sessionId]: data }))
+      }
+    } finally {
+      setLoadingRaws(null)
+    }
+  }
 
   const handleCreate = async (e: React.FormEvent) => {
     e.preventDefault()
@@ -86,7 +128,7 @@ export function MontageClient({ themes, initialSessions }: Props) {
       const res = await fetch(`/api/admin/sessions/${sessionId}/deliver`, { method: 'POST' })
       if (!res.ok) throw new Error(await res.text())
       setDeliverSuccess(sessionId)
-      setSessions((prev) => prev.map((s) => s.id === sessionId ? { ...s, status: 'DONE' } : s))
+      setSessions(prev => prev.map(s => s.id === sessionId ? { ...s, status: 'DONE' } : s))
     } catch (err) {
       setDeliverError(String(err))
     } finally {
@@ -94,230 +136,512 @@ export function MontageClient({ themes, initialSessions }: Props) {
     }
   }
 
+  const handleDownload = async (url: string, filename: string) => {
+    try {
+      const res = await fetch(url)
+      const blob = await res.blob()
+      const link = document.createElement('a')
+      link.href = window.URL.createObjectURL(blob)
+      link.download = filename
+      document.body.appendChild(link)
+      link.click()
+      document.body.removeChild(link)
+    } catch (err) {
+      console.error('Download failed', err)
+      window.open(url, '_blank')
+    }
+  }
+
+  const pending = sessions.filter(s => s.status !== 'DONE')
+  const history = sessions.filter(s => s.status === 'DONE')
+
   return (
-    <div className="max-w-4xl animate-fade-in" style={{ display: 'flex', flexDirection: 'column', gap: 48 }}>
+    <div className="max-w-6xl space-y-12 animate-in fade-in duration-700">
       {/* Header */}
       <div>
-        <p className="text-[10px] font-mono uppercase tracking-widest text-muted-foreground mb-1">
-          Workflow
-        </p>
-        <h1 className="font-sans font-extrabold text-3xl text-foreground tracking-tight">
-          Montage
+        <div className="flex items-center gap-2 mb-2">
+          <span className="w-8 h-[1px] bg-primary/40" />
+          <p className="text-[10px] font-mono uppercase tracking-[0.3em] text-primary/60">
+            Workflow
+          </p>
+        </div>
+        <h1 className="font-inter font-black text-4xl text-foreground tracking-tighter">
+          Espace Montage
         </h1>
       </div>
 
-      {/* ── Create link section ── */}
-      <section>
-        <p className="text-[10px] font-mono uppercase tracking-widest text-muted-foreground mb-4">
-          Créer un lien
-        </p>
-        <div className="border border-border p-6" style={{ display: 'flex', flexDirection: 'column', gap: 20 }}>
-          <form onSubmit={handleCreate} style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
-            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
-              {/* Theme */}
-              <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
-                <label className="text-[10px] font-mono uppercase tracking-widest text-muted-foreground">
-                  Thème
-                </label>
-                <select
-                  value={themeId}
-                  onChange={(e) => setThemeId(e.target.value)}
-                  required
-                  className="text-xs font-mono bg-background border border-border text-foreground px-3 py-2 focus:outline-none focus:border-primary"
+      {/* ── Create section ── */}
+      <section className="space-y-6">
+        <SectionHeader icon={Plus} label="Nouveau lien de session" />
+
+        <Card className="border-border/60 bg-surface/30 overflow-hidden backdrop-blur-sm">
+          <CardContent className="p-0">
+            <form onSubmit={handleCreate} className="p-8 flex flex-col gap-8">
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
+                <div className="space-y-3">
+                  <Label>Thème du parcours</Label>
+                  <select
+                    value={themeId}
+                    onChange={e => setThemeId(e.target.value)}
+                    required
+                    className="flex h-9 w-full border border-input bg-surface/40 px-3 py-1 text-xs font-mono text-foreground focus:outline-none focus:border-primary transition-colors appearance-none"
+                  >
+                    {themes.map(t => <option key={t.id} value={t.id} className="bg-background">{t.name}</option>)}
+                  </select>
+                </div>
+                <div className="space-y-3">
+                  <Label>Nom du bénéficiaire (optionnel)</Label>
+                  <div className="relative group">
+                    <User size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground/40 group-focus-within:text-primary transition-colors" />
+                    <Input
+                      value={recipientName}
+                      onChange={e => setRecipientName(e.target.value)}
+                      placeholder="Marie Dupont"
+                      className="pl-10 h-9 bg-surface/40"
+                    />
+                  </div>
+                </div>
+                <div className="space-y-3">
+                  <Label>Email pour la livraison</Label>
+                  <div className="relative group">
+                    <Mail size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground/40 group-focus-within:text-primary transition-colors" />
+                    <Input
+                      type="email"
+                      value={recipientEmail}
+                      onChange={e => setRecipientEmail(e.target.value)}
+                      placeholder="marie@example.com"
+                      required
+                      className="pl-10 h-9 bg-surface/40"
+                    />
+                  </div>
+                </div>
+              </div>
+
+              {createError && (
+                <p className="text-[11px] font-mono text-destructive bg-destructive/5 px-3 py-2 border border-destructive/20">{createError}</p>
+              )}
+
+              <div className="flex items-center gap-4">
+                <Button
+                  type="submit"
+                  disabled={creating || themes.length === 0}
+                  className="h-10 px-8 rounded-none font-mono text-[10px] uppercase tracking-[0.2em] group shadow-lg"
                 >
-                  {themes.map((t) => (
-                    <option key={t.id} value={t.id}>{t.name}</option>
-                  ))}
-                </select>
+                  {creating ? <Loader2 size={14} className="animate-spin mr-2" /> : <LinkIcon size={14} className="mr-2 group-hover:rotate-45 transition-transform" />}
+                  {creating ? 'Création...' : 'Générer le lien'}
+                </Button>
+                {themes.length === 0 && (
+                  <p className="text-[10px] font-mono text-muted-foreground/40 uppercase tracking-widest italic leading-none">
+                    Créez d'abord un thème dans la bibliothèque
+                  </p>
+                )}
               </div>
+            </form>
 
-              {/* Recipient name */}
-              <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
-                <label className="text-[10px] font-mono uppercase tracking-widest text-muted-foreground">
-                  Nom (optionnel)
-                </label>
-                <input
-                  type="text"
-                  value={recipientName}
-                  onChange={(e) => setRecipientName(e.target.value)}
-                  placeholder="Marie Dupont"
-                  className="text-xs font-mono bg-background border border-border text-foreground px-3 py-2 focus:outline-none focus:border-primary placeholder:text-muted-foreground"
-                />
+            {/* Share URL */}
+            {shareUrl && (
+              <div className="border-t border-border/40 p-6 bg-primary/[0.03] animate-in slide-in-from-top-4 duration-500">
+                <p className="text-[10px] font-mono uppercase tracking-[0.2em] text-primary mb-3 font-bold">
+                  Lien prêt — à envoyer au destinataire
+                </p>
+                <div className="flex items-center gap-3">
+                  <div className="flex-1 bg-background/60 border border-primary/20 p-3 rounded-none overflow-hidden flex items-center gap-3">
+                    <LinkIcon size={12} className="text-primary/40 shrink-0" />
+                    <code className="text-xs font-mono text-foreground truncate select-all">{shareUrl}</code>
+                  </div>
+                  <Button
+                    variant={copied ? 'default' : 'outline'}
+                    onClick={handleCopy}
+                    className="h-11 px-6 rounded-none font-mono text-[10px] uppercase tracking-widest border border-primary/20"
+                  >
+                    {copied ? <Check size={14} className="mr-2" /> : <Copy size={14} className="mr-2" />}
+                    {copied ? 'Copié' : 'Copier'}
+                  </Button>
+                </div>
               </div>
-            </div>
-
-            {/* Email */}
-            <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
-              <label className="text-[10px] font-mono uppercase tracking-widest text-muted-foreground">
-                Email du destinataire
-              </label>
-              <input
-                type="email"
-                value={recipientEmail}
-                onChange={(e) => setRecipientEmail(e.target.value)}
-                placeholder="marie@example.com"
-                required
-                className="text-xs font-mono bg-background border border-border text-foreground px-3 py-2 focus:outline-none focus:border-primary placeholder:text-muted-foreground"
-              />
-            </div>
-
-            {createError && (
-              <p className="text-xs font-mono" style={{ color: '#f87171' }}>{createError}</p>
             )}
-
-            <button
-              type="submit"
-              disabled={creating || themes.length === 0}
-              className="self-start px-4 py-2 text-xs font-mono uppercase tracking-widest bg-primary text-primary-foreground hover:opacity-90 transition-opacity disabled:opacity-50"
-            >
-              {creating ? 'Création...' : 'Créer le lien'}
-            </button>
-          </form>
-
-          {/* Share URL */}
-          {shareUrl && (
-            <div
-              style={{
-                display: 'flex',
-                alignItems: 'center',
-                gap: 8,
-                padding: '12px 16px',
-                background: 'rgba(52,211,153,0.06)',
-                border: '1px solid rgba(52,211,153,0.2)',
-              }}
-            >
-              <code className="text-xs text-foreground flex-1 truncate">{shareUrl}</code>
-              <button
-                onClick={handleCopy}
-                className="text-[10px] font-mono uppercase tracking-widest shrink-0 px-3 py-1.5 border border-border hover:bg-surface-raised transition-colors"
-                style={{ color: copied ? 'rgb(52,211,153)' : undefined }}
-              >
-                {copied ? 'Copié ✓' : 'Copier'}
-              </button>
-            </div>
-          )}
-        </div>
+          </CardContent>
+        </Card>
       </section>
 
-      {/* ── Submitted sessions ── */}
-      <section>
-        <p className="text-[10px] font-mono uppercase tracking-widest text-muted-foreground mb-4">
-          Sessions soumises
-        </p>
+      {/* ── Pending sessions ── */}
+      <section className="space-y-6">
+        <div className="flex items-center justify-between px-1">
+          <SectionHeader icon={Clock} label="En attente de montage" />
+          {pending.length > 0 && (
+            <Badge variant="secondary" className="font-mono text-[10px] bg-primary/5 text-primary border-primary/20">
+              {pending.length} à traiter
+            </Badge>
+          )}
+        </div>
 
-        {sessions.filter((s) => s.status !== 'DONE').length === 0 ? (
-          <div className="border border-border border-dashed p-12 text-center">
-            <p className="text-xs font-mono text-muted-foreground">Aucune session soumise pour l'instant.</p>
-          </div>
+        {pending.length === 0 ? (
+          <EmptyState icon={Check} label="Toutes les sessions ont été traitées." />
         ) : (
-          <SessionTable
-            sessions={sessions.filter((s) => s.status !== 'DONE')}
-            delivering={delivering}
-            deliverSuccess={deliverSuccess}
-            onDeliver={handleDeliver}
-          />
+          <div className="space-y-4">
+            {pending.map(session => (
+              <SessionCard
+                key={session.id}
+                session={session}
+                delivering={delivering}
+                deliverSuccess={deliverSuccess}
+                expandedRaws={expandedRaws}
+                rawsCache={rawsCache}
+                loadingRaws={loadingRaws}
+                onDeliver={handleDeliver}
+                onToggleRaws={handleToggleRaws}
+                onDownload={handleDownload}
+              />
+            ))}
+          </div>
         )}
 
         {deliverError && (
-          <p className="text-xs font-mono mt-3" style={{ color: '#f87171' }}>{deliverError}</p>
+          <p className="text-[11px] font-mono text-destructive px-3 py-2 border border-destructive/20 bg-destructive/5 mt-4">{deliverError}</p>
         )}
       </section>
 
       {/* ── History ── */}
-      <section>
-        <p className="text-[10px] font-mono uppercase tracking-widest text-muted-foreground mb-4">
-          Historique
-        </p>
+      <section className="space-y-6">
+        <div className="flex items-center justify-between px-1">
+          <SectionHeader icon={History} label="Historique des livraisons" />
+          {history.length > 0 && (
+            <Badge variant="outline" className="font-mono text-[10px] opacity-40">
+              {history.length} livrées
+            </Badge>
+          )}
+        </div>
 
-        {sessions.filter((s) => s.status === 'DONE').length === 0 ? (
-          <div className="border border-border border-dashed p-12 text-center">
-            <p className="text-xs font-mono text-muted-foreground">Aucune vidéo envoyée pour l'instant.</p>
-          </div>
+        {history.length === 0 ? (
+          <EmptyState icon={Video} label="Aucune vidéo livrée pour l'instanc." />
         ) : (
-          <SessionTable
-            sessions={sessions.filter((s) => s.status === 'DONE')}
-            delivering={delivering}
-            deliverSuccess={deliverSuccess}
-            onDeliver={handleDeliver}
-          />
+          <div className="border border-border/60 bg-surface/30 rounded-sm overflow-hidden backdrop-blur-sm shadow-sm group">
+            {/* Table header */}
+            <div className="grid grid-cols-[1.5fr_1fr_1fr_100px] border-b border-border/40 bg-surface/50 px-6 py-4">
+              {['Destinataire', 'Thème', 'Date de livraison', 'Rushs'].map(h => (
+                <div key={h} className="text-[9px] font-mono uppercase tracking-[0.2em] text-muted-foreground/50">{h}</div>
+              ))}
+            </div>
+            
+            <div className="divide-y divide-border/40">
+              {history.map((session) => (
+                <HistoryRow 
+                  key={session.id} 
+                  session={session} 
+                  expandedRaws={expandedRaws}
+                  rawsCache={rawsCache}
+                  loadingRaws={loadingRaws}
+                  onToggleRaws={handleToggleRaws}
+                  onDownload={handleDownload}
+                />
+              ))}
+            </div>
+          </div>
         )}
       </section>
     </div>
   )
 }
 
-function SessionTable({
-  sessions,
+// ── Components ─────────────────────────────────────────────────────────────
+
+function SectionHeader({ icon: Icon, label }: { icon: any, label: string }) {
+  return (
+    <div className="flex items-center gap-3">
+      <div className="w-8 h-8 rounded-sm bg-primary/5 border border-primary/10 flex items-center justify-center">
+        <Icon size={14} className="text-primary" />
+      </div>
+      <h2 className="font-inter font-bold text-xl text-foreground tracking-tight">{label}</h2>
+    </div>
+  )
+}
+
+function SessionCard({
+  session,
   delivering,
   deliverSuccess,
+  expandedRaws,
+  rawsCache,
+  loadingRaws,
   onDeliver,
+  onToggleRaws,
+  onDownload,
 }: {
-  sessions: SubmittedSession[]
+  session: SubmittedSession
   delivering: string | null
   deliverSuccess: string | null
+  expandedRaws: string | null
+  rawsCache: Record<string, RawRecording[]>
+  loadingRaws: string | null
   onDeliver: (id: string) => void
+  onToggleRaws: (id: string) => void
+  onDownload: (url: string, filename: string) => void
+}) {
+  const statusInfo = STATUS[session.status] ?? { label: session.status, variant: 'default' }
+  const canDeliver = session.finalVideoKey != null && session.status !== 'DONE'
+  const isExpanded = expandedRaws === session.id
+  const recordings = rawsCache[session.id] ?? []
+
+  return (
+    <Card className={cn(
+      "border-border/60 bg-surface/30 overflow-hidden transition-all duration-300",
+      isExpanded ? "ring-1 ring-primary/20 scale-[1.01] shadow-xl" : "hover:border-primary/30"
+    )}>
+      <CardContent className="p-0">
+        <div className="flex flex-col md:flex-row md:items-center justify-between p-6 gap-6">
+          {/* Left: recipient + meta */}
+          <div className="flex items-center gap-6 min-w-0 flex-1">
+            <div className="relative flex h-3 w-3 shrink-0">
+               <span className={cn(
+                 "animate-ping absolute inline-flex h-full w-full rounded-full opacity-20",
+                 session.status === 'PROCESSING' ? 'bg-blue-400' : 'bg-orange-400'
+               )} />
+               <span className={cn(
+                 "relative inline-flex rounded-full h-3 w-3",
+                 session.status === 'PROCESSING' ? 'bg-blue-500' : 'bg-orange-500'
+               )} />
+            </div>
+
+            <div className="min-w-0 flex-1 lg:flex lg:items-center lg:gap-8">
+              <div className="min-w-0">
+                <p className="font-inter font-bold text-base text-foreground truncate group-hover:text-primary transition-colors">
+                  {session.recipientName || session.recipientEmail}
+                </p>
+                {session.recipientName && (
+                  <p className="text-[10px] font-mono text-muted-foreground/60 truncate mt-0.5 uppercase tracking-tighter">
+                    {session.recipientEmail}
+                  </p>
+                )}
+              </div>
+
+              <div className="flex flex-wrap items-center gap-3 mt-2 lg:mt-0 lg:ml-auto">
+                <Badge variant="outline" className="font-mono text-[9px] bg-surface/50 truncate max-w-[150px]">
+                  <Layers className="w-3 h-3 mr-1.5 opacity-40 text-primary" />
+                  {session.theme?.name}
+                </Badge>
+                <div className="flex items-center gap-1.5 text-[10px] font-mono text-muted-foreground/40 leading-none">
+                  <Clock size={11} className="opacity-40" />
+                  {formatDate(session.submittedAt)}
+                </div>
+                <Badge variant={statusInfo.variant} className="text-[9px] px-2 py-0.5">
+                  {statusInfo.label}
+                </Badge>
+              </div>
+            </div>
+          </div>
+
+          {/* Right: actions */}
+          <div className="flex items-center gap-3 shrink-0">
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => onToggleRaws(session.id)}
+              className={cn(
+                "h-9 px-4 rounded-none font-mono text-[9px] uppercase tracking-widest transition-all",
+                isExpanded && "bg-primary/10 border-primary/40 text-primary"
+              )}
+            >
+              {loadingRaws === session.id ? <Loader2 size={12} className="animate-spin" /> : (
+                <>
+                  <Video size={12} className={cn("mr-2", isExpanded && "text-primary")} />
+                  Rushs {isExpanded ? <ChevronUp size={12} className="ml-1" /> : <ChevronDown size={12} className="ml-1" />}
+                </>
+              )}
+            </Button>
+
+            {canDeliver && (
+              <Button
+                size="sm"
+                variant="outline"
+                onClick={() => onDeliver(session.id)}
+                disabled={delivering === session.id}
+                className="h-9 px-4 rounded-none border-emerald-500/20 hover:border-emerald-500/40 hover:bg-emerald-500/10 text-emerald-400 font-mono text-[9px] uppercase tracking-widest"
+              >
+                {delivering === session.id ? <Loader2 size={12} className="animate-spin" /> : (deliverSuccess === session.id ? <Check size={12} className="mr-2" /> : <Send size={12} className="mr-2" />)}
+                {delivering === session.id ? 'Livraison' : deliverSuccess === session.id ? 'Envoyé' : 'Livrer'}
+              </Button>
+            )}
+
+            <Button asChild size="sm" className="h-9 px-5 rounded-none font-mono text-[9px] uppercase tracking-widest shadow-lg">
+              <Link href={`/process/${session.id}`}>
+                <Scissors size={12} className="mr-2" />
+                Démarrer
+              </Link>
+            </Button>
+          </div>
+        </div>
+
+        {/* Raws panel */}
+        {isExpanded && (
+          <RawsPanel session={session} recordings={recordings} loadingRaws={loadingRaws} onDownload={onDownload} />
+        )}
+      </CardContent>
+    </Card>
+  )
+}
+
+function HistoryRow({ 
+  session, 
+  expandedRaws, 
+  rawsCache, 
+  loadingRaws, 
+  onToggleRaws,
+  onDownload
+}: { 
+  session: SubmittedSession,
+  expandedRaws: string | null,
+  rawsCache: Record<string, RawRecording[]>,
+  loadingRaws: string | null,
+  onToggleRaws: (id: string) => void,
+  onDownload: (url: string, filename: string) => void
+}) {
+  const isExpanded = expandedRaws === session.id
+  const recordings = rawsCache[session.id] ?? []
+
+  return (
+    <>
+      <div className="grid grid-cols-[1.5fr_1fr_1fr_100px] items-center px-6 py-5 hover:bg-primary/[0.02] transition-colors group">
+        <div className="min-w-0 pr-4">
+          <p className="font-inter font-bold text-[13px] text-foreground group-hover:text-primary transition-colors truncate">{session.recipientName ?? '—'}</p>
+          <p className="text-[10px] font-mono text-muted-foreground/60 truncate uppercase tracking-tighter">{session.recipientEmail}</p>
+        </div>
+        <div className="text-[11px] font-mono text-muted-foreground/70 uppercase">
+          {session.theme?.name}
+        </div>
+        <div className="text-[10px] font-mono text-muted-foreground/40 flex items-center gap-2">
+          <Clock size={11} className="text-primary/40" />
+          {formatDate(session.deliveredAt ?? session.submittedAt)}
+        </div>
+        <div>
+          <button
+            onClick={() => onToggleRaws(session.id)}
+            className={cn(
+              "text-[9px] font-mono uppercase tracking-widest transition-all px-2 py-1 border rounded-none flex items-center gap-2",
+              isExpanded ? "text-primary border-primary/30 bg-primary/5" : "text-muted-foreground/40 border-border/40 hover:border-primary/20 hover:text-primary"
+            )}
+          >
+            {loadingRaws === session.id ? <Loader2 size={10} className="animate-spin" /> : (
+              <>
+                <Video size={10} />
+                {isExpanded ? 'Fermer' : 'Voir'}
+              </>
+            )}
+          </button>
+        </div>
+      </div>
+      {isExpanded && (
+        <div className="bg-primary/[0.01] border-b border-border/40">
+           <RawsPanel session={session} recordings={recordings} loadingRaws={loadingRaws} border={false} onDownload={onDownload} />
+        </div>
+      )}
+    </>
+  )
+}
+
+function RawsPanel({
+  session,
+  recordings,
+  loadingRaws,
+  onDownload,
+  border = true
+}: {
+  session: SubmittedSession
+  recordings: RawRecording[]
+  loadingRaws: string | null
+  onDownload: (url: string, filename: string) => void
+  border?: boolean
 }) {
   return (
-    <div className="border border-border overflow-hidden">
-      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 140px 100px 160px' }} className="border-b border-border bg-surface">
-        {['Destinataire', 'Thème', 'Soumise le', 'Statut', 'Actions'].map((h) => (
-          <div key={h} className="px-4 py-3 text-[10px] font-mono uppercase tracking-widest text-muted-foreground">
-            {h}
-          </div>
-        ))}
+    <div className={cn(
+      "bg-primary/[0.02] p-8 space-y-6 animate-in slide-in-from-top-4 duration-300 shadow-inner",
+      border && "border-t border-border/40"
+    )}>
+      <div className="flex items-center gap-3">
+        <div className="w-6 h-[1px] bg-primary/20" />
+        <p className="text-[10px] font-mono uppercase tracking-[0.2em] text-primary/40 leading-none">
+          Séquences capturées — {session.recipientName || session.recipientEmail}
+        </p>
       </div>
 
-      {sessions.map((session, i) => {
-        const statusInfo = STATUS_LABELS[session.status] ?? { label: session.status, color: 'rgba(255,255,255,0.4)' }
-        const canDeliver = session.status === 'PROCESSING' || (session.finalVideoKey != null && session.status !== 'DONE')
-        return (
-          <div
-            key={session.id}
-            style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 140px 100px 160px' }}
-            className={`items-center border-b border-border last:border-0 hover:bg-surface-raised transition-colors ${i % 2 === 0 ? '' : 'bg-surface/50'}`}
-          >
-            <div className="px-4 py-3.5">
-              <p className="font-sans font-semibold text-sm text-foreground">{session.recipientName ?? '—'}</p>
-              <p className="text-[11px] text-muted-foreground mt-0.5">{session.recipientEmail}</p>
-            </div>
-            <div className="px-4 py-3.5">
-              <span className="text-xs text-foreground">{session.theme?.name}</span>
-            </div>
-            <div className="px-4 py-3.5">
-              <span className="text-[11px] font-mono text-muted-foreground">{formatDate(session.submittedAt)}</span>
-            </div>
-            <div className="px-4 py-3.5">
-              <span
-                className="text-[10px] font-mono uppercase tracking-wider px-2 py-1"
-                style={{ color: statusInfo.color, background: `${statusInfo.color}18`, border: `1px solid ${statusInfo.color}30` }}
-              >
-                {statusInfo.label}
-              </span>
-            </div>
-            <div className="px-4 py-3.5 flex items-center gap-2 flex-wrap">
-              <Link
-                href={`/process/${session.id}`}
-                className="text-[10px] font-mono uppercase tracking-widest text-muted-foreground hover:text-primary transition-colors whitespace-nowrap"
-              >
-                Montage →
-              </Link>
-              {canDeliver && (
-                <button
-                  onClick={() => onDeliver(session.id)}
-                  disabled={delivering === session.id}
-                  className="text-[10px] font-mono uppercase tracking-widest transition-colors whitespace-nowrap disabled:opacity-50"
-                  style={{ color: 'rgb(52,211,153)' }}
+      {loadingRaws === session.id ? (
+        <div className="flex items-center gap-3 py-8">
+           <Loader2 size={14} className="animate-spin text-primary/40" />
+           <span className="text-[10px] font-mono uppercase tracking-widest text-muted-foreground/40">Synchronisation des vidéos...</span>
+        </div>
+      ) : recordings.length === 0 ? (
+        <p className="text-xs font-mono text-muted-foreground/40 p-8 text-center border border-dashed border-border/40 rounded-sm">Aucune vidéo brute disponible.</p>
+      ) : (
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
+          {recordings.map((rec, idx) => (
+            <Card key={rec.id} className="border-border/60 bg-background/50 overflow-hidden group/video hover:border-primary/40 transition-all rounded-none">
+              <div className="relative bg-black aspect-[9/16] overflow-hidden">
+                <video
+                  src={rec.signedUrl}
+                  controls
+                  playsInline
+                  preload="metadata"
+                  className="w-full h-full object-cover transition-transform duration-500 group-hover/video:scale-105"
+                />
+                <div className="absolute top-2 left-2 px-1.5 py-0.5 bg-black/60 backdrop-blur-md border border-white/10 text-[9px] font-mono text-white/50 uppercase">
+                  #{idx + 1}
+                </div>
+              </div>
+              <CardContent className="p-4 space-y-4">
+                <div className="space-y-1">
+                  <p className="text-[11px] font-bold text-foreground line-clamp-2 leading-relaxed h-[34px]">
+                    {rec.questionText}
+                  </p>
+                </div>
+                <Button 
+                  variant="outline" 
+                  size="sm" 
+                  className="w-full h-8 rounded-none border-border/40 hover:border-primary/40 group/btn transition-all font-mono text-[9px] uppercase tracking-widest text-muted-foreground hover:text-primary"
+                  onClick={() => onDownload(rec.signedUrl, `raw-${session.id}-q${idx + 1}.webm`)}
                 >
-                  {delivering === session.id ? 'Envoi...' : 'Envoyer ✉'}
-                </button>
-              )}
-              {deliverSuccess === session.id && (
-                <span className="text-[10px] font-mono" style={{ color: 'rgb(52,211,153)' }}>Email envoyé ✓</span>
-              )}
-            </div>
-          </div>
-        )
-      })}
+                  <Download size={12} className="mr-2 text-muted-foreground group-hover/btn:text-primary transition-colors" />
+                  Télécharger
+                </Button>
+              </CardContent>
+            </Card>
+          ))}
+        </div>
+      )}
+    </div>
+  )
+}
+
+// ── Icons for small usages ───────────────────────────────────────────────────
+
+function Layers(props: any) {
+  return (
+    <svg 
+      {...props}
+      xmlns="http://www.w3.org/2000/svg" 
+      width="24" 
+      height="24" 
+      viewBox="0 0 24 24" 
+      fill="none" 
+      stroke="currentColor" 
+      strokeWidth="2" 
+      strokeLinecap="round" 
+      strokeLinejoin="round"
+    >
+      <path d="m12.83 2.18a2 2 0 0 0-1.66 0L2.6 6.08a1 1 0 0 0 0 1.83l8.58 3.91a2 2 0 0 0 1.66 0l8.58-3.9a1 1 0 0 0 0-1.83Z" />
+      <path d="m2.6 11.2 8.58 3.91a2 2 0 0 0 1.66 0l8.58-3.9" />
+      <path d="m2.6 15.3 8.58 3.91a2 2 0 0 0 1.66 0l8.58-3.9" />
+    </svg>
+  )
+}
+
+// ── Shared UI Elements ────────────────────────────────────────────────────────
+
+function EmptyState({ icon: Icon, label }: { icon: any, label: string }) {
+  return (
+    <div className="border border-border/40 border-dashed p-16 text-center rounded-sm bg-surface/10">
+      {Icon && <Icon size={32} className="mx-auto text-muted-foreground/20 mb-4" />}
+      <p className="text-[11px] font-mono text-muted-foreground/40 uppercase tracking-widest">
+        {label}
+      </p>
     </div>
   )
 }

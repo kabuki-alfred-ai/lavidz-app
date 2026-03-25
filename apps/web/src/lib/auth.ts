@@ -7,6 +7,8 @@ export type UserRole = 'SUPERADMIN' | 'ADMIN' | 'USER'
 export interface SessionPayload {
   userId: string
   email: string
+  firstName: string | null
+  lastName: string | null
   role: UserRole
   organizationId: string | null
 }

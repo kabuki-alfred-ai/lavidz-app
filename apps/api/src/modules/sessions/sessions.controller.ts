@@ -37,6 +37,12 @@ export class SessionsController {
     return this.sessionsService.saveFinalVideoKey(id, body.key)
   }
 
+  @Post(':id/invite')
+  @UseGuards(AdminGuard)
+  sendInvite(@Param('id') id: string, @Body() body: { shareUrl: string }): Promise<void> {
+    return this.sessionsService.sendInvite(id, body.shareUrl)
+  }
+
   @Post(':id/deliver')
   @UseGuards(AdminGuard)
   deliver(@Param('id') id: string): Promise<any> {

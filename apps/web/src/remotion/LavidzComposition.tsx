@@ -112,26 +112,24 @@ export function LavidzComposition({
         zIndex: 20,
         display: 'flex',
         alignItems: 'center',
-        gap: 8,
+        gap: 10,
         opacity: 0.35,
         pointerEvents: 'none',
       }}
     >
-      <svg width="22" height="22" viewBox="0 0 14 14" fill="none">
-        <rect x="2" y="2" width="4" height="10" rx="1.5" fill="white" />
-        <rect x="2" y="9" width="10" height="3" rx="1.5" fill="white" />
-      </svg>
+      {/* Official logo: square dot */}
+      <div style={{ width: 10, height: 10, background: '#ffffff', flexShrink: 0 }} />
       <span
         style={{
-          fontFamily: "'Arial Black', sans-serif",
-          fontWeight: 900,
-          fontSize: 22,
+          fontFamily: "sans-serif",
+          fontWeight: 800,
+          fontSize: 24,
           color: '#ffffff',
-          letterSpacing: 2,
-          textTransform: 'lowercase',
+          letterSpacing: -0.5,
+          textTransform: 'uppercase',
         }}
       >
-        lavidz
+        LAVIDZ
       </span>
     </div>
   )

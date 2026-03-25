@@ -1185,9 +1185,12 @@ export function ProcessView({ recordings, themeName, sessionId, themeSlug }: Pro
             <ArrowLeft size={16} />
           </button>
         </Link>
-        <div style={{ textAlign: 'center' }}>
-          <p style={{ fontWeight: 700, fontSize: 14 }}>{themeName}</p>
-          <p style={{ color: S.muted, fontSize: 10, fontFamily: 'monospace', textTransform: 'uppercase', letterSpacing: '0.08em' }}>Montage automatique</p>
+        <div style={{ textAlign: 'center', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 4 }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+            <span style={{ width: 8, height: 8, background: 'hsl(14, 100%, 55%)', flexShrink: 0 }} />
+            <span style={{ fontFamily: 'sans-serif', fontWeight: 800, fontSize: 14, color: '#ffffff', letterSpacing: -0.5, textTransform: 'uppercase' }}>LAVIDZ</span>
+          </div>
+          <p style={{ color: S.muted, fontSize: 10, fontFamily: 'monospace', textTransform: 'uppercase', letterSpacing: '0.08em' }}>{themeName}</p>
         </div>
         <div style={{ width: 32, display: 'flex', alignItems: 'center', justifyContent: 'flex-end' }}>
           {!ready && <div style={{ width: 6, height: 6, borderRadius: 3, background: '#f59e0b', animation: 'pulse 1.5s ease infinite' }} />}
@@ -1195,7 +1198,7 @@ export function ProcessView({ recordings, themeName, sessionId, themeSlug }: Pro
       </header>
 
       {/* Loading bar */}
-      {!ready && (
+      {regenerating && (
         <div style={{ padding: '8px 20px', borderBottom: `1px solid ${S.border}`, background: 'rgba(255,255,255,0.02)', display: 'flex', alignItems: 'center', gap: 10, flexShrink: 0 }}>
           <Loader2 size={12} className="animate-spin" style={{ color: S.muted, flexShrink: 0 }} />
           <p style={{ color: S.muted, fontSize: 11, fontFamily: 'monospace' }}>{loadingStep}</p>

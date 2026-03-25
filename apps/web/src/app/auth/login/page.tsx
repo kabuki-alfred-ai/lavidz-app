@@ -40,10 +40,8 @@ function LoginForm() {
   return (
     <div className="w-full max-w-sm animate-fade-in">
       <div className="flex items-center gap-2 mb-12">
-        <span className="w-2 h-2 bg-primary" />
-        <span className="font-sans font-extrabold text-sm tracking-widest uppercase text-muted-foreground">
-          Lavidz
-        </span>
+        <span className="w-2 h-2 bg-primary rounded-none" />
+        <span className="font-sans font-extrabold text-base tracking-tight text-foreground">LAVIDZ</span>
       </div>
 
       <h1 className="font-sans font-extrabold text-2xl tracking-tight mb-1">Connexion</h1>

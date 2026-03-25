@@ -8,7 +8,7 @@ import { Label } from '@/components/ui/label'
 import { Loader2 } from 'lucide-react'
 
 export default function RegisterPage() {
-  const [form, setForm] = useState({ orgName: '', email: '', password: '', confirm: '', name: '' })
+  const [form, setForm] = useState({ orgName: '', email: '', password: '', confirm: '', firstName: '', lastName: '' })
   const [error, setError] = useState('')
   const [loading, setLoading] = useState(false)
   const [done, setDone] = useState(false)
@@ -25,7 +25,7 @@ export default function RegisterPage() {
     const res = await fetch('/api/auth/register', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ orgName: form.orgName, email: form.email, password: form.password, name: form.name }),
+      body: JSON.stringify({ orgName: form.orgName, email: form.email, password: form.password, firstName: form.firstName, lastName: form.lastName }),
     })
 
     if (res.ok) {
@@ -41,8 +41,8 @@ export default function RegisterPage() {
       <div className="min-h-screen bg-background grid-bg flex items-center justify-center px-6">
         <div className="w-full max-w-sm animate-fade-in text-center">
           <div className="flex items-center justify-center gap-2 mb-12">
-            <span className="w-2 h-2 bg-primary" />
-            <span className="font-sans font-extrabold text-sm tracking-widest uppercase text-muted-foreground">Lavidz</span>
+            <span className="w-2 h-2 bg-primary rounded-none" />
+            <span className="font-sans font-extrabold text-base tracking-tight text-foreground">LAVIDZ</span>
           </div>
           <div className="border border-border p-8">
             <p className="text-xs font-mono uppercase tracking-widest text-muted-foreground mb-3">Demande envoyée</p>
@@ -75,9 +75,15 @@ export default function RegisterPage() {
             <Label htmlFor="orgName">Nom de l&apos;organisation</Label>
             <Input id="orgName" value={form.orgName} onChange={set('orgName')} required placeholder="Acme Corp" />
           </div>
-          <div className="flex flex-col gap-2">
-            <Label htmlFor="name">Votre nom (optionnel)</Label>
-            <Input id="name" value={form.name} onChange={set('name')} placeholder="Marie Dupont" />
+          <div className="flex gap-4">
+            <div className="flex-1 flex flex-col gap-2">
+              <Label htmlFor="firstName">Votre prénom (optionnel)</Label>
+              <Input id="firstName" value={form.firstName} onChange={set('firstName')} placeholder="Marie" />
+            </div>
+            <div className="flex-1 flex flex-col gap-2">
+              <Label htmlFor="lastName">Votre nom (optionnel)</Label>
+              <Input id="lastName" value={form.lastName} onChange={set('lastName')} placeholder="Dupont" />
+            </div>
           </div>
           <div className="flex flex-col gap-2">
             <Label htmlFor="email">Email</Label>

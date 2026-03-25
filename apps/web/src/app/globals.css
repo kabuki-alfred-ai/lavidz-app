@@ -4,23 +4,23 @@
 
 @layer base {
   :root {
-    --background: 240 11% 4%;
-    --foreground: 220 14% 92%;
+    --background: 0 0% 4%;
+    --foreground: 0 0% 100%;
 
-    --card: 240 9% 6%;
-    --card-foreground: 220 14% 92%;
+    --card: 0 0% 6%;
+    --card-foreground: 0 0% 100%;
 
-    --surface: 240 9% 6%;
-    --surface-raised: 240 7% 10%;
+    --surface: 0 0% 6%;
+    --surface-raised: 0 0% 9%;
 
     --primary: 14 100% 55%;
     --primary-foreground: 0 0% 100%;
 
-    --secondary: 240 7% 10%;
-    --secondary-foreground: 220 14% 92%;
+    --secondary: 0 0% 9%;
+    --secondary-foreground: 0 0% 100%;
 
-    --muted: 240 7% 10%;
-    --muted-foreground: 240 5% 42%;
+    --muted: 0 0% 9%;
+    --muted-foreground: 0 0% 42%;
 
     --accent: 14 100% 55%;
     --accent-foreground: 0 0% 100%;
@@ -28,8 +28,8 @@
     --destructive: 0 80% 56%;
     --destructive-foreground: 0 0% 100%;
 
-    --border: 240 6% 14%;
-    --input: 240 6% 14%;
+    --border: 0 0% 10%;
+    --input: 0 0% 10%;
     --ring: 14 100% 55%;
 
     --radius: 0.125rem;
@@ -62,12 +62,12 @@
 
   .grid-bg {
     background-image:
-      linear-gradient(hsl(240 6% 14% / 0.4) 1px, transparent 1px),
-      linear-gradient(90deg, hsl(240 6% 14% / 0.4) 1px, transparent 1px);
+      linear-gradient(hsl(0 0% 100% / 0.04) 1px, transparent 1px),
+      linear-gradient(90deg, hsl(0 0% 100% / 0.04) 1px, transparent 1px);
     background-size: 32px 32px;
   }
 
   .vignette {
-    background: radial-gradient(ellipse at center, transparent 50%, hsl(240 11% 4% / 0.8) 100%);
+    background: radial-gradient(ellipse at center, transparent 50%, hsl(0 0% 4% / 0.8) 100%);
   }
 }

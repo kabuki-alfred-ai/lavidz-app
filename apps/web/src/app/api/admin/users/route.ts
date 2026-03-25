@@ -19,7 +19,8 @@ export async function GET() {
     select: {
       id: true,
       email: true,
-      name: true,
+      firstName: true,
+      lastName: true,
       role: true,
       organizationId: true,
       organization: { select: { name: true, slug: true } },

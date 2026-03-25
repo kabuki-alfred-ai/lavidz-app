@@ -1,92 +1,83 @@
 import Link from 'next/link'
-import { LayoutGrid, Clapperboard, Building2, LogOut, Activity } from 'lucide-react'
 import { getSessionUser } from '@/lib/auth'
 import { LogoutButton } from './LogoutButton'
+import { AdminSidebarNav } from './AdminSidebarNav'
+import { ChevronRight, Home } from 'lucide-react'
 
 export default async function AdminLayout({ children }: { children: React.ReactNode }) {
   const user = await getSessionUser()
 
   return (
-    <div className="flex h-screen bg-background overflow-hidden">
+    <div className="flex h-screen bg-background overflow-hidden selection:bg-primary/30">
       {/* Sidebar */}
-      <aside className="w-[220px] shrink-0 border-r border-border flex flex-col">
+      <aside className="w-[240px] shrink-0 border-r border-border flex flex-col bg-surface-raised/40 backdrop-blur-md z-20">
         {/* Logo */}
-        <div className="h-14 flex items-center px-6 border-b border-border">
-          <Link href="/admin" className="flex items-center gap-2 group">
-            <span className="w-2 h-2 bg-primary rounded-none group-hover:scale-125 transition-transform" />
-            <span className="font-sans font-extrabold text-base tracking-tight text-foreground">
+        <div className="h-14 flex items-center px-6 border-b border-border mb-4">
+          <Link href="/admin" className="flex items-center gap-3 group">
+            <div className="relative">
+              <span className="block w-3 h-3 bg-primary rounded-none transition-all duration-300 group-hover:rotate-45" />
+              <span className="absolute -top-0.5 -right-0.5 w-1.5 h-1.5 bg-primary/40 rounded-none group-hover:translate-x-1 group-hover:-translate-y-1 transition-transform" />
+            </div>
+            <span className="font-sans font-black text-lg tracking-tighter text-foreground uppercase">
               LAVIDZ
             </span>
           </Link>
         </div>
 
         {/* Nav */}
-        <nav className="flex-1 px-3 py-4 flex flex-col gap-0.5">
-          <p className="text-[9px] font-mono uppercase tracking-widest text-muted-foreground px-3 pb-2">
-            Contenu
-          </p>
-          <Link
-            href="/admin"
-            className="flex items-center gap-3 px-3 h-8 text-xs font-mono text-muted-foreground hover:text-foreground hover:bg-surface-raised transition-colors group"
-          >
-            <Activity size={13} className="shrink-0" />
-            Vue d'ensemble
-          </Link>
-          <Link
-            href="/admin/themes"
-            className="flex items-center gap-3 px-3 h-8 text-xs font-mono text-muted-foreground hover:text-foreground hover:bg-surface-raised transition-colors group"
-          >
-            <LayoutGrid size={13} className="shrink-0" />
-            Thèmes
-          </Link>
-          <Link
-            href="/admin/montage"
-            className="flex items-center gap-3 px-3 h-8 text-xs font-mono text-muted-foreground hover:text-foreground hover:bg-surface-raised transition-colors group"
-          >
-            <Clapperboard size={13} className="shrink-0" />
-            Montage
-          </Link>
-
-          {user?.role === 'SUPERADMIN' && (
-            <>
-              <p className="text-[9px] font-mono uppercase tracking-widest text-muted-foreground px-3 pb-2 pt-4">
-                Superadmin
-              </p>
-              <Link
-                href="/admin/organizations"
-                className="flex items-center gap-3 px-3 h-8 text-xs font-mono text-muted-foreground hover:text-foreground hover:bg-surface-raised transition-colors group"
-              >
-                <Building2 size={13} className="shrink-0" />
-                Organisations
-              </Link>
-            </>
-          )}
-        </nav>
+        <AdminSidebarNav userRole={user?.role} />
 
         {/* Footer — user info + logout */}
-        <div className="p-4 border-t border-border flex flex-col gap-2">
+        <div className="p-4 mx-4 mb-4 border border-border/60 bg-surface/40 rounded-sm flex flex-col gap-3">
           {user && (
-            <div className="min-w-0">
-              <p className="text-[10px] font-mono text-foreground truncate">{user.email}</p>
-              <p className="text-[9px] font-mono text-muted-foreground/60 uppercase tracking-widest">{user.role}</p>
-            </div>
+            <Link href="/admin/profile" className="min-w-0 flex items-center gap-3 px-1 hover:bg-surface-raised cursor-pointer rounded p-1 transition-colors group">
+              <div className="w-8 h-8 rounded-sm bg-surface-raised flex items-center justify-center font-mono text-xs font-bold text-primary border border-border group-hover:border-primary/50 transition-colors">
+                {user.email[0].toUpperCase()}
+              </div>
+              <div className="min-w-0">
+                <p className="text-[10px] font-mono font-bold text-foreground truncate max-w-[120px] group-hover:text-primary transition-colors">
+                  {user.firstName ? `${user.firstName} ${user.lastName || ''}`.trim() : user.email.split('@')[0]}
+                </p>
+                <div className="flex items-center gap-1.5 text-[9px] font-mono text-muted-foreground uppercase tracking-wider">
+                  <span className="w-1 h-1 rounded-full bg-emerald-500 animate-pulse" />
+                  {user.role}
+                </div>
+              </div>
+            </Link>
           )}
           <LogoutButton />
         </div>
       </aside>
 
       {/* Main */}
-      <div className="flex-1 flex flex-col overflow-hidden">
+      <div className="flex-1 flex flex-col overflow-hidden relative">
+        {/* Background glow effects */}
+        <div className="absolute -top-[10%] -right-[10%] w-[40%] h-[40%] bg-primary/5 blur-[120px] rounded-full pointer-events-none" />
+        <div className="absolute -bottom-[10%] -left-[10%] w-[30%] h-[30%] bg-primary/5 blur-[100px] rounded-full pointer-events-none" />
+
         {/* Topbar */}
-        <header className="h-14 border-b border-border flex items-center px-8 shrink-0">
-          <div className="flex items-center gap-2 text-[10px] font-mono text-muted-foreground uppercase tracking-widest">
-            <span className="w-1.5 h-1.5 rounded-full bg-emerald-500" />
-            Admin
+        <header className="h-14 border-b border-border flex items-center justify-between px-8 bg-background/60 backdrop-blur-md z-10 shrink-0">
+          <div className="flex items-center gap-3 text-[10px] font-mono text-muted-foreground uppercase tracking-widest leading-none">
+            <Home size={10} className="text-muted-foreground/40" />
+            <ChevronRight size={10} className="text-muted-foreground/20" />
+            <span className="text-foreground/60 font-medium">Panel</span>
+            <ChevronRight size={10} className="text-muted-foreground/20" />
+            <span className="text-foreground font-bold">Admin</span>
+          </div>
+
+          <div className="flex items-center gap-4">
+            <div className="px-2.5 py-1 rounded-full bg-surface-raised border border-border flex items-center gap-2">
+              <span className="relative flex h-1.5 w-1.5">
+                <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
+                <span className="relative inline-flex rounded-full h-1.5 w-1.5 bg-emerald-500"></span>
+              </span>
+              <span className="text-[9px] font-mono text-muted-foreground font-medium uppercase tracking-wider">Live</span>
+            </div>
           </div>
         </header>
 
         {/* Content */}
-        <main className="flex-1 overflow-auto p-8 grid-bg">
+        <main className="flex-1 overflow-auto p-8 lg:p-12 relative animate-in fade-in duration-700">
           {children}
         </main>
       </div>

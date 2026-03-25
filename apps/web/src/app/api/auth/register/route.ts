@@ -8,7 +8,7 @@ function toSlug(str: string): string {
 }
 
 export async function POST(req: Request) {
-  const { orgName, orgSlug, email, password, name } = await req.json()
+  const { orgName, orgSlug, email, password, firstName, lastName } = await req.json()
   if (!orgName || !email || !password) {
     return new Response('Nom organisation, email et mot de passe requis', { status: 400 })
   }
@@ -37,7 +37,8 @@ export async function POST(req: Request) {
     data: {
       email: normalizedEmail,
       passwordHash,
-      name: name ?? null,
+      firstName: firstName ?? null,
+      lastName: lastName ?? null,
       role: 'ADMIN',
       organizationId: org.id,
     },
