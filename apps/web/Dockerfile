@@ -18,6 +18,11 @@ RUN pnpm install --frozen-lockfile
 RUN pnpm --filter @lavidz/database run db:generate
 RUN pnpm --filter @lavidz/web build
 
+# Collect Remotion compositor binaries into a known path for the runner stage
+RUN mkdir -p /remotion-bins && \
+    find /app/node_modules/.pnpm -maxdepth 1 -type d -name "@remotion+compositor*" \
+      -exec cp -r {} /remotion-bins/ \;
+
 # ── Stage 2: minimal production image (Next.js standalone) ────────────────────
 FROM node:22-alpine AS runner
 WORKDIR /app
@@ -32,6 +37,9 @@ COPY --from=builder /app/apps/web/.next/static ./apps/web/.next/static
 
 # Remotion bundler needs the TypeScript sources at runtime
 COPY --from=builder /app/apps/web/src/remotion ./apps/web/src/remotion
+
+# Remotion compositor binaries — not included in standalone output but required at runtime
+COPY --from=builder /remotion-bins /app/node_modules/.pnpm/
 
 EXPOSE 3000
 ENV PORT=3000
