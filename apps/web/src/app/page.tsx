@@ -489,7 +489,7 @@ export default function Home() {
         {/* Powered by Kabuki - Hero Section */}
         <div className="mt-20 flex flex-col items-center gap-4 animate-in fade-in slide-in-from-bottom-4 duration-1000 delay-500 fill-mode-both">
           <p className="text-[10px] font-mono uppercase tracking-[0.2em] text-zinc-500">Powered by</p>
-          <Link href="https://kabuki.fr" target="_blank" className="group/logo flex items-center gap-3 grayscale hover:grayscale-0 transition-all duration-500 opacity-60 hover:opacity-100">
+          <Link href="https://kabuki.team" target="_blank" className="group/logo flex items-center gap-3 grayscale hover:grayscale-0 transition-all duration-500 opacity-60 hover:opacity-100">
             <svg viewBox="0 0 32 32" aria-hidden="true" className="h-8 w-8">
               <rect clipPath="url(#hero-clip)" className="h-8 transition-all duration-300 fill-primary w-0 group-hover/logo:w-8"></rect>
               <use href="#hero-path" className="stroke-white" fill="none" strokeWidth="1.5"></use>
@@ -789,7 +789,7 @@ export default function Home() {
             </div>
             <div className="flex items-center gap-3 opacity-60">
               <span className="text-[9px] font-mono uppercase tracking-widest text-zinc-500">Un produit</span>
-              <div className="flex items-center gap-2 group/logo-footer grayscale hover:grayscale-0 transition-all duration-500 hover:opacity-100">
+              <Link href="https://kabuki.team" target="_blank" className="flex items-center gap-2 group/logo-footer grayscale hover:grayscale-0 transition-all duration-500 hover:opacity-100">
                 <svg viewBox="0 0 32 32" aria-hidden="true" className="h-5 w-5">
                   <rect clipPath="url(#footer-clip)" className="h-5 transition-all duration-300 fill-primary w-0 group-hover/logo-footer:w-5"></rect>
                   <use href="#footer-path" className="stroke-white" fill="none" strokeWidth="1.5"></use>
@@ -799,7 +799,7 @@ export default function Home() {
                   </defs>
                 </svg>
                 <span className="font-inter font-bold text-sm tracking-tight text-white">Kabuki</span>
-              </div>
+              </Link>
             </div>
           </div>
           <p className="text-xs font-mono text-zinc-400">

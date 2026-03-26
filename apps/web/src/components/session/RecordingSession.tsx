@@ -12,6 +12,7 @@ function readingDuration(text: string): number {
 }
 
 const API = process.env.NEXT_PUBLIC_API_URL ?? 'http://localhost:3001'
+const MAX_DURATION = 180 // 3 minutes
 
 interface Props {
   theme: ThemeDto
@@ -37,6 +38,13 @@ export function RecordingSession({ theme, initialSessionId, mode = 'default' }: 
   const [facingMode, setFacingMode] = useState<'user' | 'environment'>('user')
   const [hasMultipleCameras, setHasMultipleCameras] = useState(false)
   const [flipping, setFlipping] = useState(false)
+  const [connectionQuality, setConnectionQuality] = useState<'checking' | 'excellent' | 'good' | 'fair' | 'poor'>('checking')
+  const [micDetected, setMicDetected] = useState(false)
+  const [poorConnectionAcknowledged, setPoorConnectionAcknowledged] = useState(false)
+  const [reviewVideoUrl, setReviewVideoUrl] = useState<string | null>(null)
+  const [uploadProgress, setUploadProgress] = useState(0)
+  const [permissionDenied, setPermissionDenied] = useState<{ isIOS: boolean; isSafari: boolean } | null>(null)
+  const [showMaxDurationWarning, setShowMaxDurationWarning] = useState(false)
   const introAnnouncedRef = useRef(false)
   const audioContextRef = useRef<AudioContext | null>(null)
   const micRafRef = useRef<number | null>(null)
@@ -50,6 +58,8 @@ export function RecordingSession({ theme, initialSessionId, mode = 'default' }: 
   const readingRef = useRef<ReturnType<typeof setInterval> | null>(null)
   const sessionIdRef = useRef<string | null>(initialSessionId ?? null)
   const questionAudioRef = useRef<HTMLAudioElement | null>(null)
+  const maxDurationTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
+  const maxDurationWarnTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
 
   const QUESTION_VOICE_ID = 'MmafIMKg28Wr0yMh8CEB'
 
@@ -81,6 +91,7 @@ export function RecordingSession({ theme, initialSessionId, mode = 'default' }: 
     audioContextRef.current?.close()
     audioContextRef.current = null
     setMicLevel(0)
+    setMicDetected(false)
   }, [])
 
   const startMicMeter = useCallback((stream: MediaStream) => {
@@ -95,7 +106,9 @@ export function RecordingSession({ theme, initialSessionId, mode = 'default' }: 
       const tick = () => {
         analyser.getByteFrequencyData(data)
         const avg = data.reduce((s, v) => s + v, 0) / data.length
-        setMicLevel(Math.min(100, Math.round((avg / 128) * 100)))
+        const level = Math.min(100, Math.round((avg / 128) * 100))
+        setMicLevel(level)
+        if (level > 0) setMicDetected(true)
         micRafRef.current = requestAnimationFrame(tick)
       }
       micRafRef.current = requestAnimationFrame(tick)
@@ -110,10 +123,21 @@ export function RecordingSession({ theme, initialSessionId, mode = 'default' }: 
       if (elapsedRef.current) clearInterval(elapsedRef.current)
       if (countdownRef.current) clearInterval(countdownRef.current)
       if (readingRef.current) clearInterval(readingRef.current)
+      if (maxDurationTimerRef.current) clearTimeout(maxDurationTimerRef.current)
+      if (maxDurationWarnTimerRef.current) clearTimeout(maxDurationWarnTimerRef.current)
       questionAudioRef.current?.pause()
       stopMicMeter()
     }
   }, [stopMicMeter])
+
+  // Warn user before leaving during recording or upload
+  useEffect(() => {
+    const warn = (e: BeforeUnloadEvent) => { e.preventDefault(); e.returnValue = '' }
+    if (phase === 'recording' || phase === 'uploading') {
+      window.addEventListener('beforeunload', warn)
+      return () => window.removeEventListener('beforeunload', warn)
+    }
+  }, [phase])
 
   // Attach stream to video element whenever a camera phase becomes active
   useEffect(() => {
@@ -166,6 +190,7 @@ export function RecordingSession({ theme, initialSessionId, mode = 'default' }: 
     if (!streamRef.current) return
     chunksRef.current = []
     setElapsed(0)
+    setShowMaxDurationWarning(false)
     setPhase('recording')
 
     const mimeType = MediaRecorder.isTypeSupported('video/webm;codecs=vp9,opus')
@@ -173,21 +198,40 @@ export function RecordingSession({ theme, initialSessionId, mode = 'default' }: 
       : 'video/webm'
     const recorder = new MediaRecorder(streamRef.current, { mimeType })
     recorder.ondataavailable = (e) => { if (e.data.size > 0) chunksRef.current.push(e.data) }
+    recorder.onstop = () => {
+      if (chunksRef.current.length > 0) {
+        const blob = new Blob(chunksRef.current, { type: 'video/webm' })
+        setReviewVideoUrl(prev => {
+          if (prev) URL.revokeObjectURL(prev)
+          return URL.createObjectURL(blob)
+        })
+      }
+    }
     recorder.start(100)
     mediaRecorderRef.current = recorder
 
     elapsedRef.current = setInterval(() => setElapsed((s) => s + 1), 1000)
+    maxDurationWarnTimerRef.current = setTimeout(
+      () => setShowMaxDurationWarning(true),
+      (MAX_DURATION - 30) * 1000
+    )
+    maxDurationTimerRef.current = setTimeout(() => stopRecording(), MAX_DURATION * 1000)
   }
 
   const stopRecording = () => {
     mediaRecorderRef.current?.stop()
     if (elapsedRef.current) { clearInterval(elapsedRef.current); elapsedRef.current = null }
+    if (maxDurationTimerRef.current) { clearTimeout(maxDurationTimerRef.current); maxDurationTimerRef.current = null }
+    if (maxDurationWarnTimerRef.current) { clearTimeout(maxDurationWarnTimerRef.current); maxDurationWarnTimerRef.current = null }
+    setShowMaxDurationWarning(false)
     setPhase('review')
   }
 
   const redo = () => {
     chunksRef.current = []
     setElapsed(0)
+    setReviewVideoUrl(prev => { if (prev) URL.revokeObjectURL(prev); return null })
+    setUploadError('')
     beginReading(currentQuestion)
   }
 
@@ -195,6 +239,7 @@ export function RecordingSession({ theme, initialSessionId, mode = 'default' }: 
     if (!sessionIdRef.current || !currentQuestion || chunksRef.current.length === 0) return
     setPhase('uploading')
     setUploadError('')
+    setUploadProgress(0)
 
     try {
       const blob = new Blob(chunksRef.current, { type: 'video/webm' })
@@ -202,12 +247,21 @@ export function RecordingSession({ theme, initialSessionId, mode = 'default' }: 
       formData.append('video', blob, 'recording.webm')
       formData.append('questionId', currentQuestion.id)
 
-      const res = await fetch(`${API}/api/sessions/${sessionIdRef.current}/recordings`, {
-        method: 'POST',
-        body: formData,
+      await new Promise<void>((resolve, reject) => {
+        const xhr = new XMLHttpRequest()
+        xhr.upload.onprogress = (e) => {
+          if (e.lengthComputable) setUploadProgress(Math.round((e.loaded / e.total) * 100))
+        }
+        xhr.onload = () => {
+          if (xhr.status >= 200 && xhr.status < 300) resolve()
+          else reject(new Error(`Upload failed: ${xhr.status}`))
+        }
+        xhr.onerror = () => reject(new Error('Upload failed'))
+        xhr.open('POST', `${API}/api/sessions/${sessionIdRef.current}/recordings`)
+        xhr.send(formData)
       })
-      if (!res.ok) throw new Error('Upload failed')
 
+      setReviewVideoUrl(prev => { if (prev) URL.revokeObjectURL(prev); return null })
       chunksRef.current = []
 
       if (questionIndex < questions.length - 1) {
@@ -218,10 +272,43 @@ export function RecordingSession({ theme, initialSessionId, mode = 'default' }: 
         setPhase('done')
       }
     } catch {
-      setUploadError('Erreur d\'envoi — réessayez')
+      setUploadError('Envoi échoué. Vérifiez votre connexion et réessayez.')
       setPhase('review')
     }
   }
+
+  const measureConnection = useCallback(async () => {
+    setConnectionQuality('checking')
+    try {
+      // Try Network Information API first (Chrome/Android)
+      const conn = (navigator as any).connection
+      if (conn?.effectiveType) {
+        const map: Record<string, typeof connectionQuality> = {
+          '4g': 'excellent', '3g': 'good', '2g': 'fair', 'slow-2g': 'poor',
+        }
+        const q = map[conn.effectiveType] ?? 'good'
+        setConnectionQuality(q)
+        return
+      }
+    } catch {}
+
+    // Fallback: measure latency with 3 pings to the current origin
+    try {
+      const pings: number[] = []
+      for (let i = 0; i < 3; i++) {
+        const t0 = performance.now()
+        await fetch(`/?_ping=${Date.now()}`, { method: 'HEAD', cache: 'no-store' })
+        pings.push(performance.now() - t0)
+      }
+      const avg = pings.reduce((a, b) => a + b, 0) / pings.length
+      if (avg < 100) setConnectionQuality('excellent')
+      else if (avg < 300) setConnectionQuality('good')
+      else if (avg < 700) setConnectionQuality('fair')
+      else setConnectionQuality('poor')
+    } catch {
+      setConnectionQuality('fair')
+    }
+  }, [])
 
   // Detect multiple cameras once (after first permission grant or on mount)
   const detectCameras = useCallback(async () => {
@@ -270,12 +357,17 @@ export function RecordingSession({ theme, initialSessionId, mode = 'default' }: 
       }
       startMicMeter(stream)
       detectCameras()
+      measureConnection()
       setPhase('check')
     } catch (err: any) {
       const denied = err?.name === 'NotAllowedError' || err?.name === 'PermissionDeniedError'
-      setCheckError(denied
-        ? 'Accès refusé. Autorisez la caméra et le micro dans les réglages de votre navigateur.'
-        : 'Impossible d\'accéder à la caméra ou au micro.')
+      if (denied) {
+        const isIOS = /iPhone|iPad/.test(navigator.userAgent)
+        const isSafari = /Safari/.test(navigator.userAgent) && !/Chrome/.test(navigator.userAgent)
+        setPermissionDenied({ isIOS, isSafari })
+      } else {
+        setCheckError('Impossible d\'accéder à la caméra ou au micro.')
+      }
     } finally {
       setStarting(false)
     }
@@ -317,7 +409,47 @@ export function RecordingSession({ theme, initialSessionId, mode = 'default' }: 
   const formatTime = (s: number) =>
     `${String(Math.floor(s / 60)).padStart(2, '0')}:${String(s % 60).padStart(2, '0')}`
 
+  const startRecordingNow = () => {
+    if (readingRef.current) { clearInterval(readingRef.current); readingRef.current = null }
+    questionAudioRef.current?.pause()
+    beginCountdown()
+  }
+
   // ─── INTRO ────────────────────────────────────────────────────────────────
+  if (phase === 'intro' && permissionDenied) {
+    const { isIOS, isSafari } = permissionDenied
+    const instructions = isIOS
+      ? 'Allez dans Réglages > Safari > Caméra et Micro → Autoriser, puis revenez ici.'
+      : isSafari
+      ? 'Cliquez sur l\'icône cadenas dans la barre d\'adresse → autorisez caméra et micro.'
+      : 'Cliquez sur l\'icône caméra dans la barre d\'adresse → autorisez caméra et micro.'
+    return (
+      <div className="fixed inset-0 flex flex-col items-center justify-center px-8 gap-6" style={{ background: '#0a0a0a' }}>
+        <div
+          className="w-14 h-14 rounded-2xl flex items-center justify-center"
+          style={{ background: 'rgba(239,68,68,0.12)', border: '1px solid rgba(239,68,68,0.25)' }}
+        >
+          <svg width="24" height="24" viewBox="0 0 24 24" fill="none">
+            <path d="M15 10.5a3 3 0 11-6 0 3 3 0 016 0z" stroke="#ef4444" strokeWidth="2" strokeLinecap="round" />
+            <path d="M19.5 10.5c0 7.142-7.5 11.25-7.5 11.25S4.5 17.642 4.5 10.5a7.5 7.5 0 1115 0z" stroke="#ef4444" strokeWidth="2" />
+            <line x1="4" y1="4" x2="20" y2="20" stroke="#ef4444" strokeWidth="2" strokeLinecap="round" />
+          </svg>
+        </div>
+        <div className="text-center">
+          <h2 className="text-xl font-black text-white mb-3">Accès refusé</h2>
+          <p className="text-sm text-white/50 leading-relaxed max-w-xs">{instructions}</p>
+        </div>
+        <button
+          onClick={() => { setPermissionDenied(null); setCheckError('') }}
+          className="mt-2 text-sm font-semibold px-6 py-3 rounded-2xl transition-all active:scale-95"
+          style={{ background: 'rgba(255,255,255,0.08)', color: 'rgba(255,255,255,0.7)', border: '1px solid rgba(255,255,255,0.12)' }}
+        >
+          J&apos;ai autorisé — Réessayer
+        </button>
+      </div>
+    )
+  }
+
   if (phase === 'intro') {
     const noise = (
       <div className="absolute inset-0 opacity-[0.03] pointer-events-none"
@@ -399,6 +531,17 @@ export function RecordingSession({ theme, initialSessionId, mode = 'default' }: 
           style={{ background: '#0a0a0a' }}
         >
           {noise}
+          {/* Back button — top left */}
+          <button
+            onClick={() => setIntroStep(2)}
+            className="absolute top-4 left-4 z-20 flex items-center justify-center rounded-full transition-all active:scale-90"
+            style={{ width: 44, height: 44, background: 'rgba(255,255,255,0.07)', border: '1px solid rgba(255,255,255,0.1)' }}
+            aria-label="Retour"
+          >
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+              <path d="M15 18l-6-6 6-6" />
+            </svg>
+          </button>
 
           <div />
 
@@ -420,12 +563,6 @@ export function RecordingSession({ theme, initialSessionId, mode = 'default' }: 
               style={{ background: accent, color: '#fff' }}
             >
               {starting ? 'Démarrage...' : "C'est parti !"}
-            </button>
-            <button
-              onClick={() => setIntroStep(2)}
-              className="text-xs text-white/25 font-mono"
-            >
-              ← Retour
             </button>
           </div>
         </div>
@@ -462,6 +599,17 @@ export function RecordingSession({ theme, initialSessionId, mode = 'default' }: 
         style={{ background: '#0a0a0a' }}
       >
         {noise}
+        {/* Back button — top left */}
+        <button
+          onClick={() => setIntroStep(1)}
+          className="absolute top-4 left-4 z-20 flex items-center justify-center rounded-full transition-all active:scale-90"
+          style={{ width: 44, height: 44, background: 'rgba(255,255,255,0.07)', border: '1px solid rgba(255,255,255,0.1)' }}
+          aria-label="Retour"
+        >
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+            <path d="M15 18l-6-6 6-6" />
+          </svg>
+        </button>
         {brand}
 
         <div className="flex flex-col gap-6 z-10 w-full max-w-sm">
@@ -494,12 +642,6 @@ export function RecordingSession({ theme, initialSessionId, mode = 'default' }: 
             style={{ background: accent, color: '#fff' }}
           >
             {starting ? 'Démarrage...' : theme.introduction ? 'Continuer →' : "C'est parti !"}
-          </button>
-          <button
-            onClick={() => setIntroStep(1)}
-            className="text-xs text-white/25 font-mono"
-          >
-            ← Retour
           </button>
         </div>
       </div>
@@ -573,7 +715,23 @@ export function RecordingSession({ theme, initialSessionId, mode = 'default' }: 
   // ─── CHECK PHASE ──────────────────────────────────────────────────────────
   if (phase === 'check') {
     return (
-      <div className="fixed inset-0 flex flex-col items-center justify-center px-6 py-12 overflow-hidden" style={{ background: '#0a0a0a' }}>
+      <div className="fixed inset-0 flex flex-col items-center justify-center px-6 overflow-hidden" style={{ background: '#0a0a0a', paddingTop: 'max(3rem, env(safe-area-inset-top))', paddingBottom: 'max(3rem, env(safe-area-inset-bottom))' }}>
+        {/* Back button — top left */}
+        <button
+          onClick={() => {
+            stopMicMeter()
+            streamRef.current?.getTracks().forEach(t => t.stop())
+            streamRef.current = null
+            setPhase('intro')
+          }}
+          className="absolute top-4 left-4 z-20 flex items-center justify-center rounded-full transition-all active:scale-90"
+          style={{ width: 44, height: 44, background: 'rgba(255,255,255,0.07)', border: '1px solid rgba(255,255,255,0.1)' }}
+          aria-label="Retour"
+        >
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+            <path d="M15 18l-6-6 6-6" />
+          </svg>
+        </button>
         <div className="flex flex-col items-center gap-6 w-full max-w-sm z-10">
           {/* Camera preview */}
           <div className="relative w-full rounded-2xl overflow-hidden bg-black border border-white/10" style={{ aspectRatio: '4/3' }}>
@@ -622,27 +780,79 @@ export function RecordingSession({ theme, initialSessionId, mode = 'default' }: 
             </p>
           </div>
 
+          {/* Connection quality */}
+          {(() => {
+            const map = {
+              checking: { label: 'Mesure en cours…', color: 'rgba(255,255,255,0.2)', bars: [1, 0, 0, 0] },
+              poor:     { label: 'Connexion faible', color: '#ef4444', bars: [1, 0, 0, 0] },
+              fair:     { label: 'Connexion moyenne', color: '#f59e0b', bars: [1, 1, 0, 0] },
+              good:     { label: 'Bonne connexion', color: '#4ade80', bars: [1, 1, 1, 0] },
+              excellent:{ label: 'Excellente connexion', color: '#4ade80', bars: [1, 1, 1, 1] },
+            }
+            const q = map[connectionQuality]
+            return (
+              <div className="w-full flex flex-col gap-2">
+                <p className="text-[10px] font-mono text-white/40 uppercase tracking-widest">Connexion</p>
+                <div className="flex items-center gap-3">
+                  <div className="flex items-end gap-[3px]">
+                    {q.bars.map((active, i) => (
+                      <div
+                        key={i}
+                        className="rounded-sm transition-all duration-300"
+                        style={{
+                          width: 5,
+                          height: 6 + i * 4,
+                          background: active ? q.color : 'rgba(255,255,255,0.1)',
+                        }}
+                      />
+                    ))}
+                  </div>
+                  <p className="text-[10px] font-mono" style={{ color: q.color }}>{q.label}</p>
+                </div>
+              </div>
+            )
+          })()}
+
+          {/* Blocking warnings */}
+          {!streamRef.current && (
+            <div className="w-full px-4 py-3 rounded-2xl flex items-start gap-3" style={{ background: 'rgba(239,68,68,0.1)', border: '1px solid rgba(239,68,68,0.25)' }}>
+              <span className="text-red-400 mt-0.5 shrink-0">⚠️</span>
+              <p className="text-xs text-red-300 font-mono leading-relaxed">Caméra ou micro non disponible. Vérifiez les autorisations dans les réglages de votre navigateur.</p>
+            </div>
+          )}
+          {streamRef.current && !micDetected && (
+            <div className="w-full px-4 py-3 rounded-2xl flex items-start gap-3" style={{ background: 'rgba(239,68,68,0.1)', border: '1px solid rgba(239,68,68,0.25)' }}>
+              <span className="text-red-400 mt-0.5 shrink-0">⚠️</span>
+              <p className="text-xs text-red-300 font-mono leading-relaxed">Micro non détecté. Parlez pour vérifier que votre micro fonctionne avant de continuer.</p>
+            </div>
+          )}
+
+          {/* Non-blocking poor connection warning */}
+          {connectionQuality === 'poor' && !poorConnectionAcknowledged && (
+            <div className="w-full px-4 py-3 rounded-2xl flex items-start gap-3" style={{ background: 'rgba(245,158,11,0.1)', border: '1px solid rgba(245,158,11,0.25)' }}>
+              <span className="text-amber-400 mt-0.5 shrink-0">⚠️</span>
+              <div className="flex flex-col gap-2 flex-1">
+                <p className="text-xs text-amber-300 font-mono leading-relaxed">Connexion faible détectée. La qualité de votre enregistrement risque d'être affectée (coupures, lenteur d'upload).</p>
+                <button
+                  onClick={() => setPoorConnectionAcknowledged(true)}
+                  className="self-start text-[10px] font-mono text-amber-400 underline underline-offset-2"
+                >
+                  Je comprends, continuer quand même
+                </button>
+              </div>
+            </div>
+          )}
+
           {/* CTA */}
           <button
             onClick={handleConfirmStart}
-            disabled={starting}
-            className="w-full py-4 rounded-2xl font-bold text-sm tracking-wide transition-opacity disabled:opacity-50"
+            disabled={starting || !streamRef.current || !micDetected || (connectionQuality === 'poor' && !poorConnectionAcknowledged)}
+            className="w-full py-4 rounded-2xl font-bold text-sm tracking-wide transition-opacity disabled:opacity-40 disabled:cursor-not-allowed"
             style={{ background: accent, color: '#fff' }}
           >
             {starting ? 'Démarrage…' : 'Tout est bon — Commencer'}
           </button>
 
-          <button
-            onClick={() => {
-              stopMicMeter()
-              streamRef.current?.getTracks().forEach(t => t.stop())
-              streamRef.current = null
-              setPhase('intro')
-            }}
-            className="text-xs font-mono text-white/30 hover:text-white/60 transition-colors"
-          >
-            ← Retour
-          </button>
         </div>
       </div>
     )
@@ -685,16 +895,25 @@ export function RecordingSession({ theme, initialSessionId, mode = 'default' }: 
           </p>
         )}
 
-        {/* Countdown */}
-        <div className="absolute bottom-16 flex flex-col items-center gap-2">
-          <span
-            key={readingCountdown}
-            className="text-white font-black tabular-nums"
-            style={{ fontSize: 64, lineHeight: 1, animation: 'countPop 0.8s ease forwards' }}
+        {/* Countdown + ready button */}
+        <div className="absolute bottom-0 inset-x-0 pb-[max(3rem,_env(safe-area-inset-bottom))] flex flex-col items-center gap-4">
+          <div className="flex flex-col items-center gap-2">
+            <span
+              key={readingCountdown}
+              className="text-white font-black tabular-nums"
+              style={{ fontSize: 64, lineHeight: 1, animation: 'countPop 0.8s ease forwards' }}
+            >
+              {readingCountdown}
+            </span>
+            <p className="text-white/30 text-xs font-mono tracking-widest uppercase">Enregistrement dans</p>
+          </div>
+          <button
+            onClick={startRecordingNow}
+            className="px-6 py-3 rounded-2xl font-semibold text-sm transition-all active:scale-95"
+            style={{ background: 'rgba(255,255,255,0.08)', color: 'rgba(255,255,255,0.7)', border: '1px solid rgba(255,255,255,0.12)' }}
           >
-            {readingCountdown}
-          </span>
-          <p className="text-white/30 text-xs font-mono tracking-widest uppercase">Enregistrement dans</p>
+            Je suis prêt →
+          </button>
         </div>
 
         <style>{`
@@ -742,7 +961,7 @@ export function RecordingSession({ theme, initialSessionId, mode = 'default' }: 
       />
 
       {/* Top: progress + question */}
-      <div className="absolute inset-x-0 top-0 px-5 pt-12 flex flex-col gap-4">
+      <div className="absolute inset-x-0 top-0 px-5 flex flex-col gap-4" style={{ paddingTop: 'max(3rem, env(safe-area-inset-top))', zIndex: 10 }}>
         {/* Progress dots */}
         <div className="flex items-center gap-2">
           {questions.map((_, i) => (
@@ -811,27 +1030,46 @@ export function RecordingSession({ theme, initialSessionId, mode = 'default' }: 
       )}
 
       {/* Review overlay */}
-      {(isReview || isUploading) && (
+      {isReview && reviewVideoUrl ? (
+        <video
+          src={reviewVideoUrl}
+          controls
+          playsInline
+          autoPlay
+          className="absolute inset-0 w-full h-full object-contain bg-black"
+          style={{ zIndex: 1 }}
+        />
+      ) : (isReview || isUploading) ? (
         <div
           className="absolute inset-0"
           style={{ background: 'rgba(0,0,0,0.5)', backdropFilter: 'blur(2px)' }}
         />
-      )}
+      ) : null}
 
       {/* Bottom controls */}
-      <div className="absolute inset-x-0 bottom-0 pb-12 px-6 flex flex-col items-center gap-6">
+      <div className="absolute inset-x-0 bottom-0 px-6 flex flex-col items-center gap-6" style={{ paddingBottom: 'max(3rem, env(safe-area-inset-bottom))', zIndex: 10 }}>
 
         {/* REC timer */}
         {isRecording && (
-          <div
-            className="flex items-center gap-2 px-3 py-1.5 rounded-full"
-            style={{ background: 'rgba(0,0,0,0.6)', border: '1px solid rgba(255,255,255,0.1)' }}
-          >
-            <span
-              className="w-2 h-2 rounded-full"
-              style={{ background: accent, animation: 'recPulse 1.2s ease-in-out infinite' }}
-            />
-            <span className="text-white text-xs font-mono tabular-nums">{formatTime(elapsed)}</span>
+          <div className="flex flex-col items-center gap-2">
+            <div
+              className="flex items-center gap-2 px-3 py-1.5 rounded-full"
+              style={{ background: 'rgba(0,0,0,0.6)', border: '1px solid rgba(255,255,255,0.1)' }}
+            >
+              <span
+                className="w-2 h-2 rounded-full"
+                style={{ background: accent, animation: 'recPulse 1.2s ease-in-out infinite' }}
+              />
+              <span className="text-white text-xs font-mono tabular-nums">{formatTime(elapsed)}</span>
+            </div>
+            {showMaxDurationWarning && (
+              <div
+                className="flex items-center gap-2 px-3 py-1.5 rounded-full"
+                style={{ background: 'rgba(245,158,11,0.15)', border: '1px solid rgba(245,158,11,0.35)' }}
+              >
+                <span className="text-amber-400 text-xs font-mono">30s restantes</span>
+              </div>
+            )}
           </div>
         )}
 
@@ -841,7 +1079,12 @@ export function RecordingSession({ theme, initialSessionId, mode = 'default' }: 
         )}
 
         {uploadError && (
-          <p className="text-red-400 text-xs font-mono text-center">{uploadError}</p>
+          <div className="w-full max-w-sm px-4 py-3 rounded-2xl flex items-start gap-3" style={{ background: 'rgba(239,68,68,0.1)', border: '1px solid rgba(239,68,68,0.25)' }}>
+            <span className="text-red-400 mt-0.5 shrink-0 text-xs">⚠</span>
+            <div className="flex-1 min-w-0">
+              <p className="text-xs text-red-300 font-mono leading-relaxed">{uploadError}</p>
+            </div>
+          </div>
         )}
 
         {/* Record / Stop button */}
@@ -906,19 +1149,24 @@ export function RecordingSession({ theme, initialSessionId, mode = 'default' }: 
               className="flex-[2] py-4 rounded-2xl font-bold text-sm transition-all active:scale-95"
               style={{ background: accent, color: '#fff' }}
             >
-              {questionIndex < questions.length - 1 ? 'Continuer →' : 'Terminer ✓'}
+              {uploadError ? 'Réessayer l\'envoi' : questionIndex < questions.length - 1 ? 'Continuer →' : 'Terminer ✓'}
             </button>
           </div>
         )}
 
         {/* Uploading */}
         {isUploading && (
-          <div className="flex items-center gap-3">
-            <div
-              className="w-5 h-5 rounded-full border-2 border-t-transparent animate-spin"
-              style={{ borderColor: `${accent} transparent transparent transparent` }}
-            />
-            <span className="text-white/60 text-sm font-mono">Envoi en cours...</span>
+          <div className="w-full max-w-sm flex flex-col gap-2">
+            <div className="w-full h-1 rounded-full overflow-hidden" style={{ background: 'rgba(255,255,255,0.1)' }}>
+              <div
+                className="h-full rounded-full transition-all duration-300"
+                style={{ width: `${uploadProgress}%`, background: accent }}
+              />
+            </div>
+            <div className="flex items-center justify-between">
+              <span className="text-white/50 text-xs font-mono">Envoi en cours…</span>
+              <span className="text-white/50 text-xs font-mono tabular-nums">{uploadProgress}%</span>
+            </div>
           </div>
         )}
 
