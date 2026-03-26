@@ -7,6 +7,7 @@ interface SubmittedSession {
   status: string
   recipientEmail?: string
   recipientName?: string
+  version: number
   finalVideoKey?: string
   submittedAt?: string
   deliveredAt?: string
