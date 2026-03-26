@@ -62,6 +62,10 @@ export function RecordingSession({ theme, initialSessionId, mode = 'default' }: 
   const maxDurationTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
   const maxDurationWarnTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
   const checkVideoRef = useRef<HTMLVideoElement | null>(null)
+  const canvasRef = useRef<HTMLCanvasElement | null>(null)
+  const canvasStreamRef = useRef<MediaStream | null>(null)
+  const canvasRafRef = useRef<number | null>(null)
+  const facingModeRef = useRef<'user' | 'environment'>('user')
 
   const QUESTION_VOICE_ID = 'MmafIMKg28Wr0yMh8CEB'
 
@@ -119,6 +123,9 @@ export function RecordingSession({ theme, initialSessionId, mode = 'default' }: 
     }
   }, [])
 
+  // Keep facingModeRef in sync for RAF loop access
+  useEffect(() => { facingModeRef.current = facingMode }, [facingMode])
+
   useEffect(() => {
     return () => {
       streamRef.current?.getTracks().forEach((t) => t.stop())
@@ -127,6 +134,7 @@ export function RecordingSession({ theme, initialSessionId, mode = 'default' }: 
       if (readingRef.current) clearInterval(readingRef.current)
       if (maxDurationTimerRef.current) clearTimeout(maxDurationTimerRef.current)
       if (maxDurationWarnTimerRef.current) clearTimeout(maxDurationWarnTimerRef.current)
+      if (canvasRafRef.current) cancelAnimationFrame(canvasRafRef.current)
       questionAudioRef.current?.pause()
       stopMicMeter()
     }
@@ -189,17 +197,57 @@ export function RecordingSession({ theme, initialSessionId, mode = 'default' }: 
     }, 1000)
   }
 
+  const stopCanvasLoop = useCallback(() => {
+    if (canvasRafRef.current) { cancelAnimationFrame(canvasRafRef.current); canvasRafRef.current = null }
+  }, [])
+
+  const startCanvasLoop = useCallback(() => {
+    const canvas = canvasRef.current
+    const video = videoRef.current
+    if (!canvas || !video) return
+    const ctx = canvas.getContext('2d')
+    if (!ctx) return
+    const draw = () => {
+      if (video.readyState >= 2) {
+        ctx.save()
+        if (facingModeRef.current === 'user') {
+          ctx.translate(canvas.width, 0)
+          ctx.scale(-1, 1)
+        }
+        ctx.drawImage(video, 0, 0, canvas.width, canvas.height)
+        ctx.restore()
+      }
+      canvasRafRef.current = requestAnimationFrame(draw)
+    }
+    canvasRafRef.current = requestAnimationFrame(draw)
+  }, [])
+
   const doStartRecording = () => {
-    if (!streamRef.current) return
+    if (!streamRef.current || !videoRef.current || !canvasRef.current) return
     chunksRef.current = []
     setElapsed(0)
     setShowMaxDurationWarning(false)
     setPhase('recording')
 
+    // Size canvas to match camera output
+    const video = videoRef.current
+    const canvas = canvasRef.current
+    canvas.width = video.videoWidth || 1280
+    canvas.height = video.videoHeight || 720
+
+    // Canvas stream carries the video frames; add camera's audio track
+    const cs = canvas.captureStream(30)
+    const audioTrack = streamRef.current.getAudioTracks()[0]
+    if (audioTrack) cs.addTrack(audioTrack)
+    canvasStreamRef.current = cs
+
+    // Start drawing camera frames to canvas
+    startCanvasLoop()
+
     const mimeType = MediaRecorder.isTypeSupported('video/webm;codecs=vp9,opus')
       ? 'video/webm;codecs=vp9,opus'
       : 'video/webm'
-    const recorder = new MediaRecorder(streamRef.current, { mimeType })
+    const recorder = new MediaRecorder(cs, { mimeType })
     recorder.ondataavailable = (e) => { if (e.data.size > 0) chunksRef.current.push(e.data) }
     recorder.onstop = () => {
       if (chunksRef.current.length > 0) {
@@ -223,6 +271,7 @@ export function RecordingSession({ theme, initialSessionId, mode = 'default' }: 
 
   const stopRecording = () => {
     mediaRecorderRef.current?.stop()
+    stopCanvasLoop()
     if (elapsedRef.current) { clearInterval(elapsedRef.current); elapsedRef.current = null }
     if (maxDurationTimerRef.current) { clearTimeout(maxDurationTimerRef.current); maxDurationTimerRef.current = null }
     if (maxDurationWarnTimerRef.current) { clearTimeout(maxDurationWarnTimerRef.current); maxDurationWarnTimerRef.current = null }
@@ -327,7 +376,6 @@ export function RecordingSession({ theme, initialSessionId, mode = 'default' }: 
     setFlipping(true)
     const newFacing = facingMode === 'user' ? 'environment' : 'user'
     try {
-      // Request only the new video track — keep existing audio track untouched
       const newStream = await navigator.mediaDevices.getUserMedia({
         video: { facingMode: newFacing },
         audio: false,
@@ -335,7 +383,7 @@ export function RecordingSession({ theme, initialSessionId, mode = 'default' }: 
       const newVideoTrack = newStream.getVideoTracks()[0]
       if (!newVideoTrack || !streamRef.current) return
 
-      // Swap video track in the existing stream — MediaRecorder keeps recording
+      // Swap video track in the existing stream
       const oldVideoTrack = streamRef.current.getVideoTracks()[0]
       if (oldVideoTrack) {
         streamRef.current.removeTrack(oldVideoTrack)
@@ -344,8 +392,9 @@ export function RecordingSession({ theme, initialSessionId, mode = 'default' }: 
       streamRef.current.addTrack(newVideoTrack)
 
       setFacingMode(newFacing)
+      // facingModeRef syncs via useEffect → RAF loop adapts mirror automatically
 
-      // Refresh the active video element to pick up the new track
+      // Refresh the active video element (preview)
       const activeEl = checkVideoRef.current ?? videoRef.current
       if (activeEl) {
         activeEl.srcObject = null
@@ -879,6 +928,9 @@ export function RecordingSession({ theme, initialSessionId, mode = 'default' }: 
 
   return (
     <div className="fixed inset-0 overflow-hidden" style={{ background: '#000' }}>
+      {/* Hidden canvas — intermediate stream for MediaRecorder (continuous multi-camera) */}
+      <canvas ref={canvasRef} className="hidden" />
+
       {/* Camera feed */}
       <video
         ref={videoRef}
@@ -1107,14 +1159,14 @@ export function RecordingSession({ theme, initialSessionId, mode = 'default' }: 
               <button
                 onClick={flipCamera}
                 disabled={flipping || isCountdown}
-                className="flex items-center justify-center rounded-full transition-all active:scale-90 disabled:opacity-40"
-                style={{ width: 52, height: 52, background: 'rgba(255,255,255,0.1)', border: '1px solid rgba(255,255,255,0.15)' }}
+                className="flex flex-col items-center justify-center gap-1 rounded-full transition-all active:scale-90 disabled:opacity-40"
+                style={{ width: 52, height: 52, background: 'rgba(255,255,255,0.1)', border: `1px solid ${facingMode === 'environment' ? `${accent}60` : 'rgba(255,255,255,0.15)'}` }}
                 title="Changer de caméra"
               >
-                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{ opacity: flipping ? 0.4 : 1, transition: 'transform 0.3s', transform: flipping ? 'rotate(180deg)' : 'none' }}>
-                  <path d="M20 7h-9" /><path d="M14 17H5" />
-                  <circle cx="17" cy="17" r="3" /><circle cx="7" cy="7" r="3" />
-                </svg>
+                <SwitchCamera size={18} style={{ opacity: flipping ? 0.4 : 1, transition: 'transform 0.3s', transform: flipping ? 'rotate(180deg)' : 'none' }} />
+                <span className="text-[8px] font-mono text-white/60 leading-none">
+                  {facingMode === 'user' ? 'Selfie' : 'Dos'}
+                </span>
               </button>
             )}
           </div>
