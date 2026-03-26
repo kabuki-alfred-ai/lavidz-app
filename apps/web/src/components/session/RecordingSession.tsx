@@ -1037,7 +1037,7 @@ export function RecordingSession({ theme, initialSessionId, mode = 'default' }: 
           playsInline
           autoPlay
           className="absolute inset-0 w-full h-full object-contain bg-black"
-          style={{ zIndex: 1 }}
+          style={{ zIndex: 1, transform: facingMode === 'user' ? 'scaleX(-1)' : 'none' }}
         />
       ) : (isReview || isUploading) ? (
         <div
@@ -1087,44 +1087,45 @@ export function RecordingSession({ theme, initialSessionId, mode = 'default' }: 
           </div>
         )}
 
-        {/* Record / Stop button */}
+        {/* Record / Stop button + camera flip */}
         {(isCountdown || isRecording) && (
-          <button
-            onClick={isRecording ? stopRecording : undefined}
-            disabled={isCountdown}
-            className="relative flex items-center justify-center transition-all active:scale-95"
-            style={{ width: 80, height: 80 }}
-          >
-            {/* Outer ring */}
-            <div
-              className="absolute inset-0 rounded-full transition-all duration-300"
-              style={{
-                border: `3px solid ${isRecording ? accent : 'rgba(255,255,255,0.6)'}`,
-                boxShadow: isRecording ? `0 0 0 4px ${accent}30` : 'none',
-              }}
-            />
-            {/* Inner shape */}
-            <div
-              className="transition-all duration-300"
-              style={{
-                width: isRecording ? 28 : 56,
-                height: isRecording ? 28 : 56,
-                borderRadius: isRecording ? 6 : '50%',
-                background: isRecording ? accent : 'rgba(255,255,255,0.9)',
-              }}
-            />
-          </button>
-        )}
+          <div className="flex items-center gap-6">
+            {/* Spacer to keep record button centered when flip is visible */}
+            {hasMultipleCameras && <div style={{ width: 52 }} />}
 
-        {/* Review: Refaire / Continuer */}
-        {isReview && (
-          <div className="flex gap-3 w-full max-w-sm">
+            <button
+              onClick={isRecording ? stopRecording : undefined}
+              disabled={isCountdown}
+              className="relative flex items-center justify-center transition-all active:scale-95"
+              style={{ width: 80, height: 80 }}
+            >
+              {/* Outer ring */}
+              <div
+                className="absolute inset-0 rounded-full transition-all duration-300"
+                style={{
+                  border: `3px solid ${isRecording ? accent : 'rgba(255,255,255,0.6)'}`,
+                  boxShadow: isRecording ? `0 0 0 4px ${accent}30` : 'none',
+                }}
+              />
+              {/* Inner shape */}
+              <div
+                className="transition-all duration-300"
+                style={{
+                  width: isRecording ? 28 : 56,
+                  height: isRecording ? 28 : 56,
+                  borderRadius: isRecording ? 6 : '50%',
+                  background: isRecording ? accent : 'rgba(255,255,255,0.9)',
+                }}
+              />
+            </button>
+
+            {/* Flip camera — right of record button */}
             {hasMultipleCameras && (
               <button
                 onClick={flipCamera}
-                disabled={flipping}
-                className="flex items-center justify-center rounded-2xl transition-all active:scale-95 disabled:opacity-40 shrink-0"
-                style={{ width: 52, height: 52, background: 'rgba(255,255,255,0.08)', border: '1px solid rgba(255,255,255,0.12)' }}
+                disabled={flipping || isCountdown}
+                className="flex items-center justify-center rounded-full transition-all active:scale-90 disabled:opacity-40"
+                style={{ width: 52, height: 52, background: 'rgba(255,255,255,0.1)', border: '1px solid rgba(255,255,255,0.15)' }}
                 title="Changer de caméra"
               >
                 <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{ opacity: flipping ? 0.4 : 1, transition: 'transform 0.3s', transform: flipping ? 'rotate(180deg)' : 'none' }}>
@@ -1135,6 +1136,8 @@ export function RecordingSession({ theme, initialSessionId, mode = 'default' }: 
             )}
           </div>
         )}
+
+        {/* Review: Refaire / Continuer */}
         {isReview && (
           <div className="flex gap-3 w-full max-w-sm">
             <button
