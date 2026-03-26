@@ -2,6 +2,7 @@
 
 import { useState, useRef, useEffect, useCallback } from 'react'
 import { useRouter } from 'next/navigation'
+import { SwitchCamera } from 'lucide-react'
 import type { ThemeDto } from '@lavidz/types'
 
 type Phase = 'intro' | 'check' | 'reading' | 'countdown' | 'recording' | 'review' | 'uploading' | 'done'
@@ -60,6 +61,7 @@ export function RecordingSession({ theme, initialSessionId, mode = 'default' }: 
   const questionAudioRef = useRef<HTMLAudioElement | null>(null)
   const maxDurationTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
   const maxDurationWarnTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
+  const checkVideoRef = useRef<HTMLVideoElement | null>(null)
 
   const QUESTION_VOICE_ID = 'MmafIMKg28Wr0yMh8CEB'
 
@@ -149,6 +151,7 @@ export function RecordingSession({ theme, initialSessionId, mode = 'default' }: 
 
   // In check phase, the video ref mounts after the render — set srcObject on mount
   const checkVideoCallbackRef = useCallback((el: HTMLVideoElement | null) => {
+    checkVideoRef.current = el
     if (el && streamRef.current) {
       el.srcObject = streamRef.current
       el.muted = true
@@ -324,22 +327,34 @@ export function RecordingSession({ theme, initialSessionId, mode = 'default' }: 
     setFlipping(true)
     const newFacing = facingMode === 'user' ? 'environment' : 'user'
     try {
-      streamRef.current?.getTracks().forEach((t) => t.stop())
-      stopMicMeter()
-      const stream = await navigator.mediaDevices.getUserMedia({
+      // Request only the new video track — keep existing audio track untouched
+      const newStream = await navigator.mediaDevices.getUserMedia({
         video: { facingMode: newFacing },
-        audio: true,
+        audio: false,
       })
-      streamRef.current = stream
-      setFacingMode(newFacing)
-      if (videoRef.current) {
-        videoRef.current.srcObject = stream
-        videoRef.current.muted = true
+      const newVideoTrack = newStream.getVideoTracks()[0]
+      if (!newVideoTrack || !streamRef.current) return
+
+      // Swap video track in the existing stream — MediaRecorder keeps recording
+      const oldVideoTrack = streamRef.current.getVideoTracks()[0]
+      if (oldVideoTrack) {
+        streamRef.current.removeTrack(oldVideoTrack)
+        oldVideoTrack.stop()
       }
-      if (phase === 'check') startMicMeter(stream)
+      streamRef.current.addTrack(newVideoTrack)
+
+      setFacingMode(newFacing)
+
+      // Refresh the active video element to pick up the new track
+      const activeEl = checkVideoRef.current ?? videoRef.current
+      if (activeEl) {
+        activeEl.srcObject = null
+        activeEl.srcObject = streamRef.current
+        activeEl.muted = true
+      }
     } catch {}
     setFlipping(false)
-  }, [facingMode, flipping, phase, startMicMeter, stopMicMeter])
+  }, [facingMode, flipping])
 
   const handleStart = async () => {
     if (starting) return
@@ -755,10 +770,7 @@ export function RecordingSession({ theme, initialSessionId, mode = 'default' }: 
                 style={{ width: 36, height: 36, background: 'rgba(0,0,0,0.5)', border: '1px solid rgba(255,255,255,0.15)' }}
                 title="Changer de caméra"
               >
-                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{ opacity: flipping ? 0.4 : 1, transition: 'transform 0.3s', transform: flipping ? 'rotate(180deg)' : 'none' }}>
-                  <path d="M20 7h-9" /><path d="M14 17H5" />
-                  <circle cx="17" cy="17" r="3" /><circle cx="7" cy="7" r="3" />
-                </svg>
+                <SwitchCamera size={18} style={{ opacity: flipping ? 0.4 : 1, transition: 'transform 0.3s', transform: flipping ? 'rotate(180deg)' : 'none' }} />
               </button>
             )}
           </div>
@@ -858,81 +870,8 @@ export function RecordingSession({ theme, initialSessionId, mode = 'default' }: 
     )
   }
 
-  // ─── READING PHASE ────────────────────────────────────────────────────────
-  if (phase === 'reading') {
-    const total = readingDuration(currentQuestion?.text ?? '')
-    const progress = ((total - readingCountdown) / total) * 100
-    return (
-      <div
-        className="fixed inset-0 flex flex-col items-center justify-center px-8"
-        style={{ background: '#0a0a0a' }}
-      >
-        {/* Progress bar */}
-        <div className="absolute top-0 inset-x-0 h-1" style={{ background: 'rgba(255,255,255,0.08)' }}>
-          <div
-            className="h-full transition-all duration-1000 ease-linear"
-            style={{ width: `${progress}%`, background: accent }}
-          />
-        </div>
-
-        {/* Question number */}
-        <p className="text-xs font-mono uppercase tracking-widest mb-6" style={{ color: accent }}>
-          Question {String(questionIndex + 1).padStart(2, '0')} / {questions.length}
-        </p>
-
-        {/* Question text */}
-        <h1
-          key={questionIndex}
-          className="text-white font-black text-3xl leading-tight tracking-tight text-center max-w-sm"
-          style={{ animation: 'fadeSlideIn 0.4s ease forwards' }}
-        >
-          {currentQuestion?.text}
-        </h1>
-
-        {currentQuestion?.hint && (
-          <p className="text-white/40 text-sm mt-6 text-center max-w-xs leading-relaxed">
-            {currentQuestion.hint}
-          </p>
-        )}
-
-        {/* Countdown + ready button */}
-        <div className="absolute bottom-0 inset-x-0 pb-[max(3rem,_env(safe-area-inset-bottom))] flex flex-col items-center gap-4">
-          <div className="flex flex-col items-center gap-2">
-            <span
-              key={readingCountdown}
-              className="text-white font-black tabular-nums"
-              style={{ fontSize: 64, lineHeight: 1, animation: 'countPop 0.8s ease forwards' }}
-            >
-              {readingCountdown}
-            </span>
-            <p className="text-white/30 text-xs font-mono tracking-widest uppercase">Enregistrement dans</p>
-          </div>
-          <button
-            onClick={startRecordingNow}
-            className="px-6 py-3 rounded-2xl font-semibold text-sm transition-all active:scale-95"
-            style={{ background: 'rgba(255,255,255,0.08)', color: 'rgba(255,255,255,0.7)', border: '1px solid rgba(255,255,255,0.12)' }}
-          >
-            Je suis prêt →
-          </button>
-        </div>
-
-        <style>{`
-          @keyframes fadeSlideIn {
-            from { opacity: 0; transform: translateY(8px); }
-            to { opacity: 1; transform: translateY(0); }
-          }
-          @keyframes countPop {
-            0% { opacity: 0; transform: scale(1.3); }
-            20% { opacity: 1; transform: scale(1); }
-            80% { opacity: 1; transform: scale(1); }
-            100% { opacity: 0.6; transform: scale(0.95); }
-          }
-        `}</style>
-      </div>
-    )
-  }
-
-  // ─── CAMERA PHASES (countdown / recording / review / uploading) ───────────
+  // ─── CAMERA PHASES (reading / countdown / recording / review / uploading) ──
+  const isReading = phase === 'reading'
   const isCountdown = phase === 'countdown'
   const isRecording = phase === 'recording'
   const isReview = phase === 'review'
@@ -950,65 +889,99 @@ export function RecordingSession({ theme, initialSessionId, mode = 'default' }: 
         style={{ transform: facingMode === 'user' ? 'scaleX(-1)' : 'none' }}
       />
 
-      {/* Gradient overlays */}
-      <div
-        className="absolute inset-x-0 top-0 h-48 pointer-events-none"
-        style={{ background: 'linear-gradient(to bottom, rgba(0,0,0,0.75) 0%, transparent 100%)' }}
-      />
-      <div
-        className="absolute inset-x-0 bottom-0 h-56 pointer-events-none"
-        style={{ background: 'linear-gradient(to top, rgba(0,0,0,0.85) 0%, transparent 100%)' }}
-      />
+      {/* Gradient overlays (not during reading — it has its own dark overlay) */}
+      {!isReading && (
+        <>
+          <div
+            className="absolute inset-x-0 top-0 h-48 pointer-events-none"
+            style={{ background: 'linear-gradient(to bottom, rgba(0,0,0,0.75) 0%, transparent 100%)' }}
+          />
+          <div
+            className="absolute inset-x-0 bottom-0 h-56 pointer-events-none"
+            style={{ background: 'linear-gradient(to top, rgba(0,0,0,0.85) 0%, transparent 100%)' }}
+          />
+        </>
+      )}
 
-      {/* Top: progress + question */}
-      <div className="absolute inset-x-0 top-0 px-5 flex flex-col gap-4" style={{ paddingTop: 'max(3rem, env(safe-area-inset-top))', zIndex: 10 }}>
-        {/* Progress dots */}
-        <div className="flex items-center gap-2">
-          {questions.map((_, i) => (
-            <div
-              key={i}
-              className="rounded-full transition-all duration-300"
-              style={{
-                height: 3,
-                flex: i === questionIndex ? '2' : '1',
-                background: i < questionIndex
-                  ? 'rgba(255,255,255,0.5)'
-                  : i === questionIndex
-                  ? '#fff'
-                  : 'rgba(255,255,255,0.2)',
-              }}
-            />
-          ))}
-          <span className="text-[10px] font-mono text-white/50 ml-1 shrink-0">
-            {questionIndex + 1}/{questions.length}
-          </span>
-        </div>
+      {/* Reading: dark overlay */}
+      {isReading && (
+        <div className="absolute inset-0" style={{ background: 'rgba(0,0,0,0.72)', zIndex: 2 }} />
+      )}
 
-        {/* Question card */}
+      {/* Reading: question centered over camera */}
+      {isReading && (
         <div
-          className="rounded-2xl px-4 py-4"
-          style={{ background: 'rgba(0,0,0,0.45)', backdropFilter: 'blur(16px)', border: '1px solid rgba(255,255,255,0.08)' }}
+          className="absolute inset-0 flex flex-col items-center justify-center px-8 gap-5 pointer-events-none"
+          style={{ zIndex: 3 }}
         >
-          <p className="text-[10px] font-mono uppercase tracking-widest mb-2" style={{ color: accent }}>
-            Question {String(questionIndex + 1).padStart(2, '0')}
+          <p className="text-xs font-mono uppercase tracking-widest" style={{ color: accent }}>
+            Question {String(questionIndex + 1).padStart(2, '0')} / {questions.length}
           </p>
-          <p
+          <h1
             key={questionIndex}
-            className="text-white font-bold text-base leading-snug"
-            style={{ animation: 'fadeSlideIn 0.4s ease forwards' }}
+            className="text-white font-black text-3xl leading-tight tracking-tight text-center max-w-sm"
+            style={{ animation: 'fadeSlideIn 0.5s ease forwards' }}
           >
             {currentQuestion?.text}
-          </p>
+          </h1>
           {currentQuestion?.hint && (
-            <p className="text-white/40 text-xs mt-2 leading-relaxed">{currentQuestion.hint}</p>
+            <p className="text-white/40 text-sm text-center max-w-xs leading-relaxed">
+              {currentQuestion.hint}
+            </p>
           )}
         </div>
-      </div>
+      )}
+
+      {/* Top: progress + question card (slides in after reading, stays during countdown/recording) */}
+      {!isReading && (
+        <div className="absolute inset-x-0 top-0 px-5 flex flex-col gap-4" style={{ paddingTop: 'max(3rem, env(safe-area-inset-top))', zIndex: 10 }}>
+          {/* Progress dots */}
+          <div className="flex items-center gap-2">
+            {questions.map((_, i) => (
+              <div
+                key={i}
+                className="rounded-full transition-all duration-300"
+                style={{
+                  height: 3,
+                  flex: i === questionIndex ? '2' : '1',
+                  background: i < questionIndex
+                    ? 'rgba(255,255,255,0.5)'
+                    : i === questionIndex
+                    ? '#fff'
+                    : 'rgba(255,255,255,0.2)',
+                }}
+              />
+            ))}
+            <span className="text-[10px] font-mono text-white/50 ml-1 shrink-0">
+              {questionIndex + 1}/{questions.length}
+            </span>
+          </div>
+
+          {/* Question card — animates in from below when reading ends */}
+          <div
+            className="rounded-2xl px-4 py-4"
+            style={{ background: 'rgba(0,0,0,0.45)', backdropFilter: 'blur(16px)', border: '1px solid rgba(255,255,255,0.08)', animation: 'fadeSlideIn 0.4s ease forwards' }}
+          >
+            <p className="text-[10px] font-mono uppercase tracking-widest mb-2" style={{ color: accent }}>
+              Question {String(questionIndex + 1).padStart(2, '0')}
+            </p>
+            <p
+              key={questionIndex}
+              className="text-white font-bold text-base leading-snug"
+            >
+              {currentQuestion?.text}
+            </p>
+            {currentQuestion?.hint && (
+              <p className="text-white/40 text-xs mt-2 leading-relaxed">{currentQuestion.hint}</p>
+            )}
+          </div>
+        </div>
+      )}
 
       {/* Countdown overlay */}
       {isCountdown && (
         <div
-          className="absolute inset-0 flex flex-col items-center justify-center gap-4"
+          className="absolute inset-0 flex items-center justify-center"
           style={{ animation: 'fadeIn 0.2s ease' }}
         >
           <div
@@ -1018,7 +991,6 @@ export function RecordingSession({ theme, initialSessionId, mode = 'default' }: 
           >
             {countdown}
           </div>
-          <p className="text-white/50 text-sm font-mono tracking-widest uppercase">Préparez-vous</p>
         </div>
       )}
 
@@ -1048,6 +1020,17 @@ export function RecordingSession({ theme, initialSessionId, mode = 'default' }: 
 
       {/* Bottom controls */}
       <div className="absolute inset-x-0 bottom-0 px-6 flex flex-col items-center gap-6" style={{ paddingBottom: 'max(3rem, env(safe-area-inset-bottom))', zIndex: 10 }}>
+
+        {/* Reading: Je suis prêt */}
+        {isReading && (
+          <button
+            onClick={startRecordingNow}
+            className="px-8 py-4 rounded-2xl font-semibold text-sm transition-all active:scale-95"
+            style={{ background: 'rgba(255,255,255,0.1)', color: 'rgba(255,255,255,0.85)', border: '1px solid rgba(255,255,255,0.18)' }}
+          >
+            Je suis prêt →
+          </button>
+        )}
 
         {/* REC timer */}
         {isRecording && (
