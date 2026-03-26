@@ -98,16 +98,17 @@ model Organization {
 }
 
 model User {
-  id             String        @id @default(cuid())
-  email          String        @unique
-  passwordHash   String
-  firstName      String?
-  lastName       String?
-  role           UserRole      @default(USER)
-  organizationId String?
-  organization   Organization? @relation(fields: [organizationId], references: [id])
-  createdAt      DateTime      @default(now())
-  updatedAt      DateTime      @updatedAt
+  id                String            @id @default(cuid())
+  email             String            @unique
+  passwordHash      String
+  firstName         String?
+  lastName          String?
+  role              UserRole          @default(USER)
+  organizationId    String?
+  organization      Organization?     @relation(fields: [organizationId], references: [id])
+  sentInvitations   AdminInvitation[]
+  createdAt         DateTime          @default(now())
+  updatedAt         DateTime          @updatedAt
 }
 
 enum SessionStatus {
@@ -124,4 +125,22 @@ enum RecordingStatus {
   TRANSCRIBING
   DONE
   FAILED
+}
+
+enum InvitationStatus {
+  PENDING
+  ACCEPTED
+  EXPIRED
+}
+
+model AdminInvitation {
+  id          String           @id @default(cuid())
+  email       String           @unique
+  token       String           @unique @default(cuid())
+  status      InvitationStatus @default(PENDING)
+  invitedById String?
+  invitedBy   User?            @relation(fields: [invitedById], references: [id])
+  expiresAt   DateTime
+  createdAt   DateTime         @default(now())
+  updatedAt   DateTime         @updatedAt
 }

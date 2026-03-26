@@ -1,7 +1,7 @@
 'use client'
 
 import React from 'react'
-import { LayoutGrid, Clapperboard, Building2, Activity } from 'lucide-react'
+import { LayoutGrid, Clapperboard, Building2, Activity, Users } from 'lucide-react'
 import { AdminNavItem } from './AdminNavItem'
 
 interface AdminSidebarNavProps {
@@ -25,6 +25,7 @@ export function AdminSidebarNav({ userRole }: AdminSidebarNavProps) {
             Superadmin
           </p>
           <AdminNavItem href="/admin/organizations" label="Organisations" icon={Building2} />
+          <AdminNavItem href="/admin/team" label="Équipe" icon={Users} />
         </>
       )}
     </nav>

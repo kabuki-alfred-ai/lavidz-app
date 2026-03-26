@@ -34,6 +34,9 @@ export function RecordingSession({ theme, initialSessionId, mode = 'default' }: 
   const [checkError, setCheckError] = useState('')
   const [micLevel, setMicLevel] = useState(0)
   const [introStep, setIntroStep] = useState<1 | 2 | 3>(1)
+  const [facingMode, setFacingMode] = useState<'user' | 'environment'>('user')
+  const [hasMultipleCameras, setHasMultipleCameras] = useState(false)
+  const [flipping, setFlipping] = useState(false)
   const introAnnouncedRef = useRef(false)
   const audioContextRef = useRef<AudioContext | null>(null)
   const micRafRef = useRef<number | null>(null)
@@ -220,13 +223,44 @@ export function RecordingSession({ theme, initialSessionId, mode = 'default' }: 
     }
   }
 
+  // Detect multiple cameras once (after first permission grant or on mount)
+  const detectCameras = useCallback(async () => {
+    try {
+      const devices = await navigator.mediaDevices.enumerateDevices()
+      const videoInputs = devices.filter((d) => d.kind === 'videoinput')
+      setHasMultipleCameras(videoInputs.length > 1)
+    } catch {}
+  }, [])
+
+  const flipCamera = useCallback(async () => {
+    if (flipping) return
+    setFlipping(true)
+    const newFacing = facingMode === 'user' ? 'environment' : 'user'
+    try {
+      streamRef.current?.getTracks().forEach((t) => t.stop())
+      stopMicMeter()
+      const stream = await navigator.mediaDevices.getUserMedia({
+        video: { facingMode: newFacing },
+        audio: true,
+      })
+      streamRef.current = stream
+      setFacingMode(newFacing)
+      if (videoRef.current) {
+        videoRef.current.srcObject = stream
+        videoRef.current.muted = true
+      }
+      if (phase === 'check') startMicMeter(stream)
+    } catch {}
+    setFlipping(false)
+  }, [facingMode, flipping, phase, startMicMeter, stopMicMeter])
+
   const handleStart = async () => {
     if (starting) return
     setStarting(true)
     setCheckError('')
     try {
       const stream = await navigator.mediaDevices.getUserMedia({
-        video: { facingMode: 'user' },
+        video: { facingMode },
         audio: true,
       })
       streamRef.current = stream
@@ -235,6 +269,7 @@ export function RecordingSession({ theme, initialSessionId, mode = 'default' }: 
         videoRef.current.muted = true
       }
       startMicMeter(stream)
+      detectCameras()
       setPhase('check')
     } catch (err: any) {
       const denied = err?.name === 'NotAllowedError' || err?.name === 'PermissionDeniedError'
@@ -547,12 +582,27 @@ export function RecordingSession({ theme, initialSessionId, mode = 'default' }: 
               autoPlay
               playsInline
               muted
-              className="w-full h-full object-cover scale-x-[-1]"
+              className="w-full h-full object-cover"
+              style={{ transform: facingMode === 'user' ? 'scaleX(-1)' : 'none' }}
             />
             <div className="absolute top-3 left-3 flex items-center gap-1.5">
               <span className="w-2 h-2 rounded-full bg-red-500 animate-pulse" />
               <span className="text-[10px] font-mono text-white/60 uppercase tracking-widest">Prévisualisation</span>
             </div>
+            {hasMultipleCameras && (
+              <button
+                onClick={flipCamera}
+                disabled={flipping}
+                className="absolute top-3 right-3 flex items-center justify-center rounded-full transition-all active:scale-90 disabled:opacity-40"
+                style={{ width: 36, height: 36, background: 'rgba(0,0,0,0.5)', border: '1px solid rgba(255,255,255,0.15)' }}
+                title="Changer de caméra"
+              >
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{ opacity: flipping ? 0.4 : 1, transition: 'transform 0.3s', transform: flipping ? 'rotate(180deg)' : 'none' }}>
+                  <path d="M20 7h-9" /><path d="M14 17H5" />
+                  <circle cx="17" cy="17" r="3" /><circle cx="7" cy="7" r="3" />
+                </svg>
+              </button>
+            )}
           </div>
 
           {/* Mic meter */}
@@ -678,7 +728,7 @@ export function RecordingSession({ theme, initialSessionId, mode = 'default' }: 
         playsInline
         muted
         className="absolute inset-0 w-full h-full object-cover"
-        style={{ transform: 'scaleX(-1)' }}
+        style={{ transform: facingMode === 'user' ? 'scaleX(-1)' : 'none' }}
       />
 
       {/* Gradient overlays */}
@@ -824,6 +874,24 @@ export function RecordingSession({ theme, initialSessionId, mode = 'default' }: 
         )}
 
         {/* Review: Refaire / Continuer */}
+        {isReview && (
+          <div className="flex gap-3 w-full max-w-sm">
+            {hasMultipleCameras && (
+              <button
+                onClick={flipCamera}
+                disabled={flipping}
+                className="flex items-center justify-center rounded-2xl transition-all active:scale-95 disabled:opacity-40 shrink-0"
+                style={{ width: 52, height: 52, background: 'rgba(255,255,255,0.08)', border: '1px solid rgba(255,255,255,0.12)' }}
+                title="Changer de caméra"
+              >
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{ opacity: flipping ? 0.4 : 1, transition: 'transform 0.3s', transform: flipping ? 'rotate(180deg)' : 'none' }}>
+                  <path d="M20 7h-9" /><path d="M14 17H5" />
+                  <circle cx="17" cy="17" r="3" /><circle cx="7" cy="7" r="3" />
+                </svg>
+              </button>
+            )}
+          </div>
+        )}
         {isReview && (
           <div className="flex gap-3 w-full max-w-sm">
             <button

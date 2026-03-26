@@ -805,9 +805,21 @@ export default function Home() {
           <p className="text-xs font-mono text-zinc-400">
             © {new Date().getFullYear()} Lavidz. Tous droits réservés.
           </p>
-          <div className="flex gap-6">
-            <Link href="#" className="text-xs font-inter text-zinc-400 hover:text-white transition-colors">Twitter</Link>
-            <Link href="#" className="text-xs font-inter text-zinc-400 hover:text-white transition-colors">LinkedIn</Link>
+          <div className="flex flex-col items-end gap-3">
+            <Link 
+              href="https://www.linkedin.com/in/julien-software-engineer/" 
+              target="_blank"
+              className="group/build flex items-center gap-3 transition-all"
+            >
+              <div className="flex items-center gap-1.5 py-1.5 px-3 bg-zinc-900 border border-zinc-800 group-hover/build:border-primary/50 group-hover/build:bg-zinc-800/50 transition-all rounded-none">
+                <span className="relative flex h-1.5 w-1.5">
+                  <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-primary opacity-75"></span>
+                  <span className="relative inline-flex rounded-full h-1.5 w-1.5 bg-primary"></span>
+                </span>
+                <span className="text-[9px] font-mono text-zinc-400 uppercase tracking-widest group-hover/build:text-white">Build in public</span>
+              </div>
+              <span className="text-[10px] font-mono uppercase tracking-[0.2em] text-zinc-500 group-hover/build:text-white transition-colors">LinkedIn</span>
+            </Link>
           </div>
         </div>
       </footer>

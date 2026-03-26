@@ -3,7 +3,8 @@ import type { ThemeDto } from '@lavidz/types'
 import Link from 'next/link'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
-import { Plus, ExternalLink, Sparkles, Layers, Pencil, ArrowUpRight } from 'lucide-react'
+import { Plus, Sparkles, Layers, Pencil } from 'lucide-react'
+import { TestThemeButton } from '@/components/admin/TestThemeButton'
 
 export default async function AdminThemesPage() {
   let themes: ThemeDto[] = []
@@ -108,14 +109,7 @@ export default async function AdminThemesPage() {
                   >
                     <Pencil size={14} />
                   </Link>
-                  <Link
-                    href={`/session/${theme.slug}`}
-                    target="_blank"
-                    className="p-1.5 rounded-sm hover:bg-surface-raised text-muted-foreground hover:text-foreground transition-all border border-transparent hover:border-border"
-                    title="Aperçu"
-                  >
-                    <ExternalLink size={14} />
-                  </Link>
+                  <TestThemeButton themeId={theme.id} title="Tester ce thème" />
                 </div>
               </div>
             ))}
