@@ -1,6 +1,6 @@
 'use client'
 
-import React, { useState, useRef, useEffect } from 'react'
+import React, { useState, useRef, useEffect, useCallback } from 'react'
 import Link from 'next/link'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
@@ -9,31 +9,41 @@ import {
   ArrowRight, Sparkles, Play, MessageSquare,
   Loader2, Mail, Check, Zap, Shield, Clock,
   Video, ChevronRight, Star, Target, TrendingUp, Eye,
-  Brain, Mic, Users, Lightbulb, Bot
+  Brain, Mic, Users, Lightbulb, Bot, Volume2, Send
 } from 'lucide-react'
 import { cn } from '@/lib/utils'
 
+const DEMO_VOICE_ID = 'KSyQzmsYhFbuOhqj1Xxv'
+const DEMO_QUESTION = 'Qu\'attendez-vous pour faire du contenu rapidement ?'
+
 export default function Home() {
-  const [isRecording, setIsRecording] = useState(false)
-  const [stream, setStream] = useState<MediaStream | null>(null)
-  const [timer, setTimer] = useState(0)
+  // Demo phases: idle → welcome → loading → speaking → recording → done → sending → sent
+  const [demoPhase, setDemoPhase] = useState<'idle' | 'welcome' | 'loading' | 'speaking' | 'recording' | 'done' | 'sending' | 'sent'>('idle')
+  const [waveHeights, setWaveHeights] = useState<number[]>(Array(24).fill(10))
+  const [recTimer, setRecTimer] = useState(0)
+  const audioRef = useRef<HTMLAudioElement | null>(null)
   const videoRef = useRef<HTMLVideoElement>(null)
+  const streamRef = useRef<MediaStream | null>(null)
+  const waveIntervalRef = useRef<NodeJS.Timeout | null>(null)
+  const recIntervalRef = useRef<NodeJS.Timeout | null>(null)
+  const autoStopRef = useRef<NodeJS.Timeout | null>(null)
 
-  useEffect(() => {
-    let interval: NodeJS.Timeout
-    if (isRecording) {
-      interval = setInterval(() => setTimer((t) => t + 1), 1000)
-    } else {
-      setTimer(0)
+  const stopEverything = useCallback(() => {
+    audioRef.current?.pause()
+    if (audioRef.current?.src) {
+      URL.revokeObjectURL(audioRef.current.src)
+      audioRef.current.src = ''
     }
-    return () => clearInterval(interval)
-  }, [isRecording])
+    if (waveIntervalRef.current) clearInterval(waveIntervalRef.current)
+    if (recIntervalRef.current) clearInterval(recIntervalRef.current)
+    if (autoStopRef.current) clearTimeout(autoStopRef.current)
+    setWaveHeights(Array(24).fill(10))
+  }, [])
 
-  useEffect(() => {
-    if (videoRef.current && stream) {
-      videoRef.current.srcObject = stream
-    }
-  }, [stream])
+  const stopCamera = useCallback(() => {
+    streamRef.current?.getTracks().forEach(t => t.stop())
+    streamRef.current = null
+  }, [])
 
   const formatTime = (seconds: number) => {
     const m = Math.floor(seconds / 60).toString().padStart(2, '0')
@@ -41,32 +51,101 @@ export default function Home() {
     return `${m}:${s}`
   }
 
-  const handleRecordClick = async () => {
-    if (isRecording) {
-      if (stream) {
-        stream.getTracks().forEach((track) => track.stop())
-      }
-      setStream(null)
-      setIsRecording(false)
-    } else {
-      try {
-        const mediaStream = await navigator.mediaDevices.getUserMedia({ video: true, audio: true })
-        setStream(mediaStream)
-        setIsRecording(true)
-      } catch (err) {
-        console.error('Camera error', err)
-        alert("Impossible d'accéder à la caméra. Vérifiez vos permissions de navigateur.")
-      }
-    }
-  }
+  // Welcome → Loading: get webcam + play TTS
+  const handleDemoStart = useCallback(async () => {
+    if (demoPhase !== 'welcome') return
+    setDemoPhase('loading')
 
+    try {
+      // Request webcam
+      const mediaStream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: 'user' }, audio: true })
+      streamRef.current = mediaStream
+      if (videoRef.current) {
+        videoRef.current.srcObject = mediaStream
+        videoRef.current.muted = true
+      }
+
+      // Fetch cached TTS audio (generated once, served from disk)
+      const res = await fetch('/api/demo-tts')
+      if (!res.ok) throw new Error('TTS error')
+      const blob = await res.blob()
+      const url = URL.createObjectURL(blob)
+      const audio = new Audio(url)
+      audioRef.current = audio
+
+      // Play TTS with waveform animation
+      setDemoPhase('speaking')
+      waveIntervalRef.current = setInterval(() => {
+        setWaveHeights(Array(24).fill(0).map(() => Math.random() * 80 + 20))
+      }, 120)
+
+      audio.play()
+      audio.onended = () => {
+        if (waveIntervalRef.current) clearInterval(waveIntervalRef.current)
+        setWaveHeights(Array(24).fill(10))
+        URL.revokeObjectURL(url)
+
+        // Transition to recording phase
+        setDemoPhase('recording')
+        setRecTimer(0)
+        recIntervalRef.current = setInterval(() => setRecTimer(t => t + 1), 1000)
+
+        // Auto-stop recording after 8 seconds
+        autoStopRef.current = setTimeout(() => {
+          if (recIntervalRef.current) clearInterval(recIntervalRef.current)
+          setDemoPhase('done')
+        }, 8000)
+      }
+    } catch {
+      setDemoPhase('idle')
+      stopCamera()
+    }
+  }, [demoPhase, stopCamera])
+
+  // Stop recording manually
+  const handleStopRecording = useCallback(() => {
+    if (recIntervalRef.current) clearInterval(recIntervalRef.current)
+    if (autoStopRef.current) clearTimeout(autoStopRef.current)
+    setDemoPhase('done')
+  }, [])
+
+  // Idle → Welcome
+  const handleWelcome = useCallback(() => {
+    setDemoPhase('welcome')
+  }, [])
+
+  // Simulate "Envoyer"
+  const handleSend = useCallback(() => {
+    setDemoPhase('sending')
+    stopCamera()
+    setTimeout(() => setDemoPhase('sent'), 1500)
+  }, [stopCamera])
+
+  // Reset demo
+  const handleReset = useCallback(() => {
+    stopEverything()
+    stopCamera()
+    setDemoPhase('idle')
+    setWaveHeights(Array(24).fill(10))
+    setRecTimer(0)
+  }, [stopEverything, stopCamera])
+
+  // Cleanup on unmount
   useEffect(() => {
     return () => {
-      if (stream) {
-        stream.getTracks().forEach(t => t.stop())
-      }
+      stopEverything()
+      stopCamera()
     }
-  }, [stream])
+  }, [stopEverything, stopCamera])
+
+  // Callback ref: attach stream as soon as the <video> element mounts
+  const videoCallbackRef = useCallback((el: HTMLVideoElement | null) => {
+    videoRef.current = el
+    if (el && streamRef.current) {
+      el.srcObject = streamRef.current
+      el.muted = true
+    }
+  }, [demoPhase])
 
   return (
     <div className="min-h-screen bg-background text-foreground selection:bg-primary/30 overflow-hidden font-sans">
@@ -142,7 +221,10 @@ export default function Home() {
 
           {/* Phone Mockup Visual — KEPT */}
           <div className="flex-1 relative w-full flex justify-center lg:justify-end animate-in fade-in slide-in-from-right-12 duration-1000 delay-300 fill-mode-both">
-            <div className={`absolute top-1/2 left-1/2 lg:left-[60%] -translate-x-1/2 -translate-y-1/2 w-[80%] h-[80%] blur-[100px] rounded-full pointer-events-none transition-colors duration-1000 ${isRecording ? 'bg-red-500/20' : 'bg-primary/20'}`} />
+            <div className={cn(
+              "absolute top-1/2 left-1/2 lg:left-[60%] -translate-x-1/2 -translate-y-1/2 w-[80%] h-[80%] blur-[100px] rounded-full pointer-events-none transition-colors duration-1000",
+              demoPhase === 'recording' ? 'bg-red-500/20' : demoPhase === 'speaking' ? 'bg-primary/25' : 'bg-primary/15'
+            )} />
 
             <div className="relative w-[300px] sm:w-[320px] h-[600px] sm:h-[650px] bg-[#09090b] border-[8px] border-[#27272a] rounded-[3rem] shadow-[0_30px_60px_-15px_rgba(0,0,0,0.8)] overflow-hidden shrink-0 z-10 group/phone transition-transform duration-500">
               <div className="absolute top-32 -left-[10px] w-1 h-12 bg-[#27272a] rounded-l-md" />
@@ -151,88 +233,254 @@ export default function Home() {
 
               <div className="absolute top-0 inset-x-0 h-7 flex justify-center z-50">
                 <div className="w-28 h-6 bg-[#09090b] rounded-b-3xl relative">
-                  <div className={`absolute top-2 right-4 w-1.5 h-1.5 rounded-full transition-colors ${isRecording ? 'bg-emerald-500 shadow-[0_0_10px_rgba(16,185,129,0.8)]' : 'bg-emerald-500/30'}`} />
+                  <div className={cn(
+                    "absolute top-2 right-4 w-1.5 h-1.5 rounded-full transition-colors",
+                    demoPhase === 'recording' ? 'bg-red-500 shadow-[0_0_10px_rgba(239,68,68,0.8)] animate-pulse' :
+                    demoPhase === 'speaking' ? 'bg-emerald-500 shadow-[0_0_10px_rgba(16,185,129,0.8)]' :
+                    'bg-emerald-500/30'
+                  )} />
                 </div>
               </div>
 
-              <div className="w-full h-full relative bg-zinc-900 border border-white/5 rounded-[2.5rem] overflow-hidden flex flex-col justify-between">
-                <div className={`absolute inset-0 z-0 overflow-hidden bg-[#111] transition-all duration-500 ${isRecording ? '' : 'mix-blend-screen'}`}>
-                  {isRecording && (
+              <div className="w-full h-full relative bg-[#0a0a0a] rounded-[2.5rem] overflow-hidden flex flex-col">
+
+                {/* ── WEBCAM FEED (visible during speaking, recording) ── */}
+                {(demoPhase === 'speaking' || demoPhase === 'recording' || demoPhase === 'loading') && (
+                  <>
                     <video
-                      ref={videoRef}
-                      autoPlay muted playsInline
-                      className="absolute inset-0 w-full h-full object-cover transition-opacity duration-1000 scale-100 scale-x-[-1]"
+                      ref={videoCallbackRef}
+                      autoPlay
+                      playsInline
+                      muted
+                      className="absolute inset-0 w-full h-full object-cover z-0 scale-x-[-1]"
                     />
-                  )}
-                  {!isRecording && (
-                    <>
+                    <div className="absolute inset-x-0 top-0 h-40 bg-gradient-to-b from-black/70 to-transparent z-10 pointer-events-none" />
+                    <div className="absolute inset-x-0 bottom-0 h-56 bg-gradient-to-t from-black/90 via-black/50 to-transparent z-10 pointer-events-none" />
+                  </>
+                )}
+
+                {/* ── IDLE STATE — Intro screen ── */}
+                {demoPhase === 'idle' && (
+                  <div className="flex-1 flex flex-col items-center justify-center relative">
+                    <div className="absolute inset-0 bg-[#111] overflow-hidden">
+                      <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_center,_transparent_40%,_black_100%)] z-10 pointer-events-none" />
+                      <div className="w-[150%] h-[150%] absolute top-[-25%] left-[-25%] bg-[radial-gradient(circle_at_center,_hsl(14_50%_40%_/_0.12)_0%,_transparent_60%)] animate-[spin_20s_linear_infinite]" />
+                      <div className="absolute inset-0 opacity-10 pointer-events-none mix-blend-overlay" style={{ backgroundImage: 'url("data:image/svg+xml,%3Csvg viewBox=%220 0 200 200%22 xmlns=%22http://www.w3.org/2000/svg%22%3E%3Cfilter id=%22noiseFilter%22%3E%3CfeTurbulence type=%22fractalNoise%22 baseFrequency=%221.5%22 numOctaves=%223%22 stitchTiles=%22stitch%22/%3E%3C/filter%3E%3Crect width=%22100%25%22 height=%22100%25%22 filter=%22url(%23noiseFilter)%22/%3E%3C/svg%3E")' }} />
+                    </div>
+
+                    <div className="relative z-20 flex flex-col items-center gap-8 px-8 text-center" style={{ animation: 'fadeSlideIn 0.6s ease forwards' }}>
+                      <div className="flex items-center gap-2">
+                        <div className="relative">
+                          <span className="block w-4 h-4 bg-primary rounded-none" />
+                          <span className="absolute -top-1 -right-1 w-2 h-2 bg-primary/40 rounded-none" />
+                        </div>
+                        <span className="font-inter font-bold text-lg uppercase text-white">Lavidz</span>
+                      </div>
+                      <div>
+                        <h3 className="text-xl font-black text-white mb-3 leading-tight">Bienvenue dans<br />l'expérience Lavidz</h3>
+                        <p className="text-xs text-white/40 leading-relaxed">J'ai une question pour vous.</p>
+                      </div>
+                      <button
+                        onClick={handleWelcome}
+                        className="px-8 py-3.5 rounded-2xl font-bold text-sm transition-all active:scale-95 hover:scale-105"
+                        style={{ background: '#FF4D1C', color: '#fff' }}
+                      >
+                        Commencer →
+                      </button>
+                    </div>
+                  </div>
+                )}
+
+                {/* ── WELCOME STATE — Ready to launch ── */}
+                {demoPhase === 'welcome' && (
+                  <div className="flex-1 flex flex-col items-center justify-between relative">
+                    <div className="absolute inset-0 bg-[#111] overflow-hidden">
                       <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_center,_transparent_40%,_black_100%)] z-10 pointer-events-none" />
                       <div className="w-[150%] h-[150%] absolute top-[-25%] left-[-25%] bg-[radial-gradient(circle_at_center,_hsl(14_50%_40%_/_0.15)_0%,_transparent_60%)] animate-[spin_20s_linear_infinite]" />
-                    </>
-                  )}
-                  <div className="absolute inset-0 opacity-10 pointer-events-none mix-blend-overlay" style={{ backgroundImage: 'url("data:image/svg+xml,%3Csvg viewBox=%220 0 200 200%22 xmlns=%22http://www.w3.org/2000/svg%22%3E%3Cfilter id=%22noiseFilter%22%3E%3CfeTurbulence type=%22fractalNoise%22 baseFrequency=%221.5%22 numOctaves=%223%22 stitchTiles=%22stitch%22/%3E%3C/filter%3E%3Crect width=%22100%25%22 height=%22100%25%22 filter=%22url(%23noiseFilter)%22/%3E%3C/svg%3E")' }} />
-                </div>
-
-                <div className="relative z-20 pt-10 px-6 flex items-center justify-between pointer-events-none">
-                  <div className={`px-3 py-1 ${isRecording ? 'bg-red-500/20 border-red-500/50' : 'bg-black/40 border-white/5'} backdrop-blur-md rounded-full border flex items-center gap-2 transition-colors duration-300`}>
-                    <span className={`w-1.5 h-1.5 rounded-full ${isRecording ? 'bg-red-500 animate-[pulse_1s_infinite]' : 'bg-white/50'}`} />
-                    <span className={`text-[9px] font-mono ${isRecording ? 'text-red-500' : 'text-white/80'} font-bold uppercase tracking-widest`}>
-                      {isRecording ? formatTime(timer) : '00:00'}
-                    </span>
-                  </div>
-                  {!isRecording && (
-                    <div className="text-[10px] font-mono text-white/50 uppercase tracking-widest font-bold bg-black/40 backdrop-blur-md px-3 py-1 rounded-full border border-white/5 transition-opacity duration-300">
-                      Étape 2 / 5
+                      <div className="absolute inset-0 opacity-10 pointer-events-none mix-blend-overlay" style={{ backgroundImage: 'url("data:image/svg+xml,%3Csvg viewBox=%220 0 200 200%22 xmlns=%22http://www.w3.org/2000/svg%22%3E%3Cfilter id=%22noiseFilter%22%3E%3CfeTurbulence type=%22fractalNoise%22 baseFrequency=%221.5%22 numOctaves=%223%22 stitchTiles=%22stitch%22/%3E%3C/filter%3E%3Crect width=%22100%25%22 height=%22100%25%22 filter=%22url(%23noiseFilter)%22/%3E%3C/svg%3E")' }} />
                     </div>
-                  )}
-                </div>
 
-                <div className={`relative z-20 px-5 transition-all duration-700 ease-[cubic-bezier(0.34,1.56,0.64,1)] ${isRecording ? 'absolute top-24 inset-x-0 scale-90 translate-y-0' : 'mt-auto group-hover/phone:-translate-y-2'}`}>
-                  <div className={`bg-black/60 backdrop-blur-2xl border border-white/10 rounded-[1.5rem] shadow-2xl relative overflow-hidden transition-all duration-700 ${isRecording ? 'p-4' : 'p-5'}`}>
-                    <div className="absolute inset-0 bg-gradient-to-br from-white/5 to-transparent pointer-events-none" />
-                    {!isRecording && (
-                      <p className="text-[10px] font-mono text-primary uppercase tracking-widest mb-3 font-bold flex items-center gap-2">
+                    <div className="relative z-20 pt-14 px-6 w-full" style={{ animation: 'fadeSlideIn 0.4s ease forwards' }}>
+                      <p className="text-[10px] font-mono text-primary/60 uppercase tracking-widest font-bold mb-3 flex items-center gap-2">
                         <Brain size={12} /> Question générée par l'IA
                       </p>
+                      <p className="text-lg font-inter font-bold text-white leading-snug">
+                        « {DEMO_QUESTION} »
+                      </p>
+                    </div>
+
+                    <div className="relative z-20 pb-10 flex flex-col items-center gap-4">
+                      <div className="flex items-end justify-center gap-[3px] h-8 px-6 opacity-40">
+                        {Array(24).fill(0).map((_, i) => (
+                          <div key={i} className="flex-1 max-w-[4px] rounded-full bg-primary/50" style={{ height: `${Math.random() * 25 + 8}%` }} />
+                        ))}
+                      </div>
+                      <div
+                        onClick={handleDemoStart}
+                        className="w-16 h-16 rounded-full border-[3px] border-white/20 p-1 flex items-center justify-center cursor-pointer hover:scale-105 transition-all duration-300"
+                      >
+                        <div className="w-full h-full bg-primary rounded-full flex items-center justify-center shadow-[0_0_20px_rgba(255,77,28,0.4)]">
+                          <Play size={20} className="text-white ml-1" />
+                        </div>
+                      </div>
+                      <p className="text-[10px] font-mono uppercase tracking-widest font-bold text-white/40">Lancer la démo</p>
+                    </div>
+                  </div>
+                )}
+
+                {/* ── LOADING STATE (webcam bg) ── */}
+                {demoPhase === 'loading' && (
+                  <div className="flex-1 flex flex-col items-center justify-center z-20 gap-4">
+                    <Loader2 size={32} className="text-primary animate-spin" />
+                    <p className="text-xs font-mono text-white/50 uppercase tracking-widest">Préparation...</p>
+                  </div>
+                )}
+
+                {/* ── SPEAKING + RECORDING (shared layout, question transitions from center → top) ── */}
+                {(demoPhase === 'speaking' || demoPhase === 'recording') && (
+                  <div className="flex-1 flex flex-col z-20 relative">
+
+                    {/* REC badge — only during recording */}
+                    {demoPhase === 'recording' && (
+                      <div className="absolute top-12 inset-x-5 flex items-center justify-between z-30" style={{ animation: 'fadeSlideIn 0.4s ease forwards' }}>
+                        <div className="flex items-center gap-2 bg-red-500/20 backdrop-blur-md border border-red-500/40 rounded-full px-3 py-1.5">
+                          <span className="w-2 h-2 rounded-full bg-red-500 animate-pulse" />
+                          <span className="text-[10px] font-mono text-red-400 font-bold uppercase tracking-widest">REC {formatTime(recTimer)}</span>
+                        </div>
+                        <div className="bg-black/50 backdrop-blur-md border border-white/10 rounded-full px-3 py-1.5">
+                          <span className="text-[10px] font-mono text-white/50 uppercase tracking-widest font-bold">1/1</span>
+                        </div>
+                      </div>
                     )}
-                    <p className={`${isRecording ? 'text-sm' : 'text-lg'} font-inter font-bold text-white leading-snug transition-all duration-700`}>
-                      « Qu'est-ce qui vous a le plus surpris dans notre approche ? »
-                    </p>
-                  </div>
-                </div>
 
-                <div className={`relative z-20 flex flex-col items-center justify-end transition-all duration-700 ${isRecording ? 'pb-8 bg-gradient-to-t from-black/80 via-black/40 to-transparent pt-20 mt-auto' : 'pb-10 pt-6 bg-gradient-to-t from-black via-black/80 to-transparent'}`}>
-                  <div className={`flex items-end justify-center gap-[3px] h-10 px-6 mb-4 transition-opacity duration-500 pointer-events-none ${isRecording ? 'opacity-100' : 'opacity-80'}`}>
-                    {[...Array(24)].map((_, i) => {
-                      const rand = Math.random()
-                      return (
-                        <div key={i} className={`flex-1 max-w-[4px] rounded-full ${isRecording ? 'bg-red-500' : 'bg-primary/80'}`} style={{
-                          height: isRecording ? `${rand * 80 + 20}%` : `${rand * 30 + 10}%`,
-                          animation: `pulse ${rand * 0.5 + 0.3}s infinite alternate`
-                        }} />
-                      )
-                    })}
-                  </div>
-
-                  <div className="flex flex-col items-center justify-center gap-4">
-                    <div
-                      onClick={handleRecordClick}
-                      className={`w-16 h-16 rounded-full border-[3px] p-1 flex items-center justify-center backdrop-blur-sm cursor-pointer transition-all duration-500 ${isRecording ? 'border-red-500/40 hover:scale-95' : 'border-white/20 hover:scale-105'}`}
-                    >
-                      <div className={`w-full h-full flex items-center justify-center transition-all duration-500 shadow-[0_0_20px_rgba(239,68,68,0.5)] ${isRecording ? 'bg-red-500 scale-50 rounded-lg shadow-none' : 'bg-red-500 rounded-full group-hover/phone:scale-95'}`}>
-                        {isRecording ? (
-                          <div className="w-full h-full bg-white rounded-md transition-all duration-300" />
-                        ) : (
-                          <span className="w-4 h-4 bg-white rounded-sm opacity-0 group-hover/phone:opacity-100 transition-opacity duration-300" />
-                        )}
+                    {/* Question card — centered during speaking, slides to top during recording */}
+                    <div className={cn(
+                      "absolute inset-x-5 z-20 transition-all duration-700 ease-[cubic-bezier(0.34,1.56,0.64,1)]",
+                      demoPhase === 'speaking'
+                        ? "top-1/2 -translate-y-1/2"
+                        : "top-24 translate-y-0"
+                    )}>
+                      <div className={cn(
+                        "bg-black/50 backdrop-blur-xl border border-white/10 rounded-2xl shadow-2xl transition-all duration-500",
+                        demoPhase === 'speaking' ? 'p-5' : 'p-3'
+                      )}>
+                        <p className={cn(
+                          "font-mono uppercase tracking-widest font-bold flex items-center gap-2 transition-all duration-500",
+                          demoPhase === 'speaking'
+                            ? "text-[10px] text-primary mb-2"
+                            : "text-[9px] text-white/40 mb-1"
+                        )}>
+                          {demoPhase === 'speaking' ? (
+                            <><Volume2 size={12} className="animate-pulse" /> L'IA vous pose la question</>
+                          ) : (
+                            <>Question</>
+                          )}
+                        </p>
+                        <p className={cn(
+                          "font-inter font-bold leading-snug transition-all duration-500",
+                          demoPhase === 'speaking'
+                            ? "text-base text-white"
+                            : "text-sm text-white/80"
+                        )}>
+                          « {DEMO_QUESTION} »
+                        </p>
                       </div>
                     </div>
-                    <p className={`text-[10px] font-mono uppercase tracking-widest font-bold transition-colors ${isRecording ? 'text-red-500 animate-pulse' : 'text-white/40'}`}>
-                      {isRecording ? 'Stop' : 'Tester'}
-                    </p>
+
+                    {/* Bottom area — waveform during speaking, "Répondez" during recording */}
+                    <div className="mt-auto pb-10 pt-4 flex flex-col items-center gap-3">
+                      {demoPhase === 'speaking' && (
+                        <>
+                          <div className="flex items-end justify-center gap-[3px] h-10 px-6">
+                            {waveHeights.map((h, i) => (
+                              <div key={i} className="flex-1 max-w-[4px] rounded-full bg-primary transition-all duration-100" style={{ height: `${h}%` }} />
+                            ))}
+                          </div>
+                          <p className="text-[10px] font-mono text-primary/70 uppercase tracking-widest">Écoute en cours...</p>
+                        </>
+                      )}
+                      {demoPhase === 'recording' && (
+                        <>
+                          <div className="flex items-end justify-center gap-[3px] h-8 px-6">
+                            {Array(24).fill(0).map((_, i) => (
+                              <div key={i} className="flex-1 max-w-[4px] rounded-full bg-red-500/60 transition-all duration-150" style={{ height: `${Math.random() * 50 + 15}%` }} />
+                            ))}
+                          </div>
+                          <p className="text-[10px] font-mono text-white/40 uppercase tracking-widest mb-3">Répondez face caméra</p>
+                          <div
+                            onClick={handleStopRecording}
+                            className="w-14 h-14 rounded-full border-[3px] border-red-500/40 p-1 flex items-center justify-center cursor-pointer hover:scale-95 transition-all duration-300"
+                          >
+                            <div className="w-full h-full bg-red-500 rounded-full flex items-center justify-center">
+                              <div className="w-5 h-5 bg-white rounded-sm" />
+                            </div>
+                          </div>
+                        </>
+                      )}
+                    </div>
                   </div>
-                </div>
+                )}
+
+                {/* ── DONE STATE — "C'est dans la boîte" ── */}
+                {demoPhase === 'done' && (
+                  <div className="flex-1 flex flex-col items-center justify-center z-20 gap-6 px-8" style={{ animation: 'fadeSlideIn 0.5s ease forwards' }}>
+                    <div className="w-16 h-16 rounded-2xl flex items-center justify-center" style={{ background: 'rgba(52,211,153,0.12)', border: '1px solid rgba(52,211,153,0.25)' }}>
+                      <Check size={28} className="text-emerald-400" />
+                    </div>
+                    <div className="text-center">
+                      <h3 className="text-2xl font-black text-white mb-2">Dans la boîte.</h3>
+                      <p className="text-xs text-white/40 leading-relaxed">Votre réponse a été enregistrée.</p>
+                    </div>
+                    <button
+                      onClick={handleSend}
+                      className="px-8 py-3 rounded-2xl font-bold text-sm transition-all active:scale-95 flex items-center gap-2"
+                      style={{ background: '#FF4D1C', color: '#fff' }}
+                    >
+                      <Send size={14} /> Envoyer
+                    </button>
+                  </div>
+                )}
+
+                {/* ── SENDING STATE ── */}
+                {demoPhase === 'sending' && (
+                  <div className="flex-1 flex flex-col items-center justify-center z-20 gap-4">
+                    <Loader2 size={28} className="text-primary animate-spin" />
+                    <p className="text-sm font-mono text-white/50 uppercase tracking-widest">Envoi en cours...</p>
+                  </div>
+                )}
+
+                {/* ── SENT STATE — "Montage en cours" ── */}
+                {demoPhase === 'sent' && (
+                  <div className="flex-1 flex flex-col items-center justify-center z-20 gap-6 px-8" style={{ animation: 'fadeSlideIn 0.5s ease forwards' }}>
+                    <div className="w-16 h-16 rounded-2xl flex items-center justify-center" style={{ background: 'rgba(255,77,28,0.12)', border: '1px solid rgba(255,77,28,0.25)' }}>
+                      <Video size={28} className="text-primary" />
+                    </div>
+                    <div className="text-center">
+                      <h3 className="text-2xl font-black text-white mb-2">Montage en cours</h3>
+                      <p className="text-xs text-white/40 leading-relaxed">Vous recevrez votre vidéo<br />prête à publier par email.</p>
+                    </div>
+                    <div className="flex items-center gap-2 mt-2">
+                      <div className="w-2 h-2 rounded-full bg-primary animate-pulse" />
+                      <div className="w-2 h-2 rounded-full bg-primary/60 animate-pulse" style={{ animationDelay: '0.2s' }} />
+                      <div className="w-2 h-2 rounded-full bg-primary/30 animate-pulse" style={{ animationDelay: '0.4s' }} />
+                    </div>
+                    <button
+                      onClick={handleReset}
+                      className="text-[10px] font-mono text-white/25 uppercase tracking-widest mt-4 hover:text-white/50 transition-colors"
+                    >
+                      Relancer la démo
+                    </button>
+                  </div>
+                )}
+
               </div>
+
+              <style>{`
+                @keyframes fadeSlideIn {
+                  from { opacity: 0; transform: translateY(12px); }
+                  to { opacity: 1; transform: translateY(0); }
+                }
+              `}</style>
             </div>
           </div>
 

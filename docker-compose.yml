@@ -89,6 +89,7 @@ services:
       ADMIN_SECRET: ${ADMIN_SECRET:?ADMIN_SECRET is required}
       DATABASE_URL: postgresql://${POSTGRES_USER:-lavidz}:${POSTGRES_PASSWORD}@postgres:5432/${POSTGRES_DB:-lavidz}
       JWT_SECRET: ${JWT_SECRET:?JWT_SECRET is required}
+      RESEND_API_KEY: ${RESEND_API_KEY:-}
     depends_on:
       - api
     networks:
