@@ -13,6 +13,7 @@ interface Admin {
   firstName: string | null
   lastName: string | null
   createdAt: string
+  avatarUrl: string | null
 }
 
 interface Invitation {
@@ -101,7 +102,7 @@ export function TeamClient({ admins: initialAdmins, invitations: initialInvitati
 
   const StatusIcon = ({ status }: { status: Invitation['status'] }) => {
     if (status === 'ACCEPTED') return <CheckCircle2 size={12} className="text-emerald-400" />
-    if (status === 'EXPIRED') return <XCircle size={12} className="text-muted-foreground/40" />
+    if (status === 'EXPIRED') return <XCircle size={12} className="text-muted-foreground/60" />
     return <Clock size={12} className="text-amber-400" />
   }
 
@@ -114,7 +115,7 @@ export function TeamClient({ admins: initialAdmins, invitations: initialInvitati
           <p className="text-[10px] font-mono uppercase tracking-[0.3em] text-primary/60">Gestion</p>
         </div>
         <h1 className="font-inter font-black text-4xl text-foreground tracking-tighter">Équipe</h1>
-        <p className="text-[11px] font-mono text-muted-foreground/60 mt-2 uppercase tracking-widest">
+        <p className="text-[11px] font-mono text-muted-foreground/80 mt-2 uppercase tracking-widest">
           Superadmins et invitations
         </p>
       </div>
@@ -145,33 +146,37 @@ export function TeamClient({ admins: initialAdmins, invitations: initialInvitati
         </form>
         {error && <p className="text-xs text-destructive font-mono">{error}</p>}
         {success && <p className="text-xs text-emerald-400 font-mono">{success}</p>}
-        <p className="text-[10px] font-mono text-muted-foreground/40">
+        <p className="text-[10px] font-mono text-muted-foreground/60 leading-relaxed">
           Un email avec un lien d&apos;inscription sécurisé sera envoyé. Le lien est valable 7 jours et ne peut être utilisé qu&apos;une seule fois avec l&apos;adresse email indiquée.
         </p>
       </div>
 
       {/* Superadmins list */}
       <div className="space-y-3">
-        <h2 className="text-[10px] font-mono uppercase tracking-[0.2em] text-muted-foreground/50">
+        <h2 className="text-[10px] font-mono uppercase tracking-[0.2em] text-muted-foreground/80">
           Superadmins actifs — {admins.length}
         </h2>
         <div className="border border-border/60 bg-surface/30 rounded-sm overflow-hidden">
           {admins.length === 0 ? (
-            <p className="text-xs font-mono text-muted-foreground/40 p-6">Aucun superadmin.</p>
+            <p className="text-xs font-mono text-muted-foreground/60 p-6">Aucun superadmin.</p>
           ) : (
             <div className="divide-y divide-border/40">
               {admins.map(admin => (
                 <div key={admin.id} className="flex items-center justify-between px-6 py-4">
                   <div className="flex items-center gap-3">
-                    <div className="w-8 h-8 bg-surface-raised border border-border flex items-center justify-center font-mono text-xs font-bold text-primary">
-                      {admin.email[0].toUpperCase()}
+                    <div className="w-8 h-8 bg-surface-raised border border-border flex items-center justify-center font-mono text-xs font-bold text-primary overflow-hidden">
+                      {admin.avatarUrl ? (
+                        <img src={admin.avatarUrl} alt="" className="w-full h-full object-cover" />
+                      ) : (
+                        admin.email[0].toUpperCase()
+                      )}
                     </div>
                     <div>
                       <p className="text-sm font-bold text-foreground">
                         {admin.firstName ? `${admin.firstName} ${admin.lastName ?? ''}`.trim() : admin.email.split('@')[0]}
-                        {admin.id === currentUserId && <span className="ml-2 text-[9px] font-mono text-muted-foreground/40">(vous)</span>}
+                        {admin.id === currentUserId && <span className="ml-2 text-[9px] font-mono text-muted-foreground/60">(vous)</span>}
                       </p>
-                      <p className="text-[10px] font-mono text-muted-foreground/50">{admin.email}</p>
+                      <p className="text-[10px] font-mono text-muted-foreground/80">{admin.email}</p>
                     </div>
                   </div>
                   <div className="flex items-center gap-3">
@@ -179,7 +184,7 @@ export function TeamClient({ admins: initialAdmins, invitations: initialInvitati
                       <ShieldCheck size={9} className="mr-1" />
                       Superadmin
                     </Badge>
-                    <span className="text-[9px] font-mono text-muted-foreground/30">
+                    <span className="text-[9px] font-mono text-muted-foreground/60">
                       {new Date(admin.createdAt).toLocaleDateString('fr-FR')}
                     </span>
                   </div>
@@ -193,7 +198,7 @@ export function TeamClient({ admins: initialAdmins, invitations: initialInvitati
       {/* Invitations list */}
       {invitations.length > 0 && (
         <div className="space-y-3">
-          <h2 className="text-[10px] font-mono uppercase tracking-[0.2em] text-muted-foreground/50">
+          <h2 className="text-[10px] font-mono uppercase tracking-[0.2em] text-muted-foreground/80">
             Invitations — {invitations.length}
           </h2>
           <div className="border border-border/60 bg-surface/30 rounded-sm overflow-hidden">
@@ -204,7 +209,7 @@ export function TeamClient({ admins: initialAdmins, invitations: initialInvitati
                     <StatusIcon status={inv.status} />
                     <div className="min-w-0">
                       <p className="text-sm font-mono text-foreground truncate">{inv.email}</p>
-                      <p className="text-[9px] font-mono text-muted-foreground/40">
+                      <p className="text-[9px] font-mono text-muted-foreground/60">
                         Invité le {new Date(inv.createdAt).toLocaleDateString('fr-FR')}
                         {inv.invitedBy && ` par ${inv.invitedBy.firstName ?? inv.invitedBy.email}`}
                         {inv.status === 'PENDING' && ` · expire le ${new Date(inv.expiresAt).toLocaleDateString('fr-FR')}`}

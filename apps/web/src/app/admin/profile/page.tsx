@@ -24,10 +24,11 @@ export default async function ProfilePage() {
         <p className="text-muted-foreground mt-2">Gérez vos informations personnelles et vos paramètres de sécurité.</p>
       </div>
 
-      <ProfileForm 
-        initialEmail={user.email} 
-        initialFirstName={user.firstName ?? ''} 
-        initialLastName={user.lastName ?? ''} 
+      <ProfileForm
+        initialEmail={user.email}
+        initialFirstName={user.firstName ?? ''}
+        initialLastName={user.lastName ?? ''}
+        hasAvatar={!!user.avatarKey}
       />
     </div>
   )

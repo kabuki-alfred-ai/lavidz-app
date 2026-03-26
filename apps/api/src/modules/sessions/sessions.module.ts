@@ -8,6 +8,7 @@ import { BullModule } from '@nestjs/bullmq'
   imports: [
     StorageModule,
     BullModule.registerQueue({ name: 'transcription' }),
+    BullModule.registerQueue({ name: 'enrichment' }),
   ],
   controllers: [SessionsController],
   providers: [SessionsService],

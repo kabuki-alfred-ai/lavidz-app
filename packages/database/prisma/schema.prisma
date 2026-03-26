@@ -41,19 +41,21 @@ model Question {
 }
 
 model Session {
-  id              String        @id @default(cuid())
+  id              String              @id @default(cuid())
   themeId         String
-  theme           Theme         @relation(fields: [themeId], references: [id])
-  status          SessionStatus @default(PENDING)
+  theme           Theme               @relation(fields: [themeId], references: [id])
+  status          SessionStatus       @default(PENDING)
   recipientEmail  String?
   recipientName   String?
+  version         Int                 @default(1)
   finalVideoKey   String?
   montageSettings Json?
   submittedAt     DateTime?
   deliveredAt     DateTime?
   recordings      Recording[]
-  createdAt       DateTime      @default(now())
-  updatedAt       DateTime      @updatedAt
+  memories        ConversationMemory[]
+  createdAt       DateTime            @default(now())
+  updatedAt       DateTime            @updatedAt
 }
 
 model Recording {
@@ -87,14 +89,15 @@ enum OrgStatus {
 }
 
 model Organization {
-  id        String    @id @default(cuid())
-  name      String
-  slug      String    @unique
-  status    OrgStatus @default(PENDING)
-  users     User[]
-  themes    Theme[]
-  createdAt DateTime  @default(now())
-  updatedAt DateTime  @updatedAt
+  id                 String               @id @default(cuid())
+  name               String
+  slug               String               @unique
+  status             OrgStatus            @default(PENDING)
+  users              User[]
+  themes             Theme[]
+  entrepreneurProfile EntrepreneurProfile?
+  createdAt          DateTime             @default(now())
+  updatedAt          DateTime             @updatedAt
 }
 
 model User {
@@ -104,6 +107,7 @@ model User {
   firstName         String?
   lastName          String?
   role              UserRole          @default(USER)
+  avatarKey         String?
   organizationId    String?
   organization      Organization?     @relation(fields: [organizationId], references: [id])
   sentInvitations   AdminInvitation[]
@@ -143,4 +147,50 @@ model AdminInvitation {
   expiresAt   DateTime
   createdAt   DateTime         @default(now())
   updatedAt   DateTime         @updatedAt
+}
+
+enum OwnerType {
+  ORGANIZATION
+  USER
+}
+
+enum SoundTag {
+  TRANSITION
+  INTRO
+  OUTRO
+}
+
+model SoundAsset {
+  id        String   @id @default(cuid())
+  name      String
+  tag       SoundTag
+  fileKey   String
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+model EntrepreneurProfile {
+  id                 String               @id @default(cuid())
+  organizationId     String?              @unique
+  userId             String?              @unique
+  ownerType          OwnerType            @default(ORGANIZATION)
+  businessContext    Json                 @default("{}")
+  topicsExplored     String[]             @default([])
+  communicationStyle String?
+  createdAt          DateTime             @default(now())
+  updatedAt          DateTime             @updatedAt
+  organization       Organization?        @relation(fields: [organizationId], references: [id])
+  memories           ConversationMemory[]
+}
+
+model ConversationMemory {
+  id        String              @id @default(cuid())
+  profileId String
+  sessionId String?
+  content   String
+  embedding Unsupported("vector(768)")
+  tags      String[]            @default([])
+  createdAt DateTime            @default(now())
+  profile   EntrepreneurProfile @relation(fields: [profileId], references: [id], onDelete: Cascade)
+  session   Session?            @relation(fields: [sessionId], references: [id], onDelete: SetNull)
 }

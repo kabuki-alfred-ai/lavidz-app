@@ -1,11 +1,16 @@
 import Link from 'next/link'
 import { getSessionUser } from '@/lib/auth'
+import { prisma } from '@lavidz/database'
 import { LogoutButton } from './LogoutButton'
 import { AdminSidebarNav } from './AdminSidebarNav'
+import { AiDrawer } from './AiDrawer'
 import { ChevronRight, Home } from 'lucide-react'
 
 export default async function AdminLayout({ children }: { children: React.ReactNode }) {
   const user = await getSessionUser()
+  const dbUser = user
+    ? await prisma.user.findUnique({ where: { id: user.userId }, select: { avatarKey: true } })
+    : null
 
   return (
     <div className="flex h-screen bg-background overflow-hidden selection:bg-primary/30">
@@ -31,8 +36,17 @@ export default async function AdminLayout({ children }: { children: React.ReactN
         <div className="p-4 mx-4 mb-4 border border-border/60 bg-surface/40 rounded-sm flex flex-col gap-3">
           {user && (
             <Link href="/admin/profile" className="min-w-0 flex items-center gap-3 px-1 hover:bg-surface-raised cursor-pointer rounded p-1 transition-colors group">
-              <div className="w-8 h-8 rounded-sm bg-surface-raised flex items-center justify-center font-mono text-xs font-bold text-primary border border-border group-hover:border-primary/50 transition-colors">
-                {user.email[0].toUpperCase()}
+              <div className="w-8 h-8 rounded-sm overflow-hidden bg-surface-raised flex items-center justify-center font-mono text-xs font-bold text-primary border border-border group-hover:border-primary/50 transition-colors shrink-0">
+                {dbUser?.avatarKey ? (
+                  // eslint-disable-next-line @next/next/no-img-element
+                  <img
+                    src="/api/admin/profile/avatar"
+                    alt=""
+                    className="w-full h-full object-cover"
+                  />
+                ) : (
+                  user.email[0].toUpperCase()
+                )}
               </div>
               <div className="min-w-0">
                 <p className="text-[10px] font-mono font-bold text-foreground truncate max-w-[120px] group-hover:text-primary transition-colors">
@@ -58,10 +72,10 @@ export default async function AdminLayout({ children }: { children: React.ReactN
         {/* Topbar */}
         <header className="h-14 border-b border-border flex items-center justify-between px-8 bg-background/60 backdrop-blur-md z-10 shrink-0">
           <div className="flex items-center gap-3 text-[10px] font-mono text-muted-foreground uppercase tracking-widest leading-none">
-            <Home size={10} className="text-muted-foreground/40" />
-            <ChevronRight size={10} className="text-muted-foreground/20" />
-            <span className="text-foreground/60 font-medium">Panel</span>
-            <ChevronRight size={10} className="text-muted-foreground/20" />
+            <Home size={10} className="text-muted-foreground/60" />
+            <ChevronRight size={10} className="text-muted-foreground/40" />
+            <span className="text-foreground/70 font-medium">Panel</span>
+            <ChevronRight size={10} className="text-muted-foreground/40" />
             <span className="text-foreground font-bold">Admin</span>
           </div>
 
@@ -81,6 +95,9 @@ export default async function AdminLayout({ children }: { children: React.ReactN
           {children}
         </main>
       </div>
+
+      {/* AI floating drawer — SUPERADMIN only */}
+      {user?.role === 'SUPERADMIN' && <AiDrawer />}
     </div>
   )
 }

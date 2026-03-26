@@ -27,10 +27,20 @@ interface SubmittedSession {
   status: string
   recipientEmail?: string
   recipientName?: string
+  version: number
   finalVideoKey?: string
   submittedAt?: string
   deliveredAt?: string
   theme: { id: string; name: string; slug: string }
+}
+
+interface SessionGroup {
+  key: string
+  recipientEmail: string
+  recipientName?: string
+  themeId: string
+  themeName: string
+  sessions: SubmittedSession[]
 }
 
 interface Props {
@@ -50,6 +60,29 @@ function formatDate(iso?: string) {
     day: '2-digit', month: 'short',
     hour: '2-digit', minute: '2-digit',
   }).format(new Date(iso))
+}
+
+function groupSessions(sessions: SubmittedSession[]): SessionGroup[] {
+  const map = new Map<string, SessionGroup>()
+  for (const s of sessions) {
+    const key = `${s.recipientEmail ?? ''}__${s.theme?.id ?? ''}`
+    if (!map.has(key)) {
+      map.set(key, {
+        key,
+        recipientEmail: s.recipientEmail ?? '',
+        recipientName: s.recipientName,
+        themeId: s.theme?.id ?? '',
+        themeName: s.theme?.name ?? '',
+        sessions: [],
+      })
+    }
+    map.get(key)!.sessions.push(s)
+  }
+  // Sort sessions within each group by version asc
+  for (const g of map.values()) {
+    g.sessions.sort((a, b) => a.version - b.version)
+  }
+  return Array.from(map.values())
 }
 
 export function MontageClient({ themes, initialSessions }: Props) {
@@ -182,6 +215,8 @@ export function MontageClient({ themes, initialSessions }: Props) {
 
   const pending = sessions.filter(s => s.status !== 'DONE')
   const history = sessions.filter(s => s.status === 'DONE')
+  const pendingGroups = groupSessions(pending)
+  const historyGroups = groupSessions(history)
 
   return (
     <div className="max-w-6xl space-y-12 animate-in fade-in duration-700">
@@ -330,14 +365,14 @@ export function MontageClient({ themes, initialSessions }: Props) {
           )}
         </div>
 
-        {pending.length === 0 ? (
+        {pendingGroups.length === 0 ? (
           <EmptyState icon={Check} label="Toutes les sessions ont été traitées." />
         ) : (
-          <div className="space-y-4">
-            {pending.map(session => (
-              <SessionCard
-                key={session.id}
-                session={session}
+          <div className="space-y-6">
+            {pendingGroups.map(group => (
+              <SessionGroupBlock
+                key={group.key}
+                group={group}
                 delivering={delivering}
                 deliverSuccess={deliverSuccess}
                 expandedRaws={expandedRaws}
@@ -367,29 +402,32 @@ export function MontageClient({ themes, initialSessions }: Props) {
           )}
         </div>
 
-        {history.length === 0 ? (
-          <EmptyState icon={Video} label="Aucune vidéo livrée pour l'instanc." />
+        {historyGroups.length === 0 ? (
+          <EmptyState icon={Video} label="Aucune vidéo livrée pour l'instant." />
         ) : (
-          <div className="border border-border/60 bg-surface/30 rounded-sm overflow-hidden backdrop-blur-sm shadow-sm group">
+          <div className="border border-border/60 bg-surface/30 rounded-sm overflow-hidden backdrop-blur-sm shadow-sm">
             {/* Table header */}
-            <div className="grid grid-cols-[1.5fr_1fr_1fr_100px] border-b border-border/40 bg-surface/50 px-6 py-4">
-              {['Destinataire', 'Thème', 'Date de livraison', 'Rushs'].map(h => (
+            <div className="grid grid-cols-[1.5fr_1fr_80px_1fr_100px] border-b border-border/40 bg-surface/50 px-6 py-4">
+              {['Destinataire', 'Thème', 'Version', 'Date de livraison', 'Rushs'].map(h => (
                 <div key={h} className="text-[9px] font-mono uppercase tracking-[0.2em] text-muted-foreground/50">{h}</div>
               ))}
             </div>
-            
+
             <div className="divide-y divide-border/40">
-              {history.map((session) => (
-                <HistoryRow 
-                  key={session.id} 
-                  session={session} 
-                  expandedRaws={expandedRaws}
-                  rawsCache={rawsCache}
-                  loadingRaws={loadingRaws}
-                  onToggleRaws={handleToggleRaws}
-                  onDownload={handleDownload}
-                />
-              ))}
+              {historyGroups.map(group =>
+                group.sessions.map(session => (
+                  <HistoryRow
+                    key={session.id}
+                    session={session}
+                    showGroupHeader={group.sessions.length > 1 && session.version === group.sessions[0].version}
+                    expandedRaws={expandedRaws}
+                    rawsCache={rawsCache}
+                    loadingRaws={loadingRaws}
+                    onToggleRaws={handleToggleRaws}
+                    onDownload={handleDownload}
+                  />
+                ))
+              )}
             </div>
           </div>
         )}
@@ -399,6 +437,74 @@ export function MontageClient({ themes, initialSessions }: Props) {
 }
 
 // ── Components ─────────────────────────────────────────────────────────────
+
+function VersionBadge({ version, total }: { version: number; total: number }) {
+  if (total <= 1) return null
+  return (
+    <span className="inline-flex items-center px-1.5 py-0.5 text-[8px] font-mono font-bold uppercase tracking-widest border rounded-none bg-primary/10 border-primary/30 text-primary leading-none">
+      v{version}
+    </span>
+  )
+}
+
+function SessionGroupBlock({
+  group,
+  delivering,
+  deliverSuccess,
+  expandedRaws,
+  rawsCache,
+  loadingRaws,
+  onDeliver,
+  onToggleRaws,
+  onDownload,
+}: {
+  group: SessionGroup
+  delivering: string | null
+  deliverSuccess: string | null
+  expandedRaws: string | null
+  rawsCache: Record<string, RawRecording[]>
+  loadingRaws: string | null
+  onDeliver: (id: string) => void
+  onToggleRaws: (id: string) => void
+  onDownload: (url: string, filename: string) => void
+}) {
+  const isMulti = group.sessions.length > 1
+  return (
+    <div className="space-y-3">
+      {isMulti && (
+        <div className="flex items-center gap-3 px-1">
+          <div className="flex items-center gap-2">
+            <span className="font-inter font-bold text-sm text-foreground">
+              {group.recipientName ?? group.recipientEmail}
+            </span>
+            {group.recipientName && (
+              <span className="text-[10px] font-mono text-muted-foreground/40 uppercase tracking-tighter">{group.recipientEmail}</span>
+            )}
+          </div>
+          <div className="flex-1 h-[1px] bg-border/40" />
+          <span className="text-[9px] font-mono text-muted-foreground/40 uppercase tracking-widest">{group.sessions.length} versions</span>
+        </div>
+      )}
+      <div className={cn("space-y-3", isMulti && "pl-4 border-l border-primary/20")}>
+        {group.sessions.map(session => (
+          <SessionCard
+            key={session.id}
+            session={session}
+            totalVersions={group.sessions.length}
+            delivering={delivering}
+            deliverSuccess={deliverSuccess}
+            expandedRaws={expandedRaws}
+            rawsCache={rawsCache}
+            loadingRaws={loadingRaws}
+            onDeliver={onDeliver}
+            onToggleRaws={onToggleRaws}
+            onDownload={onDownload}
+          />
+        ))}
+      </div>
+    </div>
+  )
+}
 
 function SectionHeader({ icon: Icon, label }: { icon: any, label: string }) {
   return (
@@ -413,6 +519,7 @@ function SectionHeader({ icon: Icon, label }: { icon: any, label: string }) {
 
 function SessionCard({
   session,
+  totalVersions,
   delivering,
   deliverSuccess,
   expandedRaws,
@@ -423,6 +530,7 @@ function SessionCard({
   onDownload,
 }: {
   session: SubmittedSession
+  totalVersions: number
   delivering: string | null
   deliverSuccess: string | null
   expandedRaws: string | null
@@ -474,6 +582,7 @@ function SessionCard({
                   <Layers className="w-3 h-3 mr-1.5 opacity-40 text-primary" />
                   {session.theme?.name}
                 </Badge>
+                <VersionBadge version={session.version} total={totalVersions} />
                 <div className="flex items-center gap-1.5 text-[10px] font-mono text-muted-foreground/40 leading-none">
                   <Clock size={11} className="opacity-40" />
                   {formatDate(session.submittedAt)}
@@ -535,15 +644,17 @@ function SessionCard({
   )
 }
 
-function HistoryRow({ 
-  session, 
-  expandedRaws, 
-  rawsCache, 
-  loadingRaws, 
+function HistoryRow({
+  session,
+  showGroupHeader,
+  expandedRaws,
+  rawsCache,
+  loadingRaws,
   onToggleRaws,
   onDownload
-}: { 
+}: {
   session: SubmittedSession,
+  showGroupHeader?: boolean,
   expandedRaws: string | null,
   rawsCache: Record<string, RawRecording[]>,
   loadingRaws: string | null,
@@ -555,13 +666,18 @@ function HistoryRow({
 
   return (
     <>
-      <div className="grid grid-cols-[1.5fr_1fr_1fr_100px] items-center px-6 py-5 hover:bg-primary/[0.02] transition-colors group">
+      <div className="grid grid-cols-[1.5fr_1fr_80px_1fr_100px] items-center px-6 py-5 hover:bg-primary/[0.02] transition-colors group">
         <div className="min-w-0 pr-4">
           <p className="font-inter font-bold text-[13px] text-foreground group-hover:text-primary transition-colors truncate">{session.recipientName ?? '—'}</p>
           <p className="text-[10px] font-mono text-muted-foreground/60 truncate uppercase tracking-tighter">{session.recipientEmail}</p>
         </div>
         <div className="text-[11px] font-mono text-muted-foreground/70 uppercase">
           {session.theme?.name}
+        </div>
+        <div>
+          <span className="inline-flex items-center px-1.5 py-0.5 text-[8px] font-mono font-bold uppercase tracking-widest border rounded-none bg-primary/10 border-primary/20 text-primary leading-none">
+            v{session.version}
+          </span>
         </div>
         <div className="text-[10px] font-mono text-muted-foreground/40 flex items-center gap-2">
           <Clock size={11} className="text-primary/40" />

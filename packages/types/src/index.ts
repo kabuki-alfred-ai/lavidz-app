@@ -58,7 +58,23 @@ export interface CreateQuestionDto {
   order: number
 }
 
+export type SoundTag = 'TRANSITION' | 'INTRO' | 'OUTRO'
+
+export interface SoundAssetDto {
+  id: string
+  name: string
+  tag: SoundTag
+  fileKey: string
+  signedUrl?: string
+  createdAt: string
+}
+
 export interface TranscriptionJobData {
   recordingId: string
   audioKey: string
+}
+
+export interface EnrichmentJobData {
+  sessionId: string
+  profileId: string
 }

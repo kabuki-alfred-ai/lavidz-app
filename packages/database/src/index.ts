@@ -22,4 +22,11 @@ export type {
   Organization,
   UserRole,
   OrgStatus,
+  AdminInvitation,
+  InvitationStatus,
+  EntrepreneurProfile,
+  ConversationMemory,
+  OwnerType,
+  SoundAsset,
+  SoundTag,
 } from '@prisma/client'

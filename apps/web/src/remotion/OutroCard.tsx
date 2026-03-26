@@ -1,4 +1,4 @@
-import { AbsoluteFill, Img, interpolate, spring, useCurrentFrame, useVideoConfig } from 'remotion'
+import { AbsoluteFill, Img, interpolate, useCurrentFrame, useVideoConfig } from 'remotion'
 import type { TransitionTheme, OutroSettings } from './themeTypes'
 
 interface Props {
@@ -8,28 +8,20 @@ interface Props {
 
 export function OutroCard({ outro, theme }: Props) {
   const frame = useCurrentFrame()
-  const { fps, durationInFrames } = useVideoConfig()
+  const { durationInFrames } = useVideoConfig()
 
-  // CTA: aggressive scale punch in
-  const ctaSpring = spring({ frame, fps, config: { damping: 14, stiffness: 120 } })
-  const ctaScale = interpolate(ctaSpring, [0, 1], [0.6, 1])
-  const ctaOpacity = interpolate(frame, [0, 6], [0, 1], { extrapolateRight: 'clamp' })
+  // CTA: simple fade in, no bounce
+  const ctaScale = 1
+  const ctaOpacity = interpolate(frame, [0, 14], [0, 1], { extrapolateRight: 'clamp' })
 
   // Sub-text: slides up with slight delay
-  const subSpring = spring({ frame: Math.max(0, frame - 6), fps, config: { damping: 20, stiffness: 80 } })
-  const subTranslateY = interpolate(subSpring, [0, 1], [40, 0])
-  const subOpacity = interpolate(frame, [6, 14], [0, 1], { extrapolateRight: 'clamp' })
+  const subTranslateY = interpolate(frame, [6, 20], [24, 0], { extrapolateRight: 'clamp' })
+  const subOpacity = interpolate(frame, [6, 18], [0, 1], { extrapolateRight: 'clamp' })
 
   // Logo: fades in last
   const logoOpacity = interpolate(frame, [10, 20], [0, 1], { extrapolateRight: 'clamp' })
 
-  // Pulse on CTA after it lands
-  const pulseFrame = Math.max(0, frame - 10)
-  const pulse = interpolate(
-    Math.sin((pulseFrame / fps) * Math.PI * 2 * 1.2),
-    [-1, 1],
-    [0.97, 1.03],
-  )
+  const pulse = 1
 
   // Fade out near the end
   const fadeOut = interpolate(frame, [durationInFrames - 10, durationInFrames], [1, 0], {

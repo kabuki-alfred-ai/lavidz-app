@@ -13,7 +13,7 @@ interface Props {
 }
 
 export function RegisterSuperadminForm({ token, email }: Props) {
-  const [form, setForm] = useState({ firstName: '', lastName: '', password: '', confirm: '' })
+  const [form, setForm] = useState({ firstName: '', lastName: '', organizationName: '', password: '', confirm: '' })
   const [error, setError] = useState('')
   const [loading, setLoading] = useState(false)
   const [done, setDone] = useState(false)
@@ -31,7 +31,13 @@ export function RegisterSuperadminForm({ token, email }: Props) {
       const res = await fetch('/api/auth/register-superadmin', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ token, password: form.password, firstName: form.firstName || undefined, lastName: form.lastName || undefined }),
+        body: JSON.stringify({
+          token,
+          password: form.password,
+          firstName: form.firstName || undefined,
+          lastName: form.lastName || undefined,
+          organizationName: form.organizationName || undefined,
+        }),
       })
       if (res.ok) {
         setDone(true)
@@ -105,6 +111,19 @@ export function RegisterSuperadminForm({ token, email }: Props) {
               <Label htmlFor="lastName">Nom (optionnel)</Label>
               <Input id="lastName" value={form.lastName} onChange={set('lastName')} placeholder="Dupont" />
             </div>
+          </div>
+
+          <div className="flex flex-col gap-2">
+            <Label htmlFor="organizationName">Organisation (optionnel)</Label>
+            <Input
+              id="organizationName"
+              value={form.organizationName}
+              onChange={set('organizationName')}
+              placeholder="Ex : Acme Corp"
+            />
+            <p className="text-[10px] font-mono text-muted-foreground">
+              Si renseigné, une organisation sera créée ou retrouvée par ce nom et associée à votre compte.
+            </p>
           </div>
 
           <div className="flex flex-col gap-2">

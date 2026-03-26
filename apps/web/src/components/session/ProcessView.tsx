@@ -5,6 +5,7 @@ import dynamic from 'next/dynamic'
 import Link from 'next/link'
 import { ArrowLeft, Play, RefreshCw, Loader2, ChevronRight } from 'lucide-react'
 import type { CompositionSegment } from '@/remotion/LavidzComposition'
+import { END_CARD_FRAMES } from '@/remotion/LavidzComposition'
 import type { SubtitleSettings, SubtitleStyle } from '@/remotion/subtitleTypes'
 import { DEFAULT_SUBTITLE_SETTINGS } from '@/remotion/subtitleTypes'
 import type { TransitionTheme, IntroSettings, OutroSettings, MotionSettings, TransitionStyle, AudioSettings, WordTimestamp } from '@/remotion/themeTypes'
@@ -267,6 +268,7 @@ export function ProcessView({ recordings, themeName, sessionId, themeSlug, monta
   const [bgMusicPrompt, setBgMusicPrompt] = useState('upbeat background music for a fast-paced interview video')
   const [transitionSfxPrompt, setTransitionSfxPrompt] = useState('short cinematic whoosh transition sound effect')
   const [sfxLibrary, setSfxLibrary] = useState<{ filename: string; name: string }[]>([])
+  const [soundLibrary, setSoundLibrary] = useState<{ id: string; name: string; tag: string; signedUrl: string }[]>([])
   const [localTranscripts, setLocalTranscripts] = useState<Record<string, string>>(() =>
     Object.fromEntries(recordings.map(r => [r.id, r.transcript ?? '']))
   )
@@ -308,6 +310,7 @@ export function ProcessView({ recordings, themeName, sessionId, themeSlug, monta
   useEffect(() => {
     fetchVoices()
     fetch('/api/sfx-library').then(r => r.ok ? r.json() : []).then(setSfxLibrary).catch(() => {})
+    fetch('/api/admin/sounds').then(r => r.ok ? r.json() : []).then(setSoundLibrary).catch(() => {})
 
     // Restore montageSettings if present
     if (montageSettings) {
@@ -610,7 +613,7 @@ export function ProcessView({ recordings, themeName, sessionId, themeSlug, monta
   const introFrames = intro.enabled && intro.hookText ? Math.round(intro.durationSeconds * FPS) : 0
   const outroFrames = outro.enabled && (outro.ctaText || outro.subText || outro.logoUrl) ? Math.round(outro.durationSeconds * FPS) : 0
   const totalFrames = segments?.length
-    ? Math.max(introFrames + outroFrames + segments.reduce((a, s) => a + (s.questionDurationFrames ?? questionCardFrames) + s.videoDurationFrames, 0), 1)
+    ? Math.max(introFrames + outroFrames + END_CARD_FRAMES + segments.reduce((a, s) => a + (s.questionDurationFrames ?? questionCardFrames) + s.videoDurationFrames, 0), 1)
     : 1
 
   const selectedVoice = voices.find(v => v.id === selectedVoiceId)
@@ -833,6 +836,7 @@ export function ProcessView({ recordings, themeName, sessionId, themeSlug, monta
     </div>
   )
 
+  const introSounds = soundLibrary.filter(s => s.tag === 'INTRO')
   const stepIntro = (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 20 }}>
       <Card>
@@ -867,9 +871,61 @@ export function ProcessView({ recordings, themeName, sessionId, themeSlug, monta
         )}
       </Card>
 
+      {/* Son d'intro */}
+      <Card>
+        <p style={{ color: S.text, fontWeight: 600, fontSize: 13, marginBottom: 12 }}>Son d'intro</p>
+        {introSounds.length === 0 ? (
+          <p style={{ color: S.dim, fontSize: 11, fontFamily: 'monospace' }}>
+            Aucun son "Intro" dans la bibliothèque — ajoutez-en depuis l'admin.
+          </p>
+        ) : (
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+            {introSounds.map(s => {
+              const isActive = audioSettings.introSfx?.prompt === s.id
+              return (
+                <div key={s.id} style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                  <button
+                    onClick={() => setAudioSettings(p => ({
+                      ...p,
+                      introSfx: isActive ? undefined : { prompt: s.id, url: s.signedUrl, volume: 1 },
+                    }))}
+                    style={{
+                      flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+                      padding: '8px 12px', borderRadius: 10, textAlign: 'left',
+                      background: isActive ? 'rgba(255,255,255,0.1)' : S.surface,
+                      border: `1px solid ${isActive ? 'rgba(255,255,255,0.3)' : S.border}`,
+                    }}
+                  >
+                    <span style={{ color: isActive ? S.text : S.muted, fontSize: 12 }}>{s.name}</span>
+                    {isActive && <span style={{ fontSize: 10, color: S.dim, fontFamily: 'monospace' }}>actif</span>}
+                  </button>
+                  <button
+                    onClick={() => { const a = new Audio(s.signedUrl); a.play() }}
+                    style={{ padding: '8px 10px', borderRadius: 10, background: S.surface, border: `1px solid ${S.border}`, color: S.muted, display: 'flex', alignItems: 'center' }}
+                  >
+                    <Play size={11} />
+                  </button>
+                </div>
+              )
+            })}
+          </div>
+        )}
+        {audioSettings.introSfx?.url && (
+          <div style={{ marginTop: 12 }}>
+            <SliderRow
+              label="Volume"
+              value={Math.round((audioSettings.introSfx.volume ?? 1) * 100)}
+              min={0} max={100} step={5}
+              format={v => `${v}%`}
+              onChange={v => setAudioSettings(p => ({ ...p, introSfx: { ...p.introSfx!, volume: v / 100 } }))}
+            />
+          </div>
+        )}
+      </Card>
     </div>
   )
 
+  const outroSounds = soundLibrary.filter(s => s.tag === 'OUTRO')
   const stepOutro = (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 20 }}>
       <Card>
@@ -909,6 +965,58 @@ export function ProcessView({ recordings, themeName, sessionId, themeSlug, monta
             </div>
             <SliderRow label="Durée" value={outro.durationSeconds} min={2} max={6} step={0.5}
               format={v => `${v}s`} onChange={v => setOutro(p => ({ ...p, durationSeconds: v }))}
+            />
+          </div>
+        )}
+      </Card>
+
+      {/* Son d'outro */}
+      <Card>
+        <p style={{ color: S.text, fontWeight: 600, fontSize: 13, marginBottom: 12 }}>Son d'outro</p>
+        {outroSounds.length === 0 ? (
+          <p style={{ color: S.dim, fontSize: 11, fontFamily: 'monospace' }}>
+            Aucun son "Outro" dans la bibliothèque — ajoutez-en depuis l'admin.
+          </p>
+        ) : (
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+            {outroSounds.map(s => {
+              const isActive = audioSettings.outroSfx?.prompt === s.id
+              return (
+                <div key={s.id} style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                  <button
+                    onClick={() => setAudioSettings(p => ({
+                      ...p,
+                      outroSfx: isActive ? undefined : { prompt: s.id, url: s.signedUrl, volume: 1 },
+                    }))}
+                    style={{
+                      flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+                      padding: '8px 12px', borderRadius: 10, textAlign: 'left',
+                      background: isActive ? 'rgba(255,255,255,0.1)' : S.surface,
+                      border: `1px solid ${isActive ? 'rgba(255,255,255,0.3)' : S.border}`,
+                    }}
+                  >
+                    <span style={{ color: isActive ? S.text : S.muted, fontSize: 12 }}>{s.name}</span>
+                    {isActive && <span style={{ fontSize: 10, color: S.dim, fontFamily: 'monospace' }}>actif</span>}
+                  </button>
+                  <button
+                    onClick={() => { const a = new Audio(s.signedUrl); a.play() }}
+                    style={{ padding: '8px 10px', borderRadius: 10, background: S.surface, border: `1px solid ${S.border}`, color: S.muted, display: 'flex', alignItems: 'center' }}
+                  >
+                    <Play size={11} />
+                  </button>
+                </div>
+              )
+            })}
+          </div>
+        )}
+        {audioSettings.outroSfx?.url && (
+          <div style={{ marginTop: 12 }}>
+            <SliderRow
+              label="Volume"
+              value={Math.round((audioSettings.outroSfx.volume ?? 1) * 100)}
+              min={0} max={100} step={5}
+              format={v => `${v}%`}
+              onChange={v => setAudioSettings(p => ({ ...p, outroSfx: { ...p.outroSfx!, volume: v / 100 } }))}
             />
           </div>
         )}
@@ -1100,132 +1208,61 @@ export function ProcessView({ recordings, themeName, sessionId, themeSlug, monta
       <div>
         <Label>Audio</Label>
         <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
-          {([
-            { key: 'bgMusic' as const, label: 'Musique de fond', prompt: bgMusicPrompt, setPrompt: setBgMusicPrompt },
-            { key: 'transitionSfx' as const, label: 'Sound effect transition', prompt: transitionSfxPrompt, setPrompt: setTransitionSfxPrompt },
-          ]).map(({ key, label, prompt, setPrompt }) => {
-            const track = audioSettings[key]
-            const loading = generatingSfx[key]
-            const suggestions = activePresetId ? (AUDIO_SUGGESTIONS[activePresetId]?.[key] ?? []) : []
+          {/* Transition SFX — bibliothèque DB */}
+          {(() => {
+            const transitionSounds = soundLibrary.filter(s => s.tag === 'TRANSITION')
+            const track = audioSettings.transitionSfx
             return (
-              <Card key={key} style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
-                <p style={{ color: S.text, fontWeight: 600, fontSize: 13 }}>{label}</p>
-                {suggestions.length > 0 && (
+              <Card style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+                <p style={{ color: S.text, fontWeight: 600, fontSize: 13 }}>Son de transition</p>
+                {transitionSounds.length === 0 ? (
+                  <p style={{ color: S.dim, fontSize: 11, fontFamily: 'monospace' }}>
+                    Aucun son "Transition" dans la bibliothèque — ajoutez-en depuis l'admin.
+                  </p>
+                ) : (
                   <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
-                    <p style={{ fontSize: 10, color: S.muted, fontFamily: 'monospace', textTransform: 'uppercase', letterSpacing: '0.08em' }}>
-                      Suggestions {STYLE_PRESETS.find(p => p.id === activePresetId)?.label}
-                    </p>
-                    <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6 }}>
-                      {suggestions.map(s => (
-                        <button
-                          key={s}
-                          onClick={() => setPrompt(s)}
-                          style={{
-                            padding: '5px 10px', borderRadius: 20, fontSize: 11,
-                            background: prompt === s ? 'rgba(255,255,255,0.12)' : 'transparent',
-                            border: `1px solid ${prompt === s ? 'rgba(255,255,255,0.25)' : S.border}`,
-                            color: prompt === s ? S.text : S.muted,
-                            textAlign: 'left', lineHeight: 1.3,
-                          }}
-                        >
-                          {s}
-                        </button>
-                      ))}
-                    </div>
+                    {transitionSounds.map(s => {
+                      const isActive = track?.prompt === s.id
+                      return (
+                        <div key={s.id} style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                          <button
+                            onClick={() => setAudioSettings(p => ({
+                              ...p,
+                              transitionSfx: isActive ? undefined : { prompt: s.id, url: s.signedUrl, volume: 0.8 },
+                            }))}
+                            style={{
+                              flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+                              padding: '8px 12px', borderRadius: 10, textAlign: 'left',
+                              background: isActive ? 'rgba(255,255,255,0.1)' : S.surface,
+                              border: `1px solid ${isActive ? 'rgba(255,255,255,0.3)' : S.border}`,
+                            }}
+                          >
+                            <span style={{ color: isActive ? S.text : S.muted, fontSize: 12 }}>{s.name}</span>
+                            {isActive && <span style={{ fontSize: 10, color: S.dim, fontFamily: 'monospace' }}>actif</span>}
+                          </button>
+                          <button
+                            onClick={() => { const a = new Audio(s.signedUrl); a.play() }}
+                            style={{ padding: '8px 10px', borderRadius: 10, background: S.surface, border: `1px solid ${S.border}`, color: S.muted, display: 'flex', alignItems: 'center' }}
+                          >
+                            <Play size={11} />
+                          </button>
+                        </div>
+                      )
+                    })}
                   </div>
                 )}
-                {/* Local SFX library — only for transitionSfx */}
-                {key === 'transitionSfx' && sfxLibrary.length > 0 && (
-                  <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
-                    <p style={{ fontSize: 10, color: S.muted, fontFamily: 'monospace', textTransform: 'uppercase', letterSpacing: '0.08em' }}>
-                      Bibliothèque locale
-                    </p>
-                    <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
-                      {sfxLibrary.map(sfx => {
-                        const url = `/api/sfx-library/${encodeURIComponent(sfx.filename)}`
-                        const isActive = audioSettings.transitionSfx?.url === url
-                        return (
-                          <div key={sfx.filename} style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-                            <button
-                              onClick={() => setAudioSettings(p => ({
-                                ...p,
-                                transitionSfx: isActive ? undefined : { prompt: sfx.name, url, volume: 0.8 },
-                              }))}
-                              style={{
-                                flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'space-between',
-                                padding: '8px 12px', borderRadius: 10, textAlign: 'left',
-                                background: isActive ? 'rgba(255,255,255,0.1)' : S.surface,
-                                border: `1px solid ${isActive ? 'rgba(255,255,255,0.3)' : S.border}`,
-                              }}
-                            >
-                              <span style={{ color: isActive ? S.text : S.muted, fontSize: 12 }}>{sfx.name}</span>
-                              {isActive && <span style={{ fontSize: 10, color: S.dim, fontFamily: 'monospace' }}>actif</span>}
-                            </button>
-                            <button
-                              onClick={() => { const a = new Audio(url); a.play() }}
-                              style={{ padding: '8px 10px', borderRadius: 10, background: S.surface, border: `1px solid ${S.border}`, color: S.muted, display: 'flex', alignItems: 'center' }}
-                            >
-                              <Play size={11} />
-                            </button>
-                          </div>
-                        )
-                      })}
-                    </div>
-                  </div>
-                )}
-
-                <p style={{ fontSize: 10, color: S.dim, fontFamily: 'monospace', textTransform: 'uppercase', letterSpacing: '0.08em' }}>
-                  Générer avec IA
-                </p>
-                <input
-                  type="text"
-                  value={prompt}
-                  onChange={e => setPrompt(e.target.value)}
-                  style={{ width: '100%', background: 'rgba(255,255,255,0.06)', border: `1px solid ${S.border}`, borderRadius: 10, padding: '10px 14px', color: S.text, fontSize: 13, outline: 'none', boxSizing: 'border-box' }}
-                />
-                <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
-                  <button
-                    onClick={() => generateSfx(key, prompt)}
-                    disabled={loading || !prompt.trim()}
-                    style={{
-                      padding: '8px 16px', borderRadius: 10, fontSize: 12, fontWeight: 700,
-                      background: loading ? 'rgba(255,255,255,0.05)' : 'rgba(255,255,255,0.12)',
-                      border: `1px solid ${S.border}`, color: loading ? S.muted : S.text,
-                      display: 'flex', alignItems: 'center', gap: 6,
-                    }}
-                  >
-                    {loading && <Loader2 size={12} className="animate-spin" />}
-                    {loading ? 'Génération...' : track ? 'Regénérer' : 'Générer'}
-                  </button>
-                  {track?.url && (
-                    <button
-                      onClick={() => { const a = new Audio(track.url); a.play() }}
-                      style={{ padding: '8px 14px', borderRadius: 10, fontSize: 12, background: S.surface, border: `1px solid ${S.border}`, color: S.muted, display: 'flex', alignItems: 'center', gap: 4 }}
-                    >
-                      <Play size={11} /> Écouter
-                    </button>
-                  )}
-                  {track?.url && (
-                    <button
-                      onClick={() => setAudioSettings(p => ({ ...p, [key]: undefined }))}
-                      style={{ padding: '8px 14px', borderRadius: 10, fontSize: 12, background: 'transparent', border: `1px solid ${S.border}`, color: S.muted }}
-                    >
-                      Retirer
-                    </button>
-                  )}
-                </div>
                 {track?.url && (
                   <SliderRow
                     label="Volume"
-                    value={Math.round((track.volume ?? 0.5) * 100)}
+                    value={Math.round((track.volume ?? 0.8) * 100)}
                     min={0} max={100} step={5}
                     format={v => `${v}%`}
-                    onChange={v => setAudioSettings(p => ({ ...p, [key]: { ...p[key]!, volume: v / 100 } }))}
+                    onChange={v => setAudioSettings(p => ({ ...p, transitionSfx: { ...p.transitionSfx!, volume: v / 100 } }))}
                   />
                 )}
               </Card>
             )
-          })}
+          })()}
         </div>
       </div>
     </div>
@@ -1348,7 +1385,7 @@ export function ProcessView({ recordings, themeName, sessionId, themeSlug, monta
 
       {/* Header */}
       <header style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '12px 20px', borderBottom: `1px solid ${S.border}`, flexShrink: 0 }}>
-        <Link href={`/session/${themeSlug}/result?session=${sessionId}`}>
+        <Link href="/admin/montage">
           <button style={{ display: 'flex', alignItems: 'center', gap: 6, color: S.muted, fontSize: 13 }}>
             <ArrowLeft size={16} />
           </button>

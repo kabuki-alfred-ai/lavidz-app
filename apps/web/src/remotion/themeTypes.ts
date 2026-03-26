@@ -20,6 +20,8 @@ export interface SfxTrack {
 export interface AudioSettings {
   bgMusic?: SfxTrack
   transitionSfx?: SfxTrack
+  introSfx?: SfxTrack
+  outroSfx?: SfxTrack
   ttsVolume?: number  // volume of the TTS voice (0–2), default 1
 }
 

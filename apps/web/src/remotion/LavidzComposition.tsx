@@ -4,6 +4,9 @@ import { QuestionCard } from './QuestionCard'
 import { RecordingClip } from './RecordingClip'
 import { IntroCard } from './IntroCard'
 import { OutroCard } from './OutroCard'
+import { EndCard } from './EndCard'
+
+export const END_CARD_FRAMES = 150 // 5 seconds at 30fps
 import type { SubtitleSettings } from './subtitleTypes'
 import type { TransitionTheme, IntroSettings, OutroSettings, MotionSettings, AudioSettings, WordTimestamp } from './themeTypes'
 
@@ -48,9 +51,11 @@ export function LavidzComposition({
   // Intro slide
   if (intro.enabled && intro.hookText) {
     const introDurationFrames = Math.round(intro.durationSeconds * fps)
+    const introSfx = audioSettings?.introSfx
     sequences.push(
       <Sequence key="intro" from={0} durationInFrames={introDurationFrames}>
         <IntroCard intro={intro} theme={theme} />
+        {introSfx?.url && <Audio src={introSfx.url} volume={introSfx.volume ?? 1} />}
       </Sequence>,
     )
     offset += introDurationFrames
@@ -92,13 +97,23 @@ export function LavidzComposition({
   // Outro slide
   if (outro?.enabled && (outro.ctaText || outro.subText || outro.logoUrl)) {
     const outroDurationFrames = Math.round(outro.durationSeconds * fps)
+    const outroSfx = audioSettings?.outroSfx
     sequences.push(
       <Sequence key="outro" from={offset} durationInFrames={outroDurationFrames}>
         <OutroCard outro={outro} theme={theme} />
+        {outroSfx?.url && <Audio src={outroSfx.url} volume={outroSfx.volume ?? 1} />}
       </Sequence>,
     )
     offset += outroDurationFrames
   }
+
+  // End card — always appended
+  sequences.push(
+    <Sequence key="end-card" from={offset} durationInFrames={END_CARD_FRAMES}>
+      <EndCard />
+    </Sequence>,
+  )
+  offset += END_CARD_FRAMES
 
   const bgMusic = audioSettings?.bgMusic
   const totalFrames = offset

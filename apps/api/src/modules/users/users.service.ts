@@ -4,6 +4,15 @@ import { Resend } from 'resend'
 import * as crypto from 'crypto'
 import * as bcrypt from 'bcryptjs'
 
+function slugify(name: string): string {
+  return name
+    .toLowerCase()
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .replace(/[^a-z0-9]+/g, '-')
+    .replace(/^-+|-+$/g, '')
+}
+
 @Injectable()
 export class UsersService {
   private readonly resend: Resend | null
@@ -12,15 +21,58 @@ export class UsersService {
     this.resend = process.env.RESEND_API_KEY ? new Resend(process.env.RESEND_API_KEY) : null
   }
 
-  async listSuperadmins(): Promise<any[]> {
+  async listSuperadmins(): Promise<unknown[]> {
     return prisma.user.findMany({
       where: { role: 'SUPERADMIN' },
-      select: { id: true, email: true, firstName: true, lastName: true, createdAt: true },
+      select: { id: true, email: true, firstName: true, lastName: true, organizationId: true, organization: { select: { name: true, slug: true } }, createdAt: true },
       orderBy: { createdAt: 'asc' },
     })
   }
 
-  async listInvitations(): Promise<any[]> {
+  async listUsers(withoutOrg?: boolean): Promise<unknown[]> {
+    const where = withoutOrg ? { organizationId: null } : {}
+    return prisma.user.findMany({
+      where,
+      orderBy: { createdAt: 'desc' },
+      select: {
+        id: true,
+        email: true,
+        firstName: true,
+        lastName: true,
+        role: true,
+        organizationId: true,
+        organization: { select: { name: true, slug: true } },
+        createdAt: true,
+      },
+    })
+  }
+
+  async updateUserOrganization(userId: string, organizationId: string | null): Promise<unknown> {
+    const existing = await prisma.user.findUnique({ where: { id: userId } })
+    if (!existing) throw new NotFoundException('Utilisateur introuvable')
+
+    if (organizationId !== null) {
+      const org = await prisma.organization.findUnique({ where: { id: organizationId } })
+      if (!org) throw new NotFoundException('Organisation introuvable')
+    }
+
+    return prisma.user.update({
+      where: { id: userId },
+      data: { organizationId },
+      select: {
+        id: true,
+        email: true,
+        firstName: true,
+        lastName: true,
+        role: true,
+        organizationId: true,
+        organization: { select: { name: true, slug: true } },
+        createdAt: true,
+      },
+    })
+  }
+
+  async listInvitations(): Promise<unknown[]> {
     return prisma.adminInvitation.findMany({
       orderBy: { createdAt: 'desc' },
       include: {
@@ -29,13 +81,12 @@ export class UsersService {
     })
   }
 
-  async createInvitation(email: string, invitedById: string | null, baseUrl: string): Promise<any> {
+  async createInvitation(email: string, invitedById: string | null, baseUrl: string): Promise<unknown> {
     const normalized = email.toLowerCase().trim()
 
     const existingUser = await prisma.user.findUnique({ where: { email: normalized } })
     if (existingUser) throw new ConflictException('Un compte existe déjà avec cet email')
 
-    // Upsert: if a pending invitation exists for this email, reset it
     const token = crypto.randomUUID()
     const expiresAt = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000) // 7 days
 
@@ -51,7 +102,7 @@ export class UsersService {
     return invitation
   }
 
-  async verifyToken(token: string): Promise<any> {
+  async verifyToken(token: string): Promise<unknown> {
     const invitation = await prisma.adminInvitation.findUnique({ where: { token } })
     if (!invitation) throw new NotFoundException('Invitation introuvable')
     if (invitation.status === 'ACCEPTED') throw new BadRequestException('Cette invitation a déjà été utilisée')
@@ -62,7 +113,13 @@ export class UsersService {
     return { email: invitation.email, token: invitation.token }
   }
 
-  async acceptInvitation(token: string, password: string, firstName?: string, lastName?: string): Promise<any> {
+  async acceptInvitation(
+    token: string,
+    password: string,
+    firstName?: string,
+    lastName?: string,
+    organizationName?: string,
+  ): Promise<unknown> {
     const invitation = await prisma.adminInvitation.findUnique({ where: { token } })
     if (!invitation) throw new NotFoundException('Invitation introuvable')
     if (invitation.status === 'ACCEPTED') throw new BadRequestException('Invitation déjà utilisée')
@@ -75,6 +132,35 @@ export class UsersService {
 
     const passwordHash = await bcrypt.hash(password, 12)
 
+    let organizationId: string | null = null
+
+    if (organizationName && organizationName.trim()) {
+      const trimmedName = organizationName.trim()
+      const slug = slugify(trimmedName)
+
+      const existingOrg = await prisma.organization.findFirst({
+        where: { name: { equals: trimmedName, mode: 'insensitive' } },
+      })
+
+      if (existingOrg) {
+        organizationId = existingOrg.id
+      } else {
+        // ensure slug uniqueness
+        const baseSlug = slug
+        let finalSlug = baseSlug
+        let counter = 1
+        while (await prisma.organization.findUnique({ where: { slug: finalSlug } })) {
+          finalSlug = `${baseSlug}-${counter}`
+          counter++
+        }
+
+        const org = await prisma.organization.create({
+          data: { name: trimmedName, slug: finalSlug, status: 'ACTIVE' },
+        })
+        organizationId = org.id
+      }
+    }
+
     const user = await prisma.user.create({
       data: {
         email: invitation.email,
@@ -82,6 +168,7 @@ export class UsersService {
         firstName: firstName ?? null,
         lastName: lastName ?? null,
         role: 'SUPERADMIN',
+        organizationId,
       },
     })
 

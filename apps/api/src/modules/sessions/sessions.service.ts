@@ -12,13 +12,19 @@ export class SessionsService {
   constructor(
     private readonly storageService: StorageService,
     @InjectQueue('transcription') private readonly transcriptionQueue: Queue,
+    @InjectQueue('enrichment') private readonly enrichmentQueue: Queue,
   ) {
     this.resend = process.env.RESEND_API_KEY ? new Resend(process.env.RESEND_API_KEY) : null
   }
 
-  create(themeId: string, recipientEmail?: string, recipientName?: string): Promise<any> {
+  async create(themeId: string, recipientEmail?: string, recipientName?: string): Promise<any> {
+    let version = 1
+    if (recipientEmail) {
+      const count = await prisma.session.count({ where: { themeId, recipientEmail } })
+      version = count + 1
+    }
     return prisma.session.create({
-      data: { themeId, recipientEmail, recipientName },
+      data: { themeId, recipientEmail, recipientName, version },
       include: { theme: { include: { questions: { where: { active: true }, orderBy: { order: 'asc' } } } } },
     })
   }
@@ -36,11 +42,29 @@ export class SessionsService {
   }
 
   async submit(sessionId: string): Promise<any> {
-    await this.findOne(sessionId)
-    return prisma.session.update({
+    const session = await this.findOne(sessionId)
+
+    const updated = await prisma.session.update({
       where: { id: sessionId },
       data: { status: 'SUBMITTED', submittedAt: new Date() },
     })
+
+    const organizationId = session.theme?.organizationId as string | null | undefined
+    if (organizationId) {
+      const profile = await prisma.entrepreneurProfile.findUnique({
+        where: { organizationId },
+        select: { id: true },
+      })
+
+      if (profile) {
+        await this.enrichmentQueue.add('enrich', {
+          sessionId,
+          profileId: profile.id,
+        })
+      }
+    }
+
+    return updated
   }
 
   async getSubmitted(): Promise<any[]> {

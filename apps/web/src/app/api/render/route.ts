@@ -45,11 +45,14 @@ async function notifySessionFinalKey(sessionId: string, key: string): Promise<vo
   })
 }
 
+const END_CARD_FRAMES = 150 // 5 seconds at 30fps
+
 function calcTotalFrames(segments: any[], questionCardFrames: number, intro: any, outro: any, fps: number) {
   let total = 0
   if (intro?.enabled && intro?.hookText) total += Math.round(intro.durationSeconds * fps)
   for (const s of segments) total += (s.questionDurationFrames ?? questionCardFrames) + s.videoDurationFrames
   if (outro?.enabled && (outro?.ctaText || outro?.subText || outro?.logoUrl)) total += Math.round(outro.durationSeconds * fps)
+  total += END_CARD_FRAMES
   return Math.max(total, 1)
 }
 
