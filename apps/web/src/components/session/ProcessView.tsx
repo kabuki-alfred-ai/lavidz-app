@@ -278,6 +278,8 @@ export function ProcessView({ recordings, themeName, sessionId, themeSlug, monta
   const [silenceCutEnabled, setSilenceCutEnabled] = useState(false)
   const [silenceThreshold, setSilenceThreshold] = useState(-35)
   const [silenceCutError, setSilenceCutError] = useState('')
+  const [fillerCutEnabled, setFillerCutEnabled] = useState(false)
+  const [fillerCutError, setFillerCutError] = useState('')
   const [denoiseEnabled, setDenoiseEnabled] = useState(false)
   const [denoiseStrength, setDenoiseStrength] = useState<'light' | 'moderate' | 'strong' | 'isolate'>('moderate')
   const [regenerating, setRegenerating] = useState(false)
@@ -301,7 +303,7 @@ export function ProcessView({ recordings, themeName, sessionId, themeSlug, monta
   const blobUrlsRef = useRef<string[]>([])
   const durationsRef = useRef<number[]>([])
   const effectiveVideoUrlsRef = useRef<string[]>([])
-  const lastProcessedSettingsRef = useRef<{ enabled: boolean; threshold: number; denoiseEnabled: boolean; denoiseStrength: 'light' | 'moderate' | 'strong' | 'isolate' } | null>(null)
+  const lastProcessedSettingsRef = useRef<{ enabled: boolean; threshold: number; fillerCutEnabled: boolean; denoiseEnabled: boolean; denoiseStrength: 'light' | 'moderate' | 'strong' | 'isolate' } | null>(null)
 
   useEffect(() => { localTranscriptsRef.current = localTranscripts }, [localTranscripts])
   useEffect(() => { wordTimestampsRef.current = wordTimestampsMap }, [wordTimestampsMap])
@@ -330,6 +332,7 @@ export function ProcessView({ recordings, themeName, sessionId, themeSlug, monta
       if (s.transitionSfxPrompt) setTransitionSfxPrompt(s.transitionSfxPrompt)
       if (typeof s.silenceCutEnabled === 'boolean') setSilenceCutEnabled(s.silenceCutEnabled)
       if (s.silenceThreshold !== undefined) setSilenceThreshold(s.silenceThreshold)
+      if (typeof s.fillerCutEnabled === 'boolean') setFillerCutEnabled(s.fillerCutEnabled)
       if (typeof s.denoiseEnabled === 'boolean') setDenoiseEnabled(s.denoiseEnabled)
       if (s.denoiseStrength) setDenoiseStrength(s.denoiseStrength)
       if (s.localTranscripts) setLocalTranscripts(s.localTranscripts)
@@ -357,7 +360,7 @@ export function ProcessView({ recordings, themeName, sessionId, themeSlug, monta
     selectedVoiceId, voiceEnabled, format, subtitleSettings, theme, intro, outro,
     motionSettings, questionCardFrames, activePresetId, audioSettings,
     bgMusicPrompt, transitionSfxPrompt, silenceCutEnabled, silenceThreshold,
-    denoiseEnabled, denoiseStrength, localTranscripts, wordTimestampsMap,
+    fillerCutEnabled, denoiseEnabled, denoiseStrength, localTranscripts, wordTimestampsMap,
   })
   const settingsForSaveRef = useRef(settingsForSave)
   useEffect(() => {
@@ -438,10 +441,12 @@ export function ProcessView({ recordings, themeName, sessionId, themeSlug, monta
 
   const prepare = async (voiceId: string | null) => {
     setSilenceCutError('')
-    const currentProcessingHash = `${silenceCutEnabled}-${silenceThreshold}-${denoiseEnabled}-${denoiseStrength}`
+    setFillerCutError('')
+    const currentProcessingHash = `${silenceCutEnabled}-${silenceThreshold}-${fillerCutEnabled}-${denoiseEnabled}-${denoiseStrength}`
     const silenceCutChanged = !lastProcessedSettingsRef.current ||
       lastProcessedSettingsRef.current.enabled !== silenceCutEnabled ||
       lastProcessedSettingsRef.current.threshold !== silenceThreshold ||
+      lastProcessedSettingsRef.current.fillerCutEnabled !== fillerCutEnabled ||
       lastProcessedSettingsRef.current.denoiseEnabled !== denoiseEnabled ||
       lastProcessedSettingsRef.current.denoiseStrength !== denoiseStrength
 
@@ -490,6 +495,15 @@ export function ProcessView({ recordings, themeName, sessionId, themeSlug, monta
           } catch {}
         }
 
+        if (fillerCutEnabled) {
+          try {
+            setLoadingStep(`Suppression tics de langage ${i+1}/${recordings.length}...`)
+            const res = await fetch('/api/filler-cut', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ videoUrl: realUrl }) })
+            if (res.ok) { const { id } = await res.json(); if (id) realUrl = `${window.location.origin}/api/filler-cut/${id}` }
+            else setFillerCutError(await res.text())
+          } catch { setFillerCutError('Suppression tics échouée') }
+        }
+
         if (denoiseEnabled) {
           try {
             setLoadingStep(`Réduction bruit ${i+1}/${recordings.length}...`)
@@ -507,7 +521,7 @@ export function ProcessView({ recordings, themeName, sessionId, themeSlug, monta
         setProcessedCache(p => ({ ...p, [rec.id]: { hash: currentProcessingHash, url: realUrl } }))
         uploadToCache(rec.id, realUrl, 'processed', { processingHash: currentProcessingHash })
       }
-      lastProcessedSettingsRef.current = { enabled: silenceCutEnabled, threshold: silenceThreshold, denoiseEnabled, denoiseStrength }
+      lastProcessedSettingsRef.current = { enabled: silenceCutEnabled, threshold: silenceThreshold, fillerCutEnabled, denoiseEnabled, denoiseStrength }
     }
 
     const ttsUrls: (string | null)[] = []
@@ -638,6 +652,18 @@ export function ProcessView({ recordings, themeName, sessionId, themeSlug, monta
           />
         )}
         {silenceCutError && <p style={{ color: '#f87171', fontSize: 11, marginTop: 8, fontFamily: 'monospace' }}>{silenceCutError}</p>}
+      </Card>
+
+      {/* Filler cut */}
+      <Card>
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+          <div>
+            <p style={{ color: S.text, fontWeight: 600, fontSize: 14 }}>Couper les tics de langage</p>
+            <p style={{ color: S.muted, fontSize: 11, marginTop: 2 }}>Supprime les "euh", "hm", "bah"…</p>
+          </div>
+          <Toggle value={fillerCutEnabled} onChange={setFillerCutEnabled} />
+        </div>
+        {fillerCutError && <p style={{ color: '#f87171', fontSize: 11, marginTop: 8, fontFamily: 'monospace' }}>{fillerCutError}</p>}
       </Card>
 
       {/* Denoise */}
