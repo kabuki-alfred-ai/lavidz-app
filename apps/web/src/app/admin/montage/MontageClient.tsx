@@ -405,8 +405,8 @@ export function MontageClient({ themes, initialSessions }: Props) {
         ) : (
           <div className="border border-border/60 bg-surface/30 rounded-sm overflow-hidden backdrop-blur-sm shadow-sm">
             {/* Table header */}
-            <div className="grid grid-cols-[1.5fr_1fr_80px_1fr_100px] border-b border-border/40 bg-surface/50 px-6 py-4">
-              {['Destinataire', 'Thème', 'Version', 'Date de livraison', 'Rushs'].map(h => (
+            <div className="grid grid-cols-[1.5fr_1fr_80px_1fr_100px_100px] border-b border-border/40 bg-surface/50 px-6 py-4">
+              {['Destinataire', 'Thème', 'Version', 'Date de livraison', 'Rushs', 'Montage'].map(h => (
                 <div key={h} className="text-[9px] font-mono uppercase tracking-[0.2em] text-muted-foreground/50">{h}</div>
               ))}
             </div>
@@ -664,7 +664,7 @@ function HistoryRow({
 
   return (
     <>
-      <div className="grid grid-cols-[1.5fr_1fr_80px_1fr_100px] items-center px-6 py-5 hover:bg-primary/[0.02] transition-colors group">
+      <div className="grid grid-cols-[1.5fr_1fr_80px_1fr_100px_100px] items-center px-6 py-5 hover:bg-primary/[0.02] transition-colors group">
         <div className="min-w-0 pr-4">
           <p className="font-inter font-bold text-[13px] text-foreground group-hover:text-primary transition-colors truncate">{session.recipientName ?? '—'}</p>
           <p className="text-[10px] font-mono text-muted-foreground/60 truncate uppercase tracking-tighter">{session.recipientEmail}</p>
@@ -696,6 +696,25 @@ function HistoryRow({
               </>
             )}
           </button>
+        </div>
+        <div className="flex items-center gap-2">
+          <Link
+            href={`/process/${session.id}`}
+            className="text-[9px] font-mono uppercase tracking-widest transition-all px-2 py-1 border rounded-none flex items-center gap-2 text-muted-foreground/40 border-border/40 hover:border-primary/20 hover:text-primary"
+          >
+            <Scissors size={10} />
+            Rush
+          </Link>
+          {session.finalVideoKey && (
+            <Link
+              href={`/video/${session.id}`}
+              target="_blank"
+              className="text-[9px] font-mono uppercase tracking-widest transition-all px-2 py-1 border rounded-none flex items-center gap-2 text-muted-foreground/40 border-border/40 hover:border-primary/20 hover:text-primary"
+            >
+              <Play size={10} />
+              Vidéo
+            </Link>
+          )}
         </div>
       </div>
       {isExpanded && (
