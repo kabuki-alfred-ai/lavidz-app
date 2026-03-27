@@ -244,6 +244,26 @@ export class SessionsService {
     return this.storageService.getSignedUrl(session.finalVideoKey)
   }
 
+  async deleteSession(sessionId: string): Promise<void> {
+    const session = await prisma.session.findUnique({
+      where: { id: sessionId },
+      include: { recordings: true },
+    })
+    if (!session) throw new NotFoundException('Session not found')
+
+    const keysToDelete: string[] = []
+    if (session.finalVideoKey) keysToDelete.push(session.finalVideoKey)
+    for (const rec of session.recordings) {
+      if (rec.rawVideoKey) keysToDelete.push(rec.rawVideoKey)
+      if (rec.finalVideoKey) keysToDelete.push(rec.finalVideoKey)
+      if (rec.ttsAudioKey) keysToDelete.push(rec.ttsAudioKey)
+      if (rec.processedVideoKey) keysToDelete.push(rec.processedVideoKey)
+    }
+
+    await Promise.allSettled(keysToDelete.map(key => this.storageService.delete(key)))
+    await prisma.session.delete({ where: { id: sessionId } })
+  }
+
   async uploadRecording(sessionId: string, questionId: string, buffer: Buffer, mimetype: string): Promise<Recording> {
     await this.findOne(sessionId)
     const ext = mimetype.includes('webm') ? 'webm' : 'mp4'

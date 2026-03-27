@@ -7,10 +7,15 @@ import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Card, CardContent } from '@/components/ui/card'
-import { 
-  Loader2, Scissors, Send, Copy, Check, ExternalLink, 
+import {
+  AlertDialog, AlertDialogTrigger, AlertDialogContent, AlertDialogHeader,
+  AlertDialogTitle, AlertDialogDescription, AlertDialogFooter,
+  AlertDialogCancel, AlertDialogAction,
+} from '@/components/ui/alert-dialog'
+import {
+  Loader2, Scissors, Send, Copy, Check, ExternalLink,
   History, Clock, Video, Play, Download, ChevronDown, ChevronUp,
-  Link as LinkIcon, Plus, Mail, User, Sparkles
+  Link as LinkIcon, Plus, Mail, User, Sparkles, Trash2
 } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import type { ThemeDto } from '@lavidz/types'
@@ -197,6 +202,11 @@ export function MontageClient({ themes, initialSessions }: Props) {
     }
   }
 
+  const handleDelete = async (sessionId: string) => {
+    const res = await fetch(`/api/admin/sessions/${sessionId}`, { method: 'DELETE' })
+    if (res.ok) setSessions(prev => prev.filter(s => s.id !== sessionId))
+  }
+
   const handleDownload = async (url: string, filename: string) => {
     try {
       const res = await fetch(url)
@@ -377,6 +387,7 @@ export function MontageClient({ themes, initialSessions }: Props) {
                 rawsCache={rawsCache}
                 loadingRaws={loadingRaws}
                 onDeliver={handleDeliver}
+                onDelete={handleDelete}
                 onToggleRaws={handleToggleRaws}
                 onDownload={handleDownload}
               />
@@ -455,6 +466,7 @@ function SessionGroupBlock({
   onDeliver,
   onToggleRaws,
   onDownload,
+  onDelete,
 }: {
   group: SessionGroup
   delivering: string | null
@@ -465,6 +477,7 @@ function SessionGroupBlock({
   onDeliver: (id: string) => void
   onToggleRaws: (id: string) => void
   onDownload: (url: string, filename: string) => void
+  onDelete: (id: string) => void
 }) {
   const isMulti = group.sessions.length > 1
   return (
@@ -497,6 +510,7 @@ function SessionGroupBlock({
             onDeliver={onDeliver}
             onToggleRaws={onToggleRaws}
             onDownload={onDownload}
+            onDelete={onDelete}
           />
         ))}
       </div>
@@ -526,6 +540,7 @@ function SessionCard({
   onDeliver,
   onToggleRaws,
   onDownload,
+  onDelete,
 }: {
   session: SubmittedSession
   totalVersions: number
@@ -537,6 +552,7 @@ function SessionCard({
   onDeliver: (id: string) => void
   onToggleRaws: (id: string) => void
   onDownload: (url: string, filename: string) => void
+  onDelete: (id: string) => void
 }) {
   const statusInfo = STATUS[session.status] ?? { label: session.status, variant: 'default' }
   const canDeliver = session.finalVideoKey != null && session.status !== 'DONE'
@@ -630,6 +646,34 @@ function SessionCard({
                 Démarrer
               </Link>
             </Button>
+
+            <AlertDialog>
+              <AlertDialogTrigger asChild>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  className="h-9 px-3 rounded-none border-destructive/20 hover:border-destructive/40 hover:bg-destructive/10 text-destructive/60 hover:text-destructive font-mono text-[9px] uppercase tracking-widest"
+                >
+                  <Trash2 size={12} />
+                </Button>
+              </AlertDialogTrigger>
+              <AlertDialogContent>
+                <AlertDialogHeader>
+                  <AlertDialogTitle>Supprimer cette session ?</AlertDialogTitle>
+                  <AlertDialogDescription>
+                    Tous les rushs, fichiers audio, vidéos traitées et données associées à{' '}
+                    <strong>{session.recipientName ?? session.recipientEmail}</strong> seront définitivement supprimés.
+                    Cette action est irréversible.
+                  </AlertDialogDescription>
+                </AlertDialogHeader>
+                <AlertDialogFooter>
+                  <AlertDialogCancel>Annuler</AlertDialogCancel>
+                  <AlertDialogAction onClick={() => onDelete(session.id)}>
+                    Supprimer définitivement
+                  </AlertDialogAction>
+                </AlertDialogFooter>
+              </AlertDialogContent>
+            </AlertDialog>
           </div>
         </div>
 

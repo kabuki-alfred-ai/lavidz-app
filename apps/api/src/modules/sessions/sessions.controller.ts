@@ -1,6 +1,6 @@
 import {
-  Controller, Post, Get, Put, Patch, Param, Body,
-  UploadedFile, UseInterceptors, UseGuards,
+  Controller, Post, Get, Put, Patch, Delete, Param, Body,
+  UploadedFile, UseInterceptors, UseGuards, HttpCode,
 } from '@nestjs/common'
 import { FileInterceptor } from '@nestjs/platform-express'
 import { SessionsService } from './sessions.service'
@@ -85,6 +85,13 @@ export class SessionsController {
   @UseGuards(AdminGuard)
   deliver(@Param('id') id: string): Promise<any> {
     return this.sessionsService.deliver(id)
+  }
+
+  @Delete(':id')
+  @UseGuards(AdminGuard)
+  @HttpCode(204)
+  deleteSession(@Param('id') id: string): Promise<void> {
+    return this.sessionsService.deleteSession(id)
   }
 
   @Get(':id/final-url')

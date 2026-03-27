@@ -5,6 +5,7 @@ import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
 import { Plus, Sparkles, Layers, Pencil } from 'lucide-react'
 import { TestThemeButton } from '@/components/admin/TestThemeButton'
+import { DeleteThemeButton } from '@/components/admin/DeleteThemeButton'
 
 export default async function AdminThemesPage() {
   let themes: ThemeDto[] = []
@@ -110,6 +111,7 @@ export default async function AdminThemesPage() {
                     <Pencil size={14} />
                   </Link>
                   <TestThemeButton themeId={theme.id} title="Tester ce thème" />
+                  <DeleteThemeButton themeId={theme.id} themeName={theme.name} />
                 </div>
               </div>
             ))}
