@@ -3,6 +3,7 @@ import { Job } from 'bullmq'
 import { prisma } from '@lavidz/database'
 import { StorageService } from '../storage/storage.service'
 import { TranscriptionJobData } from '@lavidz/types'
+import { createClient } from '@deepgram/sdk'
 
 @Processor('transcription', { concurrency: 3 })
 export class TranscriptionProcessor extends WorkerHost {
@@ -20,28 +21,26 @@ export class TranscriptionProcessor extends WorkerHost {
 
     try {
       const signedUrl = await this.storageService.getSignedUrl(audioKey)
-
-      const formData = new FormData()
       const audioResponse = await fetch(signedUrl)
-      const audioBuffer = await audioResponse.arrayBuffer()
-      formData.append('file', new Blob([audioBuffer]), 'audio.webm')
-      formData.append('model', 'whisper-1')
-      formData.append('response_format', 'verbose_json')
-      formData.append('timestamp_granularities[]', 'word')
+      const audioBuffer = Buffer.from(await audioResponse.arrayBuffer())
 
-      const response = await fetch('https://api.openai.com/v1/audio/transcriptions', {
-        method: 'POST',
-        headers: { Authorization: `Bearer ${process.env.OPENAI_API_KEY}` },
-        body: formData,
-      })
+      const deepgram = createClient(process.env.DEEPGRAM_API_KEY ?? '')
+      const { result, error } = await deepgram.listen.prerecorded.transcribeFile(
+        audioBuffer,
+        {
+          model: 'nova-3',
+          language: 'fr',
+          smart_format: true,
+        },
+      )
 
-      if (!response.ok) throw new Error(`Whisper API error: ${response.statusText}`)
+      if (error) throw new Error(`Deepgram error: ${error.message}`)
 
-      const result = await response.json() as { text: string }
+      const transcript = result?.results?.channels?.[0]?.alternatives?.[0]?.transcript ?? ''
 
       await prisma.recording.update({
         where: { id: recordingId },
-        data: { transcript: result.text, status: 'DONE' },
+        data: { transcript, status: 'DONE' },
       })
     } catch (error) {
       await prisma.recording.update({
