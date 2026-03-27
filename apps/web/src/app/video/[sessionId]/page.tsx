@@ -47,7 +47,13 @@ export default async function VideoPage({ params }: Props) {
   }
 
   try {
-    videoUrl = await apiClient<string>(`/sessions/${sessionId}/final-url`)
+    const API_URL = process.env.API_URL ?? process.env.NEXT_PUBLIC_API_URL ?? 'http://localhost:3001'
+    const ADMIN_SECRET = process.env.ADMIN_SECRET ?? process.env.NEXT_PUBLIC_ADMIN_SECRET ?? ''
+    const res = await fetch(`${API_URL}/api/sessions/${sessionId}/final-url`, {
+      headers: { 'x-admin-secret': ADMIN_SECRET },
+      next: { revalidate: 0 },
+    })
+    if (res.ok) videoUrl = await res.text()
   } catch {
     // unable to get url
   }
