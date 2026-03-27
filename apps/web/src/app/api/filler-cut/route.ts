@@ -35,6 +35,9 @@ function isFiller(word: string): boolean {
 }
 
 export async function POST(req: Request) {
+  if (!process.env.DEEPGRAM_API_KEY)
+    return new Response('DEEPGRAM_API_KEY manquant — ajoutez-le dans les variables d\'environnement du service web', { status: 500 })
+
   let { videoUrl } = await req.json()
   if (!videoUrl) return new Response('videoUrl required', { status: 400 })
 
@@ -95,7 +98,7 @@ export async function POST(req: Request) {
         '-c:v', 'libx264', '-c:a', 'aac', '-movflags', '+faststart', outputPath,
       ], { timeout: 60_000 })
       if (remux.status !== 0) throw new Error(`FFmpeg remux failed`)
-      return Response.json({ id, removed: 0 })
+      return Response.json({ id, removed: 0, keepIntervals: [{ start: 0, end: totalDuration }] })
     }
 
     // Build keep intervals (inverse of filler intervals)
@@ -129,7 +132,7 @@ export async function POST(req: Request) {
 
     if (result.status !== 0) throw new Error(`FFmpeg a échoué : ${result.stderr?.toString().slice(-500)}`)
 
-    return Response.json({ id, removed: fillerIntervals.length })
+    return Response.json({ id, removed: fillerIntervals.length, keepIntervals })
   } finally {
     try { fs.unlinkSync(inputPath) } catch {}
   }

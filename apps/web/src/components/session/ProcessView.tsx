@@ -531,8 +531,17 @@ export function ProcessView({ recordings, themeName, sessionId, themeSlug, monta
           try {
             setLoadingStep(`Suppression tics de langage ${i+1}/${recordings.length}...`)
             const res = await fetch('/api/filler-cut', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ videoUrl: realUrl }) })
-            if (res.ok) { const { id } = await res.json(); if (id) realUrl = `${window.location.origin}/api/filler-cut/${id}` }
-            else setFillerCutError(await res.text())
+            if (res.ok) {
+              const { id, keepIntervals } = await res.json()
+              if (id) {
+                realUrl = `${window.location.origin}/api/filler-cut/${id}`
+                if (keepIntervals?.length && wordTimestampsRef.current[rec.id]?.length) {
+                  const remapped = remapWordTimestamps(wordTimestampsRef.current[rec.id], keepIntervals)
+                  setWordTimestampsMap(prev => ({ ...prev, [rec.id]: remapped }))
+                  wordTimestampsRef.current[rec.id] = remapped
+                }
+              }
+            } else setFillerCutError(await res.text())
           } catch { setFillerCutError('Suppression tics échouée') }
         }
 
