@@ -19,6 +19,10 @@ const dmMono = DM_Mono({
 export const metadata: Metadata = {
   title: 'Lavidz',
   description: 'Créez des vidéos authentiques en répondant à des questions',
+  manifest: '/manifest.json',
+  appleWebApp: {
+    title: 'Lavidz',
+  },
 }
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
