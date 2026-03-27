@@ -21,6 +21,31 @@ interface WordWindow {
   framesIntoActiveWord: number
 }
 
+// Sentence-aware subtitle windowing.
+// Returns the end index (exclusive) of the window starting at `start`, respecting
+// sentence-ending punctuation so a new sentence never bleeds into the current line.
+function getWindowEnd(words: string[], start: number, wordsPerLine: number): number {
+  let i = start
+  let count = 0
+  while (i < words.length && count < wordsPerLine) {
+    const isSentenceEnd = /[.!?,;]$/.test(words[i])
+    i++
+    count++
+    if (isSentenceEnd && i < words.length) break
+  }
+  return i
+}
+
+function findWindowBounds(words: string[], wordIdx: number, wordsPerLine: number): { start: number; end: number } {
+  let i = 0
+  while (i < words.length) {
+    const end = getWindowEnd(words, i, wordsPerLine)
+    if (wordIdx < end) return { start: i, end }
+    i = end
+  }
+  return { start: 0, end: Math.min(wordsPerLine, words.length) }
+}
+
 // Binary search: finds the index of the word active at `currentTimeSec`.
 // Returns a negative encoded value -(insertionPoint+1) when between words,
 // where insertionPoint is the index of the next word (lo after the search).
@@ -85,8 +110,8 @@ function getWordWindow(
     const wordStartFrame = Math.floor(wordTimestamps[currentWordIndex].start * fps)
     const framesIntoActiveWord = Math.max(0, frame - wordStartFrame)
 
-    const windowStart = Math.floor(currentWordIndex / wordsPerLine) * wordsPerLine
-    const windowWords = words.slice(windowStart, windowStart + wordsPerLine)
+    const { start: windowStart, end: windowEnd } = findWindowBounds(words, currentWordIndex, wordsPerLine)
+    const windowWords = words.slice(windowStart, windowEnd)
     const activeIndex = currentWordIndex - windowStart
 
     return { words: windowWords, activeIndex, framesIntoActiveWord }
@@ -100,8 +125,8 @@ function getWordWindow(
   const currentWordIndex = Math.min(Math.floor(frame / framesPerWord), words.length - 1)
   const framesIntoActiveWord = frame - currentWordIndex * framesPerWord
 
-  const windowStart = Math.floor(currentWordIndex / wordsPerLine) * wordsPerLine
-  const windowWords = words.slice(windowStart, windowStart + wordsPerLine)
+  const { start: windowStart, end: windowEnd } = findWindowBounds(words, currentWordIndex, wordsPerLine)
+  const windowWords = words.slice(windowStart, windowEnd)
   const activeIndex = currentWordIndex - windowStart
 
   return { words: windowWords, activeIndex, framesIntoActiveWord }
@@ -352,8 +377,26 @@ export function RecordingClip({
     [wordTimestamps, offsetMs],
   )
 
+  // Merge apostrophe-split tokens: ["j'", "étais"] → ["j'étais"]
+  // Handles cached old timestamps where tokens were split by the ASR model.
+  const mergedTimestamps = useMemo(() => {
+    if (!shiftedTimestamps?.length) return shiftedTimestamps
+    const result: WordTimestamp[] = []
+    for (let i = 0; i < shiftedTimestamps.length; i++) {
+      const w = shiftedTimestamps[i]
+      const next = shiftedTimestamps[i + 1]
+      if (next && (w.word.endsWith("'") || w.word.endsWith('\u2019'))) {
+        result.push({ word: w.word + next.word, start: w.start, end: next.end })
+        i++
+      } else {
+        result.push(w)
+      }
+    }
+    return result
+  }, [shiftedTimestamps])
+
   const { words, activeIndex, framesIntoActiveWord } = transcript
-    ? getWordWindow(transcript, frame, durationInFrames, wordsPerLine, fps, shiftedTimestamps)
+    ? getWordWindow(transcript, frame, durationInFrames, wordsPerLine, fps, mergedTimestamps)
     : { words: [], activeIndex: 0, framesIntoActiveWord: 0 }
 
   const hasWords = words.length > 0
