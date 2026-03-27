@@ -12,6 +12,30 @@ import type { TransitionTheme, IntroSettings, OutroSettings, MotionSettings, Tra
 import { DEFAULT_TRANSITION_THEME, DEFAULT_INTRO_SETTINGS, DEFAULT_OUTRO_SETTINGS, DEFAULT_MOTION_SETTINGS, FONT_OPTIONS, THEME_PRESETS } from '@/remotion/themeTypes'
 import { ServerRenderer, type ServerRendererHandle } from './ServerRenderer'
 
+// Remap word timestamps after silence/filler cuts.
+// keepIntervals: segments of the original video that were kept (in original time).
+// Returns timestamps relative to the new cut video.
+function remapWordTimestamps(
+  words: WordTimestamp[],
+  keepIntervals: { start: number; end: number }[],
+): WordTimestamp[] {
+  const result: WordTimestamp[] = []
+  let timeOffset = 0
+  for (const seg of keepIntervals) {
+    for (const w of words) {
+      if (w.end <= seg.start || w.start >= seg.end) continue
+      result.push({
+        word: w.word,
+        start: timeOffset + Math.max(0, w.start - seg.start),
+        end: timeOffset + Math.min(seg.end - seg.start, w.end - seg.start),
+      })
+    }
+    timeOffset += seg.end - seg.start
+  }
+  result.sort((a, b) => a.start - b.start)
+  return result
+}
+
 const Player = dynamic(() => import('@remotion/player').then((m) => m.Player), { ssr: false })
 const LavidzComposition = dynamic(
   () => import('@/remotion/LavidzComposition').then((m) => m.LavidzComposition),
@@ -485,8 +509,16 @@ export function ProcessView({ recordings, themeName, sessionId, themeSlug, monta
         if (silenceCutEnabled) {
           try {
             const res = await fetch('/api/silence-cut', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ videoUrl: realUrl, threshold: silenceThreshold }) })
-            if (res.ok) { const { id } = await res.json(); realUrl = `${window.location.origin}/api/silence-cut/${id}` }
-            else setSilenceCutError(await res.text())
+            if (res.ok) {
+              const { id, keepIntervals } = await res.json()
+              realUrl = `${window.location.origin}/api/silence-cut/${id}`
+              // Remap word timestamps to match the cut video
+              if (keepIntervals?.length && wordTimestampsRef.current[rec.id]?.length) {
+                const remapped = remapWordTimestamps(wordTimestampsRef.current[rec.id], keepIntervals)
+                setWordTimestampsMap(prev => ({ ...prev, [rec.id]: remapped }))
+                wordTimestampsRef.current[rec.id] = remapped
+              }
+            } else setSilenceCutError(await res.text())
           } catch { setSilenceCutError('Coupure silences échouée') }
         } else {
           try {

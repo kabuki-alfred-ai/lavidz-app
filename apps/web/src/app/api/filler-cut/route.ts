@@ -59,7 +59,7 @@ export async function POST(req: Request) {
 
     // Get word-level timestamps from Deepgram
     const dgRes = await fetch(
-      'https://api.deepgram.com/v1/listen?model=nova-3&language=fr&smart_format=true&words=true',
+      'https://api.deepgram.com/v1/listen?model=nova-3&language=fr&smart_format=false&filler_words=true&words=true',
       {
         method: 'POST',
         headers: {

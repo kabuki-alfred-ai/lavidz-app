@@ -117,11 +117,23 @@ export async function POST(req: Request) {
     }
 
     const transcript = data.text.trim()
-    const wordTimestamps = data.words?.map(w => ({
+    const rawWords = data.words?.map(w => ({
       word: w.word.trim(),
       start: w.start,
       end: w.end,
     })) ?? []
+
+    // Merge elided tokens: ["j'", "étais"] → ["j'étais"]
+    const wordTimestamps: typeof rawWords = []
+    for (let i = 0; i < rawWords.length; i++) {
+      const w = rawWords[i]
+      if (w.word.endsWith("'") && i + 1 < rawWords.length) {
+        wordTimestamps.push({ word: w.word + rawWords[i + 1].word, start: w.start, end: rawWords[i + 1].end })
+        i++
+      } else {
+        wordTimestamps.push(w)
+      }
+    }
 
     return Response.json({ transcript, wordTimestamps, provider: name, model })
 

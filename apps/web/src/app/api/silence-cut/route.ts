@@ -67,14 +67,20 @@ export async function POST(req: Request) {
       ? parseInt(durationMatch[1]) * 3600 + parseInt(durationMatch[2]) * 60 + parseFloat(durationMatch[3])
       : null
 
-    // Build keep intervals with 200ms padding around speech to avoid abrupt cuts
-    const PAD = 0.2
+    // Build keep intervals with 150ms padding around speech to avoid abrupt cuts
+    const PAD = 0.15
     const keepIntervals: { start: number; end: number }[] = []
     let pos = 0
     for (let i = 0; i < silenceStarts.length; i++) {
-      const segEnd = Math.min(silenceStarts[i] + PAD, totalDuration ?? silenceStarts[i] + PAD)
-      if (segEnd > pos + 0.05) keepIntervals.push({ start: pos, end: segEnd })
-      pos = Math.max(0, (silenceEnds[i] ?? silenceStarts[i]) - PAD)
+      const silStart = silenceStarts[i]
+      const silEnd = silenceEnds[i] ?? totalDuration ?? (silStart + 0.4)
+      const segEnd = silStart + PAD
+      const nextPos = silEnd - PAD
+      // Only cut if silence is long enough (avoids overlapping intervals)
+      if (nextPos > segEnd && segEnd > pos + 0.05) {
+        keepIntervals.push({ start: pos, end: segEnd })
+        pos = nextPos
+      }
     }
     if (totalDuration && pos < totalDuration - 0.05) keepIntervals.push({ start: pos, end: totalDuration })
 
@@ -85,7 +91,7 @@ export async function POST(req: Request) {
         '-c:v', 'libx264', '-c:a', 'aac', '-movflags', '+faststart', outputPath,
       ], { timeout: 60_000 })
       if (remux.status !== 0) throw new Error(`FFmpeg remux failed: ${remux.stderr?.toString().slice(-300)}`)
-      return Response.json({ id })
+      return Response.json({ id, keepIntervals: totalDuration ? [{ start: 0, end: totalDuration }] : [] })
     }
 
     // Build filtergraph: trim each keep interval for video and audio, then concat
@@ -109,7 +115,7 @@ export async function POST(req: Request) {
       throw new Error(`FFmpeg a échoué : ${stderr.slice(-500)}`)
     }
 
-    return Response.json({ id })
+    return Response.json({ id, keepIntervals })
   } finally {
     try { fs.unlinkSync(inputPath) } catch {}
   }
