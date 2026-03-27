@@ -54,6 +54,9 @@ COPY --from=builder /app/apps/web/public ./apps/web/public
 # Remotion TypeScript sources (needed for bundler at runtime)
 COPY --from=builder /app/apps/web/src/remotion ./apps/web/src/remotion
 
+# Remotion native compositor binaries (not included in standalone bundle)
+COPY --from=builder /app/node_modules/.pnpm/@remotion+compositor-linux-x64-gnu@4.0.438 ./node_modules/.pnpm/@remotion+compositor-linux-x64-gnu@4.0.438
+
 # Download Remotion chrome-headless-shell at image build time
 RUN node --input-type=module <<'EOF'
 import { createRequire } from 'module';
