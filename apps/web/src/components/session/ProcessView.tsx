@@ -542,13 +542,13 @@ export function ProcessView({ recordings, themeName, sessionId, themeSlug, monta
             setLoadingStep(`Suppression tics de langage ${i+1}/${recordings.length}...`)
             const res = await fetch('/api/filler-cut', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ videoUrl: realUrl }) })
             if (res.ok) {
-              const { id, keepIntervals } = await res.json()
+              const { id, wordTimestamps } = await res.json()
               if (id) {
                 realUrl = `${window.location.origin}/api/filler-cut/${id}`
-                if (keepIntervals?.length && wordTimestampsRef.current[rec.id]?.length) {
-                  const remapped = remapWordTimestamps(wordTimestampsRef.current[rec.id], keepIntervals)
-                  setWordTimestampsMap(prev => ({ ...prev, [rec.id]: remapped }))
-                  wordTimestampsRef.current[rec.id] = remapped
+                // Cleanvoice returns timestamps already aligned to the cleaned video
+                if (wordTimestamps?.length) {
+                  setWordTimestampsMap(prev => ({ ...prev, [rec.id]: wordTimestamps }))
+                  wordTimestampsRef.current[rec.id] = wordTimestamps
                 }
               }
             } else setFillerCutError(await res.text())
