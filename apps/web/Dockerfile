@@ -47,6 +47,9 @@ COPY --from=builder /app/apps/web/.next/standalone ./
 # Static assets
 COPY --from=builder /app/apps/web/.next/static ./apps/web/.next/static
 
+# Public folder (images, fonts, etc.)
+COPY --from=builder /app/apps/web/public ./apps/web/public
+
 # Remotion TypeScript sources (needed for bundler at runtime)
 COPY --from=builder /app/apps/web/src/remotion ./apps/web/src/remotion
 
