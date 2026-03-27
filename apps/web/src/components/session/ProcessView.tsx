@@ -298,6 +298,9 @@ export function ProcessView({ recordings, themeName, sessionId, themeSlug, monta
   )
   const [wordTimestampsMap, setWordTimestampsMap] = useState<Record<string, WordTimestamp[]>>({})
   const wordTimestampsRef = useRef<Record<string, WordTimestamp[]>>({})
+  // Source timestamps = original pre-processing timestamps from transcription.
+  // Never overwritten by remapping so we always remap from a clean base.
+  const sourceWordTimestampsRef = useRef<Record<string, WordTimestamp[]>>({})
   const [transcribing, setTranscribing] = useState<Record<string, boolean>>({})
   const [silenceCutEnabled, setSilenceCutEnabled] = useState(false)
   const [silenceThreshold, setSilenceThreshold] = useState(-35)
@@ -361,6 +364,7 @@ export function ProcessView({ recordings, themeName, sessionId, themeSlug, monta
       if (s.denoiseStrength) setDenoiseStrength(s.denoiseStrength)
       if (s.localTranscripts) setLocalTranscripts(s.localTranscripts)
       if (s.wordTimestampsMap) setWordTimestampsMap(s.wordTimestampsMap)
+      if (s.sourceWordTimestampsMap) sourceWordTimestampsRef.current = s.sourceWordTimestampsMap
     }
 
     // Initialize asset caches from recording DB fields
@@ -385,6 +389,7 @@ export function ProcessView({ recordings, themeName, sessionId, themeSlug, monta
     motionSettings, questionCardFrames, activePresetId, audioSettings,
     bgMusicPrompt, transitionSfxPrompt, silenceCutEnabled, silenceThreshold,
     fillerCutEnabled, denoiseEnabled, denoiseStrength, localTranscripts, wordTimestampsMap,
+    sourceWordTimestampsMap: sourceWordTimestampsRef.current,
   })
   const settingsForSaveRef = useRef(settingsForSave)
   useEffect(() => {
@@ -506,13 +511,18 @@ export function ProcessView({ recordings, themeName, sessionId, themeSlug, monta
         setLoadingStep(silenceCutEnabled ? `Coupure silences ${i+1}/${recordings.length}...` : `Traitement vidéo ${i+1}/${recordings.length}...`)
         let realUrl = rec.videoUrl
 
+        // Reset display timestamps to source (original pre-processing) so each run
+        // remaps from a clean base, preventing double-remapping on settings change.
+        const srcTs = sourceWordTimestampsRef.current[rec.id]
+        if (srcTs?.length) wordTimestampsRef.current[rec.id] = srcTs
+
         if (silenceCutEnabled) {
           try {
             const res = await fetch('/api/silence-cut', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ videoUrl: realUrl, threshold: silenceThreshold }) })
             if (res.ok) {
               const { id, keepIntervals } = await res.json()
               realUrl = `${window.location.origin}/api/silence-cut/${id}`
-              // Remap word timestamps to match the cut video
+              // wordTimestampsRef was reset to source at start of this loop iteration
               if (keepIntervals?.length && wordTimestampsRef.current[rec.id]?.length) {
                 const remapped = remapWordTimestamps(wordTimestampsRef.current[rec.id], keepIntervals)
                 setWordTimestampsMap(prev => ({ ...prev, [rec.id]: remapped }))
@@ -650,6 +660,7 @@ export function ProcessView({ recordings, themeName, sessionId, themeSlug, monta
         updateTranscript(recording.id, transcript)
         if (wordTimestamps?.length) {
           setWordTimestampsMap(p => ({ ...p, [recording.id]: wordTimestamps }))
+          sourceWordTimestampsRef.current[recording.id] = wordTimestamps
           setSegments(prev => prev ? prev.map(seg =>
             seg.id === recording.id ? { ...seg, wordTimestamps } : seg
           ) : prev)
