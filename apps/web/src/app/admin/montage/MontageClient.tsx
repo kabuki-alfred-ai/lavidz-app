@@ -1,6 +1,6 @@
 'use client'
 
-import React, { useState } from 'react'
+import React, { useState, useMemo } from 'react'
 import Link from 'next/link'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
@@ -213,10 +213,8 @@ export function MontageClient({ themes, initialSessions }: Props) {
     }
   }
 
-  const pending = sessions.filter(s => s.status !== 'DONE')
-  const history = sessions.filter(s => s.status === 'DONE')
-  const pendingGroups = groupSessions(pending)
-  const historyGroups = groupSessions(history)
+  const pendingGroups = useMemo(() => groupSessions(sessions.filter(s => s.status !== 'DONE')), [sessions])
+  const historyGroups = useMemo(() => groupSessions(sessions.filter(s => s.status === 'DONE')), [sessions])
 
   return (
     <div className="max-w-6xl space-y-12 animate-in fade-in duration-700">
@@ -358,9 +356,9 @@ export function MontageClient({ themes, initialSessions }: Props) {
       <section className="space-y-6">
         <div className="flex items-center justify-between px-1">
           <SectionHeader icon={Clock} label="En attente de montage" />
-          {pending.length > 0 && (
+          {pendingGroups.length > 0 && (
             <Badge variant="secondary" className="font-mono text-[10px] bg-primary/5 text-primary border-primary/20">
-              {pending.length} à traiter
+              {sessions.filter(s => s.status !== 'DONE').length} à traiter
             </Badge>
           )}
         </div>

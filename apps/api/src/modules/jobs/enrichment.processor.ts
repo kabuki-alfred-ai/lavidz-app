@@ -4,7 +4,7 @@ import { Job } from 'bullmq'
 import { EnrichmentJobData } from '@lavidz/types'
 import { EnrichmentService } from '../ai/services/enrichment.service'
 
-@Processor('enrichment')
+@Processor('enrichment', { concurrency: 2 })
 export class EnrichmentProcessor extends WorkerHost {
   private readonly logger = new Logger(EnrichmentProcessor.name)
 

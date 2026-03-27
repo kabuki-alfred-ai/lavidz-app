@@ -15,6 +15,7 @@ export class StorageService implements OnModuleInit {
   private readonly client: S3Client
   private readonly presignClient: S3Client
   private readonly bucket: string
+  private readonly urlCache = new Map<string, { url: string; expiresAt: number }>()
 
   constructor() {
     const credentials = {
@@ -61,12 +62,19 @@ export class StorageService implements OnModuleInit {
     return key
   }
 
-  getSignedUrl(key: string, expiresIn = 3600) {
-    return getSignedUrl(
+  async getSignedUrl(key: string, expiresIn = 3600): Promise<string> {
+    const now = Date.now()
+    const cached = this.urlCache.get(key)
+    if (cached && cached.expiresAt > now) return cached.url
+
+    const url = await getSignedUrl(
       this.presignClient,
       new GetObjectCommand({ Bucket: this.bucket, Key: key }),
       { expiresIn },
     )
+    // Cache for 90% of expiry duration to avoid serving near-expired URLs
+    this.urlCache.set(key, { url, expiresAt: now + expiresIn * 900 })
+    return url
   }
 
   async delete(key: string) {

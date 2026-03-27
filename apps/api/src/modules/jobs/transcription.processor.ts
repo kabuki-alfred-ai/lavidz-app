@@ -4,7 +4,7 @@ import { prisma } from '@lavidz/database'
 import { StorageService } from '../storage/storage.service'
 import { TranscriptionJobData } from '@lavidz/types'
 
-@Processor('transcription')
+@Processor('transcription', { concurrency: 3 })
 export class TranscriptionProcessor extends WorkerHost {
   constructor(private readonly storageService: StorageService) {
     super()

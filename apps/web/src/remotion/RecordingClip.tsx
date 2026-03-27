@@ -1,4 +1,5 @@
 import { AbsoluteFill, Audio, Video, interpolate, spring, useCurrentFrame, useVideoConfig } from 'remotion'
+import { useMemo } from 'react'
 import type { SubtitleSettings } from './subtitleTypes'
 import { DEFAULT_SUBTITLE_SETTINGS } from './subtitleTypes'
 import type { MotionSettings, WordTimestamp } from './themeTypes'
@@ -18,6 +19,21 @@ interface WordWindow {
   words: string[]
   activeIndex: number
   framesIntoActiveWord: number
+}
+
+// Binary search: finds the index of the word active at `currentTimeSec`.
+// Returns a negative encoded value -(insertionPoint+1) when between words,
+// where insertionPoint is the index of the next word (lo after the search).
+function binarySearchWord(timestamps: WordTimestamp[], currentTimeSec: number): number {
+  let lo = 0
+  let hi = timestamps.length - 1
+  while (lo <= hi) {
+    const mid = (lo + hi) >> 1
+    if (timestamps[mid].end < currentTimeSec) lo = mid + 1
+    else if (timestamps[mid].start > currentTimeSec) hi = mid - 1
+    else return mid
+  }
+  return -(lo + 1) // between words: nextIdx = lo, prevIdx = lo - 1
 }
 
 function getWordWindow(
@@ -43,18 +59,18 @@ function getWordWindow(
       return { words: [], activeIndex: 0, framesIntoActiveWord: 0 }
     }
 
-    let idx = wordTimestamps.findIndex(w => currentTimeSec >= w.start && currentTimeSec <= w.end)
-    if (idx === -1) {
-      // Between words — find surrounding words
-      let prevIdx = -1
-      let nextIdx = -1
-      for (let i = 0; i < wordTimestamps.length; i++) {
-        if (wordTimestamps[i].end < currentTimeSec) prevIdx = i
-        else if (nextIdx === -1) nextIdx = i
-      }
+    const searchResult = binarySearchWord(wordTimestamps, currentTimeSec)
+    let idx: number
+
+    if (searchResult >= 0) {
+      idx = searchResult
+    } else {
+      // Between words — decode insertion point
+      const nextIdx = -(searchResult + 1)
+      const prevIdx = nextIdx - 1
 
       // Hide subtitles if the gap to the next word is large (mid-sentence silence)
-      if (prevIdx >= 0 && nextIdx >= 0) {
+      if (prevIdx >= 0 && nextIdx < wordTimestamps.length) {
         const gap = wordTimestamps[nextIdx].start - wordTimestamps[prevIdx].end
         const timeSincePrev = currentTimeSec - wordTimestamps[prevIdx].end
         if (gap > 0.5 && timeSincePrev > SILENCE_THRESHOLD_SEC) {
@@ -326,12 +342,15 @@ export function RecordingClip({
   const videoTransform = `scale(${finalVideoScale}) translateY(${entryTranslateY}px)`
 
   // ─── Subtitles with Word Pop ────────────────────────────────────────────────
-  // Apply offset: shift timestamps by -offsetMs (negative = subtitles appear earlier)
-  const shiftedTimestamps = wordTimestamps?.map(w => ({
-    ...w,
-    start: Math.max(0, w.start - offsetMs / 1000),
-    end: Math.max(0, w.end - offsetMs / 1000),
-  }))
+  // Memoized: recomputed only when wordTimestamps or offsetMs changes, not every frame
+  const shiftedTimestamps = useMemo(
+    () => wordTimestamps?.map(w => ({
+      ...w,
+      start: Math.max(0, w.start - offsetMs / 1000),
+      end: Math.max(0, w.end - offsetMs / 1000),
+    })),
+    [wordTimestamps, offsetMs],
+  )
 
   const { words, activeIndex, framesIntoActiveWord } = transcript
     ? getWordWindow(transcript, frame, durationInFrames, wordsPerLine, fps, shiftedTimestamps)

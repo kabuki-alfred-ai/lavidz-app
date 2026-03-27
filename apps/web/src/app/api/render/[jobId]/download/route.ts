@@ -14,15 +14,45 @@ export async function GET(_req: Request, { params }: { params: Promise<{ jobId: 
     return new Response(job.error, { status: 500 })
   }
 
-  const data = fs.readFileSync(job.outputPath)
-  try { fs.unlinkSync(job.outputPath) } catch {}
+  const outputPath = job.outputPath
+
+  let size: number
+  try {
+    size = (await fs.promises.stat(outputPath)).size
+  } catch {
+    return new Response('File not found', { status: 404 })
+  }
+
+  // Clean up job metadata immediately so it can't be downloaded twice
   jobs.delete(jobId)
 
-  return new Response(data, {
+  // Stream the file instead of loading it entirely into memory
+  const nodeStream = fs.createReadStream(outputPath)
+
+  const webStream = new ReadableStream({
+    start(controller) {
+      nodeStream.on('data', (chunk) => controller.enqueue(new Uint8Array(chunk as Buffer)))
+      nodeStream.on('end', () => {
+        controller.close()
+        // Delete the file after streaming completes
+        fs.unlink(outputPath, () => {})
+      })
+      nodeStream.on('error', (err) => {
+        controller.error(err)
+        fs.unlink(outputPath, () => {})
+      })
+    },
+    cancel() {
+      nodeStream.destroy()
+      fs.unlink(outputPath, () => {})
+    },
+  })
+
+  return new Response(webStream, {
     headers: {
       'Content-Type': 'video/mp4',
       'Content-Disposition': 'attachment; filename="montage.mp4"',
-      'Content-Length': String(data.length),
+      'Content-Length': String(size),
     },
   })
 }

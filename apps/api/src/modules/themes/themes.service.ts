@@ -60,12 +60,20 @@ export class ThemesService {
   }
 
   async update(id: string, dto: UpdateThemeDto): Promise<Theme> {
-    await this.findOne(id)
-    return prisma.theme.update({ where: { id }, data: dto })
+    try {
+      return await prisma.theme.update({ where: { id }, data: dto })
+    } catch (e: any) {
+      if (e?.code === 'P2025') throw new NotFoundException(`Theme ${id} not found`)
+      throw e
+    }
   }
 
   async remove(id: string): Promise<Theme> {
-    await this.findOne(id)
-    return prisma.theme.delete({ where: { id } })
+    try {
+      return await prisma.theme.delete({ where: { id } })
+    } catch (e: any) {
+      if (e?.code === 'P2025') throw new NotFoundException(`Theme ${id} not found`)
+      throw e
+    }
   }
 }

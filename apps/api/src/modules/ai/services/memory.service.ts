@@ -151,18 +151,18 @@ export class MemoryService {
     })
 
     const now = new Date()
-    for (let i = 0; i < items.length; i++) {
-      const item = items[i]
-      const embedding = embeddings[i]
-      const vectorLiteral = `[${embedding.join(',')}]`
-      const id = generateCuid()
-      const tagsLiteral = `{${item.tags.map((t) => `"${t.replace(/"/g, '\\"')}"`).join(',')}}`
-
-      await prisma.$executeRaw`
-        INSERT INTO "ConversationMemory" (id, "profileId", "sessionId", content, embedding, tags, "createdAt")
-        VALUES (${id}, ${profileId}, NULL, ${item.content}, ${vectorLiteral}::vector, ${tagsLiteral}::text[], ${now})
-      `
-    }
+    await Promise.all(
+      items.map(async (item, i) => {
+        const embedding = embeddings[i]
+        const vectorLiteral = `[${embedding.join(',')}]`
+        const id = generateCuid()
+        const tagsLiteral = `{${item.tags.map((t) => `"${t.replace(/"/g, '\\"')}"`).join(',')}}`
+        await prisma.$executeRaw`
+          INSERT INTO "ConversationMemory" (id, "profileId", "sessionId", content, embedding, tags, "createdAt")
+          VALUES (${id}, ${profileId}, NULL, ${item.content}, ${vectorLiteral}::vector, ${tagsLiteral}::text[], ${now})
+        `
+      })
+    )
   }
 
   async saveMany(params: SaveManyParams): Promise<void> {
@@ -177,18 +177,17 @@ export class MemoryService {
     })
 
     const now = new Date()
-
-    for (let i = 0; i < items.length; i++) {
-      const item = items[i]
-      const embedding = embeddings[i]
-      const vectorLiteral = `[${embedding.join(',')}]`
-      const id = generateCuid()
-      const tagsLiteral = `{${item.tags.map((t) => `"${t.replace(/"/g, '\\"')}"`).join(',')}}`
-
-      await prisma.$executeRaw`
-        INSERT INTO "ConversationMemory" (id, "profileId", "sessionId", content, embedding, tags, "createdAt")
-        VALUES (${id}, ${profileId}, ${sessionId}, ${item.content}, ${vectorLiteral}::vector, ${tagsLiteral}::text[], ${now})
-      `
-    }
+    await Promise.all(
+      items.map(async (item, i) => {
+        const embedding = embeddings[i]
+        const vectorLiteral = `[${embedding.join(',')}]`
+        const id = generateCuid()
+        const tagsLiteral = `{${item.tags.map((t) => `"${t.replace(/"/g, '\\"')}"`).join(',')}}`
+        await prisma.$executeRaw`
+          INSERT INTO "ConversationMemory" (id, "profileId", "sessionId", content, embedding, tags, "createdAt")
+          VALUES (${id}, ${profileId}, ${sessionId}, ${item.content}, ${vectorLiteral}::vector, ${tagsLiteral}::text[], ${now})
+        `
+      })
+    )
   }
 }

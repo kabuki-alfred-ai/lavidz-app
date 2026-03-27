@@ -145,14 +145,10 @@ export class UsersService {
       if (existingOrg) {
         organizationId = existingOrg.id
       } else {
-        // ensure slug uniqueness
+        // ensure slug uniqueness — single check + random suffix avoids unbounded DB loop
         const baseSlug = slug
-        let finalSlug = baseSlug
-        let counter = 1
-        while (await prisma.organization.findUnique({ where: { slug: finalSlug } })) {
-          finalSlug = `${baseSlug}-${counter}`
-          counter++
-        }
+        const slugTaken = await prisma.organization.findUnique({ where: { slug: baseSlug }, select: { id: true } })
+        const finalSlug = slugTaken ? `${baseSlug}-${Math.random().toString(36).slice(2, 8)}` : baseSlug
 
         const org = await prisma.organization.create({
           data: { name: trimmedName, slug: finalSlug, status: 'ACTIVE' },

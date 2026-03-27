@@ -1,8 +1,7 @@
 'use client'
 
 import { useState, useRef } from 'react'
-import { FFmpeg } from '@ffmpeg/ffmpeg'
-import { fetchFile, toBlobURL } from '@ffmpeg/util'
+import type { FFmpeg } from '@ffmpeg/ffmpeg'
 import { Button } from '@/components/ui/button'
 import { Progress } from '@/components/ui/progress'
 import { cn } from '@/lib/utils'
@@ -61,8 +60,10 @@ export function VideoProcessor({ recordings, themeName }: Props) {
     setOutputUrl(null)
 
     try {
-      // 1. Load FFmpeg
+      // 1. Load FFmpeg — dynamic import keeps ~30MB WASM out of the initial bundle
       setStep('loading-ffmpeg')
+      const { FFmpeg } = await import('@ffmpeg/ffmpeg')
+      const { fetchFile, toBlobURL } = await import('@ffmpeg/util')
       const ffmpeg = new FFmpeg()
       ffmpegRef.current = ffmpeg
 

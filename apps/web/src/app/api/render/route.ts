@@ -14,6 +14,27 @@ const DEFAULT_VOICE_ID = 'EXAVITQu4vr4xnSDxMaL'
 
 import { jobs } from './jobs-store'
 
+// ─── Concurrency limiter (max 2 simultaneous renders) ─────────────────────────
+let activeRenders = 0
+const MAX_CONCURRENT_RENDERS = 2
+const renderQueue: Array<() => void> = []
+
+function acquireRenderSlot(): Promise<void> {
+  if (activeRenders < MAX_CONCURRENT_RENDERS) {
+    activeRenders++
+    return Promise.resolve()
+  }
+  return new Promise((resolve) => renderQueue.push(resolve))
+}
+
+function releaseRenderSlot(): void {
+  const next = renderQueue.shift()
+  if (!next) activeRenders--
+  else next()
+}
+
+// ─── Helpers ──────────────────────────────────────────────────────────────────
+
 function getS3Client() {
   return new S3Client({
     endpoint: process.env.RUSTFS_ENDPOINT ?? 'http://localhost:9000',
@@ -28,10 +49,17 @@ function getS3Client() {
 
 async function uploadFinalToS3(filePath: string, sessionId: string): Promise<string> {
   const key = `sessions/${sessionId}/final.mp4`
-  const buffer = fs.readFileSync(filePath)
+  const { size } = await fs.promises.stat(filePath)
+  const stream = fs.createReadStream(filePath)
   const s3 = getS3Client()
   const bucket = process.env.RUSTFS_BUCKET ?? 'lavidz-videos'
-  await s3.send(new PutObjectCommand({ Bucket: bucket, Key: key, Body: buffer, ContentType: 'video/mp4' }))
+  await s3.send(new PutObjectCommand({
+    Bucket: bucket,
+    Key: key,
+    Body: stream,
+    ContentLength: size,
+    ContentType: 'video/mp4',
+  }))
   return key
 }
 
@@ -69,35 +97,56 @@ async function generateTTS(text: string, voiceId: string, apiKey: string): Promi
   return Buffer.from(await res.arrayBuffer())
 }
 
+// ─── TTS batch helper: max 3 concurrent requests to avoid ElevenLabs 429 ─────
+async function generateTTSBatched(
+  segments: any[],
+  voiceId: string,
+  apiKey: string,
+): Promise<(string | null)[]> {
+  const results: (string | null)[] = new Array(segments.length).fill(null)
+  const BATCH_SIZE = 3
+
+  for (let i = 0; i < segments.length; i += BATCH_SIZE) {
+    const batch = segments.slice(i, i + BATCH_SIZE)
+    const batchResults = await Promise.all(
+      batch.map(async (seg: any) => {
+        if (!seg.questionText || !apiKey) return null
+        const audio = await generateTTS(seg.questionText, voiceId ?? DEFAULT_VOICE_ID, apiKey)
+        if (!audio) return null
+        const id = crypto.randomUUID()
+        await fs.promises.writeFile(path.join('/tmp', `tts-render-${id}.mp3`), audio)
+        return id
+      })
+    )
+    batchResults.forEach((r, j) => { results[i + j] = r })
+  }
+
+  return results
+}
+
 async function runRender(jobId: string, body: any) {
   const { segments, questionCardFrames, subtitleSettings, theme, intro, outro, fps, width, height, voiceId, origin, sessionId, motionSettings, audioSettings } = body
   const apiKey = process.env.ELEVENLABS_API_KEY ?? ''
+  const ttsIds: (string | null)[] = []
 
   const setProgress = (p: number) => {
     const job = jobs.get(jobId)
     if (job) jobs.set(jobId, { ...job, progress: p })
   }
 
+  await acquireRenderSlot()
+
   try {
     setProgress(2)
 
-    // Generate TTS server-side
-    const ttsIds: (string | null)[] = await Promise.all(
-      segments.map(async (seg: any) => {
-        if (!seg.questionText || !apiKey) return null
-        const audio = await generateTTS(seg.questionText, voiceId ?? DEFAULT_VOICE_ID, apiKey)
-        if (!audio) return null
-        const id = crypto.randomUUID()
-        fs.writeFileSync(path.join('/tmp', `tts-render-${id}.mp3`), audio)
-        return id
-      })
-    )
+    // Generate TTS server-side — max 3 concurrent to avoid ElevenLabs 429
+    const generatedIds = await generateTTSBatched(segments, voiceId ?? DEFAULT_VOICE_ID, apiKey)
+    ttsIds.push(...generatedIds)
 
     const serverSegments = segments.map((seg: any, i: number) => ({
       ...seg,
       ttsUrl: ttsIds[i] ? `${origin}/api/tts-asset/${ttsIds[i]}` : null,
     }))
-
 
     setProgress(10)
 
@@ -115,22 +164,30 @@ async function runRender(jobId: string, body: any) {
 
     const outputPath = path.join('/tmp', `render-${jobId}.mp4`)
 
-    await renderMedia({
-      composition: comp,
-      serveUrl: cachedBundle,
-      codec: 'h264',
-      outputLocation: outputPath,
-      inputProps,
-      onProgress: ({ progress }) => {
-        // progress: 0–1, map to 15–98
-        setProgress(15 + Math.round(progress * 83))
-      },
-    })
+    // Timeout: fail the render if it takes more than 8 minutes
+    const RENDER_TIMEOUT_MS = 8 * 60 * 1000
+    const renderTimeout = new Promise<never>((_, reject) =>
+      setTimeout(() => reject(new Error('Render timeout after 8 minutes')), RENDER_TIMEOUT_MS)
+    )
 
-    // Cleanup TTS
-    for (const id of ttsIds) {
-      if (id) try { fs.unlinkSync(path.join('/tmp', `tts-render-${id}.mp3`)) } catch {}
-    }
+    await Promise.race([
+      renderMedia({
+        composition: comp,
+        serveUrl: cachedBundle,
+        codec: 'h264',
+        outputLocation: outputPath,
+        inputProps,
+        onProgress: ({ progress }) => {
+          setProgress(15 + Math.round(progress * 83))
+        },
+      }),
+      renderTimeout,
+    ])
+
+    // Cleanup TTS files
+    await Promise.all(
+      ttsIds.map(id => id ? fs.promises.unlink(path.join('/tmp', `tts-render-${id}.mp3`)).catch(() => {}) : Promise.resolve())
+    )
 
     // If sessionId provided, upload final video to S3 and update session
     if (sessionId) {
@@ -144,7 +201,13 @@ async function runRender(jobId: string, body: any) {
 
     jobs.set(jobId, { progress: 100, done: true, outputPath, error: null })
   } catch (err) {
+    // Cleanup TTS files on error
+    await Promise.all(
+      ttsIds.map(id => id ? fs.promises.unlink(path.join('/tmp', `tts-render-${id}.mp3`)).catch(() => {}) : Promise.resolve())
+    )
     jobs.set(jobId, { progress: 0, done: true, outputPath: null, error: String(err) })
+  } finally {
+    releaseRenderSlot()
   }
 }
 
@@ -154,7 +217,7 @@ export async function POST(req: Request) {
     const jobId = crypto.randomUUID()
     jobs.set(jobId, { progress: 0, done: false, outputPath: null, error: null })
 
-    // Fire and forget
+    // Fire and forget (concurrency limited internally)
     runRender(jobId, body)
 
     return Response.json({ jobId })

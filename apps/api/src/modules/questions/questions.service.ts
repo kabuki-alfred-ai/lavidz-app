@@ -23,14 +23,22 @@ export class QuestionsService {
   }
 
   async update(id: string, dto: UpdateQuestionDto): Promise<Question> {
-    await this.findOne(id)
-    return prisma.question.update({ where: { id }, data: dto })
+    try {
+      return await prisma.question.update({ where: { id }, data: dto })
+    } catch (e: any) {
+      if (e?.code === 'P2025') throw new NotFoundException(`Question ${id} not found`)
+      throw e
+    }
   }
 
   async remove(id: string): Promise<Question> {
-    await this.findOne(id)
-    await prisma.recording.deleteMany({ where: { questionId: id } })
-    return prisma.question.delete({ where: { id } })
+    try {
+      await prisma.recording.deleteMany({ where: { questionId: id } })
+      return await prisma.question.delete({ where: { id } })
+    } catch (e: any) {
+      if (e?.code === 'P2025') throw new NotFoundException(`Question ${id} not found`)
+      throw e
+    }
   }
 
   async reorder(themeId: string, orderedIds: string[]): Promise<Question[]> {
