@@ -68,12 +68,22 @@ export class ThemesService {
     }
   }
 
-  async remove(id: string): Promise<Theme> {
-    try {
-      return await prisma.theme.delete({ where: { id } })
-    } catch (e: any) {
-      if (e?.code === 'P2025') throw new NotFoundException(`Theme ${id} not found`)
-      throw e
+  async remove(id: string): Promise<Theme & { archived?: boolean }> {
+    const theme = await prisma.theme.findUnique({
+      where: { id },
+      include: { _count: { select: { sessions: true } } },
+    })
+    if (!theme) throw new NotFoundException(`Theme ${id} not found`)
+
+    // If the theme has sessions referencing it, archive instead of deleting
+    if ((theme as any)._count.sessions > 0) {
+      const archived = await prisma.theme.update({
+        where: { id },
+        data: { active: false },
+      })
+      return { ...archived, archived: true }
     }
+
+    return prisma.theme.delete({ where: { id } })
   }
 }

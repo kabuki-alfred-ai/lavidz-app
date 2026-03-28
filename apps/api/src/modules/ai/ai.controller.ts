@@ -119,6 +119,12 @@ export class AiController {
     return { questions, themeTitle, themeDescription, theme, session, shareLink }
   }
 
+  @Post('profile/reset')
+  async resetProfile(@Headers('x-organization-id') organizationId: string): Promise<EntrepreneurProfile> {
+    if (!organizationId) throw new BadRequestException('Header x-organization-id requis')
+    return this.profileService.reset(organizationId)
+  }
+
   @Post('profile/summarize')
   async summarizeProfile(
     @Headers('x-organization-id') organizationId: string,

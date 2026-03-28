@@ -35,14 +35,17 @@ export function DeleteThemeButton({ themeId, themeName }: Props) {
         <AlertDialogHeader>
           <AlertDialogTitle>Supprimer ce thème ?</AlertDialogTitle>
           <AlertDialogDescription>
-            Le thème <strong>{themeName}</strong> ainsi que toutes ses questions seront définitivement supprimés.
-            Les sessions associées ne seront pas affectées. Cette action est irréversible.
+            Le thème <strong>{themeName}</strong> sera traité selon ses dépendances :{' '}
+            <span className="block mt-2 space-y-1">
+              <span className="block">• <strong>Sans sessions associées</strong> — suppression définitive avec toutes ses questions.</span>
+              <span className="block">• <strong>Avec sessions associées</strong> — archivage (thème désactivé, invisible aux utilisateurs, sessions conservées).</span>
+            </span>
           </AlertDialogDescription>
         </AlertDialogHeader>
         <AlertDialogFooter>
           <AlertDialogCancel>Annuler</AlertDialogCancel>
           <AlertDialogAction onClick={handleDelete}>
-            Supprimer définitivement
+            Supprimer / Archiver
           </AlertDialogAction>
         </AlertDialogFooter>
       </AlertDialogContent>

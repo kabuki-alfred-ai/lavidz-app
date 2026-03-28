@@ -24,6 +24,7 @@ import {
   FileText,
   CheckCircle2,
   X,
+  Trash2,
 } from 'lucide-react'
 
 // ─── Types ────────────────────────────────────────────────────────────────────
@@ -574,6 +575,8 @@ export default function AiProfilePage() {
   const [loading, setLoading] = useState(true)
   const [refreshing, setRefreshing] = useState(false)
   const [error, setError] = useState<string | null>(null)
+  const [showResetConfirm, setShowResetConfirm] = useState(false)
+  const [resetting, setResetting] = useState(false)
 
   async function load(silent = false) {
     if (!silent) setLoading(true)
@@ -592,6 +595,20 @@ export default function AiProfilePage() {
     } finally {
       setLoading(false)
       setRefreshing(false)
+    }
+  }
+
+  async function resetProfile() {
+    setResetting(true)
+    try {
+      const res = await fetch('/api/admin/ai/profile', { method: 'DELETE' })
+      if (!res.ok) throw new Error(await res.text())
+      setShowResetConfirm(false)
+      await load()
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Erreur lors du reset')
+    } finally {
+      setResetting(false)
     }
   }
 
@@ -639,6 +656,41 @@ export default function AiProfilePage() {
         }
       `}</style>
 
+      {/* ── Reset confirmation modal ── */}
+      {showResetConfirm && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm">
+          <div className="bg-background border border-border rounded-sm p-8 max-w-sm w-full mx-4 space-y-6 shadow-2xl">
+            <div className="space-y-2">
+              <div className="flex items-center gap-2">
+                <Trash2 size={16} className="text-red-400" />
+                <h2 className="font-inter font-black text-lg tracking-tight text-foreground">Réinitialiser le profil IA</h2>
+              </div>
+              <p className="text-sm text-muted-foreground leading-relaxed">
+                Cette action supprime <strong className="text-foreground">toutes les mémoires</strong> et réinitialise le profil complet. L&apos;IA repartira de zéro.
+              </p>
+              <p className="text-[10px] font-mono text-red-400/80 uppercase tracking-wider">Action irréversible</p>
+            </div>
+            <div className="flex gap-3">
+              <button
+                onClick={() => setShowResetConfirm(false)}
+                disabled={resetting}
+                className="flex-1 px-4 py-2.5 border border-border/60 rounded-sm text-[11px] font-mono uppercase tracking-widest text-muted-foreground hover:text-foreground hover:border-border transition-colors disabled:opacity-40"
+              >
+                Annuler
+              </button>
+              <button
+                onClick={resetProfile}
+                disabled={resetting}
+                className="flex-1 flex items-center justify-center gap-2 px-4 py-2.5 bg-red-500/10 border border-red-500/30 rounded-sm text-[11px] font-mono uppercase tracking-widest text-red-400 hover:bg-red-500/20 hover:border-red-500/50 transition-colors disabled:opacity-40"
+              >
+                {resetting ? <Loader2 size={11} className="animate-spin" /> : <Trash2 size={11} />}
+                {resetting ? 'Réinitialisation…' : 'Réinitialiser'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
       <div className="max-w-5xl space-y-10 animate-in fade-in duration-700">
         {/* ── Header ── */}
         <div className="flex items-start justify-between gap-4">
@@ -658,14 +710,23 @@ export default function AiProfilePage() {
               Ce que l&apos;IA connait de vous
             </p>
           </div>
-          <button
-            onClick={() => load(true)}
-            disabled={refreshing}
-            className="flex items-center gap-1.5 px-3 py-1.5 border border-border/60 rounded-sm text-[10px] font-mono uppercase tracking-widest text-muted-foreground hover:text-foreground hover:border-border transition-colors disabled:opacity-40"
-          >
-            <RefreshCw size={10} className={refreshing ? 'animate-spin' : ''} />
-            Actualiser
-          </button>
+          <div className="flex items-center gap-2">
+            <button
+              onClick={() => load(true)}
+              disabled={refreshing}
+              className="flex items-center gap-1.5 px-3 py-1.5 border border-border/60 rounded-sm text-[10px] font-mono uppercase tracking-widest text-muted-foreground hover:text-foreground hover:border-border transition-colors disabled:opacity-40"
+            >
+              <RefreshCw size={10} className={refreshing ? 'animate-spin' : ''} />
+              Actualiser
+            </button>
+            <button
+              onClick={() => setShowResetConfirm(true)}
+              className="flex items-center gap-1.5 px-3 py-1.5 border border-red-500/20 rounded-sm text-[10px] font-mono uppercase tracking-widest text-red-400/60 hover:text-red-400 hover:border-red-500/40 transition-colors"
+            >
+              <Trash2 size={10} />
+              Reset
+            </button>
+          </div>
         </div>
 
         {/* ── Stats ── */}

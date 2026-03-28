@@ -87,6 +87,25 @@ ${conversationSummary}`,
     })
   }
 
+  async reset(organizationId: string): Promise<EntrepreneurProfile> {
+    const profile = await prisma.entrepreneurProfile.findUnique({
+      where: { organizationId },
+    })
+    if (!profile) throw new NotFoundException(`Profil introuvable pour l'organisation ${organizationId}`)
+
+    // Delete all memories (cascade would handle it on profile delete, but we keep the profile)
+    await prisma.conversationMemory.deleteMany({ where: { profileId: profile.id } })
+
+    return prisma.entrepreneurProfile.update({
+      where: { organizationId },
+      data: {
+        businessContext: {} as Prisma.InputJsonValue,
+        topicsExplored: [],
+        communicationStyle: null,
+      },
+    })
+  }
+
   async getByOrganization(organizationId: string): Promise<EntrepreneurProfile | null> {
     return prisma.entrepreneurProfile.findUnique({
       where: { organizationId },
