@@ -2,6 +2,7 @@ import { spawnSync } from 'child_process'
 import crypto from 'crypto'
 import fs from 'fs'
 import path from 'path'
+import { purgeStaleTmpFiles } from '@/lib/tmp-cleanup'
 
 export const runtime = 'nodejs'
 export const maxDuration = 120
@@ -25,6 +26,7 @@ function findFfmpeg(): string | null {
 }
 
 export async function POST(req: Request) {
+  purgeStaleTmpFiles('silence-cut-')
   let { videoUrl, threshold = -35 } = await req.json()
   if (videoUrl.startsWith('/')) {
     const origin = req.headers.get('origin') ?? `http://${req.headers.get('host')}`

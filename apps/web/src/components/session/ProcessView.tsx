@@ -160,6 +160,28 @@ const STANDARD_VOICE_IDS = new Set([
 
 interface Voice { id: string; name: string; previewUrl: string; accent: string; gender: string; language: string }
 
+interface CleanvoiceConfig {
+  fillers: boolean
+  hesitations: boolean
+  stutters: boolean
+  muted: boolean
+  long_silences: boolean
+  mouth_sounds: boolean
+  remove_noise: boolean
+  studio_sound: 'nightly' | false
+}
+
+const DEFAULT_CLEANVOICE_CONFIG: CleanvoiceConfig = {
+  fillers: true,
+  hesitations: true,
+  stutters: false,
+  muted: true,
+  long_silences: true,
+  mouth_sounds: true,
+  remove_noise: false,
+  studio_sound: false,
+}
+
 interface Props {
   recordings: RawRecording[]
   themeName: string
@@ -307,6 +329,9 @@ export function ProcessView({ recordings, themeName, sessionId, themeSlug, monta
   const [silenceCutError, setSilenceCutError] = useState('')
   const [fillerCutEnabled, setFillerCutEnabled] = useState(false)
   const [fillerCutError, setFillerCutError] = useState('')
+  const [cleanvoiceEnabled, setCleanvoiceEnabled] = useState(false)
+  const [cleanvoiceConfig, setCleanvoiceConfig] = useState<CleanvoiceConfig>(DEFAULT_CLEANVOICE_CONFIG)
+  const [cleanvoiceError, setCleanvoiceError] = useState('')
   const [denoiseEnabled, setDenoiseEnabled] = useState(false)
   const [denoiseStrength, setDenoiseStrength] = useState<'light' | 'moderate' | 'strong' | 'isolate'>('moderate')
   const [regenerating, setRegenerating] = useState(false)
@@ -330,7 +355,7 @@ export function ProcessView({ recordings, themeName, sessionId, themeSlug, monta
   const blobUrlsRef = useRef<string[]>([])
   const durationsRef = useRef<number[]>([])
   const effectiveVideoUrlsRef = useRef<string[]>([])
-  const lastProcessedSettingsRef = useRef<{ enabled: boolean; threshold: number; fillerCutEnabled: boolean; denoiseEnabled: boolean; denoiseStrength: 'light' | 'moderate' | 'strong' | 'isolate' } | null>(null)
+  const lastProcessingHashRef = useRef<string | null>(null)
 
   useEffect(() => { localTranscriptsRef.current = localTranscripts }, [localTranscripts])
   useEffect(() => { wordTimestampsRef.current = wordTimestampsMap }, [wordTimestampsMap])
@@ -362,6 +387,8 @@ export function ProcessView({ recordings, themeName, sessionId, themeSlug, monta
       if (typeof s.fillerCutEnabled === 'boolean') setFillerCutEnabled(s.fillerCutEnabled)
       if (typeof s.denoiseEnabled === 'boolean') setDenoiseEnabled(s.denoiseEnabled)
       if (s.denoiseStrength) setDenoiseStrength(s.denoiseStrength)
+      if (typeof s.cleanvoiceEnabled === 'boolean') setCleanvoiceEnabled(s.cleanvoiceEnabled)
+      if (s.cleanvoiceConfig) setCleanvoiceConfig(s.cleanvoiceConfig)
       if (s.localTranscripts) setLocalTranscripts(s.localTranscripts)
       if (s.wordTimestampsMap) setWordTimestampsMap(s.wordTimestampsMap)
       if (s.sourceWordTimestampsMap) sourceWordTimestampsRef.current = s.sourceWordTimestampsMap
@@ -388,7 +415,8 @@ export function ProcessView({ recordings, themeName, sessionId, themeSlug, monta
     selectedVoiceId, voiceEnabled, format, subtitleSettings, theme, intro, outro,
     motionSettings, questionCardFrames, activePresetId, audioSettings,
     bgMusicPrompt, transitionSfxPrompt, silenceCutEnabled, silenceThreshold,
-    fillerCutEnabled, denoiseEnabled, denoiseStrength, localTranscripts, wordTimestampsMap,
+    fillerCutEnabled, denoiseEnabled, denoiseStrength, cleanvoiceEnabled, cleanvoiceConfig,
+    localTranscripts, wordTimestampsMap,
     sourceWordTimestampsMap: sourceWordTimestampsRef.current,
   })
   const settingsForSaveRef = useRef(settingsForSave)
@@ -471,15 +499,15 @@ export function ProcessView({ recordings, themeName, sessionId, themeSlug, monta
   const prepare = async (voiceId: string | null) => {
     setSilenceCutError('')
     setFillerCutError('')
-    const currentProcessingHash = `${silenceCutEnabled}-${silenceThreshold}-${fillerCutEnabled}-${denoiseEnabled}-${denoiseStrength}`
-    const silenceCutChanged = !lastProcessedSettingsRef.current ||
-      lastProcessedSettingsRef.current.enabled !== silenceCutEnabled ||
-      lastProcessedSettingsRef.current.threshold !== silenceThreshold ||
-      lastProcessedSettingsRef.current.fillerCutEnabled !== fillerCutEnabled ||
-      lastProcessedSettingsRef.current.denoiseEnabled !== denoiseEnabled ||
-      lastProcessedSettingsRef.current.denoiseStrength !== denoiseStrength
+    setCleanvoiceError('')
 
-    if (blobUrlsRef.current.length === 0 || silenceCutChanged) {
+    const currentProcessingHash = cleanvoiceEnabled
+      ? `cv-${JSON.stringify(cleanvoiceConfig)}`
+      : `${silenceCutEnabled}-${silenceThreshold}-${fillerCutEnabled}-${denoiseEnabled}-${denoiseStrength}`
+
+    const processingChanged = lastProcessingHashRef.current !== currentProcessingHash
+
+    if (blobUrlsRef.current.length === 0 || processingChanged) {
       blobUrlsRef.current = []; effectiveVideoUrlsRef.current = []; durationsRef.current = []
 
       for (let i = 0; i < recordings.length; i++) {
@@ -508,7 +536,6 @@ export function ProcessView({ recordings, themeName, sessionId, themeSlug, monta
           }
         }
 
-        setLoadingStep(silenceCutEnabled ? `Coupure silences ${i+1}/${recordings.length}...` : `Traitement vidéo ${i+1}/${recordings.length}...`)
         let realUrl = rec.videoUrl
 
         // Reset display timestamps to source (original pre-processing) so each run
@@ -516,51 +543,74 @@ export function ProcessView({ recordings, themeName, sessionId, themeSlug, monta
         const srcTs = sourceWordTimestampsRef.current[rec.id]
         if (srcTs?.length) wordTimestampsRef.current[rec.id] = srcTs
 
-        if (silenceCutEnabled) {
+        if (cleanvoiceEnabled) {
+          setLoadingStep(`Cleanvoice ${i+1}/${recordings.length}...`)
           try {
-            const res = await fetch('/api/silence-cut', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ videoUrl: realUrl, threshold: silenceThreshold }) })
-            if (res.ok) {
-              const { id, keepIntervals } = await res.json()
-              realUrl = `${window.location.origin}/api/silence-cut/${id}`
-              // wordTimestampsRef was reset to source at start of this loop iteration
-              if (keepIntervals?.length && wordTimestampsRef.current[rec.id]?.length) {
-                const remapped = remapWordTimestamps(wordTimestampsRef.current[rec.id], keepIntervals)
-                setWordTimestampsMap(prev => ({ ...prev, [rec.id]: remapped }))
-                wordTimestampsRef.current[rec.id] = remapped
-              }
-            } else setSilenceCutError(await res.text())
-          } catch { setSilenceCutError('Coupure silences échouée') }
-        } else {
-          try {
-            const res = await fetch('/api/normalize-video', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ videoUrl: realUrl }) })
-            if (res.ok) { const d = await res.json(); if (d.normalized && d.id) realUrl = `${window.location.origin}/api/normalize-video/${d.id}` }
-          } catch {}
-        }
-
-        if (fillerCutEnabled) {
-          try {
-            setLoadingStep(`Suppression tics de langage ${i+1}/${recordings.length}...`)
-            const res = await fetch('/api/filler-cut', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ videoUrl: realUrl }) })
+            const res = await fetch('/api/cleanvoice', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({ videoUrl: realUrl, config: cleanvoiceConfig }),
+            })
             if (res.ok) {
               const { id, wordTimestamps } = await res.json()
               if (id) {
-                realUrl = `${window.location.origin}/api/filler-cut/${id}`
-                // Cleanvoice returns timestamps already aligned to the cleaned video
+                realUrl = `${window.location.origin}/api/cleanvoice/${id}`
                 if (wordTimestamps?.length) {
                   setWordTimestampsMap(prev => ({ ...prev, [rec.id]: wordTimestamps }))
                   wordTimestampsRef.current[rec.id] = wordTimestamps
                 }
               }
-            } else setFillerCutError(await res.text())
-          } catch { setFillerCutError('Suppression tics échouée') }
-        }
+            } else {
+              setCleanvoiceError(await res.text())
+            }
+          } catch { setCleanvoiceError('Cleanvoice échoué') }
+        } else {
+          if (silenceCutEnabled) {
+            setLoadingStep(`Coupure silences ${i+1}/${recordings.length}...`)
+            try {
+              const res = await fetch('/api/silence-cut', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ videoUrl: realUrl, threshold: silenceThreshold }) })
+              if (res.ok) {
+                const { id, keepIntervals } = await res.json()
+                realUrl = `${window.location.origin}/api/silence-cut/${id}`
+                if (keepIntervals?.length && wordTimestampsRef.current[rec.id]?.length) {
+                  const remapped = remapWordTimestamps(wordTimestampsRef.current[rec.id], keepIntervals)
+                  setWordTimestampsMap(prev => ({ ...prev, [rec.id]: remapped }))
+                  wordTimestampsRef.current[rec.id] = remapped
+                }
+              } else setSilenceCutError(await res.text())
+            } catch { setSilenceCutError('Coupure silences échouée') }
+          } else {
+            setLoadingStep(`Traitement vidéo ${i+1}/${recordings.length}...`)
+            try {
+              const res = await fetch('/api/normalize-video', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ videoUrl: realUrl }) })
+              if (res.ok) { const d = await res.json(); if (d.normalized && d.id) realUrl = `${window.location.origin}/api/normalize-video/${d.id}` }
+            } catch {}
+          }
 
-        if (denoiseEnabled) {
-          try {
+          if (fillerCutEnabled) {
+            setLoadingStep(`Suppression tics de langage ${i+1}/${recordings.length}...`)
+            try {
+              const res = await fetch('/api/filler-cut', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ videoUrl: realUrl }) })
+              if (res.ok) {
+                const { id, wordTimestamps } = await res.json()
+                if (id) {
+                  realUrl = `${window.location.origin}/api/filler-cut/${id}`
+                  if (wordTimestamps?.length) {
+                    setWordTimestampsMap(prev => ({ ...prev, [rec.id]: wordTimestamps }))
+                    wordTimestampsRef.current[rec.id] = wordTimestamps
+                  }
+                }
+              } else setFillerCutError(await res.text())
+            } catch { setFillerCutError('Suppression tics échouée') }
+          }
+
+          if (denoiseEnabled) {
             setLoadingStep(`Réduction bruit ${i+1}/${recordings.length}...`)
-            const res = await fetch('/api/denoise-video', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ videoUrl: realUrl, strength: denoiseStrength }) })
-            if (res.ok) { const { id } = await res.json(); realUrl = `${window.location.origin}/api/denoise-video/${id}` }
-          } catch {}
+            try {
+              const res = await fetch('/api/denoise-video', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ videoUrl: realUrl, strength: denoiseStrength }) })
+              if (res.ok) { const { id } = await res.json(); realUrl = `${window.location.origin}/api/denoise-video/${id}` }
+            } catch {}
+          }
         }
 
         effectiveVideoUrlsRef.current.push(realUrl)
@@ -572,21 +622,19 @@ export function ProcessView({ recordings, themeName, sessionId, themeSlug, monta
         setProcessedCache(p => ({ ...p, [rec.id]: { hash: currentProcessingHash, url: realUrl } }))
         uploadToCache(rec.id, realUrl, 'processed', { processingHash: currentProcessingHash })
       }
-      lastProcessedSettingsRef.current = { enabled: silenceCutEnabled, threshold: silenceThreshold, fillerCutEnabled, denoiseEnabled, denoiseStrength }
+      lastProcessingHashRef.current = currentProcessingHash
     }
 
     const ttsUrls: (string | null)[] = []
     if (voiceId) {
       for (let i = 0; i < recordings.length; i++) {
         const rec = recordings[i]
-        // Check TTS cache
         const cachedTts = ttsCache[rec.id]
         if (cachedTts?.voiceId === voiceId && cachedTts.url) {
           console.log(`[cache] using cached TTS for recording ${rec.id}`)
           ttsUrls.push(cachedTts.url)
           continue
         }
-        // Resolve lazy cache entry
         if (cachedTts?.voiceId === voiceId && !cachedTts.url) {
           const signedUrl = await getCachedUrl(rec.id, 'tts')
           if (signedUrl) {
@@ -601,7 +649,6 @@ export function ProcessView({ recordings, themeName, sessionId, themeSlug, monta
         const ttsUrl = await generateTTS(rec.questionText, voiceId)
         ttsUrls.push(ttsUrl)
 
-        // Upload TTS audio to S3 cache in background
         if (ttsUrl) {
           setTtsCache(p => ({ ...p, [rec.id]: { voiceId, url: ttsUrl } }))
           uploadToCache(rec.id, ttsUrl, 'tts', { voiceId })
@@ -625,7 +672,6 @@ export function ProcessView({ recordings, themeName, sessionId, themeSlug, monta
     })
     setSegments(built); setReady(true)
   }
-
   const applyVoice = async () => {
     setRegenerating(true); setReady(false)
     await prepare(voiceEnabled ? selectedVoiceId : null)
@@ -640,11 +686,17 @@ export function ProcessView({ recordings, themeName, sessionId, themeSlug, monta
     audio.onended = () => setPreviewingVoiceId(null); audio.play()
   }
 
-  const updateTranscript = (recordingId: string, text: string) => {
+  const updateTranscript = (recordingId: string, text: string, fromApi = false) => {
     setLocalTranscripts(p => ({ ...p, [recordingId]: text }))
     setSegments(prev => prev ? prev.map(seg =>
       seg.id === recordingId ? { ...seg, transcript: text || null } : seg
     ) : prev)
+    if (!fromApi) {
+      // Clear word timestamps so subtitle words reflect the edited text (uniform timing)
+      setWordTimestampsMap(p => { const n = { ...p }; delete n[recordingId]; return n })
+      wordTimestampsRef.current[recordingId] = []
+      sourceWordTimestampsRef.current[recordingId] = []
+    }
   }
 
   const regenerateTranscript = async (recording: RawRecording) => {
@@ -657,7 +709,7 @@ export function ProcessView({ recordings, themeName, sessionId, themeSlug, monta
       })
       if (res.ok) {
         const { transcript, wordTimestamps } = await res.json()
-        updateTranscript(recording.id, transcript)
+        updateTranscript(recording.id, transcript, true)
         if (wordTimestamps?.length) {
           setWordTimestampsMap(p => ({ ...p, [recording.id]: wordTimestamps }))
           sourceWordTimestampsRef.current[recording.id] = wordTimestamps
@@ -688,82 +740,135 @@ export function ProcessView({ recordings, themeName, sessionId, themeSlug, monta
 
   const stepVoice = (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 20 }}>
-      {/* Silence cut */}
+
+      {/* Cleanvoice — unified processing */}
       <Card>
-        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: silenceCutEnabled ? 16 : 0 }}>
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: cleanvoiceEnabled ? 20 : 0 }}>
           <div>
-            <p style={{ color: S.text, fontWeight: 600, fontSize: 14 }}>Couper les silences</p>
-            <p style={{ color: S.muted, fontSize: 11, marginTop: 2 }}>Supprime les pauses dans les clips</p>
+            <p style={{ color: S.text, fontWeight: 600, fontSize: 14 }}>Cleanvoice IA</p>
+            <p style={{ color: S.muted, fontSize: 11, marginTop: 2 }}>Nettoyage audio complet en une passe (remplace silences, tics, bruit)</p>
           </div>
-          <Toggle value={silenceCutEnabled} onChange={setSilenceCutEnabled} />
+          <Toggle value={cleanvoiceEnabled} onChange={setCleanvoiceEnabled} />
         </div>
-        {silenceCutEnabled && (
-          <SliderRow label="Sensibilité" value={silenceThreshold} min={-55} max={-20} step={5}
-            format={v => v >= -25 ? 'Agressive' : v >= -38 ? 'Modérée' : 'Légère'}
-            onChange={setSilenceThreshold}
-          />
+        {cleanvoiceEnabled && (
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+            {([
+              { key: 'fillers',      label: 'Tics de langage',    desc: '"euh", "hm", "bah"…' },
+              { key: 'hesitations',  label: 'Hésitations',        desc: 'Allongements de mots' },
+              { key: 'stutters',     label: 'Bégaiements',        desc: 'Répétitions de syllabes' },
+              { key: 'muted',        label: 'Sons muets',         desc: 'Bruits de bouche silencieux' },
+              { key: 'long_silences',label: 'Silences longs',     desc: 'Remplace silence-cut' },
+              { key: 'mouth_sounds', label: 'Bruits de bouche',   desc: 'Claquements, salive…' },
+              { key: 'remove_noise', label: 'Réduction de bruit', desc: 'Bruit de fond ambiant' },
+            ] as { key: keyof CleanvoiceConfig; label: string; desc: string }[]).map(opt => (
+              <div key={opt.key} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '8px 12px', background: 'rgba(255,255,255,0.03)', borderRadius: 10, border: `1px solid ${S.border}` }}>
+                <div>
+                  <span style={{ color: S.text, fontSize: 13, fontWeight: 500 }}>{opt.label}</span>
+                  <span style={{ color: S.muted, fontSize: 11, marginLeft: 8 }}>{opt.desc}</span>
+                </div>
+                <Toggle
+                  value={!!cleanvoiceConfig[opt.key]}
+                  onChange={v => setCleanvoiceConfig(p => ({ ...p, [opt.key]: v }))}
+                />
+              </div>
+            ))}
+            {/* Studio Sound */}
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '8px 12px', background: 'rgba(139,92,246,0.06)', borderRadius: 10, border: `1px solid rgba(139,92,246,0.2)` }}>
+              <div>
+                <span style={{ color: '#c4b5fd', fontSize: 13, fontWeight: 500 }}>Studio Sound</span>
+                <span style={{ color: S.muted, fontSize: 11, marginLeft: 8 }}>Rehaussement qualité pro</span>
+              </div>
+              <Toggle
+                value={cleanvoiceConfig.studio_sound === 'nightly'}
+                onChange={v => setCleanvoiceConfig(p => ({ ...p, studio_sound: v ? 'nightly' : false }))}
+              />
+            </div>
+            {cleanvoiceError && <p style={{ color: '#f87171', fontSize: 11, fontFamily: 'monospace' }}>{cleanvoiceError}</p>}
+          </div>
         )}
-        {silenceCutError && <p style={{ color: '#f87171', fontSize: 11, marginTop: 8, fontFamily: 'monospace' }}>{silenceCutError}</p>}
       </Card>
 
-      {/* Filler cut */}
-      <Card>
-        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-          <div>
-            <p style={{ color: S.text, fontWeight: 600, fontSize: 14 }}>Couper les tics de langage</p>
-            <p style={{ color: S.muted, fontSize: 11, marginTop: 2 }}>Supprime les "euh", "hm", "bah"…</p>
-          </div>
-          <Toggle value={fillerCutEnabled} onChange={setFillerCutEnabled} />
-        </div>
-        {fillerCutError && <p style={{ color: '#f87171', fontSize: 11, marginTop: 8, fontFamily: 'monospace' }}>{fillerCutError}</p>}
-      </Card>
+      {/* Legacy options — only shown when Cleanvoice is OFF */}
+      {!cleanvoiceEnabled && (
+        <>
+          {/* Silence cut */}
+          <Card>
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: silenceCutEnabled ? 16 : 0 }}>
+              <div>
+                <p style={{ color: S.text, fontWeight: 600, fontSize: 14 }}>Couper les silences</p>
+                <p style={{ color: S.muted, fontSize: 11, marginTop: 2 }}>Supprime les pauses dans les clips</p>
+              </div>
+              <Toggle value={silenceCutEnabled} onChange={setSilenceCutEnabled} />
+            </div>
+            {silenceCutEnabled && (
+              <SliderRow label="Sensibilité" value={silenceThreshold} min={-55} max={-20} step={5}
+                format={v => v >= -25 ? 'Agressive' : v >= -38 ? 'Modérée' : 'Légère'}
+                onChange={setSilenceThreshold}
+              />
+            )}
+            {silenceCutError && <p style={{ color: '#f87171', fontSize: 11, marginTop: 8, fontFamily: 'monospace' }}>{silenceCutError}</p>}
+          </Card>
 
-      {/* Denoise */}
-      <Card>
-        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: denoiseEnabled ? 16 : 0 }}>
-          <div>
-            <p style={{ color: S.text, fontWeight: 600, fontSize: 14 }}>Amélioration audio</p>
-            <p style={{ color: S.muted, fontSize: 11, marginTop: 2 }}>FFmpeg ou Voice Isolator IA (ElevenLabs)</p>
-          </div>
-          <Toggle value={denoiseEnabled} onChange={setDenoiseEnabled} />
-        </div>
-        {denoiseEnabled && (
-          <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
-            <Label>Méthode</Label>
-            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 8 }}>
-              {([
-                { value: 'light',    label: 'Léger',  desc: 'Discret' },
-                { value: 'moderate', label: 'Modéré', desc: 'Recommandé' },
-                { value: 'strong',   label: 'Fort',   desc: 'Agressif' },
-              ] as { value: 'light' | 'moderate' | 'strong'; label: string; desc: string }[]).map(opt => (
-                <button key={opt.value} onClick={() => setDenoiseStrength(opt.value)}
+          {/* Filler cut */}
+          <Card>
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+              <div>
+                <p style={{ color: S.text, fontWeight: 600, fontSize: 14 }}>Couper les tics de langage</p>
+                <p style={{ color: S.muted, fontSize: 11, marginTop: 2 }}>Supprime les "euh", "hm", "bah"…</p>
+              </div>
+              <Toggle value={fillerCutEnabled} onChange={setFillerCutEnabled} />
+            </div>
+            {fillerCutError && <p style={{ color: '#f87171', fontSize: 11, marginTop: 8, fontFamily: 'monospace' }}>{fillerCutError}</p>}
+          </Card>
+
+          {/* Denoise */}
+          <Card>
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: denoiseEnabled ? 16 : 0 }}>
+              <div>
+                <p style={{ color: S.text, fontWeight: 600, fontSize: 14 }}>Amélioration audio</p>
+                <p style={{ color: S.muted, fontSize: 11, marginTop: 2 }}>FFmpeg ou Voice Isolator IA (ElevenLabs)</p>
+              </div>
+              <Toggle value={denoiseEnabled} onChange={setDenoiseEnabled} />
+            </div>
+            {denoiseEnabled && (
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+                <Label>Méthode</Label>
+                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 8 }}>
+                  {([
+                    { value: 'light',    label: 'Léger',  desc: 'Discret' },
+                    { value: 'moderate', label: 'Modéré', desc: 'Recommandé' },
+                    { value: 'strong',   label: 'Fort',   desc: 'Agressif' },
+                  ] as { value: 'light' | 'moderate' | 'strong'; label: string; desc: string }[]).map(opt => (
+                    <button key={opt.value} onClick={() => setDenoiseStrength(opt.value)}
+                      style={{
+                        padding: '10px 8px', borderRadius: 12, textAlign: 'center',
+                        background: denoiseStrength === opt.value ? 'rgba(255,255,255,0.1)' : S.surface,
+                        border: `1px solid ${denoiseStrength === opt.value ? 'rgba(255,255,255,0.3)' : S.border}`,
+                      }}
+                    >
+                      <p style={{ color: denoiseStrength === opt.value ? S.text : S.muted, fontWeight: 700, fontSize: 12 }}>{opt.label}</p>
+                      <p style={{ color: S.dim, fontSize: 9, marginTop: 2, fontFamily: 'monospace' }}>{opt.desc}</p>
+                    </button>
+                  ))}
+                </div>
+                <button onClick={() => setDenoiseStrength('isolate')}
                   style={{
-                    padding: '10px 8px', borderRadius: 12, textAlign: 'center',
-                    background: denoiseStrength === opt.value ? 'rgba(255,255,255,0.1)' : S.surface,
-                    border: `1px solid ${denoiseStrength === opt.value ? 'rgba(255,255,255,0.3)' : S.border}`,
+                    padding: '10px 12px', borderRadius: 12, textAlign: 'left', display: 'flex', alignItems: 'center', gap: 10,
+                    background: denoiseStrength === 'isolate' ? 'rgba(139,92,246,0.15)' : S.surface,
+                    border: `1px solid ${denoiseStrength === 'isolate' ? 'rgba(139,92,246,0.6)' : S.border}`,
                   }}
                 >
-                  <p style={{ color: denoiseStrength === opt.value ? S.text : S.muted, fontWeight: 700, fontSize: 12 }}>{opt.label}</p>
-                  <p style={{ color: S.dim, fontSize: 9, marginTop: 2, fontFamily: 'monospace' }}>{opt.desc}</p>
+                  <span style={{ fontSize: 16 }}>✨</span>
+                  <div>
+                    <p style={{ color: denoiseStrength === 'isolate' ? '#c4b5fd' : S.muted, fontWeight: 700, fontSize: 12 }}>Voice Isolator IA</p>
+                    <p style={{ color: S.dim, fontSize: 9, marginTop: 2, fontFamily: 'monospace' }}>ElevenLabs · Isole la voix, supprime tout le reste</p>
+                  </div>
                 </button>
-              ))}
-            </div>
-            <button onClick={() => setDenoiseStrength('isolate')}
-              style={{
-                padding: '10px 12px', borderRadius: 12, textAlign: 'left', display: 'flex', alignItems: 'center', gap: 10,
-                background: denoiseStrength === 'isolate' ? 'rgba(139,92,246,0.15)' : S.surface,
-                border: `1px solid ${denoiseStrength === 'isolate' ? 'rgba(139,92,246,0.6)' : S.border}`,
-              }}
-            >
-              <span style={{ fontSize: 16 }}>✨</span>
-              <div>
-                <p style={{ color: denoiseStrength === 'isolate' ? '#c4b5fd' : S.muted, fontWeight: 700, fontSize: 12 }}>Voice Isolator IA</p>
-                <p style={{ color: S.dim, fontSize: 9, marginTop: 2, fontFamily: 'monospace' }}>ElevenLabs · Isole la voix, supprime tout le reste</p>
               </div>
-            </button>
-          </div>
-        )}
-      </Card>
+            )}
+          </Card>
+        </>
+      )}
 
       {/* Voice toggle */}
       <Card>
@@ -850,7 +955,6 @@ export function ProcessView({ recordings, themeName, sessionId, themeSlug, monta
 
     </div>
   )
-
   const stepTranscripts = (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
       <Card>
@@ -896,18 +1000,62 @@ export function ProcessView({ recordings, themeName, sessionId, themeSlug, monta
                 }
               </button>
             </div>
-            {/* Editable transcript */}
-            <textarea
-              value={text}
-              onChange={e => updateTranscript(rec.id, e.target.value)}
-              placeholder="Pas de transcription — cliquez sur Régénérer pour analyser la vidéo avec Whisper"
-              rows={4}
-              style={{
-                width: '100%', background: 'rgba(255,255,255,0.04)', border: `1px solid ${S.border}`,
-                borderRadius: 10, padding: '10px 14px', color: S.text, fontSize: 13, outline: 'none',
-                resize: 'vertical', lineHeight: 1.6, fontFamily: 'inherit',
-              }}
-            />
+            {/* Token view or editable transcript */}
+            {(() => {
+              const tokens = wordTimestampsMap[rec.id]
+              if (tokens?.length) {
+                return (
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+                    <div style={{
+                      display: 'flex', flexWrap: 'wrap', gap: '6px 4px',
+                      background: 'rgba(255,255,255,0.04)', border: `1px solid ${S.border}`,
+                      borderRadius: 10, padding: '10px 14px', minHeight: 80,
+                    }}>
+                      {tokens.map((tok, i) => (
+                        <span key={i} title={`${tok.start.toFixed(2)}s – ${tok.end.toFixed(2)}s`} style={{
+                          display: 'inline-flex', flexDirection: 'column', alignItems: 'center',
+                          background: 'rgba(255,255,255,0.07)', border: `1px solid rgba(255,255,255,0.12)`,
+                          borderRadius: 6, padding: '2px 6px', cursor: 'default',
+                        }}>
+                          <span style={{ color: S.text, fontSize: 13, lineHeight: 1.4 }}>{tok.word}</span>
+                          <span style={{ color: S.muted, fontSize: 9, fontFamily: 'monospace', lineHeight: 1.2 }}>
+                            {tok.start.toFixed(1)}s
+                          </span>
+                        </span>
+                      ))}
+                    </div>
+                    <button
+                      onClick={() => {
+                        // Clear timestamps so textarea is shown for manual edit
+                        setWordTimestampsMap(p => { const n = { ...p }; delete n[rec.id]; return n })
+                        wordTimestampsRef.current[rec.id] = []
+                        sourceWordTimestampsRef.current[rec.id] = []
+                      }}
+                      style={{
+                        alignSelf: 'flex-start', padding: '4px 10px', borderRadius: 8, fontSize: 11,
+                        background: 'transparent', border: `1px solid ${S.border}`, color: S.muted,
+                        cursor: 'pointer',
+                      }}
+                    >
+                      Modifier le texte
+                    </button>
+                  </div>
+                )
+              }
+              return (
+                <textarea
+                  value={text}
+                  onChange={e => updateTranscript(rec.id, e.target.value)}
+                  placeholder="Pas de transcription — cliquez sur Régénérer pour analyser la vidéo avec Whisper"
+                  rows={4}
+                  style={{
+                    width: '100%', background: 'rgba(255,255,255,0.04)', border: `1px solid ${S.border}`,
+                    borderRadius: 10, padding: '10px 14px', color: S.text, fontSize: 13, outline: 'none',
+                    resize: 'vertical', lineHeight: 1.6, fontFamily: 'inherit',
+                  }}
+                />
+              )
+            })()}
           </Card>
         )
       })}

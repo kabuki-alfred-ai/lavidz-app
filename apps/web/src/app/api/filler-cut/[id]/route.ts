@@ -1,5 +1,6 @@
 import fs from 'fs'
 import path from 'path'
+import { isTmpFileExpired } from '@/lib/tmp-cleanup'
 
 export const runtime = 'nodejs'
 
@@ -8,7 +9,7 @@ export async function GET(req: Request, { params }: { params: Promise<{ id: stri
   if (!/^[a-z0-9-]+$/.test(id)) return new Response('Not found', { status: 404 })
 
   const filePath = path.join('/tmp', `filler-cut-${id}.mp4`)
-  if (!fs.existsSync(filePath)) return new Response('Not found', { status: 404 })
+  if (!fs.existsSync(filePath) || isTmpFileExpired(filePath)) return new Response('Not found', { status: 404 })
 
   const stat = fs.statSync(filePath)
   const fileSize = stat.size

@@ -8,7 +8,7 @@ export async function GET(req: Request, { params }: { params: Promise<{ id: stri
   const { id } = await params
   if (!/^[a-z0-9-]+$/.test(id)) return new Response('Not found', { status: 404 })
 
-  const filePath = path.join('/tmp', `norm-output-${id}.mp4`)
+  const filePath = path.join('/tmp', `cleanvoice-${id}.mp4`)
   if (!fs.existsSync(filePath) || isTmpFileExpired(filePath)) return new Response('Not found', { status: 404 })
 
   const stat = fs.statSync(filePath)

@@ -6,12 +6,23 @@ import { purgeStaleTmpFiles } from '@/lib/tmp-cleanup'
 export const runtime = 'nodejs'
 export const maxDuration = 180
 
+export interface CleanvoiceJobConfig {
+  fillers: boolean
+  hesitations: boolean
+  stutters: boolean
+  muted: boolean
+  long_silences: boolean
+  mouth_sounds: boolean
+  remove_noise: boolean
+  studio_sound: 'nightly' | false
+}
+
 export async function POST(req: Request) {
   const apiKey = process.env.CLEANVOICE_API_KEY
   if (!apiKey)
     return new Response("CLEANVOICE_API_KEY manquant — ajoutez-le dans les variables d'environnement", { status: 500 })
 
-  let { videoUrl } = await req.json()
+  let { videoUrl, config }: { videoUrl: string; config: CleanvoiceJobConfig } = await req.json()
   if (!videoUrl) return new Response('videoUrl required', { status: 400 })
 
   if (videoUrl.startsWith('/')) {
@@ -19,22 +30,23 @@ export async function POST(req: Request) {
     videoUrl = `${origin}${videoUrl}`
   }
 
+  // Cleanvoice is an external service — it needs a publicly accessible URL.
+  // If the URL points to localhost, rewrite it using APP_PUBLIC_URL (set in production env).
   if (/https?:\/\/(localhost|127\.0\.0\.1)(:\d+)?/.test(videoUrl)) {
     const publicBase = process.env.APP_PUBLIC_URL?.replace(/\/$/, '')
     if (!publicBase) {
       return new Response(
-        "Cleanvoice nécessite une URL publique. Ajoutez APP_PUBLIC_URL=https://votre-domaine.com dans les variables d'environnement.",
+        "Cleanvoice nécessite une URL publique. Ajoutez APP_PUBLIC_URL=https://votre-domaine.com dans les variables d'environnement (Coolify), ou testez directement en production.",
         { status: 400 }
       )
     }
     videoUrl = videoUrl.replace(/https?:\/\/(localhost|127\.0\.0\.1)(:\d+)?/, publicBase)
   }
 
-  purgeStaleTmpFiles('filler-cut-')
+  purgeStaleTmpFiles('cleanvoice-')
   const id = crypto.randomUUID()
-  const outputPath = path.join('/tmp', `filler-cut-${id}.mp4`)
+  const outputPath = path.join('/tmp', `cleanvoice-${id}.mp4`)
 
-  // Submit job to Cleanvoice
   const editRes = await fetch('https://api.cleanvoice.ai/v2/edits', {
     method: 'POST',
     headers: { 'X-API-Key': apiKey, 'Content-Type': 'application/json' },
@@ -42,12 +54,14 @@ export async function POST(req: Request) {
       input: {
         files: [videoUrl],
         config: {
-          fillers: true,
-          remove_filler_words: true,
-          hesitations: true,
-          stutters: false,
-          mouth_sounds: false,
-          breath: 'natural',
+          fillers: config.fillers ?? true,
+          hesitations: config.hesitations ?? true,
+          stutters: config.stutters ?? false,
+          muted: config.muted ?? true,
+          long_silences: config.long_silences ?? true,
+          mouth_sounds: config.mouth_sounds ?? true,
+          remove_noise: config.remove_noise ?? false,
+          ...(config.studio_sound ? { studio_sound: config.studio_sound } : {}),
           video: true,
           transcription: true,
           export_format: 'mp4',
@@ -58,7 +72,6 @@ export async function POST(req: Request) {
   if (!editRes.ok) throw new Error(`Cleanvoice submit error: ${await editRes.text()}`)
   const { id: jobId } = await editRes.json()
 
-  // Poll until SUCCESS (5s intervals, max ~150s to stay within maxDuration)
   let jobResult: any = null
   for (let attempt = 0; attempt < 28; attempt++) {
     await new Promise(r => setTimeout(r, 5000))
@@ -71,7 +84,6 @@ export async function POST(req: Request) {
   }
   if (!jobResult) throw new Error('Cleanvoice timeout — vidéo trop longue pour être traitée dans le délai imparti')
 
-  // Download cleaned video
   const downloadUrl = jobResult.audio?.download_url
   if (!downloadUrl) throw new Error('Cleanvoice: aucun lien de téléchargement dans la réponse')
 
@@ -79,7 +91,6 @@ export async function POST(req: Request) {
   if (!cleanedRes.ok) throw new Error(`Impossible de télécharger la vidéo nettoyée (${cleanedRes.status})`)
   fs.writeFileSync(outputPath, Buffer.from(await cleanedRes.arrayBuffer()))
 
-  // Extract word timestamps from Cleanvoice transcript (already in cleaned-video timeline)
   const rawWords: any[] = jobResult.transcript?.words ?? []
   const wordTimestamps = rawWords
     .map(w => ({
