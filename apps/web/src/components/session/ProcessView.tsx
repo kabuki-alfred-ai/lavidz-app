@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect, useRef, useCallback } from 'react'
+import { useState, useEffect, useRef, useCallback, useMemo } from 'react'
 import dynamic from 'next/dynamic'
 import Link from 'next/link'
 import { ArrowLeft, Play, RefreshCw, Loader2, ChevronRight } from 'lucide-react'
@@ -11,6 +11,7 @@ import { DEFAULT_SUBTITLE_SETTINGS } from '@/remotion/subtitleTypes'
 import type { TransitionTheme, IntroSettings, OutroSettings, MotionSettings, TransitionStyle, QuestionCardStyle, AudioSettings, WordTimestamp, SlidePreset } from '@/remotion/themeTypes'
 import { DEFAULT_TRANSITION_THEME, DEFAULT_INTRO_SETTINGS, DEFAULT_OUTRO_SETTINGS, DEFAULT_MOTION_SETTINGS, FONT_OPTIONS, THEME_PRESETS, SLIDE_PRESETS } from '@/remotion/themeTypes'
 import { ServerRenderer, type ServerRendererHandle } from './ServerRenderer'
+import { TranscriptEditor } from './TranscriptEditor'
 
 // Remap word timestamps after silence/filler cuts.
 // keepIntervals: segments of the original video that were kept (in original time).
@@ -36,6 +37,7 @@ function remapWordTimestamps(
   return result
 }
 
+import type { PlayerRef } from '@remotion/player'
 const Player = dynamic(() => import('@remotion/player').then((m) => m.Player), { ssr: false })
 const LavidzComposition = dynamic(
   () => import('@/remotion/LavidzComposition').then((m) => m.LavidzComposition),
@@ -356,6 +358,43 @@ export function ProcessView({ recordings, themeName, sessionId, themeSlug, monta
   const durationsRef = useRef<number[]>([])
   const effectiveVideoUrlsRef = useRef<string[]>([])
   const lastProcessingHashRef = useRef<string | null>(null)
+  const playerRef = useRef<PlayerRef | null>(null)
+  // ref — no re-render on frame change
+  const playerFrameRef = useRef(0)
+  // Only update state when active SEGMENT changes (not every frame)
+  const [activeSegmentInfo, setActiveSegmentInfo] = useState<{ id: string; localTimeSec: number } | null>(null)
+  const activeSegIdRef = useRef<string | null>(null)
+  const segmentTimelineRef = useRef<{ id: string; startFrame: number; endFrame: number }[]>([])
+  const currentStepRef = useRef(0)
+
+  useEffect(() => { currentStepRef.current = currentStep }, [currentStep])
+
+  useEffect(() => {
+    let rafId: number
+    const tick = () => {
+      const f = (playerRef.current as any)?.getCurrentFrame?.() ?? 0
+      playerFrameRef.current = f
+      // Only compute active segment when on Transcripts tab (step index 1)
+      if (currentStepRef.current === 1) {
+        const tl = segmentTimelineRef.current
+        let found: { id: string; localTimeSec: number } | null = null
+        for (const seg of tl) {
+          if (f >= seg.startFrame && f < seg.endFrame) {
+            found = { id: seg.id, localTimeSec: (f - seg.startFrame) / FPS }
+            break
+          }
+        }
+        // Only setState when the segment changes — avoids re-renders mid-segment
+        if ((found?.id ?? null) !== activeSegIdRef.current) {
+          activeSegIdRef.current = found?.id ?? null
+          setActiveSegmentInfo(found)
+        }
+      }
+      rafId = requestAnimationFrame(tick)
+    }
+    rafId = requestAnimationFrame(tick)
+    return () => cancelAnimationFrame(rafId)
+  }, [])
 
   useEffect(() => { localTranscriptsRef.current = localTranscripts }, [localTranscripts])
   useEffect(() => { wordTimestampsRef.current = wordTimestampsMap }, [wordTimestampsMap])
@@ -730,6 +769,21 @@ export function ProcessView({ recordings, themeName, sessionId, themeSlug, monta
 
   const introFrames = intro.enabled && intro.hookText ? Math.round(intro.durationSeconds * FPS) : 0
   const outroFrames = outro.enabled && (outro.ctaText || outro.subText || outro.logoUrl) ? Math.round(outro.durationSeconds * FPS) : 0
+
+  // Maps each recording to its global frame range in the composition
+  // Also kept in a ref so the RAF tick can read it without closure staleness
+  const segmentTimeline = useMemo(() => {
+    if (!segments?.length) return []
+    let offset = introFrames
+    return segments.map(seg => {
+      const qf = seg.questionDurationFrames ?? QUESTION_CARD_FRAMES
+      const start = offset + qf
+      const end = start + seg.videoDurationFrames
+      offset = end
+      return { id: seg.id, startFrame: start, endFrame: end }
+    })
+  }, [segments, introFrames])
+  useEffect(() => { segmentTimelineRef.current = segmentTimeline }, [segmentTimeline])
   const totalFrames = segments?.length
     ? Math.max(introFrames + outroFrames + END_CARD_FRAMES + segments.reduce((a, s) => a + (s.questionDurationFrames ?? questionCardFrames) + s.videoDurationFrames, 0), 1)
     : 1
@@ -1004,42 +1058,21 @@ export function ProcessView({ recordings, themeName, sessionId, themeSlug, monta
             {(() => {
               const tokens = wordTimestampsMap[rec.id]
               if (tokens?.length) {
+                const recId = rec.id
                 return (
-                  <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
-                    <div style={{
-                      display: 'flex', flexWrap: 'wrap', gap: '6px 4px',
-                      background: 'rgba(255,255,255,0.04)', border: `1px solid ${S.border}`,
-                      borderRadius: 10, padding: '10px 14px', minHeight: 80,
-                    }}>
-                      {tokens.map((tok, i) => (
-                        <span key={i} title={`${tok.start.toFixed(2)}s – ${tok.end.toFixed(2)}s`} style={{
-                          display: 'inline-flex', flexDirection: 'column', alignItems: 'center',
-                          background: 'rgba(255,255,255,0.07)', border: `1px solid rgba(255,255,255,0.12)`,
-                          borderRadius: 6, padding: '2px 6px', cursor: 'default',
-                        }}>
-                          <span style={{ color: S.text, fontSize: 13, lineHeight: 1.4 }}>{tok.word}</span>
-                          <span style={{ color: S.muted, fontSize: 9, fontFamily: 'monospace', lineHeight: 1.2 }}>
-                            {tok.start.toFixed(1)}s
-                          </span>
-                        </span>
-                      ))}
-                    </div>
-                    <button
-                      onClick={() => {
-                        // Clear timestamps so textarea is shown for manual edit
-                        setWordTimestampsMap(p => { const n = { ...p }; delete n[rec.id]; return n })
-                        wordTimestampsRef.current[rec.id] = []
-                        sourceWordTimestampsRef.current[rec.id] = []
-                      }}
-                      style={{
-                        alignSelf: 'flex-start', padding: '4px 10px', borderRadius: 8, fontSize: 11,
-                        background: 'transparent', border: `1px solid ${S.border}`, color: S.muted,
-                        cursor: 'pointer',
-                      }}
-                    >
-                      Modifier le texte
-                    </button>
-                  </div>
+                  <TranscriptEditor
+                    tokens={tokens}
+                    getTimeSec={() => {
+                      const f = playerFrameRef.current
+                      const seg = segmentTimelineRef.current.find(s => s.id === recId)
+                      if (!seg || f < seg.startFrame || f >= seg.endFrame) return -1
+                      return (f - seg.startFrame) / FPS
+                    }}
+                    onChange={newTokens => {
+                      setWordTimestampsMap(p => ({ ...p, [recId]: newTokens }))
+                      wordTimestampsRef.current[recId] = newTokens
+                    }}
+                  />
                 )
               }
               return (
@@ -1242,6 +1275,25 @@ export function ProcessView({ recordings, themeName, sessionId, themeSlug, monta
                 format={v => `${v}px`} onChange={v => setIntro(p => ({ ...p, textSize: v }))} />
               <SliderRow label="Taille du logo" value={intro.logoSize || 64} min={32} max={200} step={8}
                 format={v => `${v}px`} onChange={v => setIntro(p => ({ ...p, logoSize: v }))} />
+
+              {/* Police */}
+              <div>
+                <Label>Police</Label>
+                <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6 }}>
+                  {FONT_OPTIONS.map(f => {
+                    const active = (intro.fontFamily || theme.fontFamily) === f.value
+                    return (
+                      <button key={f.value} onClick={() => setIntro(p => ({ ...p, fontFamily: f.value, fontWeight: f.weight }))}
+                        style={{ padding: '5px 12px', borderRadius: 20, fontSize: 12, fontFamily: f.value,
+                          background: active ? 'rgba(255,255,255,0.15)' : 'rgba(255,255,255,0.04)',
+                          border: `1px solid ${active ? 'rgba(255,255,255,0.4)' : S.border}`,
+                          color: active ? S.text : S.muted }}>
+                        {f.label}
+                      </button>
+                    )
+                  })}
+                </div>
+              </div>
 
               {/* Décorateur */}
               <div>
@@ -1516,6 +1568,25 @@ export function ProcessView({ recordings, themeName, sessionId, themeSlug, monta
                 format={v => `${v}px`} onChange={v => setOutro(p => ({ ...p, textSize: v }))} />
               <SliderRow label="Taille du logo" value={outro.logoSize || 56} min={32} max={200} step={8}
                 format={v => `${v}px`} onChange={v => setOutro(p => ({ ...p, logoSize: v }))} />
+
+              {/* Police */}
+              <div>
+                <Label>Police</Label>
+                <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6 }}>
+                  {FONT_OPTIONS.map(f => {
+                    const active = (outro.fontFamily || theme.fontFamily) === f.value
+                    return (
+                      <button key={f.value} onClick={() => setOutro(p => ({ ...p, fontFamily: f.value, fontWeight: f.weight }))}
+                        style={{ padding: '5px 12px', borderRadius: 20, fontSize: 12, fontFamily: f.value,
+                          background: active ? 'rgba(255,255,255,0.15)' : 'rgba(255,255,255,0.04)',
+                          border: `1px solid ${active ? 'rgba(255,255,255,0.4)' : S.border}`,
+                          color: active ? S.text : S.muted }}>
+                        {f.label}
+                      </button>
+                    )
+                  })}
+                </div>
+              </div>
 
               {/* Décorateur */}
               <div>
@@ -1979,16 +2050,28 @@ export function ProcessView({ recordings, themeName, sessionId, themeSlug, monta
         <div>
           <Label>Style</Label>
           <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8 }}>
-            {(['hormozi', 'minimal', 'classic', 'neon'] as SubtitleStyle[]).map(s => (
-              <button key={s} onClick={() => setSubtitleSettings(p => ({ ...p, style: s }))}
+            {([
+              { id: 'hormozi',  label: 'Hormozi',   desc: 'Impact jaune · viral' },
+              { id: 'minimal',  label: 'Minimal',   desc: 'Fond flou · épuré' },
+              { id: 'classic',  label: 'Classic',   desc: 'Soulignement blanc' },
+              { id: 'neon',     label: 'Neon',      desc: 'Glow cyan · électro' },
+              { id: 'karaoke',  label: 'Karaoke',   desc: 'Highlight pill actif' },
+              { id: 'boxed',    label: 'Boxed',     desc: 'Box par mot · orange' },
+              { id: 'outline',  label: 'Outline',   desc: 'Contour · sans remplissage' },
+              { id: 'tape',     label: 'Tape',      desc: 'Bande noire · soulignage' },
+              { id: 'glitch',   label: 'Glitch',    desc: 'Aberration chromatique' },
+              { id: 'fire',     label: 'Fire',      desc: 'Glow orange / rouge' },
+            ] as { id: SubtitleStyle; label: string; desc: string }[]).map(s => (
+              <button key={s.id} onClick={() => setSubtitleSettings(p => ({ ...p, style: s.id }))}
                 style={{
-                  padding: '12px 14px', borderRadius: 12, fontSize: 13, fontFamily: 'monospace', textTransform: 'capitalize',
-                  background: subtitleSettings.style === s ? 'rgba(255,255,255,0.1)' : S.surface,
-                  border: `1px solid ${subtitleSettings.style === s ? 'rgba(255,255,255,0.3)' : S.border}`,
-                  color: subtitleSettings.style === s ? S.text : S.muted,
+                  padding: '10px 14px', borderRadius: 12, fontSize: 12, textAlign: 'left',
+                  background: subtitleSettings.style === s.id ? 'rgba(255,255,255,0.1)' : S.surface,
+                  border: `1px solid ${subtitleSettings.style === s.id ? 'rgba(255,255,255,0.3)' : S.border}`,
+                  color: subtitleSettings.style === s.id ? S.text : S.muted,
                 }}
               >
-                {s}
+                <p style={{ fontWeight: 700, fontFamily: 'monospace', marginBottom: 2 }}>{s.label}</p>
+                <p style={{ fontSize: 10, color: S.dim }}>{s.desc}</p>
               </button>
             ))}
           </div>
@@ -2250,6 +2333,8 @@ export function ProcessView({ recordings, themeName, sessionId, themeSlug, monta
               </div>
             ) : segments && (
               <Player
+                key={`${theme.fontFamily}|${theme.backgroundColor}|${theme.textColor}`}
+                ref={playerRef as any}
                 component={LavidzComposition as any}
                 inputProps={{ segments, questionCardFrames, subtitleSettings, theme, intro, outro, fps: FPS, motionSettings, audioSettings }}
                 durationInFrames={totalFrames}

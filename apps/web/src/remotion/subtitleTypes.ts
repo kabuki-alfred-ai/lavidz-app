@@ -1,4 +1,6 @@
-export type SubtitleStyle = 'hormozi' | 'minimal' | 'classic' | 'neon'
+export type SubtitleStyle =
+  | 'hormozi' | 'minimal' | 'classic' | 'neon'
+  | 'karaoke' | 'boxed' | 'outline' | 'tape' | 'glitch' | 'fire'
 
 export interface SubtitleSettings {
   enabled: boolean

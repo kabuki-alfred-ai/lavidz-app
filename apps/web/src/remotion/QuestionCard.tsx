@@ -301,7 +301,7 @@ export function QuestionCard({
           {audioNodes}
           {flashNode}
           <h2 style={{
-            fontFamily: `'Courier New', Courier, monospace`, fontWeight: 700, fontSize: 58,
+            fontFamily: theme.fontFamily, fontWeight: theme.fontWeight, fontSize: 58,
             color: accent, textAlign: 'center', lineHeight: 1.25, maxWidth: 1000, margin: 0,
             opacity: interpolate(frame, [0, 6], [0, 1], { extrapolateRight: 'clamp' }),
           }}>
@@ -328,7 +328,7 @@ export function QuestionCard({
           <div style={{ position: 'absolute', bottom: 0, left: 0, right: 0, height: barHeight, backgroundColor: '#000', opacity: barAppear }} />
           <div style={{ position: 'absolute', left: '15%', right: '15%', top: barHeight + 16, height: 1, backgroundColor: accent, opacity: textOpacity * 0.5 }} />
           <h2 style={{
-            fontFamily: `Georgia, 'Times New Roman', serif`, fontWeight: 400, fontSize: 58,
+            fontFamily: theme.fontFamily, fontWeight: theme.fontWeight, fontSize: 58,
             color: accent, textAlign: 'center', lineHeight: 1.3, maxWidth: 900, margin: 0,
             opacity: textOpacity, transform: `scale(${interpolate(frame, [0, 25], [1.04, 1], { extrapolateRight: 'clamp' })})`,
             fontStyle: 'italic', letterSpacing: 1,

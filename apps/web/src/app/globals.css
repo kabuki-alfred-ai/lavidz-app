@@ -1,3 +1,5 @@
+@import url('https://fonts.googleapis.com/css2?family=Anton&family=Bebas+Neue&family=Oswald:wght@400;700&family=Space+Grotesk:wght@400;700;900&family=Raleway:wght@400;700;900&family=Playfair+Display:ital,wght@0,400;0,700;0,900;1,700&family=DM+Sans:wght@400;700&family=Permanent+Marker&family=Barlow+Condensed:wght@400;700;900&family=Teko:wght@400;700&family=Syne:wght@400;800&display=swap');
+
 @tailwind base;
 @tailwind components;
 @tailwind utilities;

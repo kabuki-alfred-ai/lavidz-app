@@ -320,6 +320,123 @@ function NeonSubtitle({
   )
 }
 
+// ─── Karaoke ─────────────────────────────────────────────────────────────────
+function KaraokeSubtitle({ words, activeIndex, size, wordPopScale }: { words: string[]; activeIndex: number; size: number; wordPopScale: number }) {
+  return (
+    <div style={{ display: 'flex', flexWrap: 'wrap', justifyContent: 'center', gap: size * 0.15, maxWidth: '85%' }}>
+      {words.map((word, i) => (
+        <span key={i} style={{
+          fontFamily: "'Oswald', Impact, sans-serif", fontSize: size, fontWeight: 700,
+          color: i === activeIndex ? '#000' : 'rgba(255,255,255,0.5)',
+          background: i === activeIndex ? '#FFE600' : 'transparent',
+          padding: i === activeIndex ? `${size * 0.05}px ${size * 0.18}px` : '0',
+          borderRadius: size * 0.12, lineHeight: 1.2, display: 'inline-block',
+          transform: i === activeIndex ? `scale(${wordPopScale})` : 'scale(1)',
+          transformOrigin: 'center bottom', transition: 'background 0.06s',
+        }}>{word}</span>
+      ))}
+    </div>
+  )
+}
+
+// ─── Boxed ────────────────────────────────────────────────────────────────────
+function BoxedSubtitle({ words, activeIndex, size, wordPopScale }: { words: string[]; activeIndex: number; size: number; wordPopScale: number }) {
+  return (
+    <div style={{ display: 'flex', flexWrap: 'wrap', justifyContent: 'center', gap: size * 0.18, maxWidth: '85%' }}>
+      {words.map((word, i) => (
+        <span key={i} style={{
+          fontFamily: "'Space Grotesk', system-ui, sans-serif", fontSize: size, fontWeight: 700,
+          color: i === activeIndex ? '#fff' : 'rgba(255,255,255,0.8)',
+          background: i === activeIndex ? '#FF4D1C' : 'rgba(0,0,0,0.6)',
+          border: `2px solid ${i === activeIndex ? '#FF4D1C' : 'rgba(255,255,255,0.2)'}`,
+          padding: `${size * 0.08}px ${size * 0.22}px`, borderRadius: size * 0.15,
+          lineHeight: 1.25, display: 'inline-block',
+          transform: i === activeIndex ? `scale(${wordPopScale})` : 'scale(1)',
+          transformOrigin: 'center bottom',
+        }}>{word}</span>
+      ))}
+    </div>
+  )
+}
+
+// ─── Outline ─────────────────────────────────────────────────────────────────
+function OutlineSubtitle({ words, activeIndex, size, wordPopScale }: { words: string[]; activeIndex: number; size: number; wordPopScale: number }) {
+  return (
+    <div style={{ display: 'flex', flexWrap: 'wrap', justifyContent: 'center', gap: size * 0.2, maxWidth: '85%' }}>
+      {words.map((word, i) => (
+        <span key={i} style={{
+          fontFamily: "'Anton', Impact, sans-serif", fontSize: size, fontWeight: 400,
+          color: i === activeIndex ? '#FFE600' : 'transparent',
+          WebkitTextStroke: `${Math.max(2, size * 0.03)}px ${i === activeIndex ? '#FFE600' : '#FFFFFF'}`,
+          letterSpacing: 2, lineHeight: 1.15, display: 'inline-block',
+          transform: i === activeIndex ? `scale(${wordPopScale})` : 'scale(1)',
+          transformOrigin: 'center bottom',
+        }}>{word}</span>
+      ))}
+    </div>
+  )
+}
+
+// ─── Tape ─────────────────────────────────────────────────────────────────────
+function TapeSubtitle({ words, activeIndex, size, wordPopScale }: { words: string[]; activeIndex: number; size: number; wordPopScale: number }) {
+  return (
+    <div style={{ background: '#000', padding: `${size * 0.2}px ${size * 0.5}px`, display: 'flex', flexWrap: 'wrap', justifyContent: 'center', gap: size * 0.22, maxWidth: '100%', width: '100%' }}>
+      {words.map((word, i) => (
+        <span key={i} style={{
+          fontFamily: "'DM Sans', system-ui, sans-serif", fontSize: size, fontWeight: 700,
+          color: i === activeIndex ? '#FFE600' : 'rgba(255,255,255,0.85)',
+          lineHeight: 1.25, display: 'inline-block',
+          transform: i === activeIndex ? `scale(${wordPopScale})` : 'scale(1)',
+          transformOrigin: 'center bottom',
+          textDecoration: i === activeIndex ? 'underline' : 'none',
+          textDecorationColor: '#FFE600',
+          textUnderlineOffset: '4px',
+        }}>{word}</span>
+      ))}
+    </div>
+  )
+}
+
+// ─── Glitch ───────────────────────────────────────────────────────────────────
+function GlitchSubtitle({ words, activeIndex, size, wordPopScale }: { words: string[]; activeIndex: number; size: number; wordPopScale: number }) {
+  return (
+    <div style={{ display: 'flex', flexWrap: 'wrap', justifyContent: 'center', gap: size * 0.22, maxWidth: '85%' }}>
+      {words.map((word, i) => (
+        <span key={i} style={{
+          fontFamily: "'Teko', Impact, sans-serif", fontSize: size, fontWeight: 700,
+          color: i === activeIndex ? '#FFFFFF' : 'rgba(255,255,255,0.7)',
+          textShadow: i === activeIndex
+            ? `3px 0 #FF0000, -3px 0 #00FFFF, 0 0 12px rgba(255,255,255,0.6)`
+            : '2px 2px 6px rgba(0,0,0,0.8)',
+          letterSpacing: i === activeIndex ? 3 : 1, lineHeight: 1.2, display: 'inline-block',
+          transform: i === activeIndex ? `scale(${wordPopScale})` : 'scale(1)',
+          transformOrigin: 'center bottom',
+        }}>{word}</span>
+      ))}
+    </div>
+  )
+}
+
+// ─── Fire ─────────────────────────────────────────────────────────────────────
+function FireSubtitle({ words, activeIndex, size, wordPopScale }: { words: string[]; activeIndex: number; size: number; wordPopScale: number }) {
+  return (
+    <div style={{ display: 'flex', flexWrap: 'wrap', justifyContent: 'center', gap: size * 0.22, maxWidth: '85%' }}>
+      {words.map((word, i) => (
+        <span key={i} style={{
+          fontFamily: "'Barlow Condensed', Arial, sans-serif", fontSize: size, fontWeight: 900,
+          color: i === activeIndex ? '#FFF7ED' : '#FFFFFF',
+          textShadow: i === activeIndex
+            ? `0 0 8px #FF6B00, 0 0 18px #FF3500, 0 0 36px #FF1500, 0 0 60px #CC0000`
+            : '2px 2px 6px rgba(0,0,0,0.7)',
+          letterSpacing: 1, lineHeight: 1.2, display: 'inline-block',
+          transform: i === activeIndex ? `scale(${wordPopScale})` : 'scale(1)',
+          transformOrigin: 'center bottom',
+        }}>{word}</span>
+      ))}
+    </div>
+  )
+}
+
 // ─── Main component ───────────────────────────────────────────────────────────
 
 export function RecordingClip({
@@ -458,9 +575,15 @@ export function RecordingClip({
     : 1.0
 
   const StyleComponent =
-    style === 'hormozi' ? HormoziSubtitle
-    : style === 'minimal' ? MinimalSubtitle
-    : style === 'neon' ? NeonSubtitle
+    style === 'hormozi'  ? HormoziSubtitle
+    : style === 'minimal'  ? MinimalSubtitle
+    : style === 'neon'     ? NeonSubtitle
+    : style === 'karaoke'  ? KaraokeSubtitle
+    : style === 'boxed'    ? BoxedSubtitle
+    : style === 'outline'  ? OutlineSubtitle
+    : style === 'tape'     ? TapeSubtitle
+    : style === 'glitch'   ? GlitchSubtitle
+    : style === 'fire'     ? FireSubtitle
     : ClassicSubtitle
 
   const subtitlesNode = settings.enabled && hasWords && (

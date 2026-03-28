@@ -446,6 +446,8 @@ export function OutroCard({ outro, theme }: Props) {
 
   const bgColor = outro.bgColor || theme.backgroundColor
   const accentColor = outro.accentColor || theme.textColor
+  const fontFamily = outro.fontFamily || theme.fontFamily
+  const fontWeight = outro.fontWeight ?? theme.fontWeight
   const pattern: SlideBgPattern = outro.bgPattern || 'solid'
   const animation: SlideTextAnimation = outro.textAnimation || 'spring-up'
   const textSize = outro.textSize || 68
@@ -491,15 +493,15 @@ export function OutroCard({ outro, theme }: Props) {
             frame={frame}
             fps={fps}
             textColor={accentColor}
-            fontFamily={theme.fontFamily}
-            fontWeight={theme.fontWeight}
+            fontFamily={fontFamily}
+            fontWeight={fontWeight}
             fontSize={textSize}
           />
         )}
 
         {outro.subText && (
           <p style={{
-            fontFamily: theme.fontFamily, fontSize: 32, fontWeight: 600,
+            fontFamily, fontSize: 32, fontWeight: 600,
             color: accentColor, opacity: subOpacity * 0.65,
             transform: `translateY(${subTranslateY}px)`,
             textAlign: 'center', margin: 0, letterSpacing: 1,
@@ -514,7 +516,7 @@ export function OutroCard({ outro, theme }: Props) {
 
       <SlideDecoratorLayer
         decorator={decorator} decoratorText={decoratorText}
-        accentColor={accentColor} fontFamily={theme.fontFamily}
+        accentColor={accentColor} fontFamily={fontFamily}
         frame={frame} fps={fps} durationInFrames={durationInFrames}
         fadeOut={fadeOut} width={width} height={height}
       />

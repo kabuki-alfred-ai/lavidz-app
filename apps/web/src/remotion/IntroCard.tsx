@@ -547,6 +547,8 @@ export function IntroCard({ intro, theme }: Props) {
 
   const bgColor = intro.bgColor || theme.backgroundColor
   const accentColor = intro.accentColor || theme.textColor
+  const fontFamily = intro.fontFamily || theme.fontFamily
+  const fontWeight = intro.fontWeight ?? theme.fontWeight
   const pattern: SlideBgPattern = intro.bgPattern || 'solid'
   const animation: SlideTextAnimation = intro.textAnimation || 'spring-up'
   const textSize = intro.textSize || 72
@@ -585,15 +587,15 @@ export function IntroCard({ intro, theme }: Props) {
         {intro.hookText && (
           <AnimatedText
             text={intro.hookText} animation={animation} frame={frame} fps={fps}
-            textColor={accentColor} fontFamily={theme.fontFamily}
-            fontWeight={theme.fontWeight} fontSize={textSize}
+            textColor={accentColor} fontFamily={fontFamily}
+            fontWeight={fontWeight} fontSize={textSize}
           />
         )}
       </div>
 
       <SlideDecoratorLayer
         decorator={decorator} decoratorText={decoratorText}
-        accentColor={accentColor} fontFamily={theme.fontFamily}
+        accentColor={accentColor} fontFamily={fontFamily}
         frame={frame} fps={fps} durationInFrames={durationInFrames}
         width={width} height={height}
       />

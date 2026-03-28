@@ -73,15 +73,32 @@ export interface IntroSettings {
   preset?: SlidePreset
   decorator?: SlideDecorator
   decoratorText?: string
+  fontFamily?: string
+  fontWeight?: number
 }
 
 export const FONT_OPTIONS = [
-  { label: 'Impact',      value: "Impact, 'Arial Narrow', sans-serif",       weight: 400 },
-  { label: 'Syne',        value: "'Syne', sans-serif",                        weight: 800 },
-  { label: 'Arial Black', value: "'Arial Black', Gadget, sans-serif",         weight: 400 },
-  { label: 'Georgia',     value: "Georgia, 'Times New Roman', serif",         weight: 700 },
-  { label: 'Courier',     value: "'Courier New', Courier, monospace",         weight: 700 },
-  { label: 'Trebuchet',   value: "'Trebuchet MS', Helvetica, sans-serif",     weight: 700 },
+  // System / classic
+  { label: 'Impact',            value: "Impact, 'Arial Narrow', sans-serif",         weight: 400 },
+  { label: 'Arial Black',       value: "'Arial Black', Gadget, sans-serif",           weight: 400 },
+  { label: 'Georgia',           value: "Georgia, 'Times New Roman', serif",           weight: 700 },
+  { label: 'Courier',           value: "'Courier New', Courier, monospace",           weight: 700 },
+  { label: 'Trebuchet',         value: "'Trebuchet MS', Helvetica, sans-serif",       weight: 700 },
+  // Google — condensed / display
+  { label: 'Anton',             value: "'Anton', Impact, sans-serif",                  weight: 400 },
+  { label: 'Bebas Neue',        value: "'Bebas Neue', Impact, sans-serif",             weight: 400 },
+  { label: 'Oswald',            value: "'Oswald', Arial, sans-serif",                  weight: 700 },
+  { label: 'Barlow Condensed',  value: "'Barlow Condensed', Arial, sans-serif",        weight: 900 },
+  { label: 'Teko',              value: "'Teko', Arial, sans-serif",                    weight: 700 },
+  // Google — modern sans
+  { label: 'Syne',              value: "'Syne', sans-serif",                           weight: 800 },
+  { label: 'Space Grotesk',     value: "'Space Grotesk', system-ui, sans-serif",       weight: 700 },
+  { label: 'DM Sans',           value: "'DM Sans', system-ui, sans-serif",             weight: 700 },
+  { label: 'Raleway',           value: "'Raleway', sans-serif",                        weight: 900 },
+  // Google — serif / editorial
+  { label: 'Playfair Display',  value: "'Playfair Display', Georgia, serif",           weight: 900 },
+  // Google — handwriting / personality
+  { label: 'Permanent Marker',  value: "'Permanent Marker', cursive",                  weight: 400 },
 ] as const
 
 export const THEME_PRESETS = [
@@ -130,6 +147,8 @@ export interface OutroSettings {
   preset?: SlidePreset
   decorator?: SlideDecorator
   decoratorText?: string
+  fontFamily?: string
+  fontWeight?: number
 }
 
 export const DEFAULT_OUTRO_SETTINGS: OutroSettings = {
