@@ -4,7 +4,9 @@ export interface WordTimestamp {
   end: number    // seconds
 }
 
-export type TransitionStyle = 'none' | 'zoom-punch' | 'slide-up' | 'flash'
+export type TransitionStyle = 'none' | 'zoom-punch' | 'slide-up' | 'flash' | 'wipe-right' | 'spin-scale' | 'glitch-cut' | 'blur-in' | 'shake'
+
+export type QuestionCardStyle = 'default' | 'flash-word' | 'brut' | 'split-color' | 'typewriter' | 'cinematic'
 
 export interface LowerThirdSettings {
   name: string
@@ -30,6 +32,9 @@ export interface MotionSettings {
   wordPop: boolean
   progressBar: boolean
   kenBurns: boolean
+  questionCardStyle?: QuestionCardStyle
+  questionCardTransition?: TransitionStyle
+  questionCardBgPattern?: SlideBgPattern
   lowerThird?: LowerThirdSettings
   questionCardColors?: string[]
 }
@@ -48,11 +53,26 @@ export interface TransitionTheme {
   fontWeight: number
 }
 
+export type SlideBgPattern = 'solid' | 'dots' | 'grid' | 'diagonal' | 'radial' | 'noise' | 'confetti' | 'stripes' | 'scanlines' | 'gradient-sweep' | 'aurora' | 'halftone' | 'vhs'
+export type SlideTextAnimation = 'spring-up' | 'flash' | 'typewriter' | 'word-stack' | 'zoom-blast' | 'glitch' | 'scramble' | 'letter-stack' | 'highlight' | 'flip-3d' | 'neon-flicker' | 'blur-reveal' | 'stamp' | 'wave' | 'cascade' | 'split-reveal'
+
+export type SlideDecorator = 'none' | 'ticker' | 'frame-border' | 'corner-label'
+export type SlidePreset = 'konbini' | 'brut' | 'magazine' | 'neon' | 'viral' | 'minimal' | 'cinema' | 'retro' | 'editorial' | 'custom'
+
 export interface IntroSettings {
   enabled: boolean
   hookText: string
   logoUrl: string
   durationSeconds: number
+  bgColor?: string            // overrides theme.backgroundColor
+  accentColor?: string        // color for pattern + decorative elements, default '#FFFFFF'
+  bgPattern?: SlideBgPattern  // default 'solid'
+  textAnimation?: SlideTextAnimation // default 'spring-up'
+  textSize?: number           // px, default 72
+  logoSize?: number           // px height, default 64
+  preset?: SlidePreset
+  decorator?: SlideDecorator
+  decoratorText?: string
 }
 
 export const FONT_OPTIONS = [
@@ -84,6 +104,15 @@ export const DEFAULT_INTRO_SETTINGS: IntroSettings = {
   hookText: '',
   logoUrl: '',
   durationSeconds: 3,
+  bgColor: undefined,
+  accentColor: undefined,
+  bgPattern: 'solid',
+  textAnimation: 'spring-up',
+  textSize: 72,
+  logoSize: 64,
+  preset: 'custom',
+  decorator: 'none',
+  decoratorText: '',
 }
 
 export interface OutroSettings {
@@ -92,6 +121,15 @@ export interface OutroSettings {
   subText: string       // e.g. "@handle" or secondary CTA
   logoUrl: string
   durationSeconds: number
+  bgColor?: string            // overrides theme.backgroundColor
+  accentColor?: string        // color for pattern + decorative elements, default '#FFFFFF'
+  bgPattern?: SlideBgPattern  // default 'solid'
+  textAnimation?: SlideTextAnimation // default 'spring-up'
+  textSize?: number           // px, default 68
+  logoSize?: number           // px height, default 56
+  preset?: SlidePreset
+  decorator?: SlideDecorator
+  decoratorText?: string
 }
 
 export const DEFAULT_OUTRO_SETTINGS: OutroSettings = {
@@ -100,4 +138,29 @@ export const DEFAULT_OUTRO_SETTINGS: OutroSettings = {
   subText: '',
   logoUrl: '',
   durationSeconds: 3,
+  bgColor: undefined,
+  accentColor: undefined,
+  bgPattern: 'solid',
+  textAnimation: 'spring-up',
+  textSize: 68,
+  logoSize: 56,
+  preset: 'custom',
+  decorator: 'none',
+  decoratorText: '',
+}
+
+export const SLIDE_PRESETS: Record<Exclude<SlidePreset, 'custom'>, {
+  bgColor: string; accentColor: string; bgPattern: SlideBgPattern
+  textAnimation: SlideTextAnimation; textSize: number; logoSize: number
+  decorator: SlideDecorator
+}> = {
+  konbini:  { bgColor: '#FF2D55', accentColor: '#FFD60A', bgPattern: 'confetti',       textAnimation: 'flash',        textSize: 90, logoSize: 72, decorator: 'ticker' },
+  brut:     { bgColor: '#000000', accentColor: '#FFFFFF', bgPattern: 'noise',           textAnimation: 'letter-stack', textSize: 80, logoSize: 64, decorator: 'frame-border' },
+  magazine: { bgColor: '#F5F0E8', accentColor: '#1A1209', bgPattern: 'solid',           textAnimation: 'highlight',    textSize: 62, logoSize: 56, decorator: 'corner-label' },
+  neon:     { bgColor: '#0D0D0D', accentColor: '#00FF88', bgPattern: 'scanlines',       textAnimation: 'glitch',       textSize: 80, logoSize: 64, decorator: 'ticker' },
+  viral:    { bgColor: '#FF6B00', accentColor: '#FFFFFF', bgPattern: 'stripes',         textAnimation: 'zoom-blast',   textSize: 88, logoSize: 72, decorator: 'none' },
+  minimal:  { bgColor: '#FFFFFF', accentColor: '#0A0A0A', bgPattern: 'solid',           textAnimation: 'spring-up',    textSize: 56, logoSize: 48, decorator: 'none' },
+  cinema:   { bgColor: '#0A0A0A', accentColor: '#D4AF37', bgPattern: 'aurora',    textAnimation: 'blur-reveal',   textSize: 74, logoSize: 60, decorator: 'frame-border' },
+  retro:    { bgColor: '#1A0A2E', accentColor: '#FF6EFF', bgPattern: 'vhs',       textAnimation: 'neon-flicker',  textSize: 82, logoSize: 64, decorator: 'ticker' },
+  editorial:{ bgColor: '#FAFAFA', accentColor: '#111111', bgPattern: 'halftone',  textAnimation: 'stamp',         textSize: 78, logoSize: 56, decorator: 'corner-label' },
 }

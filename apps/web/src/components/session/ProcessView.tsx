@@ -8,8 +8,8 @@ import type { CompositionSegment } from '@/remotion/LavidzComposition'
 import { END_CARD_FRAMES } from '@/remotion/LavidzComposition'
 import type { SubtitleSettings, SubtitleStyle } from '@/remotion/subtitleTypes'
 import { DEFAULT_SUBTITLE_SETTINGS } from '@/remotion/subtitleTypes'
-import type { TransitionTheme, IntroSettings, OutroSettings, MotionSettings, TransitionStyle, AudioSettings, WordTimestamp } from '@/remotion/themeTypes'
-import { DEFAULT_TRANSITION_THEME, DEFAULT_INTRO_SETTINGS, DEFAULT_OUTRO_SETTINGS, DEFAULT_MOTION_SETTINGS, FONT_OPTIONS, THEME_PRESETS } from '@/remotion/themeTypes'
+import type { TransitionTheme, IntroSettings, OutroSettings, MotionSettings, TransitionStyle, QuestionCardStyle, AudioSettings, WordTimestamp, SlidePreset } from '@/remotion/themeTypes'
+import { DEFAULT_TRANSITION_THEME, DEFAULT_INTRO_SETTINGS, DEFAULT_OUTRO_SETTINGS, DEFAULT_MOTION_SETTINGS, FONT_OPTIONS, THEME_PRESETS, SLIDE_PRESETS } from '@/remotion/themeTypes'
 import { ServerRenderer, type ServerRendererHandle } from './ServerRenderer'
 
 // Remap word timestamps after silence/filler cuts.
@@ -1062,7 +1062,27 @@ export function ProcessView({ recordings, themeName, sessionId, themeSlug, monta
     </div>
   )
 
-  const introSounds = soundLibrary.filter(s => s.tag === 'INTRO')
+
+  const applyPreset = (preset: SlidePreset, target: 'intro' | 'outro') => {
+    if (preset === 'custom') return
+    const config = SLIDE_PRESETS[preset]
+    if (target === 'intro') setIntro(p => ({ ...p, ...config, preset }))
+    else setOutro(p => ({ ...p, ...config, preset }))
+  }
+
+  const PRESET_UI = [
+    { id: 'konbini',  label: 'Konbini',   emoji: '🔴', bg: '#FF2D55', accent: '#FFD60A' },
+    { id: 'brut',     label: 'Brut',      emoji: '⬛', bg: '#000000', accent: '#FFFFFF' },
+    { id: 'magazine', label: 'Magazine',  emoji: '📰', bg: '#F5F0E8', accent: '#1A1209' },
+    { id: 'neon',     label: 'Neon',      emoji: '💚', bg: '#0D0D0D', accent: '#00FF88' },
+    { id: 'viral',    label: 'Viral',     emoji: '🔥', bg: '#FF6B00', accent: '#FFFFFF' },
+    { id: 'minimal',  label: 'Minimal',   emoji: '⬜', bg: '#FFFFFF', accent: '#0A0A0A' },
+    { id: 'cinema',    label: 'Cinema',    emoji: '🎬', bg: '#0A0A0A', accent: '#D4AF37' },
+    { id: 'retro',     label: 'Rétro',     emoji: '📼', bg: '#1A0A2E', accent: '#FF6EFF' },
+    { id: 'editorial', label: 'Editorial', emoji: '📰', bg: '#FAFAFA', accent: '#111111' },
+  ] as const
+
+    const introSounds = soundLibrary.filter(s => s.tag === 'INTRO')
   const stepIntro = (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 20 }}>
       <Card>
@@ -1076,6 +1096,30 @@ export function ProcessView({ recordings, themeName, sessionId, themeSlug, monta
 
         {intro.enabled && (
           <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
+            {/* ── Presets ── */}
+            <div>
+              <Label>Style médias</Label>
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 6 }}>
+                {PRESET_UI.map(p => {
+                  const selected = intro.preset === p.id
+                  return (
+                    <button key={p.id} onClick={() => applyPreset(p.id as SlidePreset, 'intro')}
+                      style={{
+                        padding: '10px 6px', borderRadius: 10, textAlign: 'center',
+                        background: selected ? p.bg : S.surface,
+                        border: `2px solid ${selected ? p.accent : S.border}`,
+                        transition: 'all 0.15s',
+                      }}
+                    >
+                      <div style={{ fontSize: 18, marginBottom: 2 }}>{p.emoji}</div>
+                      <div style={{ color: selected ? p.accent : S.muted, fontSize: 10, fontWeight: 700, fontFamily: 'monospace', textTransform: 'uppercase', letterSpacing: '0.1em' }}>
+                        {p.label}
+                      </div>
+                    </button>
+                  )
+                })}
+              </div>
+            </div>
             <div>
               <Label>Phrase d'accroche</Label>
               <input type="text" placeholder="Ce que personne ne te dit sur..."
@@ -1093,6 +1137,157 @@ export function ProcessView({ recordings, themeName, sessionId, themeSlug, monta
             <SliderRow label="Durée" value={intro.durationSeconds} min={2} max={6} step={0.5}
               format={v => `${v}s`} onChange={v => setIntro(p => ({ ...p, durationSeconds: v }))}
             />
+
+            {/* Advanced styling */}
+            <div style={{ borderTop: `1px solid ${S.border}`, paddingTop: 16, display: 'flex', flexDirection: 'column', gap: 16 }}>
+              <p style={{ color: S.muted, fontSize: 10, fontFamily: 'monospace', textTransform: 'uppercase', letterSpacing: '0.1em' }}>Style avancé</p>
+
+              {/* Colors */}
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
+                <div>
+                  <Label>Couleur fond</Label>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                    <input type="color" value={intro.bgColor || theme.backgroundColor}
+                      onChange={e => setIntro(p => ({ ...p, bgColor: e.target.value, preset: 'custom' }))}
+                      style={{ width: 32, height: 32, borderRadius: 6, border: `1px solid ${S.border}`, background: 'transparent', cursor: 'pointer' }} />
+                    <input type="text" value={intro.bgColor || theme.backgroundColor}
+                      onChange={e => setIntro(p => ({ ...p, bgColor: e.target.value, preset: 'custom' }))}
+                      style={{ flex: 1, background: 'rgba(255,255,255,0.04)', border: `1px solid ${S.border}`, borderRadius: 8, padding: '6px 10px', color: S.text, fontSize: 12, fontFamily: 'monospace', outline: 'none' }} />
+                  </div>
+                </div>
+                <div>
+                  <Label>Couleur accent</Label>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                    <input type="color" value={intro.accentColor || theme.textColor}
+                      onChange={e => setIntro(p => ({ ...p, accentColor: e.target.value, preset: 'custom' }))}
+                      style={{ width: 32, height: 32, borderRadius: 6, border: `1px solid ${S.border}`, background: 'transparent', cursor: 'pointer' }} />
+                    <input type="text" value={intro.accentColor || theme.textColor}
+                      onChange={e => setIntro(p => ({ ...p, accentColor: e.target.value, preset: 'custom' }))}
+                      style={{ flex: 1, background: 'rgba(255,255,255,0.04)', border: `1px solid ${S.border}`, borderRadius: 8, padding: '6px 10px', color: S.text, fontSize: 12, fontFamily: 'monospace', outline: 'none' }} />
+                  </div>
+                </div>
+              </div>
+
+              {/* Background pattern */}
+              <div>
+                <Label>Motif de fond</Label>
+                <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6 }}>
+                  {([
+                    { value: 'solid',           label: 'Uni' },
+                    { value: 'dots',            label: 'Points' },
+                    { value: 'grid',            label: 'Grille' },
+                    { value: 'diagonal',        label: 'Diagonales' },
+                    { value: 'radial',          label: 'Radial' },
+                    { value: 'noise',           label: 'Bruit' },
+                    { value: 'confetti',        label: 'Confetti' },
+                    { value: 'stripes',         label: 'Stripes' },
+                    { value: 'scanlines',       label: 'Scanlines' },
+                    { value: 'gradient-sweep',  label: 'Sweep' },
+                    { value: 'aurora',    label: 'Aurora' },
+                    { value: 'halftone',  label: 'Halftone' },
+                    { value: 'vhs',       label: 'VHS' },
+                  ] as { value: string; label: string }[]).map(opt => {
+                    const selected = (intro.bgPattern || 'solid') === opt.value
+                    return (
+                      <button key={opt.value} onClick={() => setIntro(p => ({ ...p, bgPattern: opt.value as any, preset: 'custom' }))}
+                        style={{ padding: '5px 12px', borderRadius: 20, fontSize: 11, fontFamily: 'monospace',
+                          background: selected ? 'rgba(255,255,255,0.15)' : 'rgba(255,255,255,0.04)',
+                          border: `1px solid ${selected ? 'rgba(255,255,255,0.4)' : S.border}`,
+                          color: selected ? S.text : S.muted }}>
+                        {opt.label}
+                      </button>
+                    )
+                  })}
+                </div>
+              </div>
+
+              {/* Text animation */}
+              <div>
+                <Label>Animation</Label>
+                <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6 }}>
+                  {([
+                    { value: 'spring-up',   label: 'Spring' },
+                    { value: 'flash',       label: 'Flash' },
+                    { value: 'typewriter',  label: 'Typewriter' },
+                    { value: 'word-stack',  label: 'Word Stack' },
+                    { value: 'zoom-blast',  label: 'Zoom Blast' },
+                    { value: 'glitch',      label: 'Glitch' },
+                    { value: 'scramble',    label: 'Scramble' },
+                    { value: 'letter-stack', label: 'Letter Stack' },
+                    { value: 'highlight',   label: 'Highlight' },
+                    { value: 'flip-3d',     label: 'Flip 3D' },
+                    { value: 'neon-flicker',  label: 'Neon' },
+                    { value: 'blur-reveal',   label: 'Blur Reveal' },
+                    { value: 'stamp',         label: 'Stamp' },
+                    { value: 'wave',          label: 'Wave' },
+                    { value: 'cascade',       label: 'Cascade' },
+                    { value: 'split-reveal',  label: 'Split' },
+                  ] as { value: string; label: string }[]).map(opt => {
+                    const selected = (intro.textAnimation || 'spring-up') === opt.value
+                    return (
+                      <button key={opt.value} onClick={() => setIntro(p => ({ ...p, textAnimation: opt.value as any, preset: 'custom' }))}
+                        style={{ padding: '5px 12px', borderRadius: 20, fontSize: 11, fontFamily: 'monospace',
+                          background: selected ? 'rgba(255,255,255,0.15)' : 'rgba(255,255,255,0.04)',
+                          border: `1px solid ${selected ? 'rgba(255,255,255,0.4)' : S.border}`,
+                          color: selected ? S.text : S.muted }}>
+                        {opt.label}
+                      </button>
+                    )
+                  })}
+                </div>
+              </div>
+
+              {/* Size sliders */}
+              <SliderRow label="Taille du texte" value={intro.textSize || 72} min={32} max={120} step={4}
+                format={v => `${v}px`} onChange={v => setIntro(p => ({ ...p, textSize: v }))} />
+              <SliderRow label="Taille du logo" value={intro.logoSize || 64} min={32} max={200} step={8}
+                format={v => `${v}px`} onChange={v => setIntro(p => ({ ...p, logoSize: v }))} />
+
+              {/* Décorateur */}
+              <div>
+                <Label>Décorateur</Label>
+                <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6 }}>
+                  {([
+                    { value: 'none',         label: 'Aucun' },
+                    { value: 'ticker',       label: '📺 Ticker' },
+                    { value: 'frame-border', label: '⬜ Cadre' },
+                    { value: 'corner-label', label: '📌 Coin' },
+                  ] as { value: string; label: string }[]).map(opt => {
+                    const selected = (intro.decorator || 'none') === opt.value
+                    return (
+                      <button key={opt.value}
+                        onClick={() => { setIntro(p => ({ ...p, decorator: opt.value as any, preset: 'custom' })) }}
+                        style={{
+                          padding: '5px 12px', borderRadius: 20, fontSize: 11, fontFamily: 'monospace',
+                          background: selected ? 'rgba(255,255,255,0.15)' : 'rgba(255,255,255,0.04)',
+                          border: `1px solid ${selected ? 'rgba(255,255,255,0.4)' : S.border}`,
+                          color: selected ? S.text : S.muted,
+                        }}>
+                        {opt.label}
+                      </button>
+                    )
+                  })}
+                </div>
+              </div>
+
+              {/* Texte du décorateur */}
+              {intro.decorator && intro.decorator !== 'none' && (
+                <div>
+                  <Label>{intro.decorator === 'ticker' ? 'Texte du ticker' : 'Texte du coin'}</Label>
+                  <input
+                    type="text"
+                    value={intro.decoratorText || ''}
+                    onChange={e => setIntro(p => ({ ...p, decoratorText: e.target.value }))}
+                    placeholder={intro.decorator === 'ticker' ? 'Ex: @monhandle · LAVIDZ' : 'Ex: EP.01'}
+                    style={{
+                      width: '100%', background: 'rgba(255,255,255,0.04)',
+                      border: `1px solid ${S.border}`, borderRadius: 8,
+                      padding: '8px 12px', color: S.text, fontSize: 13, outline: 'none',
+                    }}
+                  />
+                </div>
+              )}
+            </div>
           </div>
         )}
       </Card>
@@ -1165,6 +1360,30 @@ export function ProcessView({ recordings, themeName, sessionId, themeSlug, monta
 
         {outro.enabled && (
           <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
+            {/* ── Presets ── */}
+            <div>
+              <Label>Style médias</Label>
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 6 }}>
+                {PRESET_UI.map(p => {
+                  const selected = outro.preset === p.id
+                  return (
+                    <button key={p.id} onClick={() => applyPreset(p.id as SlidePreset, 'outro')}
+                      style={{
+                        padding: '10px 6px', borderRadius: 10, textAlign: 'center',
+                        background: selected ? p.bg : S.surface,
+                        border: `2px solid ${selected ? p.accent : S.border}`,
+                        transition: 'all 0.15s',
+                      }}
+                    >
+                      <div style={{ fontSize: 18, marginBottom: 2 }}>{p.emoji}</div>
+                      <div style={{ color: selected ? p.accent : S.muted, fontSize: 10, fontWeight: 700, fontFamily: 'monospace', textTransform: 'uppercase', letterSpacing: '0.1em' }}>
+                        {p.label}
+                      </div>
+                    </button>
+                  )
+                })}
+              </div>
+            </div>
             <div>
               <Label>CTA principal</Label>
               <input type="text" placeholder="Abonne-toi pour plus de contenu 🔥"
@@ -1192,6 +1411,157 @@ export function ProcessView({ recordings, themeName, sessionId, themeSlug, monta
             <SliderRow label="Durée" value={outro.durationSeconds} min={2} max={6} step={0.5}
               format={v => `${v}s`} onChange={v => setOutro(p => ({ ...p, durationSeconds: v }))}
             />
+
+            {/* Advanced styling */}
+            <div style={{ borderTop: `1px solid ${S.border}`, paddingTop: 16, display: 'flex', flexDirection: 'column', gap: 16 }}>
+              <p style={{ color: S.muted, fontSize: 10, fontFamily: 'monospace', textTransform: 'uppercase', letterSpacing: '0.1em' }}>Style avancé</p>
+
+              {/* Colors */}
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
+                <div>
+                  <Label>Couleur fond</Label>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                    <input type="color" value={outro.bgColor || theme.backgroundColor}
+                      onChange={e => setOutro(p => ({ ...p, bgColor: e.target.value, preset: 'custom' }))}
+                      style={{ width: 32, height: 32, borderRadius: 6, border: `1px solid ${S.border}`, background: 'transparent', cursor: 'pointer' }} />
+                    <input type="text" value={outro.bgColor || theme.backgroundColor}
+                      onChange={e => setOutro(p => ({ ...p, bgColor: e.target.value, preset: 'custom' }))}
+                      style={{ flex: 1, background: 'rgba(255,255,255,0.04)', border: `1px solid ${S.border}`, borderRadius: 8, padding: '6px 10px', color: S.text, fontSize: 12, fontFamily: 'monospace', outline: 'none' }} />
+                  </div>
+                </div>
+                <div>
+                  <Label>Couleur accent</Label>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                    <input type="color" value={outro.accentColor || theme.textColor}
+                      onChange={e => setOutro(p => ({ ...p, accentColor: e.target.value, preset: 'custom' }))}
+                      style={{ width: 32, height: 32, borderRadius: 6, border: `1px solid ${S.border}`, background: 'transparent', cursor: 'pointer' }} />
+                    <input type="text" value={outro.accentColor || theme.textColor}
+                      onChange={e => setOutro(p => ({ ...p, accentColor: e.target.value, preset: 'custom' }))}
+                      style={{ flex: 1, background: 'rgba(255,255,255,0.04)', border: `1px solid ${S.border}`, borderRadius: 8, padding: '6px 10px', color: S.text, fontSize: 12, fontFamily: 'monospace', outline: 'none' }} />
+                  </div>
+                </div>
+              </div>
+
+              {/* Background pattern */}
+              <div>
+                <Label>Motif de fond</Label>
+                <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6 }}>
+                  {([
+                    { value: 'solid',           label: 'Uni' },
+                    { value: 'dots',            label: 'Points' },
+                    { value: 'grid',            label: 'Grille' },
+                    { value: 'diagonal',        label: 'Diagonales' },
+                    { value: 'radial',          label: 'Radial' },
+                    { value: 'noise',           label: 'Bruit' },
+                    { value: 'confetti',        label: 'Confetti' },
+                    { value: 'stripes',         label: 'Stripes' },
+                    { value: 'scanlines',       label: 'Scanlines' },
+                    { value: 'gradient-sweep',  label: 'Sweep' },
+                    { value: 'aurora',    label: 'Aurora' },
+                    { value: 'halftone',  label: 'Halftone' },
+                    { value: 'vhs',       label: 'VHS' },
+                  ] as { value: string; label: string }[]).map(opt => {
+                    const selected = (outro.bgPattern || 'solid') === opt.value
+                    return (
+                      <button key={opt.value} onClick={() => setOutro(p => ({ ...p, bgPattern: opt.value as any, preset: 'custom' }))}
+                        style={{ padding: '5px 12px', borderRadius: 20, fontSize: 11, fontFamily: 'monospace',
+                          background: selected ? 'rgba(255,255,255,0.15)' : 'rgba(255,255,255,0.04)',
+                          border: `1px solid ${selected ? 'rgba(255,255,255,0.4)' : S.border}`,
+                          color: selected ? S.text : S.muted }}>
+                        {opt.label}
+                      </button>
+                    )
+                  })}
+                </div>
+              </div>
+
+              {/* Text animation */}
+              <div>
+                <Label>Animation</Label>
+                <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6 }}>
+                  {([
+                    { value: 'spring-up',   label: 'Spring' },
+                    { value: 'flash',       label: 'Flash' },
+                    { value: 'typewriter',  label: 'Typewriter' },
+                    { value: 'word-stack',  label: 'Word Stack' },
+                    { value: 'zoom-blast',  label: 'Zoom Blast' },
+                    { value: 'glitch',      label: 'Glitch' },
+                    { value: 'scramble',    label: 'Scramble' },
+                    { value: 'letter-stack', label: 'Letter Stack' },
+                    { value: 'highlight',   label: 'Highlight' },
+                    { value: 'flip-3d',     label: 'Flip 3D' },
+                    { value: 'neon-flicker',  label: 'Neon' },
+                    { value: 'blur-reveal',   label: 'Blur Reveal' },
+                    { value: 'stamp',         label: 'Stamp' },
+                    { value: 'wave',          label: 'Wave' },
+                    { value: 'cascade',       label: 'Cascade' },
+                    { value: 'split-reveal',  label: 'Split' },
+                  ] as { value: string; label: string }[]).map(opt => {
+                    const selected = (outro.textAnimation || 'spring-up') === opt.value
+                    return (
+                      <button key={opt.value} onClick={() => setOutro(p => ({ ...p, textAnimation: opt.value as any, preset: 'custom' }))}
+                        style={{ padding: '5px 12px', borderRadius: 20, fontSize: 11, fontFamily: 'monospace',
+                          background: selected ? 'rgba(255,255,255,0.15)' : 'rgba(255,255,255,0.04)',
+                          border: `1px solid ${selected ? 'rgba(255,255,255,0.4)' : S.border}`,
+                          color: selected ? S.text : S.muted }}>
+                        {opt.label}
+                      </button>
+                    )
+                  })}
+                </div>
+              </div>
+
+              {/* Size sliders */}
+              <SliderRow label="Taille du texte" value={outro.textSize || 68} min={32} max={120} step={4}
+                format={v => `${v}px`} onChange={v => setOutro(p => ({ ...p, textSize: v }))} />
+              <SliderRow label="Taille du logo" value={outro.logoSize || 56} min={32} max={200} step={8}
+                format={v => `${v}px`} onChange={v => setOutro(p => ({ ...p, logoSize: v }))} />
+
+              {/* Décorateur */}
+              <div>
+                <Label>Décorateur</Label>
+                <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6 }}>
+                  {([
+                    { value: 'none',         label: 'Aucun' },
+                    { value: 'ticker',       label: '📺 Ticker' },
+                    { value: 'frame-border', label: '⬜ Cadre' },
+                    { value: 'corner-label', label: '📌 Coin' },
+                  ] as { value: string; label: string }[]).map(opt => {
+                    const selected = (outro.decorator || 'none') === opt.value
+                    return (
+                      <button key={opt.value}
+                        onClick={() => { setOutro(p => ({ ...p, decorator: opt.value as any, preset: 'custom' })) }}
+                        style={{
+                          padding: '5px 12px', borderRadius: 20, fontSize: 11, fontFamily: 'monospace',
+                          background: selected ? 'rgba(255,255,255,0.15)' : 'rgba(255,255,255,0.04)',
+                          border: `1px solid ${selected ? 'rgba(255,255,255,0.4)' : S.border}`,
+                          color: selected ? S.text : S.muted,
+                        }}>
+                        {opt.label}
+                      </button>
+                    )
+                  })}
+                </div>
+              </div>
+
+              {/* Texte du décorateur */}
+              {outro.decorator && outro.decorator !== 'none' && (
+                <div>
+                  <Label>{outro.decorator === 'ticker' ? 'Texte du ticker' : 'Texte du coin'}</Label>
+                  <input
+                    type="text"
+                    value={outro.decoratorText || ''}
+                    onChange={e => setOutro(p => ({ ...p, decoratorText: e.target.value }))}
+                    placeholder={outro.decorator === 'ticker' ? 'Ex: @monhandle · LAVIDZ' : 'Ex: EP.01'}
+                    style={{
+                      width: '100%', background: 'rgba(255,255,255,0.04)',
+                      border: `1px solid ${S.border}`, borderRadius: 8,
+                      padding: '8px 12px', color: S.text, fontSize: 13, outline: 'none',
+                    }}
+                  />
+                </div>
+              )}
+            </div>
           </div>
         )}
       </Card>
@@ -1252,6 +1622,129 @@ export function ProcessView({ recordings, themeName, sessionId, themeSlug, monta
 
   const stepTheme = (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 20 }}>
+
+      {/* ── Transitions clips ─────────────────────────────────────────────── */}
+      <div>
+        <Label>Entrée des clips</Label>
+        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 8 }}>
+          {([
+            { value: 'zoom-punch',  label: 'Zoom Punch',  desc: 'TikTok / Reels' },
+            { value: 'slide-up',    label: 'Slide Up',    desc: 'Story / Smooth' },
+            { value: 'flash',       label: 'Flash Cut',   desc: 'Énergie / Clip' },
+            { value: 'wipe-right',  label: 'Wipe',        desc: 'Slide latéral' },
+            { value: 'spin-scale',  label: 'Spin Scale',  desc: 'Social / Punchy' },
+            { value: 'glitch-cut',  label: 'Glitch',      desc: 'Cyberpunk / RGB' },
+            { value: 'blur-in',     label: 'Blur In',     desc: 'Cinéma / Focus' },
+            { value: 'shake',       label: 'Shake',       desc: 'Énergie brute' },
+            { value: 'none',        label: 'Aucune',      desc: 'Cut direct' },
+          ] as { value: TransitionStyle; label: string; desc: string }[]).map(t => (
+            <button key={t.value} onClick={() => setMotionSettings(p => ({ ...p, transitionStyle: t.value }))}
+              style={{
+                padding: '12px 14px', borderRadius: 12, textAlign: 'left',
+                background: motionSettings.transitionStyle === t.value ? 'rgba(255,255,255,0.1)' : S.surface,
+                border: `1px solid ${motionSettings.transitionStyle === t.value ? 'rgba(255,255,255,0.3)' : S.border}`,
+              }}
+            >
+              <p style={{ color: motionSettings.transitionStyle === t.value ? S.text : S.muted, fontWeight: 700, fontSize: 13 }}>{t.label}</p>
+              <p style={{ color: S.dim, fontSize: 10, marginTop: 2, fontFamily: 'monospace' }}>{t.desc}</p>
+            </button>
+          ))}
+        </div>
+      </div>
+
+      {/* ── Cartes question ───────────────────────────────────────────────── */}
+      <div>
+        <Label>Style des cartes question</Label>
+        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 8 }}>
+          {([
+            { value: 'default',     label: 'Default',     desc: 'Spring classique',  emoji: '◻' },
+            { value: 'flash-word',  label: 'Flash Word',  desc: 'Konbini / Impact',  emoji: '⚡' },
+            { value: 'brut',        label: 'Brut',        desc: 'Brutalist / Left',  emoji: '▐' },
+            { value: 'split-color', label: 'Split',       desc: 'Bi-color reveal',   emoji: '◨' },
+            { value: 'typewriter',  label: 'Typewriter',  desc: 'Char by char',      emoji: '⌨' },
+            { value: 'cinematic',   label: 'Cinéma',      desc: 'Letterbox / Serif', emoji: '🎬' },
+          ] as { value: string; label: string; desc: string; emoji: string }[]).map(t => (
+            <button key={t.value} onClick={() => setMotionSettings(p => ({ ...p, questionCardStyle: t.value as QuestionCardStyle }))}
+              style={{
+                padding: '12px 10px', borderRadius: 12, textAlign: 'left',
+                background: (motionSettings.questionCardStyle ?? 'default') === t.value ? 'rgba(255,255,255,0.1)' : S.surface,
+                border: `1px solid ${(motionSettings.questionCardStyle ?? 'default') === t.value ? 'rgba(255,255,255,0.3)' : S.border}`,
+              }}
+            >
+              <p style={{ fontSize: 16, margin: '0 0 4px' }}>{t.emoji}</p>
+              <p style={{ color: (motionSettings.questionCardStyle ?? 'default') === t.value ? S.text : S.muted, fontWeight: 700, fontSize: 12 }}>{t.label}</p>
+              <p style={{ color: S.dim, fontSize: 9, marginTop: 2, fontFamily: 'monospace' }}>{t.desc}</p>
+            </button>
+          ))}
+        </div>
+      </div>
+
+      {/* ── Entrée des cartes question ──────────────────────────────────────── */}
+      <div>
+        <Label>Entrée des cartes question</Label>
+        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 8 }}>
+          {([
+            { value: 'none',        label: 'Aucune',      desc: 'Cut direct' },
+            { value: 'zoom-punch',  label: 'Zoom Punch',  desc: 'TikTok / Reels' },
+            { value: 'slide-up',    label: 'Slide Up',    desc: 'Story / Smooth' },
+            { value: 'flash',       label: 'Flash Cut',   desc: 'Énergie / Clip' },
+            { value: 'wipe-right',  label: 'Wipe',        desc: 'Slide latéral' },
+            { value: 'spin-scale',  label: 'Spin Scale',  desc: 'Social / Punchy' },
+            { value: 'glitch-cut',  label: 'Glitch',      desc: 'Cyberpunk / RGB' },
+            { value: 'blur-in',     label: 'Blur In',     desc: 'Cinéma / Focus' },
+            { value: 'shake',       label: 'Shake',       desc: 'Énergie brute' },
+          ] as { value: TransitionStyle; label: string; desc: string }[]).map(t => (
+            <button key={t.value} onClick={() => setMotionSettings(p => ({ ...p, questionCardTransition: t.value }))}
+              style={{
+                padding: '12px 14px', borderRadius: 12, textAlign: 'left',
+                background: (motionSettings.questionCardTransition ?? 'none') === t.value ? 'rgba(255,255,255,0.1)' : S.surface,
+                border: `1px solid ${(motionSettings.questionCardTransition ?? 'none') === t.value ? 'rgba(255,255,255,0.3)' : S.border}`,
+              }}
+            >
+              <p style={{ color: (motionSettings.questionCardTransition ?? 'none') === t.value ? S.text : S.muted, fontWeight: 700, fontSize: 13 }}>{t.label}</p>
+              <p style={{ color: S.dim, fontSize: 10, marginTop: 2, fontFamily: 'monospace' }}>{t.desc}</p>
+            </button>
+          ))}
+        </div>
+      </div>
+
+      {/* ── Motif de fond des cartes question ──────────────────────────────── */}
+      <div>
+        <Label>Motif de fond des cartes</Label>
+        <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6 }}>
+          {([
+            { value: 'solid',           label: 'Uni' },
+            { value: 'dots',            label: 'Points' },
+            { value: 'grid',            label: 'Grille' },
+            { value: 'diagonal',        label: 'Diagonales' },
+            { value: 'radial',          label: 'Radial' },
+            { value: 'noise',           label: 'Bruit' },
+            { value: 'confetti',        label: 'Confetti' },
+            { value: 'stripes',         label: 'Stripes' },
+            { value: 'scanlines',       label: 'Scanlines' },
+            { value: 'gradient-sweep',  label: 'Sweep' },
+            { value: 'aurora',          label: 'Aurora' },
+            { value: 'halftone',        label: 'Halftone' },
+            { value: 'vhs',             label: 'VHS' },
+          ] as { value: string; label: string }[]).map(opt => {
+            const selected = (motionSettings.questionCardBgPattern ?? 'solid') === opt.value
+            return (
+              <button key={opt.value} onClick={() => setMotionSettings(p => ({ ...p, questionCardBgPattern: opt.value as any }))}
+                style={{
+                  padding: '5px 12px', borderRadius: 20, fontSize: 11, fontFamily: 'monospace',
+                  background: selected ? 'rgba(255,255,255,0.15)' : 'rgba(255,255,255,0.04)',
+                  border: `1px solid ${selected ? 'rgba(255,255,255,0.4)' : S.border}`,
+                  color: selected ? S.text : S.muted,
+                }}>
+                {opt.label}
+              </button>
+            )
+          })}
+        </div>
+      </div>
+
+      <div style={{ height: 1, background: S.border }} />
+
       {/* Style Presets */}
       <div>
         <Label>Style format</Label>
@@ -1342,30 +1835,6 @@ export function ProcessView({ recordings, themeName, sessionId, themeSlug, monta
               }}
             >
               {font.label}
-            </button>
-          ))}
-        </div>
-      </div>
-
-      {/* Transition style */}
-      <div>
-        <Label>Style de transition</Label>
-        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8 }}>
-          {([
-            { value: 'zoom-punch', label: 'Zoom Punch', desc: 'TikTok / Reels' },
-            { value: 'slide-up',   label: 'Slide Up',   desc: 'Story / Smooth' },
-            { value: 'flash',      label: 'Flash Cut',  desc: 'Énergie / Clip' },
-            { value: 'none',       label: 'Aucune',     desc: 'Cut direct' },
-          ] as { value: TransitionStyle; label: string; desc: string }[]).map(t => (
-            <button key={t.value} onClick={() => setMotionSettings(p => ({ ...p, transitionStyle: t.value }))}
-              style={{
-                padding: '12px 14px', borderRadius: 12, textAlign: 'left',
-                background: motionSettings.transitionStyle === t.value ? 'rgba(255,255,255,0.1)' : S.surface,
-                border: `1px solid ${motionSettings.transitionStyle === t.value ? 'rgba(255,255,255,0.3)' : S.border}`,
-              }}
-            >
-              <p style={{ color: motionSettings.transitionStyle === t.value ? S.text : S.muted, fontWeight: 700, fontSize: 13 }}>{t.label}</p>
-              <p style={{ color: S.dim, fontSize: 10, marginTop: 2, fontFamily: 'monospace' }}>{t.desc}</p>
             </button>
           ))}
         </div>

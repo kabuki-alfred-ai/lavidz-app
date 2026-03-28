@@ -74,7 +74,7 @@ export function LavidzComposition({
 
     sequences.push(
       <Sequence key={`q-${seg.id}`} from={questionFrom} durationInFrames={qFrames}>
-        <QuestionCard question={seg.questionText} ttsUrl={seg.ttsUrl} theme={theme} backgroundColor={cardBg} ttsVolume={audioSettings?.ttsVolume} sfxUrl={audioSettings?.transitionSfx?.url} sfxVolume={audioSettings?.transitionSfx?.volume} />
+        <QuestionCard question={seg.questionText} ttsUrl={seg.ttsUrl} theme={theme} backgroundColor={cardBg} ttsVolume={audioSettings?.ttsVolume} sfxUrl={audioSettings?.transitionSfx?.url} sfxVolume={audioSettings?.transitionSfx?.volume} questionCardStyle={motionSettings?.questionCardStyle} transitionStyle={motionSettings?.questionCardTransition} bgPattern={motionSettings?.questionCardBgPattern} />
       </Sequence>,
     )
 

@@ -337,34 +337,86 @@ export function RecordingClip({
   const settings = subtitleSettings ?? DEFAULT_SUBTITLE_SETTINGS
   const { style, size, position, wordsPerLine, offsetMs = 0 } = settings
 
-  const transitionStyle = motionSettings?.transitionStyle ?? 'zoom-punch'
   const isVertical = height > width
 
-  // ─── Entry transition (first frames) ───────────────────────────────────────
+  // ─── Entry transition (first frames) ────────────────────────────────────────
+  const transitionStyle = motionSettings?.transitionStyle ?? 'zoom-punch'
+
+  // zoom-punch
   const entryScale =
     transitionStyle === 'zoom-punch'
       ? interpolate(frame, [0, 10], [1.4, 1.0], { extrapolateRight: 'clamp' })
       : 1
+
+  // slide-up
   const entryTranslateY =
     transitionStyle === 'slide-up'
       ? interpolate(frame, [0, 12], [160, 0], { extrapolateRight: 'clamp' })
       : 0
   const entryOpacity =
-    transitionStyle === 'slide-up'
+    transitionStyle === 'slide-up' || transitionStyle === 'blur-in'
       ? interpolate(frame, [0, 8], [0, 1], { extrapolateRight: 'clamp' })
       : 1
-  // Flash: white overlay that burns in then disappears
+
+  // flash: white overlay that burns in then disappears
   const flashOverlayOpacity =
     transitionStyle === 'flash'
       ? interpolate(frame, [0, 7], [1, 0], { extrapolateRight: 'clamp' })
       : 0
 
+  // wipe-right: clip slides in from left side
+  const wipeProgress = transitionStyle === 'wipe-right'
+    ? spring({ frame, fps, config: { damping: 28, stiffness: 140 } })
+    : 1
+  const entryTranslateX =
+    transitionStyle === 'wipe-right'
+      ? interpolate(wipeProgress, [0, 1], [-width, 0])
+      : 0
+
+  // spin-scale: quick rotation + scale spring (social media feel)
+  const spinProgress = transitionStyle === 'spin-scale'
+    ? spring({ frame, fps, config: { damping: 18, stiffness: 180 } })
+    : 1
+  const entryRotate = transitionStyle === 'spin-scale'
+    ? interpolate(spinProgress, [0, 1], [7, 0])
+    : 0
+  const spinEntryScale = transitionStyle === 'spin-scale'
+    ? interpolate(spinProgress, [0, 1], [0.82, 1])
+    : 1
+
+  // glitch-cut: horizontal shift + color filter for first 8 frames
+  const glitchActive = transitionStyle === 'glitch-cut' && frame < 9
+  const glitchX = glitchActive ? Math.sin(frame * 47.3) * 14 : 0
+  const glitchFilter = glitchActive ? `hue-rotate(${frame * 22}deg) saturate(2.2)` : undefined
+
+  // blur-in: video comes into focus from heavy blur
+  const blurVal = transitionStyle === 'blur-in'
+    ? interpolate(frame, [0, 20], [30, 0], { extrapolateRight: 'clamp' })
+    : 0
+
+  // shake: quick horizontal oscillation decaying over 18 frames
+  const shakeX = transitionStyle === 'shake' && frame < 18
+    ? Math.sin(frame * 3.8) * interpolate(frame, [0, 18], [22, 0], { extrapolateRight: 'clamp' })
+    : 0
+
   // ─── Ken Burns ──────────────────────────────────────────────────────────────
   const kenBurnsScale = motionSettings?.kenBurns
     ? interpolate(frame, [0, durationInFrames], [1.0, 1.04], { extrapolateRight: 'clamp' })
     : 1.0
-  const finalVideoScale = entryScale * kenBurnsScale
-  const videoTransform = `scale(${finalVideoScale}) translateY(${entryTranslateY}px)`
+
+  const finalVideoScale = entryScale * spinEntryScale * kenBurnsScale
+  const combinedTranslateX = entryTranslateX + glitchX + shakeX
+  const videoTransform = [
+    `scale(${finalVideoScale})`,
+    `translateY(${entryTranslateY}px)`,
+    combinedTranslateX !== 0 ? `translateX(${combinedTranslateX}px)` : '',
+    entryRotate !== 0 ? `rotate(${entryRotate}deg)` : '',
+  ].filter(Boolean).join(' ')
+
+  const videoFilter = [
+    blurVal > 0 ? `blur(${blurVal}px)` : '',
+    glitchFilter ?? '',
+  ].filter(Boolean).join(' ') || undefined
 
   // ─── Subtitles with Word Pop ────────────────────────────────────────────────
   // Memoized: recomputed only when wordTimestamps or offsetMs changes, not every frame
@@ -509,13 +561,13 @@ export function RecordingClip({
           style={{
             position: 'absolute',
             inset: 0,
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'center',
             transform: videoTransform,
+            filter: videoFilter,
           }}
         >
-          <Video src={videoUrl} style={{ width: '100%', objectFit: 'contain' }} />
+          <div style={{ position: 'absolute', inset: 0, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+            <Video src={videoUrl} style={{ width: '100%', objectFit: 'contain' }} />
+          </div>
         </div>
         {progressBarNode}
         {subtitlesNode}
@@ -528,7 +580,7 @@ export function RecordingClip({
   return (
     <AbsoluteFill style={{ background: 'black', opacity: entryOpacity }}>
       {sfxNode}
-      <div style={{ position: 'absolute', inset: 0, transform: videoTransform }}>
+      <div style={{ position: 'absolute', inset: 0, transform: videoTransform, filter: videoFilter }}>
         <Video src={videoUrl} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
       </div>
       {progressBarNode}
