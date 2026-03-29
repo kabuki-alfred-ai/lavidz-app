@@ -1,6 +1,7 @@
 import crypto from 'crypto'
 import fs from 'fs'
 import path from 'path'
+import { execSync } from 'child_process'
 import { purgeStaleTmpFiles } from '@/lib/tmp-cleanup'
 
 export const runtime = 'nodejs'
@@ -67,6 +68,21 @@ export async function POST(req: Request) {
     purgeStaleTmpFiles('cleanvoice-')
     const id = crypto.randomUUID()
     const outputPath = path.join('/tmp', `cleanvoice-${id}.mp4`)
+
+    // Cleanvoice does not support WebM (browser MediaRecorder format).
+    // If the source is WebM, download and convert to MP4 via FFmpeg,
+    // then serve the converted file publicly so Cleanvoice can download it.
+    const isWebm = /\.webm(\?|$)/i.test(videoUrl)
+    if (isWebm) {
+      const inputPath = path.join('/tmp', `cleanvoice-in-${id}.mp4`)
+      const sourceRes = await fetch(videoUrl)
+      if (!sourceRes.ok) return new Response(`Impossible de télécharger la vidéo source (${sourceRes.status})`, { status: 502 })
+      fs.writeFileSync(inputPath, Buffer.from(await sourceRes.arrayBuffer()))
+      execSync(`ffmpeg -y -i "${inputPath}" -c:v libx264 -c:a aac "${inputPath}.converted.mp4"`, { stdio: 'pipe' })
+      fs.renameSync(`${inputPath}.converted.mp4`, inputPath)
+      const origin = req.headers.get('origin') ?? `https://${req.headers.get('host')}`
+      videoUrl = `${origin}/api/cleanvoice/input/${id}`
+    }
 
     const editRes = await fetch('https://api.cleanvoice.ai/v2/edits', {
       method: 'POST',

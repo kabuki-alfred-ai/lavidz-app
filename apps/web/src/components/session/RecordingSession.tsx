@@ -244,14 +244,16 @@ export function RecordingSession({ theme, initialSessionId, mode = 'default' }: 
     // Start drawing camera frames to canvas
     startCanvasLoop()
 
-    const mimeType = MediaRecorder.isTypeSupported('video/webm;codecs=vp9,opus')
+    const mimeType = MediaRecorder.isTypeSupported('video/mp4;codecs=avc1,mp4a.40.2')
+      ? 'video/mp4;codecs=avc1,mp4a.40.2'
+      : MediaRecorder.isTypeSupported('video/webm;codecs=vp9,opus')
       ? 'video/webm;codecs=vp9,opus'
       : 'video/webm'
     const recorder = new MediaRecorder(cs, { mimeType })
     recorder.ondataavailable = (e) => { if (e.data.size > 0) chunksRef.current.push(e.data) }
     recorder.onstop = () => {
       if (chunksRef.current.length > 0) {
-        const blob = new Blob(chunksRef.current, { type: 'video/webm' })
+        const blob = new Blob(chunksRef.current, { type: mimeType })
         setReviewVideoUrl(prev => {
           if (prev) URL.revokeObjectURL(prev)
           return URL.createObjectURL(blob)
@@ -294,9 +296,11 @@ export function RecordingSession({ theme, initialSessionId, mode = 'default' }: 
     setUploadProgress(0)
 
     try {
-      const blob = new Blob(chunksRef.current, { type: 'video/webm' })
+      const recordedMimeType = mediaRecorderRef.current?.mimeType ?? 'video/webm'
+      const isMP4 = recordedMimeType.startsWith('video/mp4')
+      const blob = new Blob(chunksRef.current, { type: recordedMimeType })
       const formData = new FormData()
-      formData.append('video', blob, 'recording.webm')
+      formData.append('video', blob, isMP4 ? 'recording.mp4' : 'recording.webm')
       formData.append('questionId', currentQuestion.id)
 
       await new Promise<void>((resolve, reject) => {
