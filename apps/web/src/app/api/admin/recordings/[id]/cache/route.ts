@@ -19,7 +19,6 @@ export async function POST(req: Request, { params }: { params: Promise<{ id: str
         'x-admin-secret': ADMIN_SECRET,
         'content-type': req.headers.get('content-type') ?? '',
       },
-      // @ts-expect-error duplex is required for streaming request bodies in Node.js
       body: req.body,
       duplex: 'half',
     })
