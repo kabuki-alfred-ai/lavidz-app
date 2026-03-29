@@ -81,7 +81,7 @@ export async function POST(req: Request) {
       execSync(`ffmpeg -y -i "${inputPath}" -c:v libx264 -c:a aac "${inputPath}.converted.mp4"`, { stdio: 'pipe' })
       fs.renameSync(`${inputPath}.converted.mp4`, inputPath)
       const origin = req.headers.get('origin') ?? `https://${req.headers.get('host')}`
-      videoUrl = `${origin}/api/cleanvoice/input/${id}`
+      videoUrl = `${origin}/api/cleanvoice/input/${id}.mp4`
     }
 
     const editRes = await fetch('https://api.cleanvoice.ai/v2/edits', {

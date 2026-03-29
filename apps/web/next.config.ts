@@ -13,6 +13,12 @@ const nextConfig: NextConfig = {
     '@remotion/core',
     'esbuild',
   ],
+  async rewrites() {
+    return [
+      // Cleanvoice needs a URL with a file extension — expose .mp4 alias
+      { source: '/api/cleanvoice/input/:id.mp4', destination: '/api/cleanvoice/input/:id' },
+    ]
+  },
   async headers() {
     return [
       {
