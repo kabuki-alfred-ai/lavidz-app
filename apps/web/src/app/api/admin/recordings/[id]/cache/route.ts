@@ -21,7 +21,7 @@ export async function POST(req: Request, { params }: { params: Promise<{ id: str
       },
       body: req.body,
       duplex: 'half',
-    })
+    } as RequestInit)
     if (!res.ok) return new Response(await res.text(), { status: res.status })
     return Response.json(await res.json())
   } catch (err) {
