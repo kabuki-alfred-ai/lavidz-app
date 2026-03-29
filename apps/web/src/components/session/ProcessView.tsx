@@ -1071,6 +1071,13 @@ export function ProcessView({ recordings, themeName, sessionId, themeSlug, monta
                     onChange={newTokens => {
                       setWordTimestampsMap(p => ({ ...p, [recId]: newTokens }))
                       wordTimestampsRef.current[recId] = newTokens
+                      // Sync transcript text + wordTimestamps into segments so the Player updates immediately
+                      const newText = newTokens.map(t => t.word).join(' ')
+                      setLocalTranscripts(p => ({ ...p, [recId]: newText }))
+                      localTranscriptsRef.current[recId] = newText
+                      setSegments(prev => prev ? prev.map(s =>
+                        s.id === recId ? { ...s, transcript: newText, wordTimestamps: newTokens } : s
+                      ) : prev)
                     }}
                   />
                 )

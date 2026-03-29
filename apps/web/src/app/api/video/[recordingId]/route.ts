@@ -12,7 +12,7 @@ export async function GET(
   const sessionId = searchParams.get('sessionId')
   if (!sessionId) return new Response('Missing sessionId', { status: 400 })
 
-  // Get the presigned URL from the internal API (server-side, no mixed content)
+  // Get the presigned URL from the internal API
   const urlRes = await fetch(
     `${API}/api/sessions/${sessionId}/recordings/${recordingId}/url`,
     { headers: { 'x-admin-secret': ADMIN_SECRET }, cache: 'no-store' },
@@ -21,14 +21,34 @@ export async function GET(
 
   const presignedUrl = await urlRes.text()
 
-  // Fetch the video from MinIO server-side and stream to browser
-  const videoRes = await fetch(presignedUrl)
-  if (!videoRes.ok) return new Response('Video unavailable', { status: 502 })
+  // Forward Range header so MinIO can serve partial content (required by Chromium)
+  const rangeHeader = req.headers.get('Range')
+  const fetchHeaders: HeadersInit = {}
+  if (rangeHeader) fetchHeaders['Range'] = rangeHeader
+
+  const videoRes = await fetch(presignedUrl, { headers: fetchHeaders })
+  if (!videoRes.ok && videoRes.status !== 206) {
+    return new Response('Video unavailable', { status: 502 })
+  }
+
+  // Build response headers — always declare range support
+  const resHeaders = new Headers()
+  resHeaders.set('Accept-Ranges', 'bytes')
+  resHeaders.set(
+    'Content-Type',
+    videoRes.headers.get('Content-Type') ?? 'video/mp4',
+  )
+  resHeaders.set('Cache-Control', 'private, max-age=3600')
+
+  // Forward range-related headers from MinIO response
+  const contentLength = videoRes.headers.get('Content-Length')
+  if (contentLength) resHeaders.set('Content-Length', contentLength)
+
+  const contentRange = videoRes.headers.get('Content-Range')
+  if (contentRange) resHeaders.set('Content-Range', contentRange)
 
   return new Response(videoRes.body, {
-    headers: {
-      'Content-Type': videoRes.headers.get('Content-Type') ?? 'video/webm',
-      'Cache-Control': 'private, max-age=3600',
-    },
+    status: videoRes.status, // 200 or 206
+    headers: resHeaders,
   })
 }
