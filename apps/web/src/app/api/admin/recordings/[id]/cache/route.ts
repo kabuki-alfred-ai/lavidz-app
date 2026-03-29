@@ -11,17 +11,19 @@ export async function POST(req: Request, { params }: { params: Promise<{ id: str
     const url = new URL(req.url)
     const sessionId = url.searchParams.get('sessionId') ?? ''
 
-    // Stream the multipart body directly to NestJS to avoid buffering large video files.
-    // The client already sends type/voiceId/processingHash as FormData fields.
+    // Buffer the multipart body then forward to NestJS.
+    // The client sends type/voiceId/processingHash as FormData fields alongside the file.
+    const contentType = req.headers.get('content-type') ?? ''
+    const rawBody = await req.arrayBuffer()
     const res = await fetch(`${API}/api/sessions/${sessionId}/recordings/${id}/cache`, {
       method: 'POST',
       headers: {
         'x-admin-secret': ADMIN_SECRET,
-        'content-type': req.headers.get('content-type') ?? '',
+        'content-type': contentType,
+        'content-length': String(rawBody.byteLength),
       },
-      body: req.body,
-      duplex: 'half',
-    } as RequestInit)
+      body: rawBody,
+    })
     if (!res.ok) return new Response(await res.text(), { status: res.status })
     return Response.json(await res.json())
   } catch (err) {
