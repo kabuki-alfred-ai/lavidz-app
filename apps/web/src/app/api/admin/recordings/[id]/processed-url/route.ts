@@ -12,7 +12,8 @@ export async function GET(req: Request, { params }: { params: Promise<{ id: stri
       headers: { 'x-admin-secret': ADMIN_SECRET },
     })
     if (!res.ok) return new Response(await res.text(), { status: res.status })
-    return Response.json(await res.json())
+    const url = await res.text()
+    return Response.json(url)
   } catch (err) {
     return new Response(String(err), { status: 500 })
   }
