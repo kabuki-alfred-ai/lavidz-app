@@ -163,26 +163,27 @@ export async function POST(req: Request) {
     }
     if (!jobResult) return new Response('Cleanvoice timeout — vidéo trop longue pour être traitée dans le délai imparti', { status: 504 })
 
-    const downloadUrl = jobResult.audio?.download_url
+    const result = jobResult.result ?? jobResult
+    const downloadUrl = result.download_url
     if (!downloadUrl) return new Response(`Cleanvoice: aucun lien de téléchargement dans la réponse: ${JSON.stringify(jobResult)}`, { status: 502 })
 
     const cleanedRes = await fetch(downloadUrl)
     if (!cleanedRes.ok) return new Response(`Impossible de télécharger la vidéo nettoyée (${cleanedRes.status})`, { status: 502 })
     fs.writeFileSync(outputPath, Buffer.from(await cleanedRes.arrayBuffer()))
 
-    const rawWords: any[] = jobResult.transcript?.words ?? []
+    const rawWords: any[] = result.transcription?.transcription?.words ?? result.transcript?.words ?? []
     const wordTimestamps = rawWords
-      .map(w => ({
+      .map((w: any) => ({
         word: (w.text ?? w.word ?? '') as string,
         start: (w.start ?? w.start_time ?? 0) as number,
         end: (w.end ?? w.end_time ?? 0) as number,
       }))
-      .filter(w => w.word.trim().length > 0)
+      .filter((w: any) => w.word.trim().length > 0)
 
+    const stats = result.statistics ?? {}
     const removed: number =
-      jobResult.processing_stats?.filler_words_removed ??
-      jobResult.audio?.statistics?.filler_sounds_removed ??
-      0
+      result.processing_stats?.filler_words_removed ??
+      Object.values(stats).reduce((sum: number, v) => sum + (typeof v === 'number' ? v : 0), 0)
 
     return Response.json({ id, removed, wordTimestamps })
   } catch (err) {
