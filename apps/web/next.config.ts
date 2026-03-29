@@ -2,6 +2,13 @@ import type { NextConfig } from 'next'
 
 const nextConfig: NextConfig = {
   output: 'standalone',
+  experimental: {
+    serverActions: {
+      bodySizeLimit: '500mb',
+    },
+  },
+  // Allow large video uploads through API routes (default is 10MB)
+  middlewareClientMaxBodySize: 536870912, // 512MB in bytes
   serverExternalPackages: [
     '@remotion/bundler',
     '@remotion/renderer',

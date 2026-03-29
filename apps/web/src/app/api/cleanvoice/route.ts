@@ -6,6 +6,22 @@ import { purgeStaleTmpFiles } from '@/lib/tmp-cleanup'
 export const runtime = 'nodejs'
 export const maxDuration = 180
 
+const API = process.env.API_URL ?? 'http://localhost:3001'
+const ADMIN_SECRET = process.env.ADMIN_SECRET ?? ''
+
+// Resolve a proxy URL like /api/video/:id?sessionId=... to the actual S3 presigned URL.
+// Cleanvoice rejects proxy URLs — it needs a direct link to the media file.
+async function resolveToPresignedUrl(videoUrl: string): Promise<string> {
+  const match = videoUrl.match(/\/api\/video\/([^/?]+)\?sessionId=([^&]+)/)
+  if (!match) return videoUrl
+  const [, recordingId, sessionId] = match
+  const res = await fetch(`${API}/api/sessions/${sessionId}/recordings/${recordingId}/url`, {
+    headers: { 'x-admin-secret': ADMIN_SECRET },
+  })
+  if (!res.ok) return videoUrl
+  return res.text()
+}
+
 export interface CleanvoiceJobConfig {
   fillers: boolean
   hesitations: boolean
@@ -30,6 +46,10 @@ export async function POST(req: Request) {
       const origin = req.headers.get('origin') ?? `http://${req.headers.get('host')}`
       videoUrl = `${origin}${videoUrl}`
     }
+
+    // Resolve proxy URLs (/api/video/...) to the actual S3 presigned URL.
+    // Cleanvoice rejects proxy/streaming URLs — it needs a direct link to the media file.
+    videoUrl = await resolveToPresignedUrl(videoUrl)
 
     // Cleanvoice is an external service — it needs a publicly accessible URL.
     // If the URL points to localhost, rewrite it using APP_PUBLIC_URL (set in production env).
