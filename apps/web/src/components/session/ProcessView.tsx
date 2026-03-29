@@ -677,9 +677,11 @@ export function ProcessView({ recordings, themeName, sessionId, themeSlug, monta
         if (cachedTts?.voiceId === voiceId && !cachedTts.url) {
           const signedUrl = await getCachedUrl(rec.id, 'tts')
           if (signedUrl) {
-            setTtsCache(p => ({ ...p, [rec.id]: { voiceId, url: signedUrl } }))
+            // Use same-origin proxy URL to avoid S3 CORS issues in Remotion player
+            const proxyUrl = `/api/admin/recordings/${rec.id}/tts-audio?sessionId=${sessionId}`
+            setTtsCache(p => ({ ...p, [rec.id]: { voiceId, url: proxyUrl } }))
             console.log(`[cache] resolved TTS URL for recording ${rec.id}`)
-            ttsUrls.push(signedUrl)
+            ttsUrls.push(proxyUrl)
             continue
           }
         }
