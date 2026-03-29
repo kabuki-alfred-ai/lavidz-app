@@ -2,6 +2,7 @@ import { spawnSync } from 'child_process'
 import crypto from 'crypto'
 import fs from 'fs'
 import path from 'path'
+import { purgeStaleTmpFiles } from '@/lib/tmp-cleanup'
 
 export const runtime = 'nodejs'
 export const maxDuration = 180
@@ -95,6 +96,8 @@ async function isolateWithElevenLabs(
 }
 
 export async function POST(req: Request) {
+  purgeStaleTmpFiles('dn-')
+  purgeStaleTmpFiles('denoise-')
   let { videoUrl, strength = 'moderate' } = await req.json()
   if (!videoUrl) return new Response('videoUrl requis', { status: 400 })
 

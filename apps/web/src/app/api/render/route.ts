@@ -4,6 +4,7 @@ import path from 'path'
 import fs from 'fs'
 import crypto from 'crypto'
 import { S3Client, PutObjectCommand } from '@aws-sdk/client-s3'
+import { purgeStaleTmpFiles } from '@/lib/tmp-cleanup'
 
 export const runtime = 'nodejs'
 export const maxDuration = 600
@@ -212,6 +213,8 @@ async function runRender(jobId: string, body: any) {
 }
 
 export async function POST(req: Request) {
+  purgeStaleTmpFiles('render-')
+  purgeStaleTmpFiles('tts-render-')
   try {
     const body = await req.json()
     const jobId = crypto.randomUUID()

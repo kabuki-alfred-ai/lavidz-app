@@ -1,11 +1,13 @@
 import crypto from 'crypto'
 import fs from 'fs'
 import path from 'path'
+import { purgeStaleTmpFiles } from '@/lib/tmp-cleanup'
 
 export const runtime = 'nodejs'
 export const maxDuration = 60
 
 export async function POST(req: Request) {
+  purgeStaleTmpFiles('sfx-')
   const { text, durationSeconds } = await req.json()
   const apiKey = process.env.ELEVENLABS_API_KEY
 
