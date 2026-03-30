@@ -6,7 +6,7 @@ export interface WordTimestamp {
 
 export type TransitionStyle = 'none' | 'zoom-punch' | 'slide-up' | 'flash' | 'wipe-right' | 'spin-scale' | 'glitch-cut' | 'blur-in' | 'shake'
 
-export type QuestionCardStyle = 'default' | 'flash-word' | 'brut' | 'split-color' | 'typewriter' | 'cinematic'
+export type QuestionCardStyle = 'default' | 'flash-word' | 'brut' | 'split-color' | 'typewriter' | 'cinematic' | 'pop-art' | 'word-slam' | 'kinetic' | 'neon-pulse'
 
 export interface LowerThirdSettings {
   name: string
@@ -53,7 +53,7 @@ export interface TransitionTheme {
   fontWeight: number
 }
 
-export type SlideBgPattern = 'solid' | 'dots' | 'grid' | 'diagonal' | 'radial' | 'noise' | 'confetti' | 'stripes' | 'scanlines' | 'gradient-sweep' | 'aurora' | 'halftone' | 'vhs'
+export type SlideBgPattern = 'solid' | 'dots' | 'grid' | 'diagonal' | 'radial' | 'noise' | 'confetti' | 'stripes' | 'scanlines' | 'gradient-sweep' | 'aurora' | 'halftone' | 'vhs' | 'plasma' | 'synthwave' | 'burst' | 'liquid' | 'eq'
 export type SlideTextAnimation = 'spring-up' | 'flash' | 'typewriter' | 'word-stack' | 'zoom-blast' | 'glitch' | 'scramble' | 'letter-stack' | 'highlight' | 'flip-3d' | 'neon-flicker' | 'blur-reveal' | 'stamp' | 'wave' | 'cascade' | 'split-reveal'
 
 export type SlideDecorator = 'none' | 'ticker' | 'frame-border' | 'corner-label'

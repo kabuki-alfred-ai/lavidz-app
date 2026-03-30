@@ -1226,9 +1226,14 @@ export function ProcessView({ recordings, themeName, sessionId, themeSlug, monta
                     { value: 'stripes',         label: 'Stripes' },
                     { value: 'scanlines',       label: 'Scanlines' },
                     { value: 'gradient-sweep',  label: 'Sweep' },
-                    { value: 'aurora',    label: 'Aurora' },
-                    { value: 'halftone',  label: 'Halftone' },
-                    { value: 'vhs',       label: 'VHS' },
+                    { value: 'aurora',      label: 'Aurora' },
+                    { value: 'halftone',    label: 'Halftone' },
+                    { value: 'vhs',         label: 'VHS' },
+                    { value: 'plasma',      label: '🫧 Plasma' },
+                    { value: 'synthwave',   label: '🌅 Synthwave' },
+                    { value: 'burst',       label: '✳ Burst' },
+                    { value: 'liquid',      label: '🫠 Liquid' },
+                    { value: 'eq',          label: '🎚 EQ' },
                   ] as { value: string; label: string }[]).map(opt => {
                     const selected = (intro.bgPattern || 'solid') === opt.value
                     return (
@@ -1519,9 +1524,14 @@ export function ProcessView({ recordings, themeName, sessionId, themeSlug, monta
                     { value: 'stripes',         label: 'Stripes' },
                     { value: 'scanlines',       label: 'Scanlines' },
                     { value: 'gradient-sweep',  label: 'Sweep' },
-                    { value: 'aurora',    label: 'Aurora' },
-                    { value: 'halftone',  label: 'Halftone' },
-                    { value: 'vhs',       label: 'VHS' },
+                    { value: 'aurora',      label: 'Aurora' },
+                    { value: 'halftone',    label: 'Halftone' },
+                    { value: 'vhs',         label: 'VHS' },
+                    { value: 'plasma',      label: '🫧 Plasma' },
+                    { value: 'synthwave',   label: '🌅 Synthwave' },
+                    { value: 'burst',       label: '✳ Burst' },
+                    { value: 'liquid',      label: '🫠 Liquid' },
+                    { value: 'eq',          label: '🎚 EQ' },
                   ] as { value: string; label: string }[]).map(opt => {
                     const selected = (outro.bgPattern || 'solid') === opt.value
                     return (
@@ -1738,12 +1748,16 @@ export function ProcessView({ recordings, themeName, sessionId, themeSlug, monta
         <Label>Style des cartes question</Label>
         <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 8 }}>
           {([
-            { value: 'default',     label: 'Default',     desc: 'Spring classique',  emoji: '◻' },
-            { value: 'flash-word',  label: 'Flash Word',  desc: 'Konbini / Impact',  emoji: '⚡' },
-            { value: 'brut',        label: 'Brut',        desc: 'Brutalist / Left',  emoji: '▐' },
-            { value: 'split-color', label: 'Split',       desc: 'Bi-color reveal',   emoji: '◨' },
-            { value: 'typewriter',  label: 'Typewriter',  desc: 'Char by char',      emoji: '⌨' },
-            { value: 'cinematic',   label: 'Cinéma',      desc: 'Letterbox / Serif', emoji: '🎬' },
+            { value: 'default',     label: 'Default',     desc: 'Spring classique',   emoji: '◻' },
+            { value: 'flash-word',  label: 'Flash Word',  desc: 'Konbini / Impact',   emoji: '⚡' },
+            { value: 'brut',        label: 'Brut',        desc: 'Brutalist / Left',   emoji: '▐' },
+            { value: 'split-color', label: 'Split',       desc: 'Bi-color reveal',    emoji: '◨' },
+            { value: 'typewriter',  label: 'Typewriter',  desc: 'Char by char',       emoji: '⌨' },
+            { value: 'cinematic',   label: 'Cinéma',      desc: 'Letterbox / Serif',  emoji: '🎬' },
+            { value: 'pop-art',     label: 'Pop Art',     desc: 'Pills colorées',     emoji: '🎨' },
+            { value: 'word-slam',   label: 'Word Slam',   desc: 'Claque des côtés',   emoji: '💥' },
+            { value: 'kinetic',     label: 'Kinetic',     desc: 'Zoom stagger x3.5',  emoji: '🚀' },
+            { value: 'neon-pulse',  label: 'Neon Pulse',  desc: 'Glow multicolore',   emoji: '🌈' },
           ] as { value: string; label: string; desc: string; emoji: string }[]).map(t => (
             <button key={t.value} onClick={() => setMotionSettings(p => ({ ...p, questionCardStyle: t.value as QuestionCardStyle }))}
               style={{
@@ -1807,6 +1821,11 @@ export function ProcessView({ recordings, themeName, sessionId, themeSlug, monta
             { value: 'aurora',          label: 'Aurora' },
             { value: 'halftone',        label: 'Halftone' },
             { value: 'vhs',             label: 'VHS' },
+            { value: 'plasma',          label: '🫧 Plasma' },
+            { value: 'synthwave',       label: '🌅 Synthwave' },
+            { value: 'burst',           label: '✳ Burst' },
+            { value: 'liquid',          label: '🫠 Liquid' },
+            { value: 'eq',              label: '🎚 EQ' },
           ] as { value: string; label: string }[]).map(opt => {
             const selected = (motionSettings.questionCardBgPattern ?? 'solid') === opt.value
             return (

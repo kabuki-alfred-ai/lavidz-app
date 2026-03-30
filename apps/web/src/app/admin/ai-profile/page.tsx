@@ -25,6 +25,9 @@ import {
   CheckCircle2,
   X,
   Trash2,
+  Linkedin,
+  ExternalLink,
+  Building2,
 } from 'lucide-react'
 
 // ─── Types ────────────────────────────────────────────────────────────────────
@@ -49,8 +52,18 @@ type EntrepreneurProfile = {
   }
   topicsExplored: string[]
   communicationStyle: string | null
+  linkedinUrl: string | null
+  linkedinIngestedAt: string | null
   createdAt: string
   updatedAt: string
+}
+
+type LinkedinPreview = {
+  name: string
+  headline: string
+  photoUrl: string | null
+  company: string | null
+  username: string | null
 }
 
 type Memory = {
@@ -567,6 +580,268 @@ function MemorySubSection({
   )
 }
 
+// ─── LinkedIn Section ─────────────────────────────────────────────────────────
+
+type LinkedinSectionProps = {
+  profile: EntrepreneurProfile
+  onUpdated: () => void
+}
+
+function LinkedinSection({ profile, onUpdated }: LinkedinSectionProps) {
+  const [url, setUrl] = useState(profile.linkedinUrl ?? '')
+  const [preview, setPreview] = useState<LinkedinPreview | null>(null)
+  const [previewLoading, setPreviewLoading] = useState(false)
+  const [ingesting, setIngesting] = useState(false)
+  const [ingestDone, setIngestDone] = useState(false)
+  const [error, setError] = useState<string | null>(null)
+  const [saving, setSaving] = useState(false)
+  const [confirmRefresh, setConfirmRefresh] = useState(false)
+  const [linkedinMems, setLinkedinMems] = useState<Memory[]>([])
+  const [memsLoading, setMemsLoading] = useState(false)
+  const [postsOpen, setPostsOpen] = useState(false)
+
+  useEffect(() => {
+    if (profile.linkedinUrl) {
+      loadPreview(profile.linkedinUrl)
+      loadLinkedinMems()
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [])
+
+  async function loadPreview(linkedinUrl: string) {
+    setPreviewLoading(true)
+    try {
+      const res = await fetch(`/api/admin/ai/linkedin?url=${encodeURIComponent(linkedinUrl)}`)
+      if (res.ok) setPreview(await res.json())
+    } catch { /* optional */ } finally { setPreviewLoading(false) }
+  }
+
+  async function loadLinkedinMems() {
+    setMemsLoading(true)
+    try {
+      const res = await fetch('/api/admin/ai/memories?limit=100')
+      if (!res.ok) return
+      const data = await res.json()
+      const lMems = (data.memories as Memory[]).filter((m) => m.tags.includes('linkedin'))
+      setLinkedinMems(lMems)
+    } catch { /* optional */ } finally { setMemsLoading(false) }
+  }
+
+  async function saveUrl() {
+    const trimmed = url.trim()
+    if (!trimmed || !trimmed.includes('linkedin.com/in/')) {
+      setError("Format attendu : https://www.linkedin.com/in/votre-profil")
+      return
+    }
+    setSaving(true)
+    setError(null)
+    try {
+      const res = await fetch('/api/admin/ai/profile', {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ linkedinUrl: trimmed }),
+      })
+      if (!res.ok) throw new Error(await res.text())
+      loadPreview(trimmed)
+      onUpdated()
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Erreur')
+    } finally { setSaving(false) }
+  }
+
+  async function ingest() {
+    const trimmed = url.trim()
+    if (!trimmed) return
+    setIngesting(true)
+    setIngestDone(false)
+    setError(null)
+    setConfirmRefresh(false)
+    try {
+      const res = await fetch('/api/admin/ai/linkedin', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ linkedinUrl: trimmed }),
+      })
+      if (!res.ok) throw new Error(await res.text())
+      setIngestDone(true)
+      await loadLinkedinMems()
+      onUpdated()
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Erreur lors de l'import")
+    } finally { setIngesting(false) }
+  }
+
+  const hasExistingData = !!profile.linkedinIngestedAt
+  const factMem = linkedinMems.find((m) => m.tags.includes('fact'))
+  const companyMem = linkedinMems.find((m) => m.tags.includes('company'))
+  const postMems = linkedinMems.filter((m) => m.tags.includes('post'))
+  const commentMems = linkedinMems.filter((m) => m.tags.includes('comment'))
+
+  return (
+    <section className="space-y-4">
+      <div className="flex items-center gap-3">
+        <Linkedin size={14} className="text-[#0A66C2]/70 shrink-0" />
+        <h2 className="font-inter font-black text-lg tracking-tight">LinkedIn</h2>
+        {hasExistingData && (
+          <span className="text-[9px] font-mono font-bold uppercase tracking-wider px-2 py-0.5 rounded-full border border-[#0A66C2]/20 bg-[#0A66C2]/5 text-[#0A66C2]/70">
+            Synchronisé
+          </span>
+        )}
+      </div>
+
+      <div className="border border-[#0A66C2]/20 bg-[#0A66C2]/3 rounded-sm p-5 space-y-5">
+
+        {/* ── URL + preview ── */}
+        <div className="flex items-start gap-4">
+          {/* Avatar */}
+          {previewLoading ? (
+            <div className="w-14 h-14 rounded-full border border-border/40 bg-surface/40 flex items-center justify-center shrink-0">
+              <Loader2 size={14} className="animate-spin text-muted-foreground/40" />
+            </div>
+          ) : preview?.photoUrl ? (
+            <img src={preview.photoUrl} alt={preview.name} className="w-14 h-14 rounded-full border border-[#0A66C2]/20 object-cover shrink-0" />
+          ) : (
+            <div className="w-14 h-14 rounded-full border border-[#0A66C2]/20 bg-[#0A66C2]/5 flex items-center justify-center shrink-0">
+              <Linkedin size={20} className="text-[#0A66C2]/40" />
+            </div>
+          )}
+
+          {/* Info + URL input */}
+          <div className="flex-1 min-w-0 space-y-2">
+            {preview && (
+              <div>
+                <p className="text-sm font-bold text-foreground">{preview.name}</p>
+                {preview.headline && <p className="text-xs text-muted-foreground leading-snug">{preview.headline}</p>}
+                {preview.company && (
+                  <div className="flex items-center gap-1.5 text-[11px] font-mono text-muted-foreground/60 mt-0.5">
+                    <Building2 size={9} />
+                    <span>{preview.company}</span>
+                  </div>
+                )}
+              </div>
+            )}
+            <div className="flex gap-2">
+              <input
+                type="url"
+                value={url}
+                onChange={(e) => { setUrl(e.target.value); setError(null) }}
+                placeholder="https://www.linkedin.com/in/votre-profil"
+                className="flex-1 bg-surface/40 border border-border rounded-sm px-3 py-1.5 text-xs font-mono focus:outline-none focus:border-[#0A66C2]/60 transition-colors"
+              />
+              <button
+                onClick={saveUrl}
+                disabled={saving || !url.trim() || url === profile.linkedinUrl}
+                className="px-3 py-1.5 bg-surface/60 border border-border/60 rounded-sm text-[10px] font-mono text-muted-foreground hover:text-foreground hover:border-border transition-colors disabled:opacity-40 shrink-0"
+              >
+                {saving ? <Loader2 size={11} className="animate-spin" /> : 'Enregistrer'}
+              </button>
+            </div>
+            {error && <p className="text-[11px] font-mono text-red-400">{error}</p>}
+            {url && (
+              <a href={url} target="_blank" rel="noopener noreferrer" className="inline-flex items-center gap-1 text-[10px] font-mono text-[#0A66C2]/60 hover:text-[#0A66C2] transition-colors">
+                Voir le profil <ExternalLink size={8} />
+              </a>
+            )}
+          </div>
+        </div>
+
+        {/* ── LinkedIn memories summary ── */}
+        {memsLoading && (
+          <div className="flex items-center gap-2 text-xs text-muted-foreground">
+            <Loader2 size={11} className="animate-spin" />
+            <span className="font-mono">Chargement des données…</span>
+          </div>
+        )}
+
+        {!memsLoading && linkedinMems.length > 0 && (
+          <div className="space-y-3">
+            <div className="flex items-center gap-2">
+              <span className="text-[9px] font-mono font-bold uppercase tracking-[0.2em] text-[#0A66C2]/50">Données importées</span>
+              <span className="flex-1 h-[1px] bg-[#0A66C2]/10" />
+              <span className="text-[9px] font-mono text-muted-foreground/40">
+                {linkedinMems.length} fragment{linkedinMems.length > 1 ? 's' : ''} · {postMems.length} post{postMems.length > 1 ? 's' : ''} · {commentMems.length} commentaire{commentMems.length > 1 ? 's' : ''}
+              </span>
+            </div>
+
+            {/* Profil */}
+            {factMem && (
+              <div className="border border-[#0A66C2]/15 bg-surface/30 rounded-sm p-3 space-y-1">
+                <p className="text-[9px] font-mono uppercase tracking-widest text-[#0A66C2]/50">Profil</p>
+                <p className="text-xs text-foreground leading-relaxed whitespace-pre-wrap">{factMem.content}</p>
+              </div>
+            )}
+
+            {/* Entreprise */}
+            {companyMem && (
+              <div className="border border-border/40 bg-surface/20 rounded-sm p-3 space-y-1">
+                <p className="text-[9px] font-mono uppercase tracking-widest text-muted-foreground/50 flex items-center gap-1.5"><Building2 size={8} /> Entreprise</p>
+                <p className="text-xs text-foreground leading-relaxed whitespace-pre-wrap">{companyMem.content}</p>
+              </div>
+            )}
+
+            {/* Posts */}
+            {postMems.length > 0 && (
+              <div className="border border-border/40 bg-surface/20 rounded-sm overflow-hidden">
+                <button
+                  onClick={() => setPostsOpen((v) => !v)}
+                  className="w-full flex items-center justify-between px-3 py-2.5 text-left hover:bg-surface/40 transition-colors"
+                >
+                  <span className="text-[9px] font-mono uppercase tracking-widest text-muted-foreground/50">
+                    Posts récents · {postMems.length}
+                  </span>
+                  {postsOpen ? <ChevronUp size={11} className="text-muted-foreground/40" /> : <ChevronDown size={11} className="text-muted-foreground/40" />}
+                </button>
+                {postsOpen && (
+                  <div className="border-t border-border/30 divide-y divide-border/20 max-h-64 overflow-y-auto" style={{ scrollbarWidth: 'thin' }}>
+                    {postMems.map((m) => (
+                      <div key={m.id} className="px-3 py-2.5">
+                        <p className="text-xs text-foreground/80 leading-relaxed">{m.content.replace(/^Post LinkedIn de .+?:\n/, '')}</p>
+                        <p className="text-[9px] font-mono text-muted-foreground/40 mt-1">{formatRelative(m.createdAt)}</p>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
+            )}
+          </div>
+        )}
+
+        {/* ── Actions ── */}
+        <div className="flex items-center justify-between gap-3 pt-1 border-t border-[#0A66C2]/10">
+          <p className="text-[10px] font-mono text-muted-foreground/40">
+            {hasExistingData ? `Importé le ${formatDate(profile.linkedinIngestedAt!)}` : 'Aucune donnée importée'}
+          </p>
+          <div className="flex items-center gap-2">
+            {ingestDone && (
+              <span className="flex items-center gap-1 text-[10px] font-mono text-emerald-500">
+                <CheckCircle2 size={10} /> Importé
+              </span>
+            )}
+            {hasExistingData && !confirmRefresh && (
+              <button onClick={() => setConfirmRefresh(true)} className="flex items-center gap-1.5 px-3 py-1.5 border border-[#0A66C2]/20 rounded-sm text-[10px] font-mono text-[#0A66C2]/60 hover:text-[#0A66C2] hover:border-[#0A66C2]/40 transition-colors">
+                <RefreshCw size={10} /> Rafraîchir
+              </button>
+            )}
+            {confirmRefresh && (
+              <div className="flex items-center gap-2">
+                <span className="text-[10px] font-mono text-amber-400/80">Écraser les données ?</span>
+                <button onClick={() => setConfirmRefresh(false)} className="px-2 py-1 border border-border/60 rounded-sm text-[9px] font-mono text-muted-foreground hover:text-foreground transition-colors">Annuler</button>
+                <button onClick={ingest} disabled={ingesting} className="px-2 py-1 bg-amber-500/10 border border-amber-500/30 rounded-sm text-[9px] font-mono text-amber-400 hover:bg-amber-500/20 transition-colors">Confirmer</button>
+              </div>
+            )}
+            {!hasExistingData && (
+              <button onClick={ingest} disabled={ingesting || !url.trim()} className="flex items-center gap-1.5 px-3 py-1.5 bg-[#0A66C2] text-white rounded-sm text-[10px] font-mono hover:bg-[#0A66C2]/90 disabled:opacity-40 disabled:cursor-not-allowed transition-colors">
+                {ingesting ? <Loader2 size={10} className="animate-spin" /> : <Linkedin size={10} />}
+                {ingesting ? 'Import…' : 'Importer dans l\'IA'}
+              </button>
+            )}
+          </div>
+        </div>
+      </div>
+    </section>
+  )
+}
+
 // ─── Page ─────────────────────────────────────────────────────────────────────
 
 export default function AiProfilePage() {
@@ -737,6 +1012,11 @@ export default function AiProfilePage() {
             <StatCard icon={Clock} label="Profil créé" value={formatRelative(profile.createdAt)} sub={formatDate(profile.createdAt)} />
             <StatCard icon={Clock} label="Dernière MàJ" value={formatRelative(profile.updatedAt)} sub={formatDate(profile.updatedAt)} />
           </div>
+        )}
+
+        {/* ── LinkedIn ── */}
+        {profile && (
+          <LinkedinSection profile={profile} onUpdated={() => load(true)} />
         )}
 
         {/* ── No profile ── */}

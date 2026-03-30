@@ -37,6 +37,7 @@
     "postcss": "^8.5.8",
     "react": "^19.0.0",
     "react-dom": "^19.0.0",
+    "react-markdown": "^10.1.0",
     "remotion": "^4.0.438",
     "resend": "^6.9.4",
     "tailwind-merge": "^3.5.0",

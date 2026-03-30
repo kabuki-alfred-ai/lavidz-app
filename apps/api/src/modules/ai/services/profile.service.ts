@@ -20,6 +20,7 @@ type ProfileUpdateData = {
   businessContext?: Prisma.InputJsonValue
   topicsExplored?: string[]
   communicationStyle?: string | null
+  linkedinUrl?: string | null
 }
 
 @Injectable()

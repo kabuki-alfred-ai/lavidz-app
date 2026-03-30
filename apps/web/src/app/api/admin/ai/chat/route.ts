@@ -38,6 +38,18 @@ Une fois les 3 obtenues, génère le questionnaire avec ce format EXACT, JSON su
 {"themeTitle":"Titre du thème","questions":[{"text":"Question 1 ?","hint":"Conseil pour répondre","order":1},{"text":"Question 2 ?","hint":"Conseil","order":2}]}
 <<<END>>>
 
+**DEMANDE LINKEDIN**
+Quand le moment est naturel dans la conversation (après avoir bien cerné le business, vers 3-5 échanges) ET que LinkedIn n'est pas encore connecté, invite l'entrepreneur à partager son profil LinkedIn avec ce format EXACT — le texte d'invitation suivi IMMÉDIATEMENT du marqueur :
+
+[texte d'invitation chaleureux et naturel]
+<<<LINKEDIN>>>
+
+RÈGLES pour <<<LINKEDIN>>> :
+- N'utilise ce marqueur QU'UNE SEULE FOIS par conversation
+- Si LinkedIn est déjà connecté (indiqué dans le profil), n'utilise JAMAIS ce marqueur
+- Si l'entrepreneur a déjà répondu (oui ou non), n'utilise PLUS ce marqueur
+- Le marqueur remplace le fait de demander l'URL directement — ne demande JAMAIS l'URL dans le texte
+
 **RÈGLES ABSOLUES**
 - Réponds TOUJOURS en français
 - Ne propose JAMAIS un questionnaire de ta propre initiative
@@ -60,6 +72,7 @@ function buildSystemPrompt(
   topicsExplored?: string[],
   userName?: string,
   ragMemories?: string[],
+  linkedinUrl?: string | null,
 ): string {
   const parts: string[] = [BASE_SYSTEM]
 
@@ -78,10 +91,15 @@ function buildSystemPrompt(
     if (summary.objectifsContenu) lines.push(`- Objectifs contenu : ${summary.objectifsContenu}`)
     if (summary.styleComm)       lines.push(`- Style de communication : ${summary.styleComm}`)
     if (summary.pointsForts?.length) lines.push(`- Points forts : ${summary.pointsForts.join(', ')}`)
-    if (summary.lacunes?.length) lines.push(`- Informations encore inconnues : ${summary.lacunes.join(', ')}`)
+    if (summary.lacunes?.length) lines.push(`- ⚠️ Informations MANQUANTES à combler : ${summary.lacunes.join(', ')}`)
     if (topicsExplored?.length)  lines.push(`- Thèmes déjà filmés : ${topicsExplored.join(', ')}`)
+    if (linkedinUrl) {
+      lines.push(`- LinkedIn connecté : ${linkedinUrl} (ne demande PAS l'URL LinkedIn, c'est déjà fait)`)
+    } else {
+      lines.push(`- LinkedIn NON connecté`)
+    }
 
-    lines.push('\nUtilise ce contexte pour personnaliser la conversation. Ne repose pas les questions déjà répondues. Concentre-toi sur les lacunes listées ci-dessus.')
+    lines.push('\nUtilise ce contexte pour personnaliser la conversation. Ne repose pas les questions déjà répondues. Au fil de la conversation, comble naturellement les informations manquantes listées ci-dessus — une à la fois, sans faire un interrogatoire.')
     parts.push(lines.join('\n'))
   }
 
@@ -109,6 +127,7 @@ export async function POST(req: Request) {
   // Fetch current profile to inject context into system prompt
   let summary: AiSummary | undefined
   let topicsExplored: string[] | undefined
+  let linkedinUrl: string | null = null
   try {
     if (user.organizationId) {
       const profileRes = await fetch(`${API}/api/ai/profile`, {
@@ -118,6 +137,7 @@ export async function POST(req: Request) {
         const profile = await profileRes.json()
         summary = profile.businessContext?.summary
         topicsExplored = profile.topicsExplored
+        linkedinUrl = profile.linkedinUrl ?? null
       }
     }
   } catch {
@@ -152,7 +172,7 @@ export async function POST(req: Request) {
 
   const result = streamText({
     model: google(MODEL_ID),
-    system: buildSystemPrompt(summary, topicsExplored, userName, ragMemories),
+    system: buildSystemPrompt(summary, topicsExplored, userName, ragMemories, linkedinUrl),
     messages,
   })
 

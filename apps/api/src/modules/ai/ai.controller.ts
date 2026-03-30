@@ -6,6 +6,7 @@ import { AdminGuard } from '../../guards/admin.guard'
 import { ProfileService } from './services/profile.service'
 import { QuestionnaireService } from './services/questionnaire.service'
 import { MemoryService, type SearchResult } from './services/memory.service'
+import { LinkedinService, type LinkedinPreview } from './services/linkedin.service'
 
 type IngestDocumentBody = {
   content: string
@@ -53,6 +54,12 @@ type UpdateProfileBody = {
   businessContext?: Prisma.InputJsonValue
   topicsExplored?: string[]
   communicationStyle?: string | null
+  linkedinUrl?: string | null
+}
+
+type LinkedinIngestBody = {
+  organizationId: string
+  linkedinUrl: string
 }
 
 @Controller('ai')
@@ -62,6 +69,7 @@ export class AiController {
     private readonly profileService: ProfileService,
     private readonly questionnaireService: QuestionnaireService,
     private readonly memoryService: MemoryService,
+    private readonly linkedinService: LinkedinService,
   ) {}
 
   @Get('profile')
@@ -214,5 +222,19 @@ export class AiController {
     )
 
     return { theme, session, shareLink }
+  }
+
+  @Post('linkedin/ingest')
+  async ingestLinkedin(@Body() body: LinkedinIngestBody): Promise<{ saved: number }> {
+    const { organizationId, linkedinUrl } = body
+    if (!organizationId) throw new BadRequestException('organizationId requis')
+    if (!linkedinUrl) throw new BadRequestException('linkedinUrl requis')
+    return this.linkedinService.ingestLinkedinData(organizationId, linkedinUrl)
+  }
+
+  @Get('linkedin/preview')
+  async getLinkedinPreview(@Query('url') url: string): Promise<LinkedinPreview> {
+    if (!url) throw new BadRequestException('url requis')
+    return this.linkedinService.getPreview(url)
   }
 }

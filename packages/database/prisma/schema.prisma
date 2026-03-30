@@ -178,6 +178,8 @@ model EntrepreneurProfile {
   businessContext    Json                 @default("{}")
   topicsExplored     String[]             @default([])
   communicationStyle String?
+  linkedinUrl        String?
+  linkedinIngestedAt DateTime?
   createdAt          DateTime             @default(now())
   updatedAt          DateTime             @updatedAt
   organization       Organization?        @relation(fields: [organizationId], references: [id])

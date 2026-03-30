@@ -1,28 +1,60 @@
 'use client'
 
 import React, { useEffect, useRef, useState } from 'react'
-import { Send, ChevronRight, Bot, User, Loader2, CheckCircle2 } from 'lucide-react'
+import { Send, ChevronRight, Bot, User, Loader2, CheckCircle2, Linkedin, ArrowRight } from 'lucide-react'
+import Link from 'next/link'
 
 type Message = { role: 'user' | 'assistant'; content: string }
+type LinkedinStep = 'idle' | 'loading' | 'done' | 'error'
+
+const LINKEDIN_REGEX = /^https?:\/\/(www\.)?linkedin\.com\/in\/[a-zA-Z0-9\-_%]+\/?$/
+
+function isAskingLinkedin(msg: string) {
+  return /linkedin/i.test(msg)
+}
 
 export default function AiOnboardingPage() {
   const bottomRef = useRef<HTMLDivElement>(null)
   const inputRef = useRef<HTMLInputElement>(null)
+  const linkedinInputRef = useRef<HTMLInputElement>(null)
   const [messages, setMessages] = useState<Message[]>([])
   const [input, setInput] = useState('')
   const [streaming, setStreaming] = useState(false)
   const [saved, setSaved] = useState(false)
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState<string | null>(null)
+  const [linkedinUrl, setLinkedinUrl] = useState('')
+  const [linkedinStep, setLinkedinStep] = useState<LinkedinStep>('idle')
+  const [linkedinError, setLinkedinError] = useState<string | null>(null)
+  const [linkedinAnswered, setLinkedinAnswered] = useState(false)
 
   const userCount = messages.filter((m) => m.role === 'user').length
+  const lastMsg = messages[messages.length - 1]
+  const showLinkedinInput =
+    !streaming &&
+    !saved &&
+    !linkedinAnswered &&
+    lastMsg?.role === 'assistant' &&
+    isAskingLinkedin(lastMsg.content)
 
   useEffect(() => {
     bottomRef.current?.scrollIntoView({ behavior: 'smooth' })
   }, [messages, streaming])
 
-  async function send() {
-    const text = input.trim()
+  useEffect(() => {
+    if (saved) {
+      setTimeout(() => linkedinInputRef.current?.focus(), 300)
+    }
+  }, [saved])
+
+  useEffect(() => {
+    if (showLinkedinInput) {
+      setTimeout(() => linkedinInputRef.current?.focus(), 100)
+    }
+  }, [showLinkedinInput])
+
+  async function send(overrideText?: string) {
+    const text = (overrideText ?? input).trim()
     if (!text || streaming) return
 
     setInput('')
@@ -39,11 +71,8 @@ export default function AiOnboardingPage() {
         body: JSON.stringify({ messages: newMessages }),
       })
 
-      if (!res.ok) {
-        throw new Error(await res.text())
-      }
+      if (!res.ok) throw new Error(await res.text())
 
-      // Read the text stream
       const reader = res.body?.getReader()
       const decoder = new TextDecoder()
       let assistantText = ''
@@ -63,7 +92,6 @@ export default function AiOnboardingPage() {
         }
       }
 
-      // Auto-save after enough exchanges
       const newUserCount = newMessages.filter((m) => m.role === 'user').length
       if (newUserCount >= 6 && !saved) {
         await saveProfile([...newMessages, { role: 'assistant', content: assistantText }])
@@ -89,10 +117,7 @@ export default function AiOnboardingPage() {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          businessContext: {
-            conversationSummary: conversation,
-            answers: userAnswers,
-          },
+          businessContext: { conversationSummary: conversation, answers: userAnswers },
         }),
       })
       setSaved(true)
@@ -103,10 +128,52 @@ export default function AiOnboardingPage() {
     }
   }
 
+  async function submitLinkedinUrl() {
+    const url = linkedinUrl.trim()
+    if (!url) return
+
+    if (!LINKEDIN_REGEX.test(url)) {
+      setLinkedinError('URL invalide — format attendu : https://www.linkedin.com/in/votre-profil')
+      return
+    }
+
+    setLinkedinError(null)
+    setLinkedinAnswered(true)
+
+    // Send URL as chat message
+    send(url)
+
+    // Trigger import in background
+    setLinkedinStep('loading')
+    try {
+      const res = await fetch('/api/admin/ai/linkedin', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ linkedinUrl: url }),
+      })
+      if (!res.ok) throw new Error(await res.text())
+      setLinkedinStep('done')
+    } catch {
+      setLinkedinStep('error')
+    }
+  }
+
+  function skipLinkedin() {
+    setLinkedinAnswered(true)
+    send('Je préfère ne pas partager mon LinkedIn pour l\'instant, merci.')
+  }
+
   function handleKeyDown(e: React.KeyboardEvent) {
     if (e.key === 'Enter' && !e.shiftKey) {
       e.preventDefault()
       send()
+    }
+  }
+
+  function handleLinkedinKeyDown(e: React.KeyboardEvent) {
+    if (e.key === 'Enter') {
+      e.preventDefault()
+      submitLinkedinUrl()
     }
   }
 
@@ -177,6 +244,22 @@ export default function AiOnboardingPage() {
           </div>
         ))}
 
+        {/* LinkedIn import status badge */}
+        {linkedinStep === 'loading' && (
+          <div className="flex justify-center">
+            <span className="flex items-center gap-2 text-[10px] font-mono text-[#0A66C2]/70 border border-[#0A66C2]/20 bg-[#0A66C2]/5 rounded-full px-3 py-1">
+              <Loader2 size={10} className="animate-spin" /> Import LinkedIn en cours…
+            </span>
+          </div>
+        )}
+        {linkedinStep === 'done' && (
+          <div className="flex justify-center">
+            <span className="flex items-center gap-2 text-[10px] font-mono text-emerald-500 border border-emerald-500/20 bg-emerald-500/5 rounded-full px-3 py-1">
+              <CheckCircle2 size={10} /> LinkedIn importé dans votre profil IA
+            </span>
+          </div>
+        )}
+
         {error && (
           <div className="border border-red-500/30 bg-red-500/5 rounded-sm p-3">
             <p className="text-xs font-mono text-red-400">{error}</p>
@@ -185,6 +268,66 @@ export default function AiOnboardingPage() {
 
         <div ref={bottomRef} />
       </div>
+
+      {/* LinkedIn step — shown after profile is saved (post-conversation) */}
+      {saved && linkedinStep !== 'done' && (
+        <div className="shrink-0 mt-2 mb-3">
+          <div className="border border-[#0A66C2]/30 bg-[#0A66C2]/5 rounded-sm p-4 space-y-3">
+            <div className="flex items-center gap-2">
+              <Linkedin size={14} className="text-[#0A66C2]" />
+              <span className="text-[11px] font-mono uppercase tracking-widest text-[#0A66C2]">
+                Étape bonus — LinkedIn
+              </span>
+            </div>
+            <p className="text-xs text-muted-foreground leading-relaxed">
+              Entrez votre URL LinkedIn pour enrichir l&apos;IA avec votre profil, vos posts récents et votre entreprise.
+            </p>
+            <div className="flex gap-2">
+              <input
+                ref={linkedinInputRef}
+                type="url"
+                value={linkedinUrl}
+                onChange={(e) => { setLinkedinUrl(e.target.value); setLinkedinError(null) }}
+                onKeyDown={handleLinkedinKeyDown}
+                placeholder="https://www.linkedin.com/in/votre-profil"
+                disabled={linkedinStep === 'loading'}
+                className="flex-1 bg-surface/40 border border-border rounded-sm px-3 py-2 text-sm font-mono focus:outline-none focus:border-[#0A66C2]/60 transition-colors disabled:opacity-50"
+              />
+              <button
+                onClick={submitLinkedinUrl}
+                disabled={linkedinStep === 'loading' || !linkedinUrl.trim()}
+                className="px-3 py-2 bg-[#0A66C2] text-white rounded-sm hover:bg-[#0A66C2]/90 disabled:opacity-40 disabled:cursor-not-allowed transition-colors shrink-0 text-xs font-mono"
+              >
+                {linkedinStep === 'loading' ? <Loader2 size={13} className="animate-spin" /> : 'Importer'}
+              </button>
+            </div>
+            {linkedinError && <p className="text-xs font-mono text-red-400">{linkedinError}</p>}
+            <div className="flex items-center justify-end">
+              <Link
+                href="/admin/ai-profile"
+                className="text-[10px] font-mono text-muted-foreground hover:text-foreground transition-colors"
+              >
+                Plus tard →
+              </Link>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {saved && linkedinStep === 'done' && (
+        <div className="shrink-0 mb-3 flex items-center justify-between border border-emerald-500/20 bg-emerald-500/5 rounded-sm px-4 py-3">
+          <span className="text-sm text-emerald-400 flex items-center gap-2">
+            <CheckCircle2 size={14} />
+            Profil LinkedIn importé dans votre profil IA
+          </span>
+          <Link
+            href="/admin/ai-profile"
+            className="text-[10px] font-mono uppercase tracking-widest text-primary flex items-center gap-1 hover:underline"
+          >
+            Voir le profil <ArrowRight size={10} />
+          </Link>
+        </div>
+      )}
 
       {/* Manual save */}
       {userCount >= 5 && !saved && (
@@ -199,28 +342,79 @@ export default function AiOnboardingPage() {
         </div>
       )}
 
-      {/* Input */}
-      <form
-        onSubmit={(e) => { e.preventDefault(); send() }}
-        className="shrink-0 flex gap-2 pt-3 border-t border-border"
-      >
-        <input
-          ref={inputRef}
-          value={input}
-          onChange={(e) => setInput(e.target.value)}
-          onKeyDown={handleKeyDown}
-          placeholder="Votre réponse…"
-          disabled={streaming}
-          className="flex-1 bg-surface/40 border border-border rounded-sm px-3 py-2 text-sm font-mono focus:outline-none focus:border-primary/60 transition-colors disabled:opacity-50"
-        />
-        <button
-          type="submit"
-          disabled={streaming || !input.trim()}
-          className="px-4 py-2 bg-primary text-primary-foreground rounded-sm hover:bg-primary/90 disabled:opacity-40 disabled:cursor-not-allowed transition-colors shrink-0"
-        >
-          {streaming ? <Loader2 size={13} className="animate-spin" /> : <Send size={13} />}
-        </button>
-      </form>
+      {/* Input — LinkedIn dedicated input or regular text input */}
+      {!saved && (
+        <div className="shrink-0 pt-3 border-t border-border">
+          {showLinkedinInput ? (
+            /* ── LinkedIn URL input dédié ── */
+            <div className="space-y-2">
+              <div className="flex items-center gap-2 mb-1">
+                <Linkedin size={12} className="text-[#0A66C2]" />
+                <span className="text-[10px] font-mono uppercase tracking-widest text-[#0A66C2]">
+                  URL LinkedIn
+                </span>
+              </div>
+              <div className="flex gap-2">
+                <div className="flex-1 relative">
+                  <input
+                    ref={linkedinInputRef}
+                    type="url"
+                    value={linkedinUrl}
+                    onChange={(e) => { setLinkedinUrl(e.target.value); setLinkedinError(null) }}
+                    onKeyDown={handleLinkedinKeyDown}
+                    placeholder="https://www.linkedin.com/in/votre-profil"
+                    className={`w-full bg-surface/40 border rounded-sm pl-3 pr-3 py-2 text-sm font-mono focus:outline-none transition-colors ${
+                      linkedinError
+                        ? 'border-red-500/50 focus:border-red-500/70'
+                        : 'border-[#0A66C2]/30 focus:border-[#0A66C2]/60'
+                    }`}
+                  />
+                </div>
+                <button
+                  onClick={submitLinkedinUrl}
+                  disabled={!linkedinUrl.trim()}
+                  className="px-4 py-2 bg-[#0A66C2] text-white rounded-sm hover:bg-[#0A66C2]/90 disabled:opacity-40 disabled:cursor-not-allowed transition-colors shrink-0 flex items-center gap-1.5 text-xs font-mono"
+                >
+                  <Linkedin size={12} />
+                  Envoyer
+                </button>
+              </div>
+              {linkedinError && (
+                <p className="text-[11px] font-mono text-red-400">{linkedinError}</p>
+              )}
+              <button
+                onClick={skipLinkedin}
+                className="text-[10px] font-mono text-muted-foreground hover:text-foreground transition-colors"
+              >
+                Passer cette étape →
+              </button>
+            </div>
+          ) : (
+            /* ── Regular text input ── */
+            <form
+              onSubmit={(e) => { e.preventDefault(); send() }}
+              className="flex gap-2"
+            >
+              <input
+                ref={inputRef}
+                value={input}
+                onChange={(e) => setInput(e.target.value)}
+                onKeyDown={handleKeyDown}
+                placeholder="Votre réponse…"
+                disabled={streaming}
+                className="flex-1 bg-surface/40 border border-border rounded-sm px-3 py-2 text-sm font-mono focus:outline-none focus:border-primary/60 transition-colors disabled:opacity-50"
+              />
+              <button
+                type="submit"
+                disabled={streaming || !input.trim()}
+                className="px-4 py-2 bg-primary text-primary-foreground rounded-sm hover:bg-primary/90 disabled:opacity-40 disabled:cursor-not-allowed transition-colors shrink-0"
+              >
+                {streaming ? <Loader2 size={13} className="animate-spin" /> : <Send size={13} />}
+              </button>
+            </form>
+          )}
+        </div>
+      )}
     </div>
   )
 }

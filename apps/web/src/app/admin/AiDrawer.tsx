@@ -1,6 +1,7 @@
 'use client'
 
 import React, { useEffect, useRef, useState } from 'react'
+import ReactMarkdown from 'react-markdown'
 import {
   Sparkles,
   X,
@@ -34,6 +35,7 @@ type HistoryEntry = {
 type MessagePart =
   | { type: 'text'; content: string }
   | { type: 'questionnaire'; themeTitle: string; questions: Question[]; result?: GeneratedResult }
+  | { type: 'linkedin'; linkedinUrl?: string; skipped?: boolean }
 
 type ChatMessage = {
   id: string
@@ -44,8 +46,20 @@ type ChatMessage = {
 
 const Q_START = '<<<QUESTIONNAIRE>>>'
 const Q_END = '<<<END>>>'
+const L_MARKER = '<<<LINKEDIN>>>'
 
 function parseMessageParts(raw: string): MessagePart[] {
+  // Check for LinkedIn marker first
+  const lIdx = raw.indexOf(L_MARKER)
+  if (lIdx !== -1) {
+    const parts: MessagePart[] = []
+    const textBefore = raw.slice(0, lIdx).trim()
+    if (textBefore) parts.push({ type: 'text', content: textBefore })
+    parts.push({ type: 'linkedin' })
+    return parts
+  }
+
+  // Check for questionnaire markers
   const startIdx = raw.indexOf(Q_START)
   const endIdx = raw.indexOf(Q_END)
 
@@ -281,6 +295,140 @@ function QuestionnaireCard({
   )
 }
 
+// ─── LinkedIn card ────────────────────────────────────────────────────────────
+
+const LINKEDIN_REGEX = /^https?:\/\/(www\.)?linkedin\.com\/in\/[a-zA-Z0-9\-_%]+\/?$/
+
+type LinkedinCardState = 'idle' | 'loading' | 'done' | 'skipped' | 'error'
+
+function LinkedinCard({
+  part,
+  onAnswered,
+}: {
+  part: MessagePart & { type: 'linkedin' }
+  onAnswered: (linkedinUrl?: string) => void
+}) {
+  const [url, setUrl] = useState(part.linkedinUrl ?? '')
+  const [state, setState] = useState<LinkedinCardState>(
+    part.linkedinUrl ? 'done' : part.skipped ? 'skipped' : 'idle',
+  )
+  const [error, setError] = useState<string | null>(null)
+  const inputRef = React.useRef<HTMLInputElement>(null)
+
+  React.useEffect(() => {
+    if (state === 'idle') setTimeout(() => inputRef.current?.focus(), 100)
+  }, [state])
+
+  async function handleSubmit() {
+    const trimmed = url.trim()
+    if (!LINKEDIN_REGEX.test(trimmed)) {
+      setError('Format attendu : https://www.linkedin.com/in/votre-profil')
+      return
+    }
+    setError(null)
+    setState('loading')
+    try {
+      const res = await fetch('/api/admin/ai/linkedin', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ linkedinUrl: trimmed }),
+      })
+      if (!res.ok) throw new Error(await res.text())
+      setState('done')
+      onAnswered(trimmed)
+    } catch (err) {
+      setState('error')
+      setError(err instanceof Error ? err.message : "Erreur lors de l'import")
+    }
+  }
+
+  function handleSkip() {
+    setState('skipped')
+    onAnswered(undefined)
+  }
+
+  if (state === 'done') {
+    return (
+      <div className="rounded-2xl border border-[#0A66C2]/30 bg-[#0A66C2]/5 px-4 py-3 flex items-center gap-3">
+        <div className="w-7 h-7 rounded-full bg-[#0A66C2]/20 flex items-center justify-center shrink-0">
+          <svg width="13" height="13" viewBox="0 0 24 24" fill="#0A66C2"><path d="M20.447 20.452h-3.554v-5.569c0-1.328-.027-3.037-1.852-3.037-1.853 0-2.136 1.445-2.136 2.939v5.667H9.351V9h3.414v1.561h.046c.477-.9 1.637-1.85 3.37-1.85 3.601 0 4.267 2.37 4.267 5.455v6.286zM5.337 7.433a2.062 2.062 0 0 1-2.063-2.065 2.064 2.064 0 1 1 2.063 2.065zm1.782 13.019H3.555V9h3.564v11.452zM22.225 0H1.771C.792 0 0 .774 0 1.729v20.542C0 23.227.792 24 1.771 24h20.451C23.2 24 24 23.227 24 22.271V1.729C24 .774 23.2 0 22.222 0h.003z"/></svg>
+        </div>
+        <div className="flex-1 min-w-0">
+          <p className="text-[10px] font-mono uppercase tracking-widest text-[#0A66C2]/70 mb-0.5">LinkedIn connecté</p>
+          <p className="text-xs text-foreground truncate">{url}</p>
+        </div>
+        <CheckCircle2 size={14} className="text-emerald-500 shrink-0" />
+      </div>
+    )
+  }
+
+  if (state === 'skipped') {
+    return (
+      <div className="rounded-2xl border border-border/40 bg-muted/20 px-4 py-2.5 flex items-center gap-2">
+        <p className="text-[11px] font-mono text-muted-foreground/50">LinkedIn ignoré pour cette session</p>
+      </div>
+    )
+  }
+
+  return (
+    <div
+      className="rounded-2xl border border-[#0A66C2]/30 overflow-hidden"
+      style={{ background: 'linear-gradient(135deg, rgba(10,102,194,0.06), transparent)' }}
+    >
+      <div className="px-4 pt-4 pb-3 border-b border-[#0A66C2]/15 flex items-center gap-3">
+        <div className="w-7 h-7 rounded-full bg-[#0A66C2]/15 flex items-center justify-center shrink-0">
+          <svg width="13" height="13" viewBox="0 0 24 24" fill="#0A66C2"><path d="M20.447 20.452h-3.554v-5.569c0-1.328-.027-3.037-1.852-3.037-1.853 0-2.136 1.445-2.136 2.939v5.667H9.351V9h3.414v1.561h.046c.477-.9 1.637-1.85 3.37-1.85 3.601 0 4.267 2.37 4.267 5.455v6.286zM5.337 7.433a2.062 2.062 0 0 1-2.063-2.065 2.064 2.064 0 1 1 2.063 2.065zm1.782 13.019H3.555V9h3.564v11.452zM22.225 0H1.771C.792 0 0 .774 0 1.729v20.542C0 23.227.792 24 1.771 24h20.451C23.2 24 24 23.227 24 22.271V1.729C24 .774 23.2 0 22.222 0h.003z"/></svg>
+        </div>
+        <div>
+          <p className="text-[9px] font-mono text-[#0A66C2]/60 uppercase tracking-widest">Profil LinkedIn</p>
+          <p className="text-xs font-bold text-foreground leading-tight">Connectez votre profil LinkedIn</p>
+        </div>
+      </div>
+
+      <div className="px-4 py-3 space-y-2.5">
+        <p className="text-[11px] text-muted-foreground leading-relaxed">
+          Vos posts, parcours et entreprise seront intégrés dans la mémoire IA pour personnaliser vos futures sessions.
+        </p>
+
+        <div className="flex gap-2">
+          <input
+            ref={inputRef}
+            type="url"
+            value={url}
+            onChange={(e) => { setUrl(e.target.value); setError(null) }}
+            onKeyDown={(e) => e.key === 'Enter' && handleSubmit()}
+            placeholder="https://www.linkedin.com/in/votre-profil"
+            disabled={state === 'loading'}
+            className={`flex-1 bg-background/60 border rounded-xl px-3 py-2 text-xs font-mono focus:outline-none transition-colors disabled:opacity-50 placeholder:text-muted-foreground/40 ${
+              error ? 'border-red-500/50 focus:border-red-500/70' : 'border-[#0A66C2]/25 focus:border-[#0A66C2]/60'
+            }`}
+          />
+          <button
+            onClick={handleSubmit}
+            disabled={state === 'loading' || !url.trim()}
+            className="shrink-0 px-3 py-2 rounded-xl text-xs font-bold text-white disabled:opacity-40 disabled:cursor-not-allowed transition-all flex items-center gap-1.5"
+            style={{ backgroundColor: '#0A66C2' }}
+          >
+            {state === 'loading' ? <Loader2 size={11} className="animate-spin" /> : (
+              <svg width="11" height="11" viewBox="0 0 24 24" fill="white"><path d="M20.447 20.452h-3.554v-5.569c0-1.328-.027-3.037-1.852-3.037-1.853 0-2.136 1.445-2.136 2.939v5.667H9.351V9h3.414v1.561h.046c.477-.9 1.637-1.85 3.37-1.85 3.601 0 4.267 2.37 4.267 5.455v6.286zM5.337 7.433a2.062 2.062 0 0 1-2.063-2.065 2.064 2.064 0 1 1 2.063 2.065zm1.782 13.019H3.555V9h3.564v11.452zM22.225 0H1.771C.792 0 0 .774 0 1.729v20.542C0 23.227.792 24 1.771 24h20.451C23.2 24 24 23.227 24 22.271V1.729C24 .774 23.2 0 22.222 0h.003z"/></svg>
+            )}
+            {state === 'loading' ? 'Import…' : 'Connecter'}
+          </button>
+        </div>
+
+        {error && <p className="text-[10px] font-mono text-red-400">{error}</p>}
+
+        <button
+          onClick={handleSkip}
+          className="text-[10px] font-mono text-muted-foreground/50 hover:text-muted-foreground transition-colors"
+        >
+          Passer cette étape →
+        </button>
+      </div>
+    </div>
+  )
+}
+
 // ─── Suggestion chips ─────────────────────────────────────────────────────────
 
 const SUGGESTIONS = [
@@ -428,7 +576,7 @@ export function AiDrawer() {
       .map((m) => {
         const label = m.role === 'user' ? 'Entrepreneur' : 'Assistant'
         const content = m.parts
-          .map((p) => (p.type === 'text' ? p.content : `[Questionnaire : ${p.themeTitle}]`))
+          .map((p) => p.type === 'text' ? p.content : p.type === 'questionnaire' ? `[Questionnaire : ${p.themeTitle}]` : p.linkedinUrl ? `[LinkedIn : ${p.linkedinUrl}]` : '[LinkedIn : ignoré]')
           .join('\n')
         return `${label}: ${content}`
       })
@@ -473,7 +621,7 @@ export function AiDrawer() {
             role: m.role,
             content: m.parts
               .map((p) =>
-                p.type === 'text' ? p.content : `[Questionnaire proposé : ${p.themeTitle}]`,
+                p.type === 'text' ? p.content : p.type === 'questionnaire' ? `[Questionnaire proposé : ${p.themeTitle}]` : p.linkedinUrl ? `[LinkedIn partagé : ${p.linkedinUrl}]` : '[LinkedIn : ignoré]',
               )
               .join('\n'),
           })),
@@ -538,6 +686,27 @@ export function AiDrawer() {
         }
       }),
     )
+  }
+
+  function handleLinkedinAnswered(assistantId: string, partIdx: number, linkedinUrl?: string) {
+    setMessages((prev) =>
+      prev.map((m) => {
+        if (m.id !== assistantId) return m
+        return {
+          ...m,
+          parts: m.parts.map((p, i) =>
+            i === partIdx && p.type === 'linkedin'
+              ? { ...p, linkedinUrl, skipped: !linkedinUrl }
+              : p,
+          ),
+        }
+      }),
+    )
+    if (linkedinUrl) {
+      setTimeout(() => send(
+        "Tu viens d'accéder à mon profil LinkedIn. Fais-moi un résumé structuré de ce que tu as appris sur moi : mon parcours, mon entreprise, et mes activités récentes (posts, thèmes abordés). Sois synthétique et chaleureux."
+      ), 300)
+    }
   }
 
   function clearConversation() {
@@ -769,6 +938,14 @@ export function AiDrawer() {
                           </div>
                         ) : null
                       }
+                      if (part.type === 'linkedin') {
+                        return (
+                          <div key={i} className="w-full rounded-2xl border border-[#0A66C2]/20 bg-[#0A66C2]/5 px-4 py-3 flex items-center gap-2">
+                            <svg width="11" height="11" viewBox="0 0 24 24" fill="#0A66C2"><path d="M20.447 20.452h-3.554v-5.569c0-1.328-.027-3.037-1.852-3.037-1.853 0-2.136 1.445-2.136 2.939v5.667H9.351V9h3.414v1.561h.046c.477-.9 1.637-1.85 3.37-1.85 3.601 0 4.267 2.37 4.267 5.455v6.286zM5.337 7.433a2.062 2.062 0 0 1-2.063-2.065 2.064 2.064 0 1 1 2.063 2.065zm1.782 13.019H3.555V9h3.564v11.452zM22.225 0H1.771C.792 0 0 .774 0 1.729v20.542C0 23.227.792 24 1.771 24h20.451C23.2 24 24 23.227 24 22.271V1.729C24 .774 23.2 0 22.222 0h.003z"/></svg>
+                            <p className="text-[10px] text-muted-foreground/50">{part.linkedinUrl ? `LinkedIn : ${part.linkedinUrl}` : 'LinkedIn ignoré'}</p>
+                          </div>
+                        )
+                      }
                       return (
                         <div key={i} className="w-full rounded-2xl border border-primary/20 bg-primary/5 px-4 py-3">
                           <p className="text-[9px] font-mono text-primary/50 uppercase tracking-widest mb-1">Questionnaire</p>
@@ -799,32 +976,41 @@ export function AiDrawer() {
             {messages.map((msg) => {
               // ── Streaming placeholder ──
               if (msg.raw !== undefined) {
-                const visibleText = msg.raw.includes(Q_START)
-                  ? msg.raw.slice(0, msg.raw.indexOf(Q_START)).trim()
+                const hasQ = msg.raw.includes(Q_START)
+                const hasL = msg.raw.includes(L_MARKER)
+                const markerIdx = hasQ ? msg.raw.indexOf(Q_START) : hasL ? msg.raw.indexOf(L_MARKER) : -1
+                const visibleText = markerIdx !== -1
+                  ? msg.raw.slice(0, markerIdx).trim()
                   : msg.raw
 
                 return (
                   <div key={msg.id} className="flex flex-col items-start gap-1 max-w-[80%]">
                     {visibleText ? (
-                      <div className="px-4 py-3 rounded-2xl text-sm leading-relaxed bg-muted/50 border border-border/50 text-foreground whitespace-pre-wrap">
-                        {visibleText}
+                      <div className="px-4 py-3 rounded-2xl text-sm leading-relaxed bg-muted/50 border border-border/50 text-foreground prose prose-sm prose-invert max-w-none prose-p:my-1 prose-ul:my-1 prose-li:my-0 prose-strong:text-foreground prose-headings:text-foreground">
+                        <ReactMarkdown>{visibleText}</ReactMarkdown>
                         <span
                           className="inline-block w-[7px] h-[14px] bg-foreground/70 ml-0.5 align-middle rounded-[1px]"
                           style={{ animation: 'blinkCursor 0.9s step-start infinite' }}
                         />
                       </div>
                     ) : (
-                      !msg.raw.includes(Q_START) && (
+                      !hasQ && !hasL && (
                         <div className="px-4 py-3 rounded-2xl text-sm bg-muted/50 border border-border/50 text-muted-foreground flex items-center gap-2">
                           <Loader2 size={12} className="animate-spin" />
                           Réflexion en cours…
                         </div>
                       )
                     )}
-                    {msg.raw.includes(Q_START) && (
+                    {hasQ && (
                       <div className="px-4 py-3 rounded-2xl text-sm border bg-primary/5 border-primary/20 text-muted-foreground italic flex items-center gap-2">
                         <Loader2 size={12} className="animate-spin text-primary" />
                         Génération du questionnaire…
+                      </div>
+                    )}
+                    {hasL && (
+                      <div className="px-4 py-3 rounded-2xl text-sm border bg-[#0A66C2]/5 border-[#0A66C2]/20 text-muted-foreground italic flex items-center gap-2">
+                        <Loader2 size={12} className="animate-spin" style={{ color: '#0A66C2' }} />
+                        Préparation du formulaire LinkedIn…
                       </div>
                     )}
                   </div>
@@ -853,11 +1039,21 @@ export function AiDrawer() {
                       return part.content ? (
                         <div
                           key={i}
-                          className="px-4 py-3 rounded-2xl text-sm leading-relaxed bg-muted/50 border border-border/50 text-foreground whitespace-pre-wrap"
+                          className="px-4 py-3 rounded-2xl text-sm leading-relaxed bg-muted/50 border border-border/50 text-foreground prose prose-sm prose-invert max-w-none prose-p:my-1 prose-ul:my-1 prose-li:my-0 prose-strong:text-foreground prose-headings:text-foreground"
                         >
-                          {part.content}
+                          <ReactMarkdown>{part.content}</ReactMarkdown>
                         </div>
                       ) : null
+                    }
+                    if (part.type === 'linkedin') {
+                      return (
+                        <div key={i} className="w-full">
+                          <LinkedinCard
+                            part={part}
+                            onAnswered={(linkedinUrl) => handleLinkedinAnswered(msg.id, i, linkedinUrl)}
+                          />
+                        </div>
+                      )
                     }
                     return (
                       <div key={i} className="w-full">
