@@ -50,7 +50,7 @@ export class FeedbacksService {
     const count = feedbacks.length
     if (count === 0) return { count: 0, avgOverall: 0, avgQuestion: 0 }
     const avgOverall = feedbacks.reduce((s, f) => s + f.overallRating, 0) / count
-    const avgQuestion = feedbacks.reduce((s, f) => s + f.questionRating, 0) / count
+    const avgQuestion = feedbacks.reduce((s: number, f) => s + f.questionRating, 0) / count
     return {
       count,
       avgOverall: Math.round(avgOverall * 10) / 10,
