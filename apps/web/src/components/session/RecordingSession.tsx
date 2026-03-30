@@ -15,6 +15,13 @@ function readingDuration(text: string): number {
 const API = process.env.NEXT_PUBLIC_API_URL ?? 'http://localhost:3001'
 const MAX_DURATION = 180 // 3 minutes
 
+type VideoQuality = '480p' | '720p' | '1080p'
+const VIDEO_PRESETS: Record<VideoQuality, { label: string; width: number; height: number; bitrate: number; hint: string }> = {
+  '480p':  { label: '480p',  width: 854,  height: 480,  bitrate: 1_000_000, hint: 'Upload rapide' },
+  '720p':  { label: '720p',  width: 1280, height: 720,  bitrate: 2_500_000, hint: 'Recommandé' },
+  '1080p': { label: '1080p', width: 1920, height: 1080, bitrate: 5_000_000, hint: 'Haute qualité' },
+}
+
 interface Props {
   theme: ThemeDto
   initialSessionId?: string
@@ -37,6 +44,10 @@ export function RecordingSession({ theme, initialSessionId, mode = 'default' }: 
   const [introStep, setIntroStep] = useState<1 | 2 | 3 | 4>(1)
   const [facingMode, setFacingMode] = useState<'user' | 'environment'>('user')
   const [hasMultipleCameras, setHasMultipleCameras] = useState(false)
+  const [videoDevices, setVideoDevices] = useState<MediaDeviceInfo[]>([])
+  const [audioDevices, setAudioDevices] = useState<MediaDeviceInfo[]>([])
+  const [selectedVideoId, setSelectedVideoId] = useState('')
+  const [selectedAudioId, setSelectedAudioId] = useState('')
   const [flipping, setFlipping] = useState(false)
   const [connectionQuality, setConnectionQuality] = useState<'checking' | 'excellent' | 'good' | 'fair' | 'poor'>('checking')
   const [micDetected, setMicDetected] = useState(false)
@@ -48,6 +59,7 @@ export function RecordingSession({ theme, initialSessionId, mode = 'default' }: 
   const [confirmLast, setConfirmLast] = useState(false)
   const [permissionDenied, setPermissionDenied] = useState<{ isIOS: boolean; isSafari: boolean } | null>(null)
   const [showMaxDurationWarning, setShowMaxDurationWarning] = useState(false)
+  const [videoQuality, setVideoQuality] = useState<VideoQuality>('720p')
   const [feedbackOverall, setFeedbackOverall] = useState(0)
   const [feedbackQuestion, setFeedbackQuestion] = useState(0)
   const [feedbackComment, setFeedbackComment] = useState('')
@@ -237,8 +249,9 @@ export function RecordingSession({ theme, initialSessionId, mode = 'default' }: 
     // Size canvas to match camera output
     const video = videoRef.current
     const canvas = canvasRef.current
-    canvas.width = video.videoWidth || 1280
-    canvas.height = video.videoHeight || 720
+    const preset = VIDEO_PRESETS[videoQuality]
+    canvas.width = Math.min(video.videoWidth || preset.width, preset.width)
+    canvas.height = Math.min(video.videoHeight || preset.height, preset.height)
 
     // Canvas stream carries the video frames; add camera's audio track
     const cs = canvas.captureStream(30)
@@ -254,7 +267,7 @@ export function RecordingSession({ theme, initialSessionId, mode = 'default' }: 
       : MediaRecorder.isTypeSupported('video/webm;codecs=vp9,opus')
       ? 'video/webm;codecs=vp9,opus'
       : 'video/webm'
-    const recorder = new MediaRecorder(cs, { mimeType })
+    const recorder = new MediaRecorder(cs, { mimeType, videoBitsPerSecond: preset.bitrate })
     recorder.ondataavailable = (e) => { if (e.data.size > 0) chunksRef.current.push(e.data) }
     recorder.onstop = () => {
       if (chunksRef.current.length > 0) {
@@ -309,6 +322,14 @@ export function RecordingSession({ theme, initialSessionId, mode = 'default' }: 
       const recordedMimeType = mediaRecorderRef.current?.mimeType ?? 'video/webm'
       const blob = new Blob(chunksRef.current, { type: recordedMimeType })
 
+      // 1. Obtenir la presigned PUT URL (via proxy Next.js → NestJS)
+      const urlRes = await fetch(
+        `/api/sessions/${sessionIdRef.current}/recordings/${currentQuestion.id}?mimeType=${encodeURIComponent(recordedMimeType)}`,
+      )
+      if (!urlRes.ok) throw new Error('Failed to get upload URL')
+      const { url, key } = await urlRes.json()
+
+      // 2. Upload direct vers MinIO (aucun passage par Next.js)
       await new Promise<void>((resolve, reject) => {
         const xhr = new XMLHttpRequest()
         xhr.upload.onprogress = (e) => {
@@ -321,9 +342,16 @@ export function RecordingSession({ theme, initialSessionId, mode = 'default' }: 
         xhr.onerror = () => reject(new Error('Upload failed'))
         xhr.timeout = 10 * 60 * 1000
         xhr.ontimeout = () => reject(new Error('Upload timeout'))
-        xhr.open('PUT', `/api/sessions/${sessionIdRef.current}/recordings/${currentQuestion.id}`)
+        xhr.open('PUT', url)
         xhr.setRequestHeader('Content-Type', recordedMimeType)
         xhr.send(blob)
+      })
+
+      // 3. Confirmer les métadonnées côté backend
+      await fetch(`${API}/api/sessions/${sessionIdRef.current}/recordings/confirm`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ questionId: currentQuestion.id, key, mimeType: recordedMimeType }),
       })
 
       setReviewVideoUrl(prev => { if (prev) URL.revokeObjectURL(prev); return null })
@@ -377,11 +405,19 @@ export function RecordingSession({ theme, initialSessionId, mode = 'default' }: 
   }, [])
 
   // Detect multiple cameras once (after first permission grant or on mount)
-  const detectCameras = useCallback(async () => {
+  const detectDevices = useCallback(async () => {
     try {
       const devices = await navigator.mediaDevices.enumerateDevices()
-      const videoInputs = devices.filter((d) => d.kind === 'videoinput')
+      const videoInputs = devices.filter(d => d.kind === 'videoinput')
+      const audioInputs = devices.filter(d => d.kind === 'audioinput')
       setHasMultipleCameras(videoInputs.length > 1)
+      setVideoDevices(videoInputs)
+      setAudioDevices(audioInputs)
+      // Sync selected IDs with the currently active tracks
+      const videoTrack = streamRef.current?.getVideoTracks()[0]
+      const audioTrack = streamRef.current?.getAudioTracks()[0]
+      if (videoTrack) setSelectedVideoId(videoTrack.getSettings().deviceId ?? videoInputs[0]?.deviceId ?? '')
+      if (audioTrack) setSelectedAudioId(audioTrack.getSettings().deviceId ?? audioInputs[0]?.deviceId ?? '')
     } catch {}
   }, [])
 
@@ -390,8 +426,13 @@ export function RecordingSession({ theme, initialSessionId, mode = 'default' }: 
     setFlipping(true)
     const newFacing = facingMode === 'user' ? 'environment' : 'user'
     try {
+      const preset = VIDEO_PRESETS[videoQuality]
       const newStream = await navigator.mediaDevices.getUserMedia({
-        video: { facingMode: newFacing },
+        video: {
+          facingMode: newFacing,
+          width: { ideal: preset.width },
+          height: { ideal: preset.height },
+        },
         audio: false,
       })
       const newVideoTrack = newStream.getVideoTracks()[0]
@@ -419,14 +460,61 @@ export function RecordingSession({ theme, initialSessionId, mode = 'default' }: 
     setFlipping(false)
   }, [facingMode, flipping])
 
+  const switchVideoDevice = useCallback(async (deviceId: string) => {
+    if (!streamRef.current) return
+    try {
+      const preset = VIDEO_PRESETS[videoQuality]
+      const newStream = await navigator.mediaDevices.getUserMedia({
+        video: { deviceId: { exact: deviceId }, width: { ideal: preset.width }, height: { ideal: preset.height } },
+        audio: false,
+      })
+      const newTrack = newStream.getVideoTracks()[0]
+      if (!newTrack) return
+      const oldTrack = streamRef.current.getVideoTracks()[0]
+      if (oldTrack) { streamRef.current.removeTrack(oldTrack); oldTrack.stop() }
+      streamRef.current.addTrack(newTrack)
+      setSelectedVideoId(deviceId)
+      const el = checkVideoRef.current ?? videoRef.current
+      if (el) { el.srcObject = null; el.srcObject = streamRef.current; el.muted = true }
+    } catch {}
+  }, [videoQuality])
+
+  const switchAudioDevice = useCallback(async (deviceId: string) => {
+    if (!streamRef.current) return
+    try {
+      const newStream = await navigator.mediaDevices.getUserMedia({
+        audio: { deviceId: { exact: deviceId } },
+        video: false,
+      })
+      const newTrack = newStream.getAudioTracks()[0]
+      if (!newTrack) return
+      const oldTrack = streamRef.current.getAudioTracks()[0]
+      if (oldTrack) { streamRef.current.removeTrack(oldTrack); oldTrack.stop() }
+      streamRef.current.addTrack(newTrack)
+      setSelectedAudioId(deviceId)
+      setMicDetected(false)
+      setMicLevel(0)
+      stopMicMeter()
+      startMicMeter(streamRef.current)
+    } catch {}
+  }, [stopMicMeter, startMicMeter])
+
   const handleStart = async () => {
     if (starting) return
     setStarting(true)
     setCheckError('')
     try {
+      const preset = VIDEO_PRESETS[videoQuality]
+      const audioConstraint: MediaTrackConstraints = selectedAudioId
+        ? { deviceId: { exact: selectedAudioId } }
+        : true as unknown as MediaTrackConstraints
       const stream = await navigator.mediaDevices.getUserMedia({
-        video: { facingMode },
-        audio: true,
+        video: {
+          facingMode,
+          width: { ideal: preset.width },
+          height: { ideal: preset.height },
+        },
+        audio: audioConstraint,
       })
       streamRef.current = stream
       if (videoRef.current) {
@@ -434,7 +522,7 @@ export function RecordingSession({ theme, initialSessionId, mode = 'default' }: 
         videoRef.current.muted = true
       }
       startMicMeter(stream)
-      detectCameras()
+      detectDevices()
       measureConnection()
       setPhase('check')
     } catch (err: any) {
@@ -811,93 +899,162 @@ export function RecordingSession({ theme, initialSessionId, mode = 'default' }: 
         }
       }
 
-      const StarRow = ({ label, value, onChange }: { label: string; value: number; onChange: (v: number) => void }) => (
-        <div className="flex flex-col gap-2">
-          <span className="text-xs font-semibold text-white/60 uppercase tracking-wider">{label}</span>
-          <div className="flex gap-1">
-            {[1, 2, 3, 4, 5].map(star => (
-              <button
-                key={star}
-                type="button"
-                onClick={() => onChange(star)}
-                className="transition-transform active:scale-90"
-                style={{ fontSize: 28, lineHeight: 1, color: star <= value ? '#facc15' : 'rgba(255,255,255,0.15)' }}
-              >
-                &#9733;
-              </button>
-            ))}
-          </div>
-        </div>
-      )
-
+      // Écran final après envoi du feedback
       if (feedbackSent) {
         return (
-          <div className="fixed inset-0 flex flex-col items-center justify-center gap-8 px-8" style={{ background: '#0a0a0a' }}>
+          <div
+            className="fixed inset-0 flex flex-col items-center justify-center gap-8 px-8"
+            style={{ background: '#0a0a0a' }}
+          >
+            <style>{`
+              @keyframes fadeSlideIn { from { opacity: 0; transform: translateY(12px); } to { opacity: 1; transform: translateY(0); } }
+              @keyframes celebrateIcon { from { opacity: 0; transform: scale(0.7); } to { opacity: 1; transform: scale(1); } }
+            `}</style>
             <div
-              className="w-16 h-16 rounded-2xl flex items-center justify-center"
+              className="w-20 h-20 rounded-3xl flex items-center justify-center"
               style={{ background: 'rgba(52,211,153,0.12)', border: '1px solid rgba(52,211,153,0.25)', animation: 'celebrateIcon 0.6s ease forwards' }}
             >
-              <svg width="24" height="24" viewBox="0 0 24 24" fill="none">
-                <path d="M5 12l4 4 10-10" stroke="rgb(52,211,153)" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
+              <svg width="32" height="32" viewBox="0 0 24 24" fill="none">
+                <path d="M5 12l4 4 10-10" stroke="rgb(52,211,153)" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" />
               </svg>
             </div>
             <div className="text-center" style={{ opacity: 0, animation: 'fadeSlideIn 0.5s ease 0.3s forwards' }}>
-              <h1 className="text-3xl font-black text-white mb-2">Merci !</h1>
-              <p className="text-sm text-white/40">Vos réponses et votre retour ont bien été reçus.<br />Vous recevrez un email quand le montage sera prêt.</p>
+              <h1 className="text-4xl font-black text-white mb-3">Merci !</h1>
+              <p className="text-base text-white/40 leading-relaxed">Vos réponses et votre retour<br />ont bien été reçus.</p>
             </div>
           </div>
         )
       }
 
+      // Formulaire feedback mobile-first
       return (
-        <div className="fixed inset-0 flex flex-col items-center justify-center gap-6 px-8 overflow-y-auto" style={{ background: '#0a0a0a', paddingTop: 'max(2rem, env(safe-area-inset-top))', paddingBottom: 'max(2rem, env(safe-area-inset-bottom))' }}>
-          <div
-            className="w-14 h-14 rounded-2xl flex items-center justify-center"
-            style={{ background: 'rgba(52,211,153,0.12)', border: '1px solid rgba(52,211,153,0.25)', animation: 'celebrateIcon 0.6s ease forwards' }}
-          >
-            <svg width="22" height="22" viewBox="0 0 24 24" fill="none">
-              <path d="M5 12l4 4 10-10" stroke="rgb(52,211,153)" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
-            </svg>
-          </div>
-          <div className="text-center">
-            <h1 className="text-2xl font-black text-white mb-1">Envoyé !</h1>
-            <p className="text-sm text-white/40">Aidez-nous à améliorer l&apos;expérience</p>
-          </div>
-
-          <div
-            className="w-full max-w-sm flex flex-col gap-5 rounded-2xl p-5"
-            style={{ background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.08)' }}
-          >
-            <StarRow label="Expérience globale" value={feedbackOverall} onChange={setFeedbackOverall} />
-            <StarRow label="Qualité des questions" value={feedbackQuestion} onChange={setFeedbackQuestion} />
-
-            <div className="flex flex-col gap-2">
-              <span className="text-xs font-semibold text-white/60 uppercase tracking-wider">Commentaire (optionnel)</span>
-              <textarea
-                value={feedbackComment}
-                onChange={e => setFeedbackComment(e.target.value)}
-                placeholder="Des suggestions pour améliorer ?"
-                rows={3}
-                className="w-full rounded-xl px-4 py-3 text-sm text-white placeholder-white/25 resize-none focus:outline-none focus:ring-1"
-                style={{ background: 'rgba(255,255,255,0.06)', border: '1px solid rgba(255,255,255,0.1)' }}
-              />
+        <div
+          className="fixed inset-0 flex flex-col"
+          style={{
+            background: '#0a0a0a',
+            paddingTop: 'env(safe-area-inset-top)',
+            paddingBottom: 'env(safe-area-inset-bottom)',
+          }}
+        >
+          {/* Header fixe */}
+          <div className="flex flex-col items-center gap-4 pt-10 pb-6 px-6">
+            <div
+              className="w-14 h-14 rounded-2xl flex items-center justify-center shrink-0"
+              style={{ background: 'rgba(52,211,153,0.12)', border: '1px solid rgba(52,211,153,0.25)' }}
+            >
+              <svg width="22" height="22" viewBox="0 0 24 24" fill="none">
+                <path d="M5 12l4 4 10-10" stroke="rgb(52,211,153)" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" />
+              </svg>
             </div>
+            <div className="text-center">
+              <h1 className="text-2xl font-black text-white">Envoyé !</h1>
+              <p className="text-sm text-white/40 mt-1">Quelques secondes pour nous aider à m&apos;améliorer&nbsp;?</p>
+            </div>
+          </div>
 
-            <button
-              onClick={handleFeedbackSubmit}
-              disabled={feedbackOverall === 0 || feedbackQuestion === 0 || feedbackSending}
-              className="w-full py-3 rounded-xl font-bold text-sm transition-all active:scale-[0.97] disabled:opacity-40"
-              style={{ background: accent, color: '#fff' }}
-            >
-              {feedbackSending ? 'Envoi…' : 'Envoyer mon retour'}
-            </button>
+          {/* Contenu scrollable */}
+          <div className="flex-1 overflow-y-auto px-6 pb-4">
+            <div className="flex flex-col gap-6 max-w-sm mx-auto">
 
-            <button
-              onClick={() => setFeedbackSent(true)}
-              className="text-xs text-white/30 hover:text-white/50 transition-colors"
-            >
-              Passer
-            </button>
+              {/* Note globale */}
+              <div
+                className="flex flex-col gap-4 rounded-2xl p-5"
+                style={{ background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.08)' }}
+              >
+                <p className="text-sm font-bold text-white">Comment s&apos;est passée l&apos;expérience globale ?</p>
+                <div className="flex justify-between gap-2">
+                  {[1, 2, 3, 4, 5].map(star => (
+                    <button
+                      key={star}
+                      type="button"
+                      onClick={() => setFeedbackOverall(star)}
+                      className="flex-1 flex flex-col items-center gap-1.5 py-3 rounded-xl transition-all active:scale-90"
+                      style={{
+                        background: feedbackOverall === star ? 'rgba(250,204,21,0.12)' : 'rgba(255,255,255,0.04)',
+                        border: `1px solid ${feedbackOverall === star ? 'rgba(250,204,21,0.4)' : 'rgba(255,255,255,0.08)'}`,
+                      }}
+                    >
+                      <span style={{ fontSize: 32, lineHeight: 1, filter: feedbackOverall >= star ? 'none' : 'grayscale(1) opacity(0.2)' }}>★</span>
+                      <span className="text-[10px] font-mono" style={{ color: feedbackOverall === star ? '#facc15' : 'rgba(255,255,255,0.25)' }}>
+                        {star === 1 ? 'Mauvais' : star === 2 ? 'Moyen' : star === 3 ? 'Bien' : star === 4 ? 'Super' : 'Parfait'}
+                      </span>
+                    </button>
+                  ))}
+                </div>
+              </div>
+
+              {/* Qualité des questions */}
+              <div
+                className="flex flex-col gap-4 rounded-2xl p-5"
+                style={{ background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.08)' }}
+              >
+                <p className="text-sm font-bold text-white">Les questions étaient pertinentes ?</p>
+                <div className="flex justify-between gap-2">
+                  {[1, 2, 3, 4, 5].map(star => (
+                    <button
+                      key={star}
+                      type="button"
+                      onClick={() => setFeedbackQuestion(star)}
+                      className="flex-1 flex flex-col items-center gap-1.5 py-3 rounded-xl transition-all active:scale-90"
+                      style={{
+                        background: feedbackQuestion === star ? 'rgba(250,204,21,0.12)' : 'rgba(255,255,255,0.04)',
+                        border: `1px solid ${feedbackQuestion === star ? 'rgba(250,204,21,0.4)' : 'rgba(255,255,255,0.08)'}`,
+                      }}
+                    >
+                      <span style={{ fontSize: 32, lineHeight: 1, filter: feedbackQuestion >= star ? 'none' : 'grayscale(1) opacity(0.2)' }}>★</span>
+                      <span className="text-[10px] font-mono" style={{ color: feedbackQuestion === star ? '#facc15' : 'rgba(255,255,255,0.25)' }}>
+                        {star === 1 ? 'Non' : star === 2 ? 'Peu' : star === 3 ? 'Oui' : star === 4 ? 'Très' : 'Top !'}
+                      </span>
+                    </button>
+                  ))}
+                </div>
+              </div>
+
+              {/* Commentaire */}
+              <div
+                className="flex flex-col gap-3 rounded-2xl p-5"
+                style={{ background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.08)' }}
+              >
+                <p className="text-sm font-bold text-white">Un commentaire ? <span className="font-normal text-white/40">(optionnel)</span></p>
+                <textarea
+                  value={feedbackComment}
+                  onChange={e => setFeedbackComment(e.target.value)}
+                  placeholder="Des suggestions pour améliorer…"
+                  rows={4}
+                  className="w-full rounded-xl px-4 py-3 text-base text-white placeholder-white/25 resize-none focus:outline-none"
+                  style={{
+                    background: 'rgba(255,255,255,0.06)',
+                    border: '1px solid rgba(255,255,255,0.12)',
+                    fontSize: 16, // évite le zoom iOS
+                  }}
+                />
+              </div>
+
+            </div>
+          </div>
+
+          {/* CTA fixe en bas */}
+          <div
+            className="px-6 pt-4 pb-6 flex flex-col gap-3"
+            style={{ borderTop: '1px solid rgba(255,255,255,0.06)', background: 'rgba(10,10,10,0.9)', backdropFilter: 'blur(12px)' }}
+          >
+            <div className="max-w-sm mx-auto w-full flex flex-col gap-3">
+              <button
+                onClick={handleFeedbackSubmit}
+                disabled={feedbackOverall === 0 || feedbackQuestion === 0 || feedbackSending}
+                className="w-full font-black text-base tracking-wide transition-all active:scale-[0.97] disabled:opacity-30"
+                style={{ background: accent, color: '#fff', padding: '18px 24px', borderRadius: 16 }}
+              >
+                {feedbackSending ? 'Envoi en cours…' : 'Envoyer mon retour'}
+              </button>
+              <button
+                onClick={() => setFeedbackSent(true)}
+                className="w-full font-medium text-sm transition-all active:scale-[0.97]"
+                style={{ color: 'rgba(255,255,255,0.25)', padding: '14px 24px' }}
+              >
+                Passer
+              </button>
+            </div>
           </div>
         </div>
       )
@@ -1084,6 +1241,84 @@ export function RecordingSession({ theme, initialSessionId, mode = 'default' }: 
               </div>
             </div>
           )}
+
+          {/* Camera source selector */}
+          {videoDevices.length > 1 && (
+            <div className="w-full flex flex-col gap-2">
+              <p className="text-[10px] font-mono uppercase tracking-widest text-white/40">Caméra</p>
+              <div className="flex flex-col gap-1.5">
+                {videoDevices.map((d, i) => (
+                  <button
+                    key={d.deviceId}
+                    type="button"
+                    onClick={() => switchVideoDevice(d.deviceId)}
+                    className="w-full flex items-center gap-3 px-3 py-2.5 rounded-xl transition-all active:scale-[0.98] text-left"
+                    style={{
+                      background: selectedVideoId === d.deviceId ? `${accent}22` : 'rgba(255,255,255,0.05)',
+                      border: `1px solid ${selectedVideoId === d.deviceId ? accent : 'rgba(255,255,255,0.1)'}`,
+                    }}
+                  >
+                    <span className="w-4 h-4 rounded-full shrink-0 flex items-center justify-center" style={{ background: selectedVideoId === d.deviceId ? accent : 'rgba(255,255,255,0.15)' }}>
+                      {selectedVideoId === d.deviceId && <span className="w-1.5 h-1.5 rounded-full bg-white" />}
+                    </span>
+                    <span className="text-xs truncate" style={{ color: selectedVideoId === d.deviceId ? 'white' : 'rgba(255,255,255,0.5)' }}>
+                      {d.label || `Caméra ${i + 1}`}
+                    </span>
+                  </button>
+                ))}
+              </div>
+            </div>
+          )}
+
+          {/* Mic source selector */}
+          {audioDevices.length > 1 && (
+            <div className="w-full flex flex-col gap-2">
+              <p className="text-[10px] font-mono uppercase tracking-widest text-white/40">Microphone</p>
+              <div className="flex flex-col gap-1.5">
+                {audioDevices.map((d, i) => (
+                  <button
+                    key={d.deviceId}
+                    type="button"
+                    onClick={() => switchAudioDevice(d.deviceId)}
+                    className="w-full flex items-center gap-3 px-3 py-2.5 rounded-xl transition-all active:scale-[0.98] text-left"
+                    style={{
+                      background: selectedAudioId === d.deviceId ? `${accent}22` : 'rgba(255,255,255,0.05)',
+                      border: `1px solid ${selectedAudioId === d.deviceId ? accent : 'rgba(255,255,255,0.1)'}`,
+                    }}
+                  >
+                    <span className="w-4 h-4 rounded-full shrink-0 flex items-center justify-center" style={{ background: selectedAudioId === d.deviceId ? accent : 'rgba(255,255,255,0.15)' }}>
+                      {selectedAudioId === d.deviceId && <span className="w-1.5 h-1.5 rounded-full bg-white" />}
+                    </span>
+                    <span className="text-xs truncate" style={{ color: selectedAudioId === d.deviceId ? 'white' : 'rgba(255,255,255,0.5)' }}>
+                      {d.label || `Micro ${i + 1}`}
+                    </span>
+                  </button>
+                ))}
+              </div>
+            </div>
+          )}
+
+          {/* Quality selector */}
+          <div className="w-full flex flex-col gap-2">
+            <p className="text-[10px] font-mono uppercase tracking-widest text-white/40">Qualité vidéo</p>
+            <div className="flex gap-2">
+              {(Object.entries(VIDEO_PRESETS) as [VideoQuality, typeof VIDEO_PRESETS[VideoQuality]][]).map(([key, preset]) => (
+                <button
+                  key={key}
+                  type="button"
+                  onClick={() => setVideoQuality(key)}
+                  className="flex-1 flex flex-col items-center py-2 rounded-xl transition-all active:scale-95"
+                  style={{
+                    background: videoQuality === key ? `${accent}22` : 'rgba(255,255,255,0.05)',
+                    border: `1px solid ${videoQuality === key ? accent : 'rgba(255,255,255,0.1)'}`,
+                  }}
+                >
+                  <span className="text-xs font-bold" style={{ color: videoQuality === key ? accent : 'rgba(255,255,255,0.6)' }}>{preset.label}</span>
+                  <span className="text-[9px] font-mono mt-0.5" style={{ color: 'rgba(255,255,255,0.3)' }}>{preset.hint}</span>
+                </button>
+              ))}
+            </div>
+          </div>
 
           {/* CTA */}
           <button

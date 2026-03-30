@@ -274,6 +274,14 @@ export class SessionsService {
     return this.confirmRecording(sessionId, questionId, key, mimetype)
   }
 
+  async getUploadUrl(sessionId: string, questionId: string, mimeType: string): Promise<{ url: string; key: string }> {
+    await this.findOne(sessionId)
+    const ext = mimeType.includes('webm') ? 'webm' : 'mp4'
+    const key = `sessions/${sessionId}/raw/${questionId}.${ext}`
+    const url = await this.storageService.getPresignedPutUrl(key, mimeType)
+    return { url, key }
+  }
+
   async confirmRecording(sessionId: string, questionId: string, key: string, mimeType: string): Promise<Recording> {
     await this.findOne(sessionId)
 

@@ -77,6 +77,14 @@ export class StorageService implements OnModuleInit {
     return url
   }
 
+  async getPresignedPutUrl(key: string, contentType: string, expiresIn = 3600): Promise<string> {
+    return getSignedUrl(
+      this.presignClient,
+      new PutObjectCommand({ Bucket: this.bucket, Key: key, ContentType: contentType }),
+      { expiresIn },
+    )
+  }
+
   async delete(key: string) {
     await this.client.send(new DeleteObjectCommand({ Bucket: this.bucket, Key: key }))
   }

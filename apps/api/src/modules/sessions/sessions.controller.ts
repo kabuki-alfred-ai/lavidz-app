@@ -1,5 +1,5 @@
 import {
-  Controller, Post, Get, Put, Patch, Delete, Param, Body,
+  Controller, Post, Get, Put, Patch, Delete, Param, Body, Query,
   UploadedFile, UseInterceptors, UseGuards, HttpCode,
 } from '@nestjs/common'
 import { FileInterceptor } from '@nestjs/platform-express'
@@ -112,6 +112,15 @@ export class SessionsController {
       file.buffer,
       file.mimetype,
     )
+  }
+
+  @Get(':id/recordings/:questionId/upload-url')
+  getUploadUrl(
+    @Param('id') sessionId: string,
+    @Param('questionId') questionId: string,
+    @Query('mimeType') mimeType: string,
+  ): Promise<{ url: string; key: string }> {
+    return this.sessionsService.getUploadUrl(sessionId, questionId, mimeType ?? 'video/webm')
   }
 
   @Post(':id/recordings/confirm')
