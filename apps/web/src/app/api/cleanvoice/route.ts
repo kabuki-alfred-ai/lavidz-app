@@ -152,7 +152,7 @@ export async function POST(req: Request) {
     const { id: jobId } = await editRes.json()
 
     let jobResult: any = null
-    for (let attempt = 0; attempt < 28; attempt++) {
+    for (let attempt = 0; attempt < 110; attempt++) {
       await new Promise(r => setTimeout(r, 5000))
       const statusRes = await fetch(`https://api.cleanvoice.ai/v2/edits/${jobId}`, {
         headers: { 'X-API-Key': apiKey },
