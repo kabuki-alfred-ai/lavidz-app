@@ -62,7 +62,7 @@ services:
       /bin/sh -c "
         mc alias set local http://minio:9000 $$MINIO_ROOT_USER $$MINIO_ROOT_PASSWORD &&
         mc mb --ignore-existing local/$$RUSTFS_BUCKET &&
-        printf '<?xml version=\"1.0\" encoding=\"UTF-8\"?>\n<CORSConfiguration>\n  <CORSRule>\n    <AllowedOrigin>%s</AllowedOrigin>\n    <AllowedMethod>PUT</AllowedMethod>\n    <AllowedMethod>GET</AllowedMethod>\n    <AllowedHeader>*</AllowedHeader>\n    <MaxAgeSeconds>3600</MaxAgeSeconds>\n  </CORSRule>\n</CORSConfiguration>\n' \"$$WEB_URL\" | mc cors set local/$$RUSTFS_BUCKET - &&
+        printf '<?xml version=\"1.0\" encoding=\"UTF-8\"?>\n<CORSConfiguration>\n  <CORSRule>\n    <AllowedOrigin>%s</AllowedOrigin>\n    <AllowedMethod>PUT</AllowedMethod>\n    <AllowedMethod>GET</AllowedMethod>\n    <AllowedHeader>Content-Type</AllowedHeader>\n    <MaxAgeSeconds>3600</MaxAgeSeconds>\n  </CORSRule>\n</CORSConfiguration>\n' \"$$WEB_URL\" | mc cors set local/$$RUSTFS_BUCKET - &&
         echo 'MinIO init done'
       "
     networks:
