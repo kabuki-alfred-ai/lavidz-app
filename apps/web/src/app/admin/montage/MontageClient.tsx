@@ -404,9 +404,9 @@ export function MontageClient({ themes, initialSessions }: Props) {
       <section className="space-y-6">
         <div className="flex items-center justify-between px-1">
           <SectionHeader icon={History} label="Historique des livraisons" />
-          {history.length > 0 && (
+          {historyGroups.length > 0 && (
             <Badge variant="outline" className="font-mono text-[10px] opacity-40">
-              {history.length} livrées
+              {historyGroups.length} livrées
             </Badge>
           )}
         </div>
