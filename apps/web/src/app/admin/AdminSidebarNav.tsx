@@ -1,7 +1,7 @@
 'use client'
 
 import React from 'react'
-import { LayoutGrid, Clapperboard, Building2, Activity, Users, Brain, Music } from 'lucide-react'
+import { LayoutGrid, Clapperboard, Building2, Activity, Users, Brain, Music, MessageSquare } from 'lucide-react'
 import { AdminNavItem } from './AdminNavItem'
 
 interface AdminSidebarNavProps {
@@ -18,6 +18,7 @@ export function AdminSidebarNav({ userRole }: AdminSidebarNavProps) {
       <AdminNavItem href="/admin/themes" label="Thèmes" icon={LayoutGrid} />
       <AdminNavItem href="/admin/montage" label="Montage" icon={Clapperboard} />
       <AdminNavItem href="/admin/sounds" label="Sons" icon={Music} />
+      <AdminNavItem href="/admin/feedbacks" label="Feedbacks" icon={MessageSquare} />
 
       {userRole === 'SUPERADMIN' && (
         <>

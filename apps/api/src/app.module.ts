@@ -8,6 +8,7 @@ import { StorageModule } from './modules/storage/storage.module'
 import { JobsModule } from './modules/jobs/jobs.module'
 import { UsersModule } from './modules/users/users.module'
 import { AiModule } from './modules/ai/ai.module'
+import { FeedbacksModule } from './modules/feedbacks/feedbacks.module'
 
 @Module({
   imports: [
@@ -24,6 +25,7 @@ import { AiModule } from './modules/ai/ai.module'
     JobsModule,
     UsersModule,
     AiModule,
+    FeedbacksModule,
   ],
 })
 export class AppModule {}

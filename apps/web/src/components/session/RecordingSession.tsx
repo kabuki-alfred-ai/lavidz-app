@@ -48,6 +48,11 @@ export function RecordingSession({ theme, initialSessionId, mode = 'default' }: 
   const [confirmLast, setConfirmLast] = useState(false)
   const [permissionDenied, setPermissionDenied] = useState<{ isIOS: boolean; isSafari: boolean } | null>(null)
   const [showMaxDurationWarning, setShowMaxDurationWarning] = useState(false)
+  const [feedbackOverall, setFeedbackOverall] = useState(0)
+  const [feedbackQuestion, setFeedbackQuestion] = useState(0)
+  const [feedbackComment, setFeedbackComment] = useState('')
+  const [feedbackSent, setFeedbackSent] = useState(false)
+  const [feedbackSending, setFeedbackSending] = useState(false)
   const introAnnouncedRef = useRef(false)
   const audioContextRef = useRef<AudioContext | null>(null)
   const micRafRef = useRef<number | null>(null)
@@ -784,22 +789,115 @@ export function RecordingSession({ theme, initialSessionId, mode = 'default' }: 
   if (phase === 'done') {
     // Thank-you screen after submit in shared mode
     if (mode === 'shared' && submitted) {
+      const handleFeedbackSubmit = async () => {
+        if (!sessionIdRef.current || feedbackOverall === 0 || feedbackQuestion === 0) return
+        setFeedbackSending(true)
+        try {
+          await fetch(`${API}/api/feedbacks`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              sessionId: sessionIdRef.current,
+              overallRating: feedbackOverall,
+              questionRating: feedbackQuestion,
+              comment: feedbackComment || undefined,
+            }),
+          })
+          setFeedbackSent(true)
+        } catch {
+          setFeedbackSent(true)
+        } finally {
+          setFeedbackSending(false)
+        }
+      }
+
+      const StarRow = ({ label, value, onChange }: { label: string; value: number; onChange: (v: number) => void }) => (
+        <div className="flex flex-col gap-2">
+          <span className="text-xs font-semibold text-white/60 uppercase tracking-wider">{label}</span>
+          <div className="flex gap-1">
+            {[1, 2, 3, 4, 5].map(star => (
+              <button
+                key={star}
+                type="button"
+                onClick={() => onChange(star)}
+                className="transition-transform active:scale-90"
+                style={{ fontSize: 28, lineHeight: 1, color: star <= value ? '#facc15' : 'rgba(255,255,255,0.15)' }}
+              >
+                &#9733;
+              </button>
+            ))}
+          </div>
+        </div>
+      )
+
+      if (feedbackSent) {
+        return (
+          <div className="fixed inset-0 flex flex-col items-center justify-center gap-8 px-8" style={{ background: '#0a0a0a' }}>
+            <div
+              className="w-16 h-16 rounded-2xl flex items-center justify-center"
+              style={{ background: 'rgba(52,211,153,0.12)', border: '1px solid rgba(52,211,153,0.25)', animation: 'celebrateIcon 0.6s ease forwards' }}
+            >
+              <svg width="24" height="24" viewBox="0 0 24 24" fill="none">
+                <path d="M5 12l4 4 10-10" stroke="rgb(52,211,153)" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
+              </svg>
+            </div>
+            <div className="text-center" style={{ opacity: 0, animation: 'fadeSlideIn 0.5s ease 0.3s forwards' }}>
+              <h1 className="text-3xl font-black text-white mb-2">Merci !</h1>
+              <p className="text-sm text-white/40">Vos réponses et votre retour ont bien été reçus.<br />Vous recevrez un email quand le montage sera prêt.</p>
+            </div>
+          </div>
+        )
+      }
+
       return (
-        <div
-          className="fixed inset-0 flex flex-col items-center justify-center gap-8 px-8"
-          style={{ background: '#0a0a0a' }}
-        >
+        <div className="fixed inset-0 flex flex-col items-center justify-center gap-6 px-8 overflow-y-auto" style={{ background: '#0a0a0a', paddingTop: 'max(2rem, env(safe-area-inset-top))', paddingBottom: 'max(2rem, env(safe-area-inset-bottom))' }}>
           <div
-            className="w-16 h-16 rounded-2xl flex items-center justify-center"
+            className="w-14 h-14 rounded-2xl flex items-center justify-center"
             style={{ background: 'rgba(52,211,153,0.12)', border: '1px solid rgba(52,211,153,0.25)', animation: 'celebrateIcon 0.6s ease forwards' }}
           >
-            <svg width="24" height="24" viewBox="0 0 24 24" fill="none">
+            <svg width="22" height="22" viewBox="0 0 24 24" fill="none">
               <path d="M5 12l4 4 10-10" stroke="rgb(52,211,153)" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
             </svg>
           </div>
-          <div className="text-center" style={{ opacity: 0, animation: 'fadeSlideIn 0.5s ease 0.3s forwards' }}>
-            <h1 className="text-3xl font-black text-white mb-2">Envoyé !</h1>
-            <p className="text-sm text-white/40">Vos réponses ont bien été reçues.<br />Vous recevrez un email quand le montage sera prêt.</p>
+          <div className="text-center">
+            <h1 className="text-2xl font-black text-white mb-1">Envoyé !</h1>
+            <p className="text-sm text-white/40">Aidez-nous à améliorer l&apos;expérience</p>
+          </div>
+
+          <div
+            className="w-full max-w-sm flex flex-col gap-5 rounded-2xl p-5"
+            style={{ background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.08)' }}
+          >
+            <StarRow label="Expérience globale" value={feedbackOverall} onChange={setFeedbackOverall} />
+            <StarRow label="Qualité des questions" value={feedbackQuestion} onChange={setFeedbackQuestion} />
+
+            <div className="flex flex-col gap-2">
+              <span className="text-xs font-semibold text-white/60 uppercase tracking-wider">Commentaire (optionnel)</span>
+              <textarea
+                value={feedbackComment}
+                onChange={e => setFeedbackComment(e.target.value)}
+                placeholder="Des suggestions pour améliorer ?"
+                rows={3}
+                className="w-full rounded-xl px-4 py-3 text-sm text-white placeholder-white/25 resize-none focus:outline-none focus:ring-1"
+                style={{ background: 'rgba(255,255,255,0.06)', border: '1px solid rgba(255,255,255,0.1)' }}
+              />
+            </div>
+
+            <button
+              onClick={handleFeedbackSubmit}
+              disabled={feedbackOverall === 0 || feedbackQuestion === 0 || feedbackSending}
+              className="w-full py-3 rounded-xl font-bold text-sm transition-all active:scale-[0.97] disabled:opacity-40"
+              style={{ background: accent, color: '#fff' }}
+            >
+              {feedbackSending ? 'Envoi…' : 'Envoyer mon retour'}
+            </button>
+
+            <button
+              onClick={() => setFeedbackSent(true)}
+              className="text-xs text-white/30 hover:text-white/50 transition-colors"
+            >
+              Passer
+            </button>
           </div>
         </div>
       )

@@ -69,6 +69,27 @@ export interface SoundAssetDto {
   createdAt: string
 }
 
+export interface FeedbackDto {
+  id: string
+  sessionId: string
+  overallRating: number
+  questionRating: number
+  comment: string | null
+  createdAt: string
+  session?: {
+    recipientName?: string | null
+    recipientEmail?: string | null
+    theme?: { name: string } | null
+  }
+}
+
+export interface CreateFeedbackDto {
+  sessionId: string
+  overallRating: number
+  questionRating: number
+  comment?: string
+}
+
 export interface TranscriptionJobData {
   recordingId: string
   audioKey: string

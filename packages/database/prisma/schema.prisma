@@ -54,6 +54,7 @@ model Session {
   deliveredAt     DateTime?
   recordings      Recording[]
   memories        ConversationMemory[]
+  feedback        Feedback?
   createdAt       DateTime            @default(now())
   updatedAt       DateTime            @updatedAt
 }
@@ -184,6 +185,16 @@ model EntrepreneurProfile {
   updatedAt          DateTime             @updatedAt
   organization       Organization?        @relation(fields: [organizationId], references: [id])
   memories           ConversationMemory[]
+}
+
+model Feedback {
+  id              String   @id @default(cuid())
+  sessionId       String   @unique
+  session         Session  @relation(fields: [sessionId], references: [id], onDelete: Cascade)
+  overallRating   Int      // 1-5 stars
+  questionRating  Int      // 1-5 stars — quality of questions
+  comment         String?
+  createdAt       DateTime @default(now())
 }
 
 model ConversationMemory {
