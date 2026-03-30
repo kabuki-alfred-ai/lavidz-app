@@ -45,6 +45,7 @@ export function RecordingSession({ theme, initialSessionId, mode = 'default' }: 
   const [uploadProgress, setUploadProgress] = useState(0)
   const [isAudioPlaying, setIsAudioPlaying] = useState(false)
   const [reviewPaused, setReviewPaused] = useState(false)
+  const [confirmLast, setConfirmLast] = useState(false)
   const [permissionDenied, setPermissionDenied] = useState<{ isIOS: boolean; isSafari: boolean } | null>(null)
   const [showMaxDurationWarning, setShowMaxDurationWarning] = useState(false)
   const introAnnouncedRef = useRef(false)
@@ -60,6 +61,7 @@ export function RecordingSession({ theme, initialSessionId, mode = 'default' }: 
   const sessionIdRef = useRef<string | null>(initialSessionId ?? null)
   const questionAudioRef = useRef<HTMLAudioElement | null>(null)
   const reviewVideoRef = useRef<HTMLVideoElement | null>(null)
+  const confirmTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
   const maxDurationTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
   const maxDurationWarnTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
   const checkVideoRef = useRef<HTMLVideoElement | null>(null)
@@ -140,6 +142,7 @@ export function RecordingSession({ theme, initialSessionId, mode = 'default' }: 
       if (maxDurationTimerRef.current) clearTimeout(maxDurationTimerRef.current)
       if (maxDurationWarnTimerRef.current) clearTimeout(maxDurationWarnTimerRef.current)
       if (canvasRafRef.current) cancelAnimationFrame(canvasRafRef.current)
+      if (confirmTimerRef.current) clearTimeout(confirmTimerRef.current)
       questionAudioRef.current?.pause()
       stopMicMeter()
     }
@@ -257,14 +260,18 @@ export function RecordingSession({ theme, initialSessionId, mode = 'default' }: 
         })
       }
     }
+    recorder.onerror = () => stopRecording()
     recorder.start(100)
     mediaRecorderRef.current = recorder
 
+    // Stop recording gracefully if camera stream drops (permission revoked, battery, iOS background)
+    streamRef.current.getVideoTracks().forEach(t => t.addEventListener('ended', () => stopRecording()))
+
     elapsedRef.current = setInterval(() => setElapsed((s) => s + 1), 1000)
-    maxDurationWarnTimerRef.current = setTimeout(
-      () => setShowMaxDurationWarning(true),
-      (MAX_DURATION - 30) * 1000
-    )
+    maxDurationWarnTimerRef.current = setTimeout(() => {
+      setShowMaxDurationWarning(true)
+      try { navigator.vibrate([50, 30, 50, 30, 50]) } catch {}
+    }, (MAX_DURATION - 30) * 1000)
     maxDurationTimerRef.current = setTimeout(() => stopRecording(), MAX_DURATION * 1000)
   }
 
@@ -780,17 +787,17 @@ export function RecordingSession({ theme, initialSessionId, mode = 'default' }: 
       return (
         <div
           className="fixed inset-0 flex flex-col items-center justify-center gap-8 px-8"
-          style={{ background: '#0a0a0a', animation: 'fadeIn 0.5s ease' }}
+          style={{ background: '#0a0a0a' }}
         >
           <div
             className="w-16 h-16 rounded-2xl flex items-center justify-center"
-            style={{ background: 'rgba(52,211,153,0.12)', border: '1px solid rgba(52,211,153,0.25)' }}
+            style={{ background: 'rgba(52,211,153,0.12)', border: '1px solid rgba(52,211,153,0.25)', animation: 'celebrateIcon 0.6s ease forwards' }}
           >
             <svg width="24" height="24" viewBox="0 0 24 24" fill="none">
               <path d="M5 12l4 4 10-10" stroke="rgb(52,211,153)" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
             </svg>
           </div>
-          <div className="text-center">
+          <div className="text-center" style={{ opacity: 0, animation: 'fadeSlideIn 0.5s ease 0.3s forwards' }}>
             <h1 className="text-3xl font-black text-white mb-2">Envoyé !</h1>
             <p className="text-sm text-white/40">Vos réponses ont bien été reçues.<br />Vous recevrez un email quand le montage sera prêt.</p>
           </div>
@@ -801,17 +808,17 @@ export function RecordingSession({ theme, initialSessionId, mode = 'default' }: 
     return (
       <div
         className="fixed inset-0 flex flex-col items-center justify-center gap-8 px-8"
-        style={{ background: '#0a0a0a', animation: 'fadeIn 0.5s ease' }}
+        style={{ background: '#0a0a0a' }}
       >
         <div
           className="w-16 h-16 rounded-2xl flex items-center justify-center"
-          style={{ background: 'rgba(52,211,153,0.12)', border: '1px solid rgba(52,211,153,0.25)' }}
+          style={{ background: 'rgba(52,211,153,0.12)', border: '1px solid rgba(52,211,153,0.25)', animation: 'celebrateIcon 0.6s ease forwards' }}
         >
           <svg width="24" height="24" viewBox="0 0 24 24" fill="none">
             <path d="M5 12l4 4 10-10" stroke="rgb(52,211,153)" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
           </svg>
         </div>
-        <div className="text-center">
+        <div className="text-center" style={{ opacity: 0, animation: 'fadeSlideIn 0.5s ease 0.3s forwards' }}>
           <h1 className="text-3xl font-black text-white mb-2">Dans la boîte.</h1>
           <p className="text-sm text-white/40">Toutes vos réponses ont été enregistrées.</p>
         </div>
@@ -1146,10 +1153,14 @@ export function RecordingSession({ theme, initialSessionId, mode = 'default' }: 
         </div>
       )}
 
-      {/* Recording indicator */}
+      {/* Recording indicator — top-right badge */}
       {isRecording && (
-        <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 flex items-center gap-2">
-          {/* REC badge — subtle, at edge */}
+        <div
+          className="absolute flex items-center gap-1.5 px-3 py-1.5 rounded-full"
+          style={{ zIndex: 11, top: 'max(1rem, env(safe-area-inset-top))', right: '1rem', background: 'rgba(0,0,0,0.5)' }}
+        >
+          <span className="w-2 h-2 rounded-full" style={{ background: '#ef4444', animation: 'recPulse 1.2s ease-in-out infinite' }} />
+          <span className="text-white text-[11px] font-mono font-semibold tracking-wider">REC</span>
         </div>
       )}
 
@@ -1306,11 +1317,19 @@ export function RecordingSession({ theme, initialSessionId, mode = 'default' }: 
               ↩ Refaire
             </button>
             <button
-              onClick={saveAndNext}
+              onClick={() => {
+                if (!uploadError && questionIndex === questions.length - 1 && !confirmLast) {
+                  setConfirmLast(true)
+                  confirmTimerRef.current = setTimeout(() => setConfirmLast(false), 3000)
+                  return
+                }
+                setConfirmLast(false)
+                saveAndNext()
+              }}
               className="flex-[2] py-4 rounded-2xl font-bold text-sm transition-all active:scale-95"
-              style={{ background: accent, color: '#fff' }}
+              style={{ background: confirmLast ? '#f59e0b' : accent, color: '#fff' }}
             >
-              {uploadError ? 'Réessayer l\'envoi' : questionIndex < questions.length - 1 ? 'Continuer →' : 'Terminer ✓'}
+              {uploadError ? 'Réessayer l\'envoi' : confirmLast ? 'Confirmer l\'envoi ?' : questionIndex < questions.length - 1 ? 'Continuer →' : 'Terminer ✓'}
             </button>
           </div>
         )}
@@ -1374,6 +1393,18 @@ export function RecordingSession({ theme, initialSessionId, mode = 'default' }: 
         }
         @keyframes spin {
           to { transform: rotate(360deg); }
+        }
+        @keyframes celebrateIcon {
+          0% { transform: scale(0); opacity: 0; }
+          60% { transform: scale(1.15); opacity: 1; }
+          100% { transform: scale(1); opacity: 1; }
+        }
+        @media (prefers-reduced-motion: reduce) {
+          * {
+            animation-duration: 0.01ms !important;
+            animation-iteration-count: 1 !important;
+            transition-duration: 0.01ms !important;
+          }
         }
       `}</style>
     </div>
