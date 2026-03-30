@@ -629,10 +629,13 @@ export function RecordingSession({ theme, initialSessionId, mode = 'default' }: 
         {theme.logoUrl ? (
           <img src={theme.logoUrl} alt={theme.brandName ?? ''} className="h-8 object-contain" />
         ) : (
-          <div className="flex items-center gap-2">
-            <span className="w-2 h-2 rounded-full" style={{ background: accent }} />
-            <span className="text-xs font-mono text-white/40 tracking-widest uppercase">
-              {theme.brandName ?? 'Lavidz'}
+          <div className="flex items-center gap-2.5">
+            <div className="relative" style={{ width: 14, height: 14 }}>
+              <span className="block w-3 h-3" style={{ background: accent }} />
+              <span className="absolute" style={{ top: -2, right: -2, width: 6, height: 6, background: `${accent}66` }} />
+            </div>
+            <span className="font-sans font-black text-base tracking-tighter text-white uppercase">
+              {theme.brandName ?? 'LAVIDZ'}
             </span>
           </div>
         )}
@@ -655,13 +658,13 @@ export function RecordingSession({ theme, initialSessionId, mode = 'default' }: 
                 {theme.name}
               </h1>
               {theme.description && (
-                <p className="text-sm text-white/50 leading-relaxed">
+                <p className="text-base text-white/70 leading-relaxed">
                   {theme.description}
                 </p>
               )}
             </div>
 
-            <p className="text-sm text-white/40 leading-relaxed">
+            <p className="text-base text-white/60 leading-relaxed">
               Vous allez répondre à{' '}
               <span className="text-white font-semibold">
                 {questions.length} question{questions.length > 1 ? 's' : ''}
@@ -676,11 +679,8 @@ export function RecordingSession({ theme, initialSessionId, mode = 'default' }: 
               className="w-full py-4 rounded-2xl font-bold text-base tracking-wide transition-all active:scale-95"
               style={{ background: accent, color: '#fff' }}
             >
-              Voir les conseils →
+              Continuer →
             </button>
-            <p className="text-[10px] font-mono text-white/25 text-center">
-              {questions.length} question{questions.length > 1 ? 's' : ''}
-            </p>
           </div>
         </div>
       )
@@ -700,7 +700,7 @@ export function RecordingSession({ theme, initialSessionId, mode = 'default' }: 
           {noise}
           {/* Back button — top left */}
           <button
-            onClick={() => setIntroStep(3)}
+            onClick={() => setIntroStep(2)}
             className="absolute top-4 left-4 z-20 flex items-center justify-center rounded-full transition-all active:scale-90"
             style={{ width: 44, height: 44, background: 'rgba(255,255,255,0.07)', border: '1px solid rgba(255,255,255,0.1)' }}
             aria-label="Retour"
@@ -712,11 +712,8 @@ export function RecordingSession({ theme, initialSessionId, mode = 'default' }: 
 
           <div />
 
-          <div
-            className="w-full max-w-sm px-6 py-6 rounded-2xl z-10 text-center"
-            style={{ background: 'rgba(255,255,255,0.05)', border: '1px solid rgba(255,255,255,0.08)' }}
-          >
-            <p className="text-base text-white/80 leading-relaxed">{theme.introduction}</p>
+          <div className="w-full max-w-sm px-6 z-10 text-center">
+            <p className="text-2xl font-semibold text-white leading-snug tracking-tight">{theme.introduction}</p>
           </div>
 
           <div className="flex flex-col items-center gap-4 z-10 w-full max-w-sm">
@@ -724,12 +721,11 @@ export function RecordingSession({ theme, initialSessionId, mode = 'default' }: 
               <p className="text-xs font-mono text-red-400 text-center">{checkError}</p>
             )}
             <button
-              onClick={handleStart}
-              disabled={starting}
-              className="w-full py-4 rounded-2xl font-bold text-base tracking-wide transition-all active:scale-95 disabled:opacity-60"
+              onClick={() => setIntroStep(3)}
+              className="w-full py-4 rounded-2xl font-bold text-base tracking-wide transition-all active:scale-95"
               style={{ background: accent, color: '#fff' }}
             >
-              {starting ? 'Démarrage...' : 'Ouvrir la caméra →'}
+              Voir les questions →
             </button>
           </div>
         </div>
@@ -746,7 +742,7 @@ export function RecordingSession({ theme, initialSessionId, mode = 'default' }: 
           {noise}
           {/* Back button */}
           <button
-            onClick={() => setIntroStep(2)}
+            onClick={() => theme.introduction ? setIntroStep(4) : setIntroStep(2)}
             className="absolute top-4 left-4 z-20 flex items-center justify-center rounded-full transition-all active:scale-90"
             style={{ width: 44, height: 44, background: 'rgba(255,255,255,0.07)', border: '1px solid rgba(255,255,255,0.1)' }}
             aria-label="Retour"
@@ -763,33 +759,33 @@ export function RecordingSession({ theme, initialSessionId, mode = 'default' }: 
           </div>
 
           {/* Questions list */}
-          <div className="flex flex-col gap-3 z-10 overflow-y-auto flex-1 pb-4">
-            {questions.map((q, i) => (
-              <div
-                key={q.id}
-                className="flex items-start gap-4 px-4 py-4 rounded-2xl"
-                style={{ background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.07)' }}
-              >
-                <span
-                  className="text-xs font-mono font-bold shrink-0 mt-0.5 tabular-nums"
-                  style={{ color: accent }}
-                >
-                  {String(i + 1).padStart(2, '0')}
-                </span>
-                <p className="text-sm text-white/90 leading-relaxed">{q.text}</p>
-              </div>
-            ))}
+          <div className="relative flex-1 min-h-0 z-10">
+            <div className="flex flex-col gap-14 overflow-y-auto h-full pt-8 pb-24">
+              {questions.map((q, i) => (
+                <div key={q.id} className="flex items-start gap-4">
+                  <span
+                    className="text-xs font-mono font-bold shrink-0 mt-1 tabular-nums"
+                    style={{ color: accent }}
+                  >
+                    {String(i + 1).padStart(2, '0')}
+                  </span>
+                  <p className="text-xl font-semibold text-white leading-snug tracking-tight">{q.text}</p>
+                </div>
+              ))}
+            </div>
+            {/* Bottom fade */}
+            <div className="absolute bottom-0 inset-x-0 h-20 pointer-events-none" style={{ background: 'linear-gradient(to bottom, transparent, #0a0a0a)' }} />
           </div>
 
           {/* CTA */}
           <div className="z-10 pt-4">
             <button
-              onClick={() => theme.introduction ? setIntroStep(4) : handleStart()}
+              onClick={handleStart}
               disabled={starting}
               className="w-full py-4 rounded-2xl font-bold text-base tracking-wide transition-all active:scale-95 disabled:opacity-60"
               style={{ background: accent, color: '#fff' }}
             >
-              {starting ? 'Démarrage...' : theme.introduction ? 'Écouter l\'introduction →' : 'Ouvrir la caméra →'}
+              {starting ? 'Démarrage...' : 'Tester le matériel →'}
             </button>
           </div>
         </div>
@@ -839,22 +835,18 @@ export function RecordingSession({ theme, initialSessionId, mode = 'default' }: 
         </button>
         {brand}
 
-        <div className="flex flex-col gap-6 z-10 w-full max-w-sm">
-          <div className="text-center">
-            <h2 className="text-2xl font-black text-white mb-2">Avant de commencer</h2>
-            <p className="text-sm text-white/40">Quelques conseils pour une vidéo de qualité</p>
+        <div className="flex flex-col gap-10 z-10 w-full max-w-sm">
+          <div>
+            <h2 className="text-3xl font-black text-white mb-2">Avant de commencer</h2>
+            <p className="text-base text-white/40">Quelques conseils pour une vidéo de qualité</p>
           </div>
-          <div className="flex flex-col gap-3">
+          <div className="flex flex-col gap-7">
             {tips.map((tip) => (
-              <div
-                key={tip.title}
-                className="flex items-start gap-4 px-4 py-4 rounded-2xl"
-                style={{ background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.06)' }}
-              >
-                <span className="text-xl shrink-0 mt-0.5">{tip.icon}</span>
+              <div key={tip.title} className="flex items-start gap-4">
+                <span className="text-2xl shrink-0">{tip.icon}</span>
                 <div>
-                  <p className="text-sm font-semibold text-white mb-0.5">{tip.title}</p>
-                  <p className="text-xs text-white/40 leading-relaxed">{tip.desc}</p>
+                  <p className="text-lg font-semibold text-white leading-tight mb-1">{tip.title}</p>
+                  <p className="text-sm text-white/40 leading-relaxed">{tip.desc}</p>
                 </div>
               </div>
             ))}
@@ -863,11 +855,11 @@ export function RecordingSession({ theme, initialSessionId, mode = 'default' }: 
 
         <div className="flex flex-col items-center gap-4 z-10 w-full max-w-sm">
           <button
-            onClick={() => setIntroStep(3)}
+            onClick={() => theme.introduction ? setIntroStep(4) : setIntroStep(3)}
             className="w-full py-4 rounded-2xl font-bold text-base tracking-wide transition-all active:scale-95"
             style={{ background: accent, color: '#fff' }}
           >
-            Voir les questions →
+            {theme.introduction ? 'Écouter l\'introduction →' : 'Voir les questions →'}
           </button>
         </div>
       </div>
@@ -1139,6 +1131,36 @@ export function RecordingSession({ theme, initialSessionId, mode = 'default' }: 
             style={{ transform: facingMode === 'user' ? 'scaleX(-1)' : 'none' }}
           />
 
+          {/* Connection quality — top-right */}
+          {(() => {
+            const cfg = {
+              checking:  { bars: 1, color: 'rgba(255,255,255,0.35)' },
+              poor:      { bars: 1, color: '#ef4444' },
+              fair:      { bars: 2, color: '#f59e0b' },
+              good:      { bars: 3, color: '#4ade80' },
+              excellent: { bars: 4, color: '#4ade80' },
+            }[connectionQuality] ?? { bars: 1, color: 'rgba(255,255,255,0.35)' }
+            return (
+              <div
+                className="absolute top-3 right-3 flex items-end gap-[3px] px-2.5 py-2 rounded-xl"
+                style={{ background: 'rgba(0,0,0,0.45)', backdropFilter: 'blur(8px)', border: '1px solid rgba(255,255,255,0.12)' }}
+              >
+                {[1,2,3,4].map(i => (
+                  <div
+                    key={i}
+                    style={{
+                      width: 4,
+                      height: 5 + i * 4,
+                      borderRadius: 2,
+                      background: i <= cfg.bars ? cfg.color : 'rgba(255,255,255,0.18)',
+                      transition: 'background 0.3s',
+                    }}
+                  />
+                ))}
+              </div>
+            )
+          })()}
+
           {/* No camera overlay */}
           {!streamRef.current && (
             <div className="absolute inset-0 flex flex-col items-center justify-center gap-3" style={{ background: 'rgba(0,0,0,0.7)' }}>
@@ -1152,16 +1174,16 @@ export function RecordingSession({ theme, initialSessionId, mode = 'default' }: 
 
           {/* Device controls bar — overlaid at bottom of preview */}
           <div
-            className="absolute bottom-0 inset-x-0 flex items-center gap-3 px-4 py-4"
+            className="absolute bottom-0 inset-x-0 flex items-center gap-2 px-4 py-4"
             style={{ background: 'linear-gradient(to top, rgba(0,0,0,0.75) 0%, transparent 100%)' }}
             onClick={e => e.stopPropagation()}
           >
             {/* Mic button */}
-            <div className="relative flex-1">
+            <div className="relative flex-1 min-w-0">
               <button
                 type="button"
                 onClick={() => setOpenPicker(p => p === 'audio' ? null : 'audio')}
-                className="w-full flex items-center gap-2 px-3 py-2.5 rounded-xl transition-all active:scale-95"
+                className="w-full min-w-0 flex items-center gap-2 px-3 py-2.5 rounded-xl transition-all active:scale-95 overflow-hidden"
                 style={{ background: 'rgba(0,0,0,0.5)', backdropFilter: 'blur(8px)', border: `1px solid ${openPicker === 'audio' ? 'rgba(255,255,255,0.35)' : 'rgba(255,255,255,0.15)'}` }}
               >
                 {/* Mic icon + level */}
@@ -1176,7 +1198,7 @@ export function RecordingSession({ theme, initialSessionId, mode = 'default' }: 
                     <span className="absolute -top-0.5 -right-0.5 w-2 h-2 rounded-full" style={{ background: micLevel > 70 ? '#ef4444' : '#4ade80' }} />
                   )}
                 </div>
-                <span className="flex-1 text-xs text-white/70 truncate text-left">{currentAudioLabel.replace(/\(.*\)/, '').trim()}</span>
+                <span className="flex-1 min-w-0 text-xs text-white/70 truncate text-left">{currentAudioLabel.replace(/\(.*\)/, '').trim()}</span>
                 {audioDevices.length > 1 && (
                   <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="rgba(255,255,255,0.4)" strokeWidth="2.5" strokeLinecap="round">
                     <path d="M6 9l6 6 6-6"/>
@@ -1212,17 +1234,17 @@ export function RecordingSession({ theme, initialSessionId, mode = 'default' }: 
 
             {/* Camera button */}
             {videoDevices.length > 0 && (
-              <div className="relative flex-1">
+              <div className="relative flex-1 min-w-0">
                 <button
                   type="button"
                   onClick={() => setOpenPicker(p => p === 'video' ? null : 'video')}
-                  className="w-full flex items-center gap-2 px-3 py-2.5 rounded-xl transition-all active:scale-95"
+                  className="w-full min-w-0 flex items-center gap-2 px-3 py-2.5 rounded-xl transition-all active:scale-95 overflow-hidden"
                   style={{ background: 'rgba(0,0,0,0.5)', backdropFilter: 'blur(8px)', border: `1px solid ${openPicker === 'video' ? 'rgba(255,255,255,0.35)' : 'rgba(255,255,255,0.15)'}` }}
                 >
                   <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="2" strokeLinecap="round" className="shrink-0">
                     <path d="M23 7l-7 5 7 5V7z"/><rect x="1" y="5" width="15" height="14" rx="2" ry="2"/>
                   </svg>
-                  <span className="flex-1 text-xs text-white/70 truncate text-left">{currentVideoLabel.replace(/\(.*\)/, '').trim()}</span>
+                  <span className="flex-1 min-w-0 text-xs text-white/70 truncate text-left">{currentVideoLabel.replace(/\(.*\)/, '').trim()}</span>
                   {videoDevices.length > 1 && (
                     <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="rgba(255,255,255,0.4)" strokeWidth="2.5" strokeLinecap="round">
                       <path d="M6 9l6 6 6-6"/>
@@ -1260,17 +1282,31 @@ export function RecordingSession({ theme, initialSessionId, mode = 'default' }: 
         </div>
 
         {/* Bottom bar — CTA */}
-        <div className="px-5 pt-4 pb-5 flex flex-col gap-3">
-          {/* Mic hint (only if not yet detected) */}
-          {streamRef.current && !micDetected && (
-            <p className="text-center text-xs text-white/35">
-              Parlez quelques mots pour tester votre micro
-            </p>
-          )}
+        <div className="px-5 pt-4 pb-5 flex flex-col gap-2">
+          {/* Blocking reason hint */}
+          {(() => {
+            if (!streamRef.current)
+              return <p className="text-center text-xs text-red-400/80">Caméra ou micro inaccessible — vérifiez les autorisations</p>
+            if (!micDetected)
+              return <p className="text-center text-xs text-white/40">Parlez quelques mots pour valider votre micro</p>
+            if (connectionQuality === 'poor')
+              return (
+                <div className="flex items-center justify-center gap-2">
+                  <span className="text-xs text-amber-400/80">Connexion faible détectée</span>
+                  <button
+                    onClick={() => setPoorConnectionAcknowledged(true)}
+                    className="text-xs text-white/30 underline underline-offset-2"
+                  >
+                    Continuer quand même
+                  </button>
+                </div>
+              )
+            return null
+          })()}
           <button
             onClick={handleConfirmStart}
-            disabled={starting || !streamRef.current}
-            className="w-full font-black text-base tracking-wide transition-all active:scale-[0.97] disabled:opacity-30"
+            disabled={starting || !streamRef.current || !micDetected || (connectionQuality === 'poor' && !poorConnectionAcknowledged)}
+            className="w-full font-black text-base tracking-wide transition-all active:scale-[0.97] disabled:opacity-30 disabled:cursor-not-allowed"
             style={{ background: accent, color: '#fff', padding: '18px 24px', borderRadius: 16 }}
           >
             {starting ? 'Démarrage…' : 'C\'est parti →'}
@@ -1487,13 +1523,36 @@ export function RecordingSession({ theme, initialSessionId, mode = 'default' }: 
 
         {/* Reading: Je suis prêt */}
         {isReading && (
-          <button
-            onClick={startRecordingNow}
-            className="px-8 py-4 rounded-2xl font-semibold text-sm transition-all active:scale-95"
-            style={{ background: 'rgba(255,255,255,0.1)', color: 'rgba(255,255,255,0.85)', border: '1px solid rgba(255,255,255,0.18)' }}
-          >
-            Je suis prêt →
-          </button>
+          <>
+            <style>{`
+              @keyframes readyPop {
+                0%   { transform: scale(0.85); opacity: 0; }
+                60%  { transform: scale(1.08); opacity: 1; }
+                80%  { transform: scale(0.96); }
+                100% { transform: scale(1); }
+              }
+              @keyframes readyPulse {
+                0%, 100% { box-shadow: 0 0 0 0 rgba(255,255,255,0.25); }
+                50%       { box-shadow: 0 0 0 10px rgba(255,255,255,0); }
+              }
+            `}</style>
+            <button
+              key={isAudioPlaying ? 'loading' : 'ready'}
+              onClick={startRecordingNow}
+              disabled={isAudioPlaying}
+              className="px-8 py-4 rounded-2xl font-semibold text-sm active:scale-95 disabled:opacity-30 disabled:cursor-not-allowed"
+              style={{
+                background: 'rgba(255,255,255,0.1)',
+                color: 'rgba(255,255,255,0.85)',
+                border: '1px solid rgba(255,255,255,0.18)',
+                animation: isAudioPlaying
+                  ? 'none'
+                  : 'readyPop 0.5s cubic-bezier(0.34,1.56,0.64,1) forwards, readyPulse 2s ease-in-out 0.5s infinite',
+              }}
+            >
+              {isAudioPlaying ? 'Lecture en cours...' : 'Je suis prêt →'}
+            </button>
+          </>
         )}
 
         {/* REC timer */}
