@@ -77,7 +77,7 @@ export async function POST(req: Request) {
     return new Response('name, tag and file are required', { status: 400 })
   }
 
-  const validTags = ['TRANSITION', 'INTRO', 'OUTRO']
+  const validTags = ['TRANSITION', 'INTRO', 'OUTRO', 'BACKGROUND']
   if (!validTags.includes(tag)) {
     return new Response('Invalid tag', { status: 400 })
   }

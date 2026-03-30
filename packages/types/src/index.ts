@@ -58,7 +58,7 @@ export interface CreateQuestionDto {
   order: number
 }
 
-export type SoundTag = 'TRANSITION' | 'INTRO' | 'OUTRO'
+export type SoundTag = 'TRANSITION' | 'INTRO' | 'OUTRO' | 'BACKGROUND'
 
 export interface SoundAssetDto {
   id: string

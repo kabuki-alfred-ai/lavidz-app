@@ -22,12 +22,14 @@ const TAG_LABELS: Record<SoundTag, string> = {
   TRANSITION: 'Transition',
   INTRO: 'Intro',
   OUTRO: 'Outro',
+  BACKGROUND: 'Background Sound',
 }
 
 const TAG_COLORS: Record<SoundTag, string> = {
   TRANSITION: 'bg-blue-500/10 text-blue-400 border-blue-500/20',
   INTRO: 'bg-emerald-500/10 text-emerald-400 border-emerald-500/20',
   OUTRO: 'bg-orange-500/10 text-orange-400 border-orange-500/20',
+  BACKGROUND: 'bg-purple-500/10 text-purple-400 border-purple-500/20',
 }
 
 interface Props {
@@ -37,7 +39,7 @@ interface Props {
 export function SoundsClient({ initialSounds }: Props) {
   const [sounds, setSounds] = useState<SoundAssetDto[]>(initialSounds)
   const [name, setName] = useState('')
-  const [tag, setTag] = useState<SoundTag>('TRANSITION')
+  const [tag, setTag] = useState<SoundTag>('BACKGROUND')
   const [file, setFile] = useState<File | null>(null)
   const [uploading, setUploading] = useState(false)
   const [uploadError, setUploadError] = useState('')
@@ -64,7 +66,7 @@ export function SoundsClient({ initialSounds }: Props) {
       if (listRes.ok) setSounds(await listRes.json())
       else setSounds((prev) => [created, ...prev])
       setName('')
-      setTag('TRANSITION')
+      setTag('BACKGROUND')
       setFile(null)
       if (fileInputRef.current) fileInputRef.current.value = ''
     } catch (err) {
@@ -106,7 +108,7 @@ export function SoundsClient({ initialSounds }: Props) {
     setPlayingId(sound.id)
   }
 
-  const grouped = (['INTRO', 'TRANSITION', 'OUTRO'] as SoundTag[]).map(
+  const grouped = (['BACKGROUND', 'INTRO', 'TRANSITION', 'OUTRO'] as SoundTag[]).map(
     (t) => ({ tag: t, items: sounds.filter((s) => s.tag === t) }),
   )
 
@@ -166,6 +168,7 @@ export function SoundsClient({ initialSounds }: Props) {
                   onChange={(e) => setTag(e.target.value as SoundTag)}
                   className="flex h-9 w-full border border-input bg-surface/40 px-3 py-1 text-xs font-mono text-foreground focus:outline-none focus:border-primary transition-colors appearance-none"
                 >
+                  <option value="BACKGROUND">Background Sound</option>
                   <option value="TRANSITION">Transition</option>
                   <option value="INTRO">Intro</option>
                   <option value="OUTRO">Outro</option>

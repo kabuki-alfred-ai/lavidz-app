@@ -158,6 +158,7 @@ enum SoundTag {
   TRANSITION
   INTRO
   OUTRO
+  BACKGROUND
 }
 
 model SoundAsset {
