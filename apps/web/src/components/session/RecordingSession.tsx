@@ -59,7 +59,8 @@ export function RecordingSession({ theme, initialSessionId, mode = 'default' }: 
   const [confirmLast, setConfirmLast] = useState(false)
   const [permissionDenied, setPermissionDenied] = useState<{ isIOS: boolean; isSafari: boolean } | null>(null)
   const [showMaxDurationWarning, setShowMaxDurationWarning] = useState(false)
-  const [videoQuality, setVideoQuality] = useState<VideoQuality>('720p')
+  const [videoQuality, setVideoQuality] = useState<VideoQuality>('1080p')
+  const [openPicker, setOpenPicker] = useState<'video' | 'audio' | null>(null)
   const [feedbackOverall, setFeedbackOverall] = useState(0)
   const [feedbackQuestion, setFeedbackQuestion] = useState(0)
   const [feedbackComment, setFeedbackComment] = useState('')
@@ -1100,236 +1101,180 @@ export function RecordingSession({ theme, initialSessionId, mode = 'default' }: 
 
   // ─── CHECK PHASE ──────────────────────────────────────────────────────────
   if (phase === 'check') {
+    const currentVideoLabel = videoDevices.find(d => d.deviceId === selectedVideoId)?.label || 'Caméra'
+    const currentAudioLabel = audioDevices.find(d => d.deviceId === selectedAudioId)?.label || 'Micro'
+
     return (
-      <div className="fixed inset-0 flex flex-col items-center justify-center px-6 overflow-hidden" style={{ background: '#0a0a0a', animation: 'fadeIn 0.35s ease', paddingTop: 'max(3rem, env(safe-area-inset-top))', paddingBottom: 'max(3rem, env(safe-area-inset-bottom))' }}>
-        {/* Back button — top left */}
+      <div
+        className="fixed inset-0 flex flex-col"
+        style={{ background: '#0a0a0a', animation: 'fadeIn 0.35s ease', paddingTop: 'env(safe-area-inset-top)', paddingBottom: 'env(safe-area-inset-bottom)' }}
+        onClick={() => setOpenPicker(null)}
+      >
+        {/* Back button */}
         <button
-          onClick={() => {
+          onClick={e => {
+            e.stopPropagation()
             stopMicMeter()
             streamRef.current?.getTracks().forEach(t => t.stop())
             streamRef.current = null
             setPhase('intro')
           }}
-          className="absolute top-4 left-4 z-20 flex items-center justify-center rounded-full transition-all active:scale-90"
-          style={{ width: 44, height: 44, background: 'rgba(255,255,255,0.07)', border: '1px solid rgba(255,255,255,0.1)' }}
+          className="absolute z-30 flex items-center justify-center rounded-full transition-all active:scale-90"
+          style={{ top: 'max(1rem, env(safe-area-inset-top))', left: '1rem', width: 44, height: 44, background: 'rgba(0,0,0,0.5)', backdropFilter: 'blur(8px)', border: '1px solid rgba(255,255,255,0.12)' }}
           aria-label="Retour"
         >
           <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
             <path d="M15 18l-6-6 6-6" />
           </svg>
         </button>
-        <div className="flex flex-col items-center gap-6 w-full max-w-sm z-10">
-          {/* Camera preview */}
-          <div className="relative w-full rounded-2xl overflow-hidden bg-black border border-white/10" style={{ aspectRatio: '4/3' }}>
-            <video
-              ref={checkVideoCallbackRef}
-              autoPlay
-              playsInline
-              muted
-              className="w-full h-full object-cover"
-              style={{ transform: facingMode === 'user' ? 'scaleX(-1)' : 'none' }}
-            />
-            <div className="absolute top-3 left-3 flex items-center gap-1.5">
-              <span className="w-2 h-2 rounded-full bg-red-500 animate-pulse" />
-              <span className="text-[10px] font-mono text-white/60 uppercase tracking-widest">Prévisualisation</span>
+
+        {/* Camera preview — takes most of screen */}
+        <div className="relative flex-1 overflow-hidden bg-black">
+          <video
+            ref={checkVideoCallbackRef}
+            autoPlay
+            playsInline
+            muted
+            className="w-full h-full object-cover"
+            style={{ transform: facingMode === 'user' ? 'scaleX(-1)' : 'none' }}
+          />
+
+          {/* No camera overlay */}
+          {!streamRef.current && (
+            <div className="absolute inset-0 flex flex-col items-center justify-center gap-3" style={{ background: 'rgba(0,0,0,0.7)' }}>
+              <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="rgba(255,255,255,0.4)" strokeWidth="1.5">
+                <path d="M23 7l-7 5 7 5V7z"/><rect x="1" y="5" width="15" height="14" rx="2" ry="2"/>
+                <line x1="1" y1="1" x2="23" y2="23" stroke="#ef4444" strokeWidth="2"/>
+              </svg>
+              <p className="text-xs text-white/40 text-center px-8">Accès caméra refusé.<br/>Vérifiez les autorisations du navigateur.</p>
             </div>
-            {hasMultipleCameras && (
+          )}
+
+          {/* Device controls bar — overlaid at bottom of preview */}
+          <div
+            className="absolute bottom-0 inset-x-0 flex items-center gap-3 px-4 py-4"
+            style={{ background: 'linear-gradient(to top, rgba(0,0,0,0.75) 0%, transparent 100%)' }}
+            onClick={e => e.stopPropagation()}
+          >
+            {/* Mic button */}
+            <div className="relative flex-1">
               <button
-                onClick={flipCamera}
-                disabled={flipping}
-                className="absolute top-3 right-3 flex items-center justify-center rounded-full transition-all active:scale-90 disabled:opacity-40"
-                style={{ width: 36, height: 36, background: 'rgba(0,0,0,0.5)', border: '1px solid rgba(255,255,255,0.15)' }}
-                title="Changer de caméra"
+                type="button"
+                onClick={() => setOpenPicker(p => p === 'audio' ? null : 'audio')}
+                className="w-full flex items-center gap-2 px-3 py-2.5 rounded-xl transition-all active:scale-95"
+                style={{ background: 'rgba(0,0,0,0.5)', backdropFilter: 'blur(8px)', border: `1px solid ${openPicker === 'audio' ? 'rgba(255,255,255,0.35)' : 'rgba(255,255,255,0.15)'}` }}
               >
-                <SwitchCamera size={18} style={{ opacity: flipping ? 0.4 : 1, transition: 'transform 0.3s', transform: flipping ? 'rotate(180deg)' : 'none' }} />
-              </button>
-            )}
-          </div>
-
-          {/* Mic meter */}
-          {(() => {
-            const needsPrompt = !!streamRef.current && !micDetected
-            return (
-              <div
-                className="w-full flex flex-col gap-2 rounded-xl px-3 py-3 transition-all"
-                style={needsPrompt ? { border: `1px solid ${accent}50`, background: `${accent}0d` } : {}}
-              >
-                <p
-                  className="text-[10px] font-mono uppercase tracking-widest"
-                  style={{ color: needsPrompt ? accent : 'rgba(255,255,255,0.4)', animation: needsPrompt ? 'recPulse 1.5s ease-in-out infinite' : 'none' }}
-                >
-                  Micro
-                </p>
-                <div className="w-full h-2 rounded-full bg-white/10 overflow-hidden">
-                  <div
-                    className="h-full rounded-full transition-all duration-75"
-                    style={{
-                      width: `${micLevel}%`,
-                      background: micLevel > 70 ? '#ef4444' : micLevel > 30 ? accent : '#4ade80',
-                    }}
-                  />
+                {/* Mic icon + level */}
+                <div className="relative shrink-0 flex items-center justify-center" style={{ width: 20, height: 20 }}>
+                  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke={micLevel > 0 ? 'white' : 'rgba(255,255,255,0.4)'} strokeWidth="2" strokeLinecap="round">
+                    <path d="M12 1a3 3 0 0 0-3 3v8a3 3 0 0 0 6 0V4a3 3 0 0 0-3-3z"/>
+                    <path d="M19 10v2a7 7 0 0 1-14 0v-2"/>
+                    <line x1="12" y1="19" x2="12" y2="23"/>
+                    <line x1="8" y1="23" x2="16" y2="23"/>
+                  </svg>
+                  {micLevel > 0 && (
+                    <span className="absolute -top-0.5 -right-0.5 w-2 h-2 rounded-full" style={{ background: micLevel > 70 ? '#ef4444' : '#4ade80' }} />
+                  )}
                 </div>
-                <p
-                  className="text-[10px] font-mono"
-                  style={{ color: needsPrompt ? 'rgba(255,255,255,0.7)' : 'rgba(255,255,255,0.3)' }}
-                >
-                  {micLevel === 0 ? 'Parlez pour tester le micro…' : micLevel > 70 ? 'Niveau élevé' : 'Micro détecté ✓'}
-                </p>
-              </div>
-            )
-          })()}
+                <span className="flex-1 text-xs text-white/70 truncate text-left">{currentAudioLabel.replace(/\(.*\)/, '').trim()}</span>
+                {audioDevices.length > 1 && (
+                  <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="rgba(255,255,255,0.4)" strokeWidth="2.5" strokeLinecap="round">
+                    <path d="M6 9l6 6 6-6"/>
+                  </svg>
+                )}
+              </button>
 
-          {/* Connection quality */}
-          {(() => {
-            const map = {
-              checking: { label: 'Mesure en cours…', color: 'rgba(255,255,255,0.2)', bars: [1, 0, 0, 0] },
-              poor:     { label: 'Connexion faible', color: '#ef4444', bars: [1, 0, 0, 0] },
-              fair:     { label: 'Connexion moyenne', color: '#f59e0b', bars: [1, 1, 0, 0] },
-              good:     { label: 'Bonne connexion', color: '#4ade80', bars: [1, 1, 1, 0] },
-              excellent:{ label: 'Excellente connexion', color: '#4ade80', bars: [1, 1, 1, 1] },
-            }
-            const q = map[connectionQuality]
-            return (
-              <div className="w-full flex flex-col gap-2">
-                <p className="text-[10px] font-mono text-white/40 uppercase tracking-widest">Connexion</p>
-                <div className="flex items-center gap-3">
-                  <div className="flex items-end gap-[3px]">
-                    {q.bars.map((active, i) => (
-                      <div
-                        key={i}
-                        className="rounded-sm transition-all duration-300"
-                        style={{
-                          width: 5,
-                          height: 6 + i * 4,
-                          background: active ? q.color : 'rgba(255,255,255,0.1)',
-                        }}
-                      />
+              {/* Mic picker dropdown */}
+              {openPicker === 'audio' && audioDevices.length > 1 && (
+                <div
+                  className="absolute bottom-full mb-2 left-0 right-0 rounded-xl overflow-hidden z-20"
+                  style={{ background: 'rgba(20,20,20,0.95)', backdropFilter: 'blur(16px)', border: '1px solid rgba(255,255,255,0.12)' }}
+                >
+                  {audioDevices.map((d, i) => (
+                    <button
+                      key={d.deviceId}
+                      type="button"
+                      onClick={() => { switchAudioDevice(d.deviceId); setOpenPicker(null) }}
+                      className="w-full flex items-center gap-3 px-4 py-3 transition-all active:scale-[0.98] text-left"
+                      style={{ borderBottom: i < audioDevices.length - 1 ? '1px solid rgba(255,255,255,0.06)' : 'none' }}
+                    >
+                      <span className="w-4 h-4 rounded-full shrink-0 flex items-center justify-center" style={{ background: selectedAudioId === d.deviceId ? accent : 'rgba(255,255,255,0.15)' }}>
+                        {selectedAudioId === d.deviceId && <span className="w-1.5 h-1.5 rounded-full bg-white" />}
+                      </span>
+                      <span className="text-sm truncate" style={{ color: selectedAudioId === d.deviceId ? 'white' : 'rgba(255,255,255,0.6)' }}>
+                        {d.label || `Micro ${i + 1}`}
+                      </span>
+                    </button>
+                  ))}
+                </div>
+              )}
+            </div>
+
+            {/* Camera button */}
+            {videoDevices.length > 0 && (
+              <div className="relative flex-1">
+                <button
+                  type="button"
+                  onClick={() => setOpenPicker(p => p === 'video' ? null : 'video')}
+                  className="w-full flex items-center gap-2 px-3 py-2.5 rounded-xl transition-all active:scale-95"
+                  style={{ background: 'rgba(0,0,0,0.5)', backdropFilter: 'blur(8px)', border: `1px solid ${openPicker === 'video' ? 'rgba(255,255,255,0.35)' : 'rgba(255,255,255,0.15)'}` }}
+                >
+                  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="2" strokeLinecap="round" className="shrink-0">
+                    <path d="M23 7l-7 5 7 5V7z"/><rect x="1" y="5" width="15" height="14" rx="2" ry="2"/>
+                  </svg>
+                  <span className="flex-1 text-xs text-white/70 truncate text-left">{currentVideoLabel.replace(/\(.*\)/, '').trim()}</span>
+                  {videoDevices.length > 1 && (
+                    <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="rgba(255,255,255,0.4)" strokeWidth="2.5" strokeLinecap="round">
+                      <path d="M6 9l6 6 6-6"/>
+                    </svg>
+                  )}
+                </button>
+
+                {/* Camera picker dropdown */}
+                {openPicker === 'video' && videoDevices.length > 1 && (
+                  <div
+                    className="absolute bottom-full mb-2 left-0 right-0 rounded-xl overflow-hidden z-20"
+                    style={{ background: 'rgba(20,20,20,0.95)', backdropFilter: 'blur(16px)', border: '1px solid rgba(255,255,255,0.12)' }}
+                  >
+                    {videoDevices.map((d, i) => (
+                      <button
+                        key={d.deviceId}
+                        type="button"
+                        onClick={() => { switchVideoDevice(d.deviceId); setOpenPicker(null) }}
+                        className="w-full flex items-center gap-3 px-4 py-3 transition-all active:scale-[0.98] text-left"
+                        style={{ borderBottom: i < videoDevices.length - 1 ? '1px solid rgba(255,255,255,0.06)' : 'none' }}
+                      >
+                        <span className="w-4 h-4 rounded-full shrink-0 flex items-center justify-center" style={{ background: selectedVideoId === d.deviceId ? accent : 'rgba(255,255,255,0.15)' }}>
+                          {selectedVideoId === d.deviceId && <span className="w-1.5 h-1.5 rounded-full bg-white" />}
+                        </span>
+                        <span className="text-sm truncate" style={{ color: selectedVideoId === d.deviceId ? 'white' : 'rgba(255,255,255,0.6)' }}>
+                          {d.label || `Caméra ${i + 1}`}
+                        </span>
+                      </button>
                     ))}
                   </div>
-                  <p className="text-[10px] font-mono" style={{ color: q.color }}>{q.label}</p>
-                </div>
+                )}
               </div>
-            )
-          })()}
-
-          {/* Blocking warnings */}
-          {!streamRef.current && (
-            <div className="w-full px-4 py-3 rounded-2xl flex items-start gap-3" style={{ background: 'rgba(239,68,68,0.1)', border: '1px solid rgba(239,68,68,0.25)' }}>
-              <span className="text-red-400 mt-0.5 shrink-0">⚠️</span>
-              <p className="text-xs text-red-300 font-mono leading-relaxed">Caméra ou micro non disponible. Vérifiez les autorisations dans les réglages de votre navigateur.</p>
-            </div>
-          )}
-          {streamRef.current && !micDetected && (
-            <div className="w-full px-4 py-3 rounded-2xl flex items-start gap-3" style={{ background: 'rgba(239,68,68,0.1)', border: '1px solid rgba(239,68,68,0.25)' }}>
-              <span className="text-red-400 mt-0.5 shrink-0">⚠️</span>
-              <p className="text-xs text-red-300 font-mono leading-relaxed">Micro non détecté. Parlez pour vérifier que votre micro fonctionne avant de continuer.</p>
-            </div>
-          )}
-
-          {/* Non-blocking poor connection warning */}
-          {connectionQuality === 'poor' && !poorConnectionAcknowledged && (
-            <div className="w-full px-4 py-3 rounded-2xl flex items-start gap-3" style={{ background: 'rgba(245,158,11,0.1)', border: '1px solid rgba(245,158,11,0.25)' }}>
-              <span className="text-amber-400 mt-0.5 shrink-0">⚠️</span>
-              <div className="flex flex-col gap-2 flex-1">
-                <p className="text-xs text-amber-300 font-mono leading-relaxed">Connexion faible détectée. La qualité de votre enregistrement risque d'être affectée (coupures, lenteur d'upload).</p>
-                <button
-                  onClick={() => setPoorConnectionAcknowledged(true)}
-                  className="self-start text-[10px] font-mono text-amber-400 underline underline-offset-2"
-                >
-                  Je comprends, continuer quand même
-                </button>
-              </div>
-            </div>
-          )}
-
-          {/* Camera source selector */}
-          {videoDevices.length > 1 && (
-            <div className="w-full flex flex-col gap-2">
-              <p className="text-[10px] font-mono uppercase tracking-widest text-white/40">Caméra</p>
-              <div className="flex flex-col gap-1.5">
-                {videoDevices.map((d, i) => (
-                  <button
-                    key={d.deviceId}
-                    type="button"
-                    onClick={() => switchVideoDevice(d.deviceId)}
-                    className="w-full flex items-center gap-3 px-3 py-2.5 rounded-xl transition-all active:scale-[0.98] text-left"
-                    style={{
-                      background: selectedVideoId === d.deviceId ? `${accent}22` : 'rgba(255,255,255,0.05)',
-                      border: `1px solid ${selectedVideoId === d.deviceId ? accent : 'rgba(255,255,255,0.1)'}`,
-                    }}
-                  >
-                    <span className="w-4 h-4 rounded-full shrink-0 flex items-center justify-center" style={{ background: selectedVideoId === d.deviceId ? accent : 'rgba(255,255,255,0.15)' }}>
-                      {selectedVideoId === d.deviceId && <span className="w-1.5 h-1.5 rounded-full bg-white" />}
-                    </span>
-                    <span className="text-xs truncate" style={{ color: selectedVideoId === d.deviceId ? 'white' : 'rgba(255,255,255,0.5)' }}>
-                      {d.label || `Caméra ${i + 1}`}
-                    </span>
-                  </button>
-                ))}
-              </div>
-            </div>
-          )}
-
-          {/* Mic source selector */}
-          {audioDevices.length > 1 && (
-            <div className="w-full flex flex-col gap-2">
-              <p className="text-[10px] font-mono uppercase tracking-widest text-white/40">Microphone</p>
-              <div className="flex flex-col gap-1.5">
-                {audioDevices.map((d, i) => (
-                  <button
-                    key={d.deviceId}
-                    type="button"
-                    onClick={() => switchAudioDevice(d.deviceId)}
-                    className="w-full flex items-center gap-3 px-3 py-2.5 rounded-xl transition-all active:scale-[0.98] text-left"
-                    style={{
-                      background: selectedAudioId === d.deviceId ? `${accent}22` : 'rgba(255,255,255,0.05)',
-                      border: `1px solid ${selectedAudioId === d.deviceId ? accent : 'rgba(255,255,255,0.1)'}`,
-                    }}
-                  >
-                    <span className="w-4 h-4 rounded-full shrink-0 flex items-center justify-center" style={{ background: selectedAudioId === d.deviceId ? accent : 'rgba(255,255,255,0.15)' }}>
-                      {selectedAudioId === d.deviceId && <span className="w-1.5 h-1.5 rounded-full bg-white" />}
-                    </span>
-                    <span className="text-xs truncate" style={{ color: selectedAudioId === d.deviceId ? 'white' : 'rgba(255,255,255,0.5)' }}>
-                      {d.label || `Micro ${i + 1}`}
-                    </span>
-                  </button>
-                ))}
-              </div>
-            </div>
-          )}
-
-          {/* Quality selector */}
-          <div className="w-full flex flex-col gap-2">
-            <p className="text-[10px] font-mono uppercase tracking-widest text-white/40">Qualité vidéo</p>
-            <div className="flex gap-2">
-              {(Object.entries(VIDEO_PRESETS) as [VideoQuality, typeof VIDEO_PRESETS[VideoQuality]][]).map(([key, preset]) => (
-                <button
-                  key={key}
-                  type="button"
-                  onClick={() => setVideoQuality(key)}
-                  className="flex-1 flex flex-col items-center py-2 rounded-xl transition-all active:scale-95"
-                  style={{
-                    background: videoQuality === key ? `${accent}22` : 'rgba(255,255,255,0.05)',
-                    border: `1px solid ${videoQuality === key ? accent : 'rgba(255,255,255,0.1)'}`,
-                  }}
-                >
-                  <span className="text-xs font-bold" style={{ color: videoQuality === key ? accent : 'rgba(255,255,255,0.6)' }}>{preset.label}</span>
-                  <span className="text-[9px] font-mono mt-0.5" style={{ color: 'rgba(255,255,255,0.3)' }}>{preset.hint}</span>
-                </button>
-              ))}
-            </div>
+            )}
           </div>
+        </div>
 
-          {/* CTA */}
+        {/* Bottom bar — CTA */}
+        <div className="px-5 pt-4 pb-5 flex flex-col gap-3">
+          {/* Mic hint (only if not yet detected) */}
+          {streamRef.current && !micDetected && (
+            <p className="text-center text-xs text-white/35">
+              Parlez quelques mots pour tester votre micro
+            </p>
+          )}
           <button
             onClick={handleConfirmStart}
-            disabled={starting || !streamRef.current || !micDetected || (connectionQuality === 'poor' && !poorConnectionAcknowledged)}
-            className="w-full py-4 rounded-2xl font-bold text-sm tracking-wide transition-opacity disabled:opacity-40 disabled:cursor-not-allowed"
-            style={{ background: accent, color: '#fff' }}
+            disabled={starting || !streamRef.current}
+            className="w-full font-black text-base tracking-wide transition-all active:scale-[0.97] disabled:opacity-30"
+            style={{ background: accent, color: '#fff', padding: '18px 24px', borderRadius: 16 }}
           >
-            {starting ? 'Démarrage…' : 'Tout est bon — Commencer'}
+            {starting ? 'Démarrage…' : 'C\'est parti →'}
           </button>
-
         </div>
       </div>
     )
