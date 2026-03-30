@@ -297,11 +297,7 @@ export function RecordingSession({ theme, initialSessionId, mode = 'default' }: 
 
     try {
       const recordedMimeType = mediaRecorderRef.current?.mimeType ?? 'video/webm'
-      const isMP4 = recordedMimeType.startsWith('video/mp4')
       const blob = new Blob(chunksRef.current, { type: recordedMimeType })
-      const formData = new FormData()
-      formData.append('video', blob, isMP4 ? 'recording.mp4' : 'recording.webm')
-      formData.append('questionId', currentQuestion.id)
 
       await new Promise<void>((resolve, reject) => {
         const xhr = new XMLHttpRequest()
@@ -313,8 +309,11 @@ export function RecordingSession({ theme, initialSessionId, mode = 'default' }: 
           else reject(new Error(`Upload failed: ${xhr.status}`))
         }
         xhr.onerror = () => reject(new Error('Upload failed'))
-        xhr.open('POST', `${API}/api/sessions/${sessionIdRef.current}/recordings`)
-        xhr.send(formData)
+        xhr.timeout = 10 * 60 * 1000
+        xhr.ontimeout = () => reject(new Error('Upload timeout'))
+        xhr.open('PUT', `/api/sessions/${sessionIdRef.current}/recordings/${currentQuestion.id}`)
+        xhr.setRequestHeader('Content-Type', recordedMimeType)
+        xhr.send(blob)
       })
 
       setReviewVideoUrl(prev => { if (prev) URL.revokeObjectURL(prev); return null })

@@ -271,6 +271,12 @@ export class SessionsService {
 
     await this.storageService.upload(key, buffer, mimetype)
 
+    return this.confirmRecording(sessionId, questionId, key, mimetype)
+  }
+
+  async confirmRecording(sessionId: string, questionId: string, key: string, mimeType: string): Promise<Recording> {
+    await this.findOne(sessionId)
+
     const recording = await prisma.recording.create({
       data: { sessionId, questionId, rawVideoKey: key },
     })

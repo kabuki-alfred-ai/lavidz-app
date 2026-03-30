@@ -114,6 +114,14 @@ export class SessionsController {
     )
   }
 
+  @Post(':id/recordings/confirm')
+  confirmRecording(
+    @Param('id') sessionId: string,
+    @Body() body: { questionId: string; key: string; mimeType: string },
+  ): Promise<any> {
+    return this.sessionsService.confirmRecording(sessionId, body.questionId, body.key, body.mimeType)
+  }
+
   @Get(':sessionId/recordings/:recordingId/url')
   getRecordingUrl(@Param('recordingId') recordingId: string): Promise<string> {
     return this.sessionsService.getRecordingUrl(recordingId)

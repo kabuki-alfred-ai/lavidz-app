@@ -115,7 +115,7 @@ export class LinkedinService {
 
     // 2. Posts (using user URN)
     if (userUrn) {
-      const postsData = await this.rapidGet(`/user/posts?urn=${encodeURIComponent(userUrn)}&page=1`)
+      const postsData = await this.rapidGet(`/user/publications?urn=${encodeURIComponent(userUrn)}&page=1`)
       const posts = Array.isArray(postsData) ? postsData as Array<Record<string, unknown>> : []
 
       const recentPosts = posts.slice(0, 10)
