@@ -28,14 +28,13 @@ export function RecordingSession({ theme, initialSessionId, mode = 'default' }: 
   const [sessionId, setSessionId] = useState<string | null>(initialSessionId ?? null)
   const [submitted, setSubmitted] = useState(false)
   const [submitting, setSubmitting] = useState(false)
-  const [readingCountdown, setReadingCountdown] = useState(0)
   const [countdown, setCountdown] = useState(3)
   const [elapsed, setElapsed] = useState(0)
   const [uploadError, setUploadError] = useState('')
   const [starting, setStarting] = useState(false)
   const [checkError, setCheckError] = useState('')
   const [micLevel, setMicLevel] = useState(0)
-  const [introStep, setIntroStep] = useState<1 | 2 | 3>(1)
+  const [introStep, setIntroStep] = useState<1 | 2 | 3 | 4>(1)
   const [facingMode, setFacingMode] = useState<'user' | 'environment'>('user')
   const [hasMultipleCameras, setHasMultipleCameras] = useState(false)
   const [flipping, setFlipping] = useState(false)
@@ -44,6 +43,8 @@ export function RecordingSession({ theme, initialSessionId, mode = 'default' }: 
   const [poorConnectionAcknowledged, setPoorConnectionAcknowledged] = useState(false)
   const [reviewVideoUrl, setReviewVideoUrl] = useState<string | null>(null)
   const [uploadProgress, setUploadProgress] = useState(0)
+  const [isAudioPlaying, setIsAudioPlaying] = useState(false)
+  const [reviewPaused, setReviewPaused] = useState(false)
   const [permissionDenied, setPermissionDenied] = useState<{ isIOS: boolean; isSafari: boolean } | null>(null)
   const [showMaxDurationWarning, setShowMaxDurationWarning] = useState(false)
   const introAnnouncedRef = useRef(false)
@@ -56,9 +57,9 @@ export function RecordingSession({ theme, initialSessionId, mode = 'default' }: 
   const chunksRef = useRef<Blob[]>([])
   const elapsedRef = useRef<ReturnType<typeof setInterval> | null>(null)
   const countdownRef = useRef<ReturnType<typeof setInterval> | null>(null)
-  const readingRef = useRef<ReturnType<typeof setInterval> | null>(null)
   const sessionIdRef = useRef<string | null>(initialSessionId ?? null)
   const questionAudioRef = useRef<HTMLAudioElement | null>(null)
+  const reviewVideoRef = useRef<HTMLVideoElement | null>(null)
   const maxDurationTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
   const maxDurationWarnTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
   const checkVideoRef = useRef<HTMLVideoElement | null>(null)
@@ -73,6 +74,7 @@ export function RecordingSession({ theme, initialSessionId, mode = 'default' }: 
     try {
       questionAudioRef.current?.pause()
       questionAudioRef.current = null
+      setIsAudioPlaying(false)
       const res = await fetch('/api/tts', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -83,8 +85,12 @@ export function RecordingSession({ theme, initialSessionId, mode = 'default' }: 
       const url = URL.createObjectURL(blob)
       const audio = new Audio(url)
       questionAudioRef.current = audio
+      setIsAudioPlaying(true)
       audio.play()
-      audio.onended = () => URL.revokeObjectURL(url)
+      audio.onended = () => {
+        URL.revokeObjectURL(url)
+        setIsAudioPlaying(false)
+      }
     } catch {}
   }
 
@@ -131,7 +137,6 @@ export function RecordingSession({ theme, initialSessionId, mode = 'default' }: 
       streamRef.current?.getTracks().forEach((t) => t.stop())
       if (elapsedRef.current) clearInterval(elapsedRef.current)
       if (countdownRef.current) clearInterval(countdownRef.current)
-      if (readingRef.current) clearInterval(readingRef.current)
       if (maxDurationTimerRef.current) clearTimeout(maxDurationTimerRef.current)
       if (maxDurationWarnTimerRef.current) clearTimeout(maxDurationWarnTimerRef.current)
       if (canvasRafRef.current) cancelAnimationFrame(canvasRafRef.current)
@@ -167,24 +172,14 @@ export function RecordingSession({ theme, initialSessionId, mode = 'default' }: 
   }, [])
 
   const beginReading = (question: typeof currentQuestion) => {
-    const duration = readingDuration(question?.text ?? '')
-    setReadingCountdown(duration)
     setPhase('reading')
     if (question?.text) announceQuestion(question.text)
-    let c = duration
-    readingRef.current = setInterval(() => {
-      c -= 1
-      setReadingCountdown(c)
-      if (c <= 0) {
-        clearInterval(readingRef.current!)
-        beginCountdown()
-      }
-    }, 1000)
   }
 
   const beginCountdown = () => {
     setPhase('countdown')
     setCountdown(3)
+    try { navigator.vibrate(80) } catch {}
     let c = 3
     countdownRef.current = setInterval(() => {
       c -= 1
@@ -193,6 +188,7 @@ export function RecordingSession({ theme, initialSessionId, mode = 'default' }: 
         doStartRecording()
       } else {
         setCountdown(c)
+        try { navigator.vibrate(80) } catch {}
       }
     }, 1000)
   }
@@ -224,6 +220,7 @@ export function RecordingSession({ theme, initialSessionId, mode = 'default' }: 
 
   const doStartRecording = () => {
     if (!streamRef.current || !videoRef.current || !canvasRef.current) return
+    try { navigator.vibrate([80, 40, 80]) } catch {}
     chunksRef.current = []
     setElapsed(0)
     setShowMaxDurationWarning(false)
@@ -278,6 +275,7 @@ export function RecordingSession({ theme, initialSessionId, mode = 'default' }: 
     if (maxDurationTimerRef.current) { clearTimeout(maxDurationTimerRef.current); maxDurationTimerRef.current = null }
     if (maxDurationWarnTimerRef.current) { clearTimeout(maxDurationWarnTimerRef.current); maxDurationWarnTimerRef.current = null }
     setShowMaxDurationWarning(false)
+    setReviewPaused(false)
     setPhase('review')
   }
 
@@ -325,6 +323,7 @@ export function RecordingSession({ theme, initialSessionId, mode = 'default' }: 
       } else {
         streamRef.current?.getTracks().forEach((t) => t.stop())
         setPhase('done')
+        if (mode === 'shared') handleSubmit()
       }
     } catch {
       setUploadError('Envoi échoué. Vérifiez votre connexion et réessayez.')
@@ -477,8 +476,8 @@ export function RecordingSession({ theme, initialSessionId, mode = 'default' }: 
     `${String(Math.floor(s / 60)).padStart(2, '0')}:${String(s % 60).padStart(2, '0')}`
 
   const startRecordingNow = () => {
-    if (readingRef.current) { clearInterval(readingRef.current); readingRef.current = null }
     questionAudioRef.current?.pause()
+    setIsAudioPlaying(false)
     beginCountdown()
   }
 
@@ -544,7 +543,7 @@ export function RecordingSession({ theme, initialSessionId, mode = 'default' }: 
       return (
         <div
           className="fixed inset-0 flex flex-col items-center justify-between px-6 py-12 overflow-hidden"
-          style={{ background: '#0a0a0a' }}
+          style={{ background: '#0a0a0a', animation: 'fadeIn 0.35s ease' }}
         >
           {noise}
           {brand}
@@ -576,7 +575,7 @@ export function RecordingSession({ theme, initialSessionId, mode = 'default' }: 
               className="w-full py-4 rounded-2xl font-bold text-base tracking-wide transition-all active:scale-95"
               style={{ background: accent, color: '#fff' }}
             >
-              Continuer →
+              Voir les conseils →
             </button>
             <p className="text-[10px] font-mono text-white/25 text-center">
               {questions.length} question{questions.length > 1 ? 's' : ''}
@@ -586,8 +585,8 @@ export function RecordingSession({ theme, initialSessionId, mode = 'default' }: 
       )
     }
 
-    // Step 3: introduction vocale (only if introduction exists)
-    if (introStep === 3 && theme.introduction) {
+    // Step 4: introduction vocale (only if introduction exists)
+    if (introStep === 4 && theme.introduction) {
       if (!introAnnouncedRef.current) {
         introAnnouncedRef.current = true
         announceQuestion(theme.introduction)
@@ -595,12 +594,12 @@ export function RecordingSession({ theme, initialSessionId, mode = 'default' }: 
       return (
         <div
           className="fixed inset-0 flex flex-col items-center justify-between px-6 py-12 overflow-hidden"
-          style={{ background: '#0a0a0a' }}
+          style={{ background: '#0a0a0a', animation: 'fadeIn 0.35s ease' }}
         >
           {noise}
           {/* Back button — top left */}
           <button
-            onClick={() => setIntroStep(2)}
+            onClick={() => setIntroStep(3)}
             className="absolute top-4 left-4 z-20 flex items-center justify-center rounded-full transition-all active:scale-90"
             style={{ width: 44, height: 44, background: 'rgba(255,255,255,0.07)', border: '1px solid rgba(255,255,255,0.1)' }}
             aria-label="Retour"
@@ -629,7 +628,67 @@ export function RecordingSession({ theme, initialSessionId, mode = 'default' }: 
               className="w-full py-4 rounded-2xl font-bold text-base tracking-wide transition-all active:scale-95 disabled:opacity-60"
               style={{ background: accent, color: '#fff' }}
             >
-              {starting ? 'Démarrage...' : "C'est parti !"}
+              {starting ? 'Démarrage...' : 'Ouvrir la caméra →'}
+            </button>
+          </div>
+        </div>
+      )
+    }
+
+    // Step 3: questions preview
+    if (introStep === 3) {
+      return (
+        <div
+          className="fixed inset-0 flex flex-col px-6 overflow-hidden"
+          style={{ background: '#0a0a0a', animation: 'fadeIn 0.35s ease', paddingTop: 'max(3rem, env(safe-area-inset-top))', paddingBottom: 'max(2rem, env(safe-area-inset-bottom))' }}
+        >
+          {noise}
+          {/* Back button */}
+          <button
+            onClick={() => setIntroStep(2)}
+            className="absolute top-4 left-4 z-20 flex items-center justify-center rounded-full transition-all active:scale-90"
+            style={{ width: 44, height: 44, background: 'rgba(255,255,255,0.07)', border: '1px solid rgba(255,255,255,0.1)' }}
+            aria-label="Retour"
+          >
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+              <path d="M15 18l-6-6 6-6" />
+            </svg>
+          </button>
+
+          {/* Header */}
+          <div className="flex flex-col gap-1 z-10 mt-4 mb-6">
+            <h2 className="text-2xl font-black text-white">Vos questions</h2>
+            <p className="text-sm text-white/40">Prenez le temps de lire avant de commencer</p>
+          </div>
+
+          {/* Questions list */}
+          <div className="flex flex-col gap-3 z-10 overflow-y-auto flex-1 pb-4">
+            {questions.map((q, i) => (
+              <div
+                key={q.id}
+                className="flex items-start gap-4 px-4 py-4 rounded-2xl"
+                style={{ background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.07)' }}
+              >
+                <span
+                  className="text-xs font-mono font-bold shrink-0 mt-0.5 tabular-nums"
+                  style={{ color: accent }}
+                >
+                  {String(i + 1).padStart(2, '0')}
+                </span>
+                <p className="text-sm text-white/90 leading-relaxed">{q.text}</p>
+              </div>
+            ))}
+          </div>
+
+          {/* CTA */}
+          <div className="z-10 pt-4">
+            <button
+              onClick={() => theme.introduction ? setIntroStep(4) : handleStart()}
+              disabled={starting}
+              className="w-full py-4 rounded-2xl font-bold text-base tracking-wide transition-all active:scale-95 disabled:opacity-60"
+              style={{ background: accent, color: '#fff' }}
+            >
+              {starting ? 'Démarrage...' : theme.introduction ? 'Écouter l\'introduction →' : 'Ouvrir la caméra →'}
             </button>
           </div>
         </div>
@@ -663,7 +722,7 @@ export function RecordingSession({ theme, initialSessionId, mode = 'default' }: 
     return (
       <div
         className="fixed inset-0 flex flex-col items-center justify-between px-6 py-12 overflow-hidden"
-        style={{ background: '#0a0a0a' }}
+        style={{ background: '#0a0a0a', animation: 'fadeIn 0.35s ease' }}
       >
         {noise}
         {/* Back button — top left */}
@@ -703,12 +762,11 @@ export function RecordingSession({ theme, initialSessionId, mode = 'default' }: 
 
         <div className="flex flex-col items-center gap-4 z-10 w-full max-w-sm">
           <button
-            onClick={() => theme.introduction ? setIntroStep(3) : handleStart()}
-            disabled={starting}
-            className="w-full py-4 rounded-2xl font-bold text-base tracking-wide transition-all active:scale-95 disabled:opacity-60"
+            onClick={() => setIntroStep(3)}
+            className="w-full py-4 rounded-2xl font-bold text-base tracking-wide transition-all active:scale-95"
             style={{ background: accent, color: '#fff' }}
           >
-            {starting ? 'Démarrage...' : theme.introduction ? 'Continuer →' : "C'est parti !"}
+            Voir les questions →
           </button>
         </div>
       </div>
@@ -722,7 +780,7 @@ export function RecordingSession({ theme, initialSessionId, mode = 'default' }: 
       return (
         <div
           className="fixed inset-0 flex flex-col items-center justify-center gap-8 px-8"
-          style={{ background: '#0a0a0a' }}
+          style={{ background: '#0a0a0a', animation: 'fadeIn 0.5s ease' }}
         >
           <div
             className="w-16 h-16 rounded-2xl flex items-center justify-center"
@@ -743,7 +801,7 @@ export function RecordingSession({ theme, initialSessionId, mode = 'default' }: 
     return (
       <div
         className="fixed inset-0 flex flex-col items-center justify-center gap-8 px-8"
-        style={{ background: '#0a0a0a' }}
+        style={{ background: '#0a0a0a', animation: 'fadeIn 0.5s ease' }}
       >
         <div
           className="w-16 h-16 rounded-2xl flex items-center justify-center"
@@ -758,14 +816,13 @@ export function RecordingSession({ theme, initialSessionId, mode = 'default' }: 
           <p className="text-sm text-white/40">Toutes vos réponses ont été enregistrées.</p>
         </div>
         {mode === 'shared' ? (
-          <button
-            onClick={handleSubmit}
-            disabled={submitting}
-            className="px-8 py-4 rounded-2xl font-bold text-base transition-all active:scale-95 disabled:opacity-60"
-            style={{ background: accent, color: '#fff' }}
-          >
-            {submitting ? 'Envoi...' : 'Envoyer ✓'}
-          </button>
+          <div className="flex items-center gap-3">
+            <div
+              className="w-4 h-4 rounded-full border-2 shrink-0"
+              style={{ borderColor: `${accent} transparent ${accent} transparent`, animation: 'spin 0.8s linear infinite' }}
+            />
+            <span className="text-white/40 text-sm font-mono">Envoi en cours…</span>
+          </div>
         ) : (
           <button
             onClick={() => router.push(`/session/${theme.slug}/result?session=${sessionId}`)}
@@ -782,7 +839,7 @@ export function RecordingSession({ theme, initialSessionId, mode = 'default' }: 
   // ─── CHECK PHASE ──────────────────────────────────────────────────────────
   if (phase === 'check') {
     return (
-      <div className="fixed inset-0 flex flex-col items-center justify-center px-6 overflow-hidden" style={{ background: '#0a0a0a', paddingTop: 'max(3rem, env(safe-area-inset-top))', paddingBottom: 'max(3rem, env(safe-area-inset-bottom))' }}>
+      <div className="fixed inset-0 flex flex-col items-center justify-center px-6 overflow-hidden" style={{ background: '#0a0a0a', animation: 'fadeIn 0.35s ease', paddingTop: 'max(3rem, env(safe-area-inset-top))', paddingBottom: 'max(3rem, env(safe-area-inset-bottom))' }}>
         {/* Back button — top left */}
         <button
           onClick={() => {
@@ -828,21 +885,37 @@ export function RecordingSession({ theme, initialSessionId, mode = 'default' }: 
           </div>
 
           {/* Mic meter */}
-          <div className="w-full flex flex-col gap-2">
-            <p className="text-[10px] font-mono text-white/40 uppercase tracking-widest">Micro</p>
-            <div className="w-full h-2 rounded-full bg-white/10 overflow-hidden">
+          {(() => {
+            const needsPrompt = !!streamRef.current && !micDetected
+            return (
               <div
-                className="h-full rounded-full transition-all duration-75"
-                style={{
-                  width: `${micLevel}%`,
-                  background: micLevel > 70 ? '#ef4444' : micLevel > 30 ? accent : '#4ade80',
-                }}
-              />
-            </div>
-            <p className="text-[10px] font-mono text-white/30">
-              {micLevel === 0 ? 'Parlez pour tester le micro…' : micLevel > 70 ? 'Niveau élevé' : 'Micro détecté ✓'}
-            </p>
-          </div>
+                className="w-full flex flex-col gap-2 rounded-xl px-3 py-3 transition-all"
+                style={needsPrompt ? { border: `1px solid ${accent}50`, background: `${accent}0d` } : {}}
+              >
+                <p
+                  className="text-[10px] font-mono uppercase tracking-widest"
+                  style={{ color: needsPrompt ? accent : 'rgba(255,255,255,0.4)', animation: needsPrompt ? 'recPulse 1.5s ease-in-out infinite' : 'none' }}
+                >
+                  Micro
+                </p>
+                <div className="w-full h-2 rounded-full bg-white/10 overflow-hidden">
+                  <div
+                    className="h-full rounded-full transition-all duration-75"
+                    style={{
+                      width: `${micLevel}%`,
+                      background: micLevel > 70 ? '#ef4444' : micLevel > 30 ? accent : '#4ade80',
+                    }}
+                  />
+                </div>
+                <p
+                  className="text-[10px] font-mono"
+                  style={{ color: needsPrompt ? 'rgba(255,255,255,0.7)' : 'rgba(255,255,255,0.3)' }}
+                >
+                  {micLevel === 0 ? 'Parlez pour tester le micro…' : micLevel > 70 ? 'Niveau élevé' : 'Micro détecté ✓'}
+                </p>
+              </div>
+            )
+          })()}
 
           {/* Connection quality */}
           {(() => {
@@ -984,6 +1057,30 @@ export function RecordingSession({ theme, initialSessionId, mode = 'default' }: 
               {currentQuestion.hint}
             </p>
           )}
+          <div className="flex flex-col items-center gap-2 mt-1">
+            {isAudioPlaying ? (
+              <>
+                <div className="flex items-end gap-1">
+                  {[0, 1, 2].map((i) => (
+                    <div
+                      key={i}
+                      style={{
+                        width: 4,
+                        height: 16,
+                        borderRadius: 2,
+                        background: accent,
+                        animation: 'wave 0.8s ease-in-out infinite',
+                        animationDelay: `${i * 0.18}s`,
+                      }}
+                    />
+                  ))}
+                </div>
+                <p className="text-white/40 text-xs font-mono">Écoute en cours…</p>
+              </>
+            ) : (
+              <p className="text-white/40 text-xs font-mono">Prêt à répondre</p>
+            )}
+          </div>
         </div>
       )}
 
@@ -1058,14 +1155,37 @@ export function RecordingSession({ theme, initialSessionId, mode = 'default' }: 
 
       {/* Review overlay */}
       {isReview && reviewVideoUrl ? (
-        <video
-          src={reviewVideoUrl}
-          controls
-          playsInline
-          autoPlay
-          className="absolute inset-0 w-full h-full object-contain bg-black"
-          style={{ zIndex: 1, transform: facingMode === 'user' ? 'scaleX(-1)' : 'none' }}
-        />
+        <div
+          className="absolute inset-0 bg-black"
+          style={{ zIndex: 1 }}
+          onClick={() => {
+            const v = reviewVideoRef.current
+            if (!v) return
+            if (v.paused) { v.play(); setReviewPaused(false) }
+            else { v.pause(); setReviewPaused(true) }
+          }}
+        >
+          <video
+            ref={reviewVideoRef}
+            src={reviewVideoUrl}
+            playsInline
+            autoPlay
+            className="w-full h-full object-contain"
+            style={{ transform: facingMode === 'user' ? 'scaleX(-1)' : 'none' }}
+          />
+          {reviewPaused && (
+            <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
+              <div
+                className="flex items-center justify-center rounded-full"
+                style={{ width: 72, height: 72, background: 'rgba(255,255,255,0.15)', backdropFilter: 'blur(8px)' }}
+              >
+                <svg width="28" height="28" viewBox="0 0 24 24" fill="white">
+                  <path d="M8 5v14l11-7z" />
+                </svg>
+              </div>
+            </div>
+          )}
+        </div>
       ) : (isReview || isUploading) ? (
         <div
           className="absolute inset-0"
@@ -1074,7 +1194,7 @@ export function RecordingSession({ theme, initialSessionId, mode = 'default' }: 
       ) : null}
 
       {/* Bottom controls */}
-      <div className="absolute inset-x-0 bottom-0 px-6 flex flex-col items-center gap-6" style={{ paddingBottom: 'max(3rem, env(safe-area-inset-bottom))', zIndex: 10 }}>
+      <div key={phase} className="absolute inset-x-0 bottom-0 px-6 flex flex-col items-center gap-6" style={{ paddingBottom: 'max(3rem, env(safe-area-inset-bottom))', zIndex: 10, animation: 'fadeIn 0.3s ease' }}>
 
         {/* Reading: Je suis prêt */}
         {isReading && (
@@ -1204,10 +1324,20 @@ export function RecordingSession({ theme, initialSessionId, mode = 'default' }: 
                 style={{ width: `${uploadProgress}%`, background: accent }}
               />
             </div>
-            <div className="flex items-center justify-between">
-              <span className="text-white/50 text-xs font-mono">Envoi en cours…</span>
-              <span className="text-white/50 text-xs font-mono tabular-nums">{uploadProgress}%</span>
-            </div>
+            {uploadProgress < 100 ? (
+              <div className="flex items-center justify-between">
+                <span className="text-white/50 text-xs font-mono">Envoi en cours…</span>
+                <span className="text-white/50 text-xs font-mono tabular-nums">{uploadProgress}%</span>
+              </div>
+            ) : (
+              <div className="flex items-center gap-2">
+                <div
+                  className="w-3 h-3 rounded-full border-2 shrink-0"
+                  style={{ borderColor: `${accent} transparent ${accent} transparent`, animation: 'spin 0.8s linear infinite' }}
+                />
+                <span className="text-white/50 text-xs font-mono">Traitement en cours…</span>
+              </div>
+            )}
           </div>
         )}
 
@@ -1220,6 +1350,10 @@ export function RecordingSession({ theme, initialSessionId, mode = 'default' }: 
       </div>
 
       <style>{`
+        @keyframes wave {
+          0%, 100% { transform: scaleY(0.4); opacity: 0.6; }
+          50% { transform: scaleY(1.4); opacity: 1; }
+        }
         @keyframes fadeSlideIn {
           from { opacity: 0; transform: translateY(8px); }
           to { opacity: 1; transform: translateY(0); }
@@ -1237,6 +1371,9 @@ export function RecordingSession({ theme, initialSessionId, mode = 'default' }: 
         @keyframes recPulse {
           0%, 100% { opacity: 1; }
           50% { opacity: 0.3; }
+        }
+        @keyframes spin {
+          to { transform: rotate(360deg); }
         }
       `}</style>
     </div>
