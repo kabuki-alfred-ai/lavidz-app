@@ -247,12 +247,16 @@ export function RecordingSession({ theme, initialSessionId, mode = 'default' }: 
     setShowMaxDurationWarning(false)
     setPhase('recording')
 
-    // Size canvas to match camera output
+    // Size canvas to match camera output (preserve actual aspect ratio — mobile can be portrait)
     const video = videoRef.current
     const canvas = canvasRef.current
     const preset = VIDEO_PRESETS[videoQuality]
-    canvas.width = Math.min(video.videoWidth || preset.width, preset.width)
-    canvas.height = Math.min(video.videoHeight || preset.height, preset.height)
+    const vw = video.videoWidth || preset.width
+    const vh = video.videoHeight || preset.height
+    // Scale down to preset bounds while preserving aspect ratio
+    const scale = Math.min(preset.width / vw, preset.height / vh, 1)
+    canvas.width = Math.round(vw * scale)
+    canvas.height = Math.round(vh * scale)
 
     // Canvas stream carries the video frames; add camera's audio track
     const cs = canvas.captureStream(30)
