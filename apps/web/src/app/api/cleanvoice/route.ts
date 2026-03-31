@@ -65,7 +65,9 @@ export interface CleanvoiceJobConfig {
   muted: boolean
   long_silences: boolean
   mouth_sounds: boolean
+  breath: boolean
   remove_noise: boolean
+  normalize: boolean
   studio_sound: 'nightly' | false
 }
 
@@ -136,7 +138,9 @@ export async function POST(req: Request) {
             muted: config.muted ?? true,
             long_silences: config.long_silences ?? true,
             mouth_sounds: config.mouth_sounds ?? true,
+            breath: config.breath ?? true,
             remove_noise: config.remove_noise ?? false,
+            normalize: config.normalize ?? true,
             ...(config.studio_sound ? { studio_sound: config.studio_sound } : {}),
             video: true,
             transcription: true,

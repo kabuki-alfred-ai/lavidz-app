@@ -13,9 +13,9 @@ import {
   AlertDialogCancel, AlertDialogAction,
 } from '@/components/ui/alert-dialog'
 import {
-  Loader2, Scissors, Send, Copy, Check, ExternalLink,
+  Loader2, Scissors, Send, Copy, Check,
   History, Clock, Video, Play, Download, ChevronDown, ChevronUp,
-  Link as LinkIcon, Plus, Mail, User, Sparkles, Trash2
+  Link as LinkIcon, Plus, Mail, User, Trash2
 } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import type { ThemeDto } from '@lavidz/types'

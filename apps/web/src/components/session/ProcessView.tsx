@@ -153,13 +153,8 @@ interface RawRecording {
 }
 
 const STANDARD_VOICE_IDS = new Set([
-  'CwhRBWXzGAHq8TQ4Fs17','EXAVITQu4vr4xnSDxMaL','FGY2WhTYpPnrIDTdsKH5',
-  'IKne3meq5aSn9XLyUdCD','JBFqnCBsd6RMkjVDRZzb','N2lVS1w4EtoT3dr4eOWO',
-  'SAz9YHcvj6GT2YYXdXww','SOYHLrjzK2X1ezoPC6cr','TX3LPaxmHKxFdv7VOQHJ',
-  'Xb7hH8MSUJpSbSDYk0k2','XrExE9yKIg1WjnnlVkGX','bIHbv24MWmeRgasZH58o',
-  'cgSgspJ2msm6clMCkdW9','cjVigY5qzO86Huf0OWal','hpp4J3VqNfWAUOO0d1Us',
-  'iP95p4xoKVk53GoZ742B','nPczCjzI2devNBz1zQrb','onwK4e9ZLuTAKqWW03F9',
-  'pFZP5JQG7iQjIQuC4Bku','pNInz6obpgDQGcFmaJgB','pqHfZKP75CvOlQylNhV4',
+  'Hy28BjVfgieDVMiyQpQe','MmafIMKg28Wr0yMh8CEB','KSyQzmsYhFbuOhqj1Xxv',
+  'jGpnMdbhtKgQbVrYezOx','k1w1SeihHyKDJXr7nZRX',
 ])
 
 interface Voice { id: string; name: string; previewUrl: string; accent: string; gender: string; language: string }
@@ -171,7 +166,9 @@ interface CleanvoiceConfig {
   muted: boolean
   long_silences: boolean
   mouth_sounds: boolean
+  breath: boolean
   remove_noise: boolean
+  normalize: boolean
   studio_sound: 'nightly' | false
 }
 
@@ -182,7 +179,9 @@ const DEFAULT_CLEANVOICE_CONFIG: CleanvoiceConfig = {
   muted: true,
   long_silences: true,
   mouth_sounds: true,
+  breath: true,
   remove_noise: false,
+  normalize: true,
   studio_sound: false,
 }
 
@@ -961,7 +960,7 @@ export function ProcessView({ recordings, themeName, sessionId, themeSlug, monta
       <Card>
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: cleanvoiceEnabled ? 20 : 0 }}>
           <div>
-            <p style={{ color: S.text, fontWeight: 600, fontSize: 14 }}>Cleanvoice IA</p>
+            <p style={{ color: S.text, fontWeight: 600, fontSize: 14 }}>Nettoyage audio IA</p>
             <p style={{ color: S.muted, fontSize: 11, marginTop: 2 }}>Nettoyage audio complet en une passe (remplace silences, tics, bruit)</p>
           </div>
           <Toggle value={cleanvoiceEnabled} onChange={setCleanvoiceEnabled} />
@@ -976,7 +975,9 @@ export function ProcessView({ recordings, themeName, sessionId, themeSlug, monta
                 { key: 'muted',        label: 'Sons muets',         desc: 'Bruits de bouche silencieux' },
                 { key: 'long_silences',label: 'Silences longs',     desc: 'Remplace silence-cut' },
                 { key: 'mouth_sounds', label: 'Bruits de bouche',   desc: 'Claquements, salive…' },
+                { key: 'breath',       label: 'Respirations',       desc: 'Souffles audibles' },
                 { key: 'remove_noise', label: 'Réduction de bruit', desc: 'Bruit de fond ambiant' },
+                { key: 'normalize',    label: 'Normalisation',      desc: 'Volume uniforme (LUFS -16)' },
               ] as { key: keyof CleanvoiceConfig; label: string; desc: string }[]).map(opt => (
                 <div key={opt.key} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '8px 12px', background: 'rgba(255,255,255,0.03)', borderRadius: S.radius.sm, border: `1px solid ${S.border}` }}>
                   <div>
@@ -1008,88 +1009,6 @@ export function ProcessView({ recordings, themeName, sessionId, themeSlug, monta
         )}
       </Card>
 
-      {/* Legacy options — only shown when Cleanvoice is OFF */}
-      {!cleanvoiceEnabled && (
-        <>
-          {/* Silence cut */}
-          <Card>
-            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: silenceCutEnabled ? 16 : 0 }}>
-              <div>
-                <p style={{ color: S.text, fontWeight: 600, fontSize: 14 }}>Couper les silences</p>
-                <p style={{ color: S.muted, fontSize: 11, marginTop: 2 }}>Supprime les pauses dans les clips</p>
-              </div>
-              <Toggle value={silenceCutEnabled} onChange={setSilenceCutEnabled} />
-            </div>
-            {silenceCutEnabled && (
-              <SliderRow label="Sensibilité" value={silenceThreshold} min={-55} max={-20} step={5}
-                format={v => v >= -25 ? 'Agressive' : v >= -38 ? 'Modérée' : 'Légère'}
-                onChange={setSilenceThreshold}
-              />
-            )}
-            {silenceCutError && <p style={{ color: S.error, fontSize: 11, marginTop: 8, fontFamily: 'monospace' }}>{silenceCutError}</p>}
-          </Card>
-
-          {/* Filler cut */}
-          <Card>
-            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-              <div>
-                <p style={{ color: S.text, fontWeight: 600, fontSize: 14 }}>Couper les tics de langage</p>
-                <p style={{ color: S.muted, fontSize: 11, marginTop: 2 }}>Supprime les "euh", "hm", "bah"…</p>
-              </div>
-              <Toggle value={fillerCutEnabled} onChange={setFillerCutEnabled} />
-            </div>
-            {fillerCutError && <p style={{ color: S.error, fontSize: 11, marginTop: 8, fontFamily: 'monospace' }}>{fillerCutError}</p>}
-          </Card>
-
-          {/* Denoise */}
-          <Card>
-            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: denoiseEnabled ? 16 : 0 }}>
-              <div>
-                <p style={{ color: S.text, fontWeight: 600, fontSize: 14 }}>Amélioration audio</p>
-                <p style={{ color: S.muted, fontSize: 11, marginTop: 2 }}>FFmpeg ou Voice Isolator IA (ElevenLabs)</p>
-              </div>
-              <Toggle value={denoiseEnabled} onChange={setDenoiseEnabled} />
-            </div>
-            {denoiseEnabled && (
-              <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
-                <Label>Méthode</Label>
-                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 8 }}>
-                  {([
-                    { value: 'light',    label: 'Léger',  desc: 'Discret' },
-                    { value: 'moderate', label: 'Modéré', desc: 'Recommandé' },
-                    { value: 'strong',   label: 'Fort',   desc: 'Agressif' },
-                  ] as { value: 'light' | 'moderate' | 'strong'; label: string; desc: string }[]).map(opt => (
-                    <button key={opt.value} onClick={() => setDenoiseStrength(opt.value)}
-                      onMouseEnter={() => setHoveredDenoiseStrength(opt.value)}
-                      onMouseLeave={() => setHoveredDenoiseStrength(null)}
-                      style={{
-                        padding: '10px 8px', borderRadius: 12, textAlign: 'center',
-                        ...selectableStyle(denoiseStrength === opt.value, hoveredDenoiseStrength === opt.value),
-                      }}
-                    >
-                      <p style={{ color: denoiseStrength === opt.value ? S.text : S.muted, fontWeight: 700, fontSize: 12 }}>{opt.label}</p>
-                      <p style={{ color: S.dim, fontSize: 9, marginTop: 2, fontFamily: 'monospace' }}>{opt.desc}</p>
-                    </button>
-                  ))}
-                </div>
-                <button onClick={() => setDenoiseStrength('isolate')}
-                  style={{
-                    padding: '10px 12px', borderRadius: 12, textAlign: 'left', display: 'flex', alignItems: 'center', gap: 10,
-                    background: denoiseStrength === 'isolate' ? 'rgba(139,92,246,0.15)' : S.surface,
-                    border: `1px solid ${denoiseStrength === 'isolate' ? 'rgba(139,92,246,0.6)' : S.border}`,
-                  }}
-                >
-                  <span style={{ fontSize: 16 }}>✨</span>
-                  <div>
-                    <p style={{ color: denoiseStrength === 'isolate' ? '#c4b5fd' : S.muted, fontWeight: 700, fontSize: 12 }}>Voice Isolator IA</p>
-                    <p style={{ color: S.dim, fontSize: 9, marginTop: 2, fontFamily: 'monospace' }}>ElevenLabs · Isole la voix, supprime tout le reste</p>
-                  </div>
-                </button>
-              </div>
-            )}
-          </Card>
-        </>
-      )}
 
       {/* Voice toggle */}
       <Card>
