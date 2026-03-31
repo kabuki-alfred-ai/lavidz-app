@@ -348,8 +348,8 @@ export function RecordingSession({ theme, initialSessionId, mode = 'default' }: 
         xhr.send(blob)
       })
 
-      // 3. Confirmer les métadonnées côté backend
-      await fetch(`${API}/api/sessions/${sessionIdRef.current}/recordings/confirm`, {
+      // 3. Confirmer les métadonnées côté backend (via proxy Next.js)
+      await fetch(`/api/sessions/${sessionIdRef.current}/recordings/confirm`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ questionId: currentQuestion.id, key, mimeType: recordedMimeType }),

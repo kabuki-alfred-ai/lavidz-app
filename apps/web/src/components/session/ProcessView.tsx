@@ -243,24 +243,54 @@ const STEPS = [
   { id: 'preview',     label: 'Aperçu',      desc: 'Format & export' },
 ]
 
-// ─── Reusable UI primitives ───────────────────────────────────────────────────
+// ─── Design System ────────────────────────────────────────────────────────────
 
 const S = {
-  surface: 'rgba(255,255,255,0.05)' as const,
-  border: 'rgba(255,255,255,0.08)' as const,
-  text: '#ffffff' as const,
-  muted: 'rgba(255,255,255,0.4)' as const,
-  dim: 'rgba(255,255,255,0.2)' as const,
+  // Colors
+  surface: 'rgba(255,255,255,0.04)',
+  surfaceHover: 'rgba(255,255,255,0.07)',
+  surfaceActive: 'rgba(255,255,255,0.12)',
+  border: 'rgba(255,255,255,0.08)',
+  borderHover: 'rgba(255,255,255,0.15)',
+  borderActive: 'rgba(255,255,255,0.25)',
+  text: '#ffffff',
+  muted: 'rgba(255,255,255,0.5)',
+  dim: 'rgba(255,255,255,0.25)',
+  accent: '#3B82F6',
+  accentSoft: 'rgba(59,130,246,0.15)',
+  success: 'rgba(52,211,153,0.9)',
+  successSoft: 'rgba(52,211,153,0.12)',
+  error: '#f87171',
+  errorSoft: 'rgba(248,113,113,0.1)',
+  // Spacing
+  gap: { xs: 4, sm: 8, md: 12, lg: 16, xl: 24 } as const,
+  // Radius
+  radius: { sm: 8, md: 12, lg: 16, pill: 9999 } as const,
 }
 
-function Toggle({ value, onChange }: { value: boolean; onChange: (v: boolean) => void }) {
+function selectableStyle(selected: boolean, hovered = false): React.CSSProperties {
+  return {
+    background: selected ? S.surfaceActive : hovered ? S.surfaceHover : S.surface,
+    border: `1px solid ${selected ? S.borderActive : hovered ? S.borderHover : S.border}`,
+    color: selected ? S.text : S.muted,
+    transition: 'all 0.15s',
+    cursor: 'pointer',
+  }
+}
+
+// ─── Reusable UI primitives ───────────────────────────────────────────────────
+
+function Toggle({ value, onChange, label }: { value: boolean; onChange: (v: boolean) => void; label?: string }) {
   return (
     <button
+      role="switch"
+      aria-checked={value}
+      aria-label={label}
       onClick={() => onChange(!value)}
       style={{
         position: 'relative', width: 44, height: 24, borderRadius: 12,
         background: value ? '#ffffff' : 'rgba(255,255,255,0.12)',
-        transition: 'background 0.2s', flexShrink: 0,
+        transition: 'background 0.2s', flexShrink: 0, border: 'none', outline: 'none',
       }}
     >
       <span style={{
@@ -273,27 +303,88 @@ function Toggle({ value, onChange }: { value: boolean; onChange: (v: boolean) =>
 }
 
 function Label({ children }: { children: React.ReactNode }) {
-  return <p style={{ fontSize: 10, color: S.muted, fontFamily: 'monospace', textTransform: 'uppercase', letterSpacing: '0.1em', marginBottom: 8 }}>{children}</p>
+  return <p style={{ fontSize: 10, color: S.muted, fontFamily: 'monospace', textTransform: 'uppercase', letterSpacing: '0.1em', marginBottom: S.gap.sm }}>{children}</p>
 }
 
 function SliderRow({ label, value, min, max, step, format, onChange }: { label: string; value: number; min: number; max: number; step: number; format: (v: number) => string; onChange: (v: number) => void }) {
   return (
-    <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+    <div style={{ display: 'flex', flexDirection: 'column', gap: S.gap.sm }}>
       <div style={{ display: 'flex', justifyContent: 'space-between' }}>
         <Label>{label}</Label>
         <span style={{ fontSize: 11, color: S.muted, fontFamily: 'monospace' }}>{format(value)}</span>
       </div>
       <input type="range" min={min} max={max} step={step} value={value} onChange={e => onChange(Number(e.target.value))}
-        style={{ width: '100%', accentColor: '#ffffff', height: 2 }} />
+        style={{ width: '100%', accentColor: S.accent, height: 3 }} />
     </div>
   )
 }
 
 function Card({ children, style }: { children: React.ReactNode; style?: React.CSSProperties }) {
   return (
-    <div style={{ background: S.surface, border: `1px solid ${S.border}`, borderRadius: 16, padding: '16px', ...style }}>
+    <div style={{ background: S.surface, border: `1px solid ${S.border}`, borderRadius: S.radius.lg, padding: S.gap.lg, ...style }}>
       {children}
     </div>
+  )
+}
+
+function Section({ title, defaultOpen = true, children }: { title: string; defaultOpen?: boolean; children: React.ReactNode }) {
+  const [open, setOpen] = useState(defaultOpen)
+  return (
+    <div>
+      <button
+        onClick={() => setOpen(!open)}
+        style={{
+          display: 'flex', alignItems: 'center', gap: S.gap.sm, width: '100%',
+          padding: `${S.gap.sm}px 0`, background: 'none', border: 'none', cursor: 'pointer',
+          color: S.muted, fontSize: 10, fontFamily: 'monospace', textTransform: 'uppercase', letterSpacing: '0.1em',
+        }}
+      >
+        <ChevronRight size={12} style={{ transform: open ? 'rotate(90deg)' : 'none', transition: 'transform 0.15s', flexShrink: 0 }} />
+        {title}
+      </button>
+      {open && <div style={{ paddingTop: S.gap.md }}>{children}</div>}
+    </div>
+  )
+}
+
+function useHover() {
+  const [hovered, setHovered] = useState(false)
+  return { hovered, onMouseEnter: () => setHovered(true), onMouseLeave: () => setHovered(false) }
+}
+
+function NavButton({ onClick, disabled, variant, children }: {
+  onClick: () => void
+  disabled?: boolean
+  variant: 'back' | 'next' | 'export' | 'deliver'
+  children: React.ReactNode
+}) {
+  const { hovered, onMouseEnter, onMouseLeave } = useHover()
+  const baseStyle: React.CSSProperties = {
+    display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8,
+    padding: '12px', borderRadius: 14, fontSize: 13, fontWeight: 700,
+    transition: 'all 0.15s', cursor: disabled ? 'not-allowed' : 'pointer',
+    opacity: disabled ? 0.5 : 1,
+  }
+  const variantStyle: React.CSSProperties =
+    variant === 'back' ? {
+      padding: '12px 18px', background: hovered ? S.surfaceHover : S.surface,
+      border: `1px solid ${hovered ? S.borderHover : S.border}`, color: S.muted,
+    } :
+    variant === 'next' || variant === 'export' ? {
+      flex: 1, background: hovered ? 'rgba(255,255,255,0.88)' : '#fff',
+      border: 'none', color: '#0a0a0a',
+      boxShadow: hovered ? '0 4px 16px rgba(255,255,255,0.12)' : 'none',
+    } :
+    {
+      padding: '12px', background: hovered ? 'rgba(52,211,153,0.18)' : 'rgba(52,211,153,0.12)',
+      border: `1px solid ${hovered ? 'rgba(52,211,153,0.4)' : 'rgba(52,211,153,0.25)'}`,
+      color: 'rgb(52,211,153)',
+    }
+  return (
+    <button onClick={onClick} disabled={disabled} style={{ ...baseStyle, ...variantStyle }}
+      onMouseEnter={onMouseEnter} onMouseLeave={onMouseLeave}>
+      {children}
+    </button>
   )
 }
 
@@ -352,12 +443,31 @@ export function ProcessView({ recordings, themeName, sessionId, themeSlug, monta
   const { clipEdits, splitAt, deleteRange, resetClip, undo: undoClipEdit, restore: restoreClipEdits } = useClipEdits()
   const [timelineVisible, setTimelineVisible] = useState(true)
   const [playbackRate, setPlaybackRate] = useState(1)
+  // Hover states for option grids
+  const [hoveredVoiceId, setHoveredVoiceId] = useState<string | null>(null)
+  const [hoveredTransStyle, setHoveredTransStyle] = useState<string | null>(null)
+  const [hoveredQCardStyle, setHoveredQCardStyle] = useState<string | null>(null)
+  const [hoveredQCardTrans, setHoveredQCardTrans] = useState<string | null>(null)
+  const [hoveredIntroPreset, setHoveredIntroPreset] = useState<string | null>(null)
+  const [hoveredOutroPreset, setHoveredOutroPreset] = useState<string | null>(null)
+  const [hoveredFont, setHoveredFont] = useState<string | null>(null)
+  const [hoveredDenoiseStrength, setHoveredDenoiseStrength] = useState<string | null>(null)
+  const [hoveredStep, setHoveredStep] = useState<number | null>(null)
 
   // Cache for processed assets (S3-backed)
   const [ttsCache, setTtsCache] = useState<Record<string, { voiceId: string; url: string }>>({})
   const [processedCache, setProcessedCache] = useState<Record<string, { hash: string; url: string }>>({})
   // Auto-save status
   const [saveStatus, setSaveStatus] = useState<'idle' | 'saving' | 'saved' | 'error'>('idle')
+  // Responsive
+  const [isMobile, setIsMobile] = useState(false)
+  const [mobileView, setMobileView] = useState<'controls' | 'preview'>('controls')
+  useEffect(() => {
+    const check = () => setIsMobile(window.innerWidth < 768)
+    check()
+    window.addEventListener('resize', check)
+    return () => window.removeEventListener('resize', check)
+  }, [])
 
   const localTranscriptsRef = useRef<Record<string, string>>({})
   const serverRendererRef = useRef<ServerRendererHandle | null>(null)
@@ -722,10 +832,17 @@ export function ProcessView({ recordings, themeName, sessionId, themeSlug, monta
     })
     setSegments(built); setReady(true)
   }
+  const [prepareError, setPrepareError] = useState('')
   const applyVoice = async () => {
+    setPrepareError('')
     setRegenerating(true); setReady(false)
-    await prepare(voiceEnabled ? selectedVoiceId : null)
-    setRegenerating(false)
+    try {
+      await prepare(voiceEnabled ? selectedVoiceId : null)
+    } catch (e) {
+      setPrepareError(String(e))
+    } finally {
+      setRegenerating(false)
+    }
   }
 
   const previewVoice = async (voice: Voice) => {
@@ -850,40 +967,44 @@ export function ProcessView({ recordings, themeName, sessionId, themeSlug, monta
           <Toggle value={cleanvoiceEnabled} onChange={setCleanvoiceEnabled} />
         </div>
         {cleanvoiceEnabled && (
-          <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
-            {([
-              { key: 'fillers',      label: 'Tics de langage',    desc: '"euh", "hm", "bah"…' },
-              { key: 'hesitations',  label: 'Hésitations',        desc: 'Allongements de mots' },
-              { key: 'stutters',     label: 'Bégaiements',        desc: 'Répétitions de syllabes' },
-              { key: 'muted',        label: 'Sons muets',         desc: 'Bruits de bouche silencieux' },
-              { key: 'long_silences',label: 'Silences longs',     desc: 'Remplace silence-cut' },
-              { key: 'mouth_sounds', label: 'Bruits de bouche',   desc: 'Claquements, salive…' },
-              { key: 'remove_noise', label: 'Réduction de bruit', desc: 'Bruit de fond ambiant' },
-            ] as { key: keyof CleanvoiceConfig; label: string; desc: string }[]).map(opt => (
-              <div key={opt.key} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '8px 12px', background: 'rgba(255,255,255,0.03)', borderRadius: 10, border: `1px solid ${S.border}` }}>
+          <Section title="Options Cleanvoice" defaultOpen={false}>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+              {([
+                { key: 'fillers',      label: 'Tics de langage',    desc: '"euh", "hm", "bah"…' },
+                { key: 'hesitations',  label: 'Hésitations',        desc: 'Allongements de mots' },
+                { key: 'stutters',     label: 'Bégaiements',        desc: 'Répétitions de syllabes' },
+                { key: 'muted',        label: 'Sons muets',         desc: 'Bruits de bouche silencieux' },
+                { key: 'long_silences',label: 'Silences longs',     desc: 'Remplace silence-cut' },
+                { key: 'mouth_sounds', label: 'Bruits de bouche',   desc: 'Claquements, salive…' },
+                { key: 'remove_noise', label: 'Réduction de bruit', desc: 'Bruit de fond ambiant' },
+              ] as { key: keyof CleanvoiceConfig; label: string; desc: string }[]).map(opt => (
+                <div key={opt.key} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '8px 12px', background: 'rgba(255,255,255,0.03)', borderRadius: S.radius.sm, border: `1px solid ${S.border}` }}>
+                  <div>
+                    <span style={{ color: S.text, fontSize: 13, fontWeight: 500 }}>{opt.label}</span>
+                    <span style={{ color: S.muted, fontSize: 11, marginLeft: 8 }}>{opt.desc}</span>
+                  </div>
+                  <Toggle
+                    value={!!cleanvoiceConfig[opt.key]}
+                    onChange={v => setCleanvoiceConfig(p => ({ ...p, [opt.key]: v }))}
+                    label={opt.label}
+                  />
+                </div>
+              ))}
+              {/* Studio Sound */}
+              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '8px 12px', background: 'rgba(139,92,246,0.06)', borderRadius: S.radius.sm, border: '1px solid rgba(139,92,246,0.2)' }}>
                 <div>
-                  <span style={{ color: S.text, fontSize: 13, fontWeight: 500 }}>{opt.label}</span>
-                  <span style={{ color: S.muted, fontSize: 11, marginLeft: 8 }}>{opt.desc}</span>
+                  <span style={{ color: '#c4b5fd', fontSize: 13, fontWeight: 500 }}>Studio Sound</span>
+                  <span style={{ color: S.muted, fontSize: 11, marginLeft: 8 }}>Rehaussement qualité pro</span>
                 </div>
                 <Toggle
-                  value={!!cleanvoiceConfig[opt.key]}
-                  onChange={v => setCleanvoiceConfig(p => ({ ...p, [opt.key]: v }))}
+                  value={cleanvoiceConfig.studio_sound === 'nightly'}
+                  onChange={v => setCleanvoiceConfig(p => ({ ...p, studio_sound: v ? 'nightly' : false }))}
+                  label="Studio Sound"
                 />
               </div>
-            ))}
-            {/* Studio Sound */}
-            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '8px 12px', background: 'rgba(139,92,246,0.06)', borderRadius: 10, border: `1px solid rgba(139,92,246,0.2)` }}>
-              <div>
-                <span style={{ color: '#c4b5fd', fontSize: 13, fontWeight: 500 }}>Studio Sound</span>
-                <span style={{ color: S.muted, fontSize: 11, marginLeft: 8 }}>Rehaussement qualité pro</span>
-              </div>
-              <Toggle
-                value={cleanvoiceConfig.studio_sound === 'nightly'}
-                onChange={v => setCleanvoiceConfig(p => ({ ...p, studio_sound: v ? 'nightly' : false }))}
-              />
+              {cleanvoiceError && <p style={{ color: S.error, fontSize: 11, fontFamily: 'monospace' }}>{cleanvoiceError}</p>}
             </div>
-            {cleanvoiceError && <p style={{ color: '#f87171', fontSize: 11, fontFamily: 'monospace' }}>{cleanvoiceError}</p>}
-          </div>
+          </Section>
         )}
       </Card>
 
@@ -905,7 +1026,7 @@ export function ProcessView({ recordings, themeName, sessionId, themeSlug, monta
                 onChange={setSilenceThreshold}
               />
             )}
-            {silenceCutError && <p style={{ color: '#f87171', fontSize: 11, marginTop: 8, fontFamily: 'monospace' }}>{silenceCutError}</p>}
+            {silenceCutError && <p style={{ color: S.error, fontSize: 11, marginTop: 8, fontFamily: 'monospace' }}>{silenceCutError}</p>}
           </Card>
 
           {/* Filler cut */}
@@ -917,7 +1038,7 @@ export function ProcessView({ recordings, themeName, sessionId, themeSlug, monta
               </div>
               <Toggle value={fillerCutEnabled} onChange={setFillerCutEnabled} />
             </div>
-            {fillerCutError && <p style={{ color: '#f87171', fontSize: 11, marginTop: 8, fontFamily: 'monospace' }}>{fillerCutError}</p>}
+            {fillerCutError && <p style={{ color: S.error, fontSize: 11, marginTop: 8, fontFamily: 'monospace' }}>{fillerCutError}</p>}
           </Card>
 
           {/* Denoise */}
@@ -939,10 +1060,11 @@ export function ProcessView({ recordings, themeName, sessionId, themeSlug, monta
                     { value: 'strong',   label: 'Fort',   desc: 'Agressif' },
                   ] as { value: 'light' | 'moderate' | 'strong'; label: string; desc: string }[]).map(opt => (
                     <button key={opt.value} onClick={() => setDenoiseStrength(opt.value)}
+                      onMouseEnter={() => setHoveredDenoiseStrength(opt.value)}
+                      onMouseLeave={() => setHoveredDenoiseStrength(null)}
                       style={{
                         padding: '10px 8px', borderRadius: 12, textAlign: 'center',
-                        background: denoiseStrength === opt.value ? 'rgba(255,255,255,0.1)' : S.surface,
-                        border: `1px solid ${denoiseStrength === opt.value ? 'rgba(255,255,255,0.3)' : S.border}`,
+                        ...selectableStyle(denoiseStrength === opt.value, hoveredDenoiseStrength === opt.value),
                       }}
                     >
                       <p style={{ color: denoiseStrength === opt.value ? S.text : S.muted, fontWeight: 700, fontSize: 12 }}>{opt.label}</p>
@@ -989,12 +1111,12 @@ export function ProcessView({ recordings, themeName, sessionId, themeSlug, monta
             const selected = selectedVoiceId === voice.id
             return (
               <button key={voice.id} onClick={() => setSelectedVoiceId(voice.id)}
+                onMouseEnter={() => setHoveredVoiceId(voice.id)}
+                onMouseLeave={() => setHoveredVoiceId(null)}
                 style={{
                   display: 'flex', alignItems: 'center', justifyContent: 'space-between',
                   padding: '12px 14px', borderRadius: 12, textAlign: 'left',
-                  background: selected ? 'rgba(255,255,255,0.1)' : S.surface,
-                  border: `1px solid ${selected ? 'rgba(255,255,255,0.3)' : S.border}`,
-                  transition: 'all 0.15s',
+                  ...selectableStyle(selected, hoveredVoiceId === voice.id),
                 }}
               >
                 <div style={{ minWidth: 0 }}>
@@ -1042,10 +1164,14 @@ export function ProcessView({ recordings, themeName, sessionId, themeSlug, monta
         disabled={regenerating}
         style={{
           display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8,
-          padding: '14px 0', borderRadius: 12,
-          background: '#fff', color: '#0a0a0a',
-          fontSize: 13, fontWeight: 700, opacity: regenerating ? 0.5 : 1,
-          transition: 'opacity 0.15s',
+          padding: '14px 0', borderRadius: S.radius.md,
+          background: ready ? S.surfaceActive : '#ffffff',
+          border: ready ? `1px solid ${S.borderActive}` : 'none',
+          color: ready ? S.text : '#0a0a0a',
+          fontSize: 13, fontWeight: 700,
+          opacity: regenerating ? 0.5 : 1,
+          transition: 'all 0.15s',
+          boxShadow: !ready ? '0 0 0 4px rgba(255,255,255,0.08)' : 'none',
         }}
       >
         {regenerating ? <Loader2 size={14} className="animate-spin" /> : <RefreshCw size={14} />}
@@ -1189,10 +1315,12 @@ export function ProcessView({ recordings, themeName, sessionId, themeSlug, monta
                   const selected = intro.preset === p.id
                   return (
                     <button key={p.id} onClick={() => applyPreset(p.id as SlidePreset, 'intro')}
+                      onMouseEnter={() => setHoveredIntroPreset(p.id)}
+                      onMouseLeave={() => setHoveredIntroPreset(null)}
                       style={{
                         padding: '10px 6px', borderRadius: 10, textAlign: 'center',
-                        background: selected ? p.bg : S.surface,
-                        border: `2px solid ${selected ? p.accent : S.border}`,
+                        background: selected ? p.bg : hoveredIntroPreset === p.id ? S.surfaceHover : S.surface,
+                        border: `2px solid ${selected ? p.accent : hoveredIntroPreset === p.id ? S.borderHover : S.border}`,
                         transition: 'all 0.15s',
                       }}
                     >
@@ -1224,8 +1352,8 @@ export function ProcessView({ recordings, themeName, sessionId, themeSlug, monta
             />
 
             {/* Advanced styling */}
-            <div style={{ borderTop: `1px solid ${S.border}`, paddingTop: 16, display: 'flex', flexDirection: 'column', gap: 16 }}>
-              <p style={{ color: S.muted, fontSize: 10, fontFamily: 'monospace', textTransform: 'uppercase', letterSpacing: '0.1em' }}>Style avancé</p>
+            <div style={{ borderTop: `1px solid ${S.border}`, paddingTop: S.gap.lg }}>
+              <Section title="Style avancé" defaultOpen={false}><div style={{ display: 'flex', flexDirection: 'column', gap: S.gap.lg }}>
 
               {/* Colors */}
               <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
@@ -1396,7 +1524,7 @@ export function ProcessView({ recordings, themeName, sessionId, themeSlug, monta
                   />
                 </div>
               )}
-            </div>
+            </div></Section></div>
           </div>
         )}
       </Card>
@@ -1477,10 +1605,12 @@ export function ProcessView({ recordings, themeName, sessionId, themeSlug, monta
                   const selected = outro.preset === p.id
                   return (
                     <button key={p.id} onClick={() => applyPreset(p.id as SlidePreset, 'outro')}
+                      onMouseEnter={() => setHoveredOutroPreset(p.id)}
+                      onMouseLeave={() => setHoveredOutroPreset(null)}
                       style={{
                         padding: '10px 6px', borderRadius: 10, textAlign: 'center',
-                        background: selected ? p.bg : S.surface,
-                        border: `2px solid ${selected ? p.accent : S.border}`,
+                        background: selected ? p.bg : hoveredOutroPreset === p.id ? S.surfaceHover : S.surface,
+                        border: `2px solid ${selected ? p.accent : hoveredOutroPreset === p.id ? S.borderHover : S.border}`,
                         transition: 'all 0.15s',
                       }}
                     >
@@ -1522,8 +1652,8 @@ export function ProcessView({ recordings, themeName, sessionId, themeSlug, monta
             />
 
             {/* Advanced styling */}
-            <div style={{ borderTop: `1px solid ${S.border}`, paddingTop: 16, display: 'flex', flexDirection: 'column', gap: 16 }}>
-              <p style={{ color: S.muted, fontSize: 10, fontFamily: 'monospace', textTransform: 'uppercase', letterSpacing: '0.1em' }}>Style avancé</p>
+            <div style={{ borderTop: `1px solid ${S.border}`, paddingTop: S.gap.lg }}>
+              <Section title="Style avancé" defaultOpen={false}><div style={{ display: 'flex', flexDirection: 'column', gap: S.gap.lg }}>
 
               {/* Colors */}
               <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
@@ -1694,7 +1824,7 @@ export function ProcessView({ recordings, themeName, sessionId, themeSlug, monta
                   />
                 </div>
               )}
-            </div>
+            </div></Section></div>
           </div>
         )}
       </Card>
@@ -1772,10 +1902,11 @@ export function ProcessView({ recordings, themeName, sessionId, themeSlug, monta
             { value: 'none',        label: 'Aucune',      desc: 'Cut direct' },
           ] as { value: TransitionStyle; label: string; desc: string }[]).map(t => (
             <button key={t.value} onClick={() => setMotionSettings(p => ({ ...p, transitionStyle: t.value }))}
+              onMouseEnter={() => setHoveredTransStyle(t.value)}
+              onMouseLeave={() => setHoveredTransStyle(null)}
               style={{
                 padding: '12px 14px', borderRadius: 12, textAlign: 'left',
-                background: motionSettings.transitionStyle === t.value ? 'rgba(255,255,255,0.1)' : S.surface,
-                border: `1px solid ${motionSettings.transitionStyle === t.value ? 'rgba(255,255,255,0.3)' : S.border}`,
+                ...selectableStyle(motionSettings.transitionStyle === t.value, hoveredTransStyle === t.value),
               }}
             >
               <p style={{ color: motionSettings.transitionStyle === t.value ? S.text : S.muted, fontWeight: 700, fontSize: 13 }}>{t.label}</p>
@@ -1786,6 +1917,7 @@ export function ProcessView({ recordings, themeName, sessionId, themeSlug, monta
       </div>
 
       {/* ── Cartes question ───────────────────────────────────────────────── */}
+      <Section title="Cartes question" defaultOpen={false}>
       <div>
         <Label>Style des cartes question</Label>
         <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 8 }}>
@@ -1802,10 +1934,11 @@ export function ProcessView({ recordings, themeName, sessionId, themeSlug, monta
             { value: 'neon-pulse',  label: 'Neon Pulse',  desc: 'Glow multicolore',   emoji: '🌈' },
           ] as { value: string; label: string; desc: string; emoji: string }[]).map(t => (
             <button key={t.value} onClick={() => setMotionSettings(p => ({ ...p, questionCardStyle: t.value as QuestionCardStyle }))}
+              onMouseEnter={() => setHoveredQCardStyle(t.value)}
+              onMouseLeave={() => setHoveredQCardStyle(null)}
               style={{
                 padding: '12px 10px', borderRadius: 12, textAlign: 'left',
-                background: (motionSettings.questionCardStyle ?? 'default') === t.value ? 'rgba(255,255,255,0.1)' : S.surface,
-                border: `1px solid ${(motionSettings.questionCardStyle ?? 'default') === t.value ? 'rgba(255,255,255,0.3)' : S.border}`,
+                ...selectableStyle((motionSettings.questionCardStyle ?? 'default') === t.value, hoveredQCardStyle === t.value),
               }}
             >
               <p style={{ fontSize: 16, margin: '0 0 4px' }}>{t.emoji}</p>
@@ -1832,10 +1965,11 @@ export function ProcessView({ recordings, themeName, sessionId, themeSlug, monta
             { value: 'shake',       label: 'Shake',       desc: 'Énergie brute' },
           ] as { value: TransitionStyle; label: string; desc: string }[]).map(t => (
             <button key={t.value} onClick={() => setMotionSettings(p => ({ ...p, questionCardTransition: t.value }))}
+              onMouseEnter={() => setHoveredQCardTrans(t.value)}
+              onMouseLeave={() => setHoveredQCardTrans(null)}
               style={{
                 padding: '12px 14px', borderRadius: 12, textAlign: 'left',
-                background: (motionSettings.questionCardTransition ?? 'none') === t.value ? 'rgba(255,255,255,0.1)' : S.surface,
-                border: `1px solid ${(motionSettings.questionCardTransition ?? 'none') === t.value ? 'rgba(255,255,255,0.3)' : S.border}`,
+                ...selectableStyle((motionSettings.questionCardTransition ?? 'none') === t.value, hoveredQCardTrans === t.value),
               }}
             >
               <p style={{ color: (motionSettings.questionCardTransition ?? 'none') === t.value ? S.text : S.muted, fontWeight: 700, fontSize: 13 }}>{t.label}</p>
@@ -1884,6 +2018,7 @@ export function ProcessView({ recordings, themeName, sessionId, themeSlug, monta
           })}
         </div>
       </div>
+      </Section>
 
       <div style={{ height: 1, background: S.border }} />
 
@@ -1968,12 +2103,12 @@ export function ProcessView({ recordings, themeName, sessionId, themeSlug, monta
         <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8 }}>
           {FONT_OPTIONS.map(font => (
             <button key={font.label} onClick={() => setTheme(p => ({ ...p, fontFamily: font.value, fontWeight: font.weight }))}
+              onMouseEnter={() => setHoveredFont(font.label)}
+              onMouseLeave={() => setHoveredFont(null)}
               style={{
                 padding: '12px 14px', borderRadius: 12, textAlign: 'left',
                 fontFamily: font.value, fontWeight: font.weight, fontSize: 14,
-                background: theme.fontFamily === font.value ? 'rgba(255,255,255,0.1)' : S.surface,
-                border: `1px solid ${theme.fontFamily === font.value ? 'rgba(255,255,255,0.3)' : S.border}`,
-                color: theme.fontFamily === font.value ? S.text : S.muted,
+                ...selectableStyle(theme.fontFamily === font.value, hoveredFont === font.label),
               }}
             >
               {font.label}
@@ -1983,8 +2118,7 @@ export function ProcessView({ recordings, themeName, sessionId, themeSlug, monta
       </div>
 
       {/* Visual effects */}
-      <div>
-        <Label>Effets visuels</Label>
+      <Section title="Effets visuels" defaultOpen={false}>
         <Card style={{ display: 'flex', flexDirection: 'column', gap: 0 }}>
           {[
             { key: 'wordPop'     as const, label: 'Word Pop',      desc: 'Bounce sur le mot actif' },
@@ -2037,7 +2171,7 @@ export function ProcessView({ recordings, themeName, sessionId, themeSlug, monta
             )}
           </div>
         </Card>
-      </div>
+      </Section>
 
       <div style={{ height: 1, background: S.border }} />
 
@@ -2351,23 +2485,34 @@ export function ProcessView({ recordings, themeName, sessionId, themeSlug, monta
         </div>
       )}
 
+      {/* Error banner */}
+      {prepareError && (
+        <div style={{ padding: '8px 20px', borderBottom: `1px solid rgba(248,113,113,0.2)`, background: S.errorSoft, display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 10, flexShrink: 0 }}>
+          <p style={{ color: S.error, fontSize: 11, fontFamily: 'monospace' }}>⚠ {prepareError}</p>
+          <button onClick={() => setPrepareError('')} style={{ color: S.error, fontSize: 16, background: 'none', border: 'none', cursor: 'pointer', lineHeight: 1, opacity: 0.7 }}>×</button>
+        </div>
+      )}
+
       {/* Step tabs */}
       <div style={{ display: 'flex', gap: 6, padding: '10px 20px', borderBottom: `1px solid ${S.border}`, overflowX: 'auto', flexShrink: 0, scrollbarWidth: 'none' }}>
         {STEPS.map((step, i) => {
           const active = currentStep === i
           const done = i < currentStep
+          const tabHovered = hoveredStep === i && !active
           return (
             <button key={step.id} onClick={() => setCurrentStep(i)}
+              onMouseEnter={() => setHoveredStep(i)}
+              onMouseLeave={() => setHoveredStep(null)}
               style={{
                 display: 'flex', alignItems: 'center', gap: 6,
                 padding: '6px 12px', borderRadius: 20, whiteSpace: 'nowrap', flexShrink: 0,
-                background: active ? '#fff' : done ? 'rgba(255,255,255,0.08)' : 'transparent',
-                border: active ? 'none' : `1px solid ${done ? 'rgba(255,255,255,0.12)' : 'transparent'}`,
-                color: active ? '#0a0a0a' : done ? 'rgba(255,255,255,0.6)' : S.muted,
-                fontSize: 12, fontWeight: active ? 700 : 500, transition: 'all 0.2s',
+                background: active ? '#fff' : tabHovered ? 'rgba(255,255,255,0.1)' : done ? 'rgba(255,255,255,0.08)' : 'transparent',
+                border: active ? 'none' : `1px solid ${done ? 'rgba(255,255,255,0.12)' : tabHovered ? 'rgba(255,255,255,0.1)' : 'transparent'}`,
+                color: active ? '#0a0a0a' : done ? 'rgba(255,255,255,0.6)' : tabHovered ? S.muted : S.dim,
+                fontSize: isMobile ? 11 : 12, fontWeight: active ? 700 : 500, transition: 'all 0.15s',
               }}
             >
-              <span style={{ fontSize: 10, fontFamily: 'monospace', opacity: 0.6 }}>{String(i + 1).padStart(2, '0')}</span>
+              {!isMobile && <span style={{ fontSize: 10, fontFamily: 'monospace', opacity: 0.6 }}>{String(i + 1).padStart(2, '0')}</span>}
               {step.label}
               {done && <span style={{ fontSize: 9, opacity: 0.7 }}>✓</span>}
             </button>
@@ -2375,47 +2520,67 @@ export function ProcessView({ recordings, themeName, sessionId, themeSlug, monta
         })}
       </div>
 
+      {/* Mobile view toggle */}
+      {isMobile && (
+        <div style={{ display: 'flex', borderBottom: `1px solid ${S.border}`, flexShrink: 0 }}>
+          <button
+            onClick={() => setMobileView('controls')}
+            style={{ flex: 1, padding: '10px', fontSize: 12, fontWeight: 600, background: mobileView === 'controls' ? S.surfaceActive : 'transparent', border: 'none', borderBottom: mobileView === 'controls' ? `2px solid #fff` : '2px solid transparent', color: mobileView === 'controls' ? S.text : S.muted, transition: 'all 0.15s' }}
+          >
+            Paramètres
+          </button>
+          <button
+            onClick={() => setMobileView('preview')}
+            style={{ flex: 1, padding: '10px', fontSize: 12, fontWeight: 600, background: mobileView === 'preview' ? S.surfaceActive : 'transparent', border: 'none', borderBottom: mobileView === 'preview' ? `2px solid #fff` : '2px solid transparent', color: mobileView === 'preview' ? S.text : S.muted, transition: 'all 0.15s' }}
+          >
+            Aperçu
+          </button>
+        </div>
+      )}
+
       {/* Main body: split layout */}
-      <div style={{ flex: 1, display: 'flex', overflow: 'hidden' }}>
+      <div style={{ flex: 1, display: 'flex', flexDirection: isMobile ? 'column' : 'row', overflow: 'hidden' }}>
 
         {/* Left panel: step controls + bottom nav */}
-        <div style={{ display: 'flex', flexDirection: 'column', width: '42%', minWidth: 320, maxWidth: 480, borderRight: `1px solid ${S.border}`, overflow: 'hidden', flexShrink: 0 }}>
+        <div style={{ display: isMobile && mobileView !== 'controls' ? 'none' : 'flex', flexDirection: 'column', width: isMobile ? '100%' : '42%', minWidth: isMobile ? 0 : 320, maxWidth: isMobile ? '100%' : 480, borderRight: isMobile ? 'none' : `1px solid ${S.border}`, borderBottom: isMobile && mobileView === 'controls' ? `1px solid ${S.border}` : 'none', overflow: 'hidden', flexShrink: 0 }}>
           {/* Step content */}
-          <div style={{ flex: 1, overflowY: 'auto', padding: '24px 20px' }}>
-            {/* Step header */}
-            <div style={{ marginBottom: 24 }}>
-              <p style={{ fontSize: 10, fontFamily: 'monospace', color: S.muted, textTransform: 'uppercase', letterSpacing: '0.1em', marginBottom: 4 }}>
+          <div style={{ flex: 1, overflowY: 'auto', padding: '0 20px 24px' }}>
+            {/* Step header — sticky */}
+            <div style={{
+              position: 'sticky', top: 0, zIndex: 1,
+              background: '#0a0a0a',
+              padding: '20px 0 16px',
+              marginBottom: 8,
+              borderBottom: `1px solid ${S.border}`,
+            }}>
+              <p style={{ fontSize: 10, fontFamily: 'monospace', color: S.dim, textTransform: 'uppercase', letterSpacing: '0.1em', marginBottom: 4 }}>
                 Étape {currentStep + 1} / {STEPS.length}
               </p>
-              <h2 style={{ fontSize: 22, fontWeight: 800, letterSpacing: '-0.02em' }}>{STEPS[currentStep].label}</h2>
-              <p style={{ color: S.muted, fontSize: 13, marginTop: 4 }}>{STEPS[currentStep].desc}</p>
+              <h2 style={{ fontSize: 20, fontWeight: 800, letterSpacing: '-0.02em' }}>{STEPS[currentStep].label}</h2>
+              <p style={{ color: S.muted, fontSize: 12, marginTop: 3 }}>{STEPS[currentStep].desc}</p>
             </div>
 
-            {stepContent[currentStep]}
+            {/* Step content with fade animation */}
+            <div key={currentStep} style={{ paddingTop: 16, animation: 'fadeSlideIn 0.18s ease' }}>
+              {stepContent[currentStep]}
+            </div>
           </div>
 
           {/* Bottom nav */}
           <div style={{ padding: '12px 20px', borderTop: `1px solid ${S.border}`, display: 'flex', flexDirection: 'column', gap: 8, flexShrink: 0 }}>
             <div style={{ display: 'flex', gap: 10 }}>
               {currentStep > 0 && (
-                <button onClick={() => setCurrentStep(s => s - 1)}
-                  style={{ padding: '12px 18px', borderRadius: 14, background: S.surface, border: `1px solid ${S.border}`, color: 'rgba(255,255,255,0.6)', fontSize: 13, fontWeight: 600 }}>
-                  ←
-                </button>
+                <NavButton variant="back" onClick={() => setCurrentStep(s => s - 1)}>←</NavButton>
               )}
               {currentStep < STEPS.length - 1 && (
-                <button onClick={() => setCurrentStep(s => s + 1)}
-                  style={{ flex: 1, padding: '12px', borderRadius: 14, background: '#fff', color: '#0a0a0a', fontSize: 13, fontWeight: 700, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8 }}>
+                <NavButton variant="next" onClick={() => setCurrentStep(s => s + 1)}>
                   {STEPS[currentStep + 1].label} <ChevronRight size={14} />
-                </button>
+                </NavButton>
               )}
               {currentStep === STEPS.length - 1 && ready && segments && (
-                <button
-                  onClick={() => serverRendererRef.current?.render()}
-                  disabled={serverRendererRef.current?.rendering}
-                  style={{ flex: 1, padding: '12px', borderRadius: 14, background: '#fff', color: '#0a0a0a', fontSize: 13, fontWeight: 700, opacity: serverRendererRef.current?.rendering ? 0.5 : 1 }}>
+                <NavButton variant="export" onClick={() => serverRendererRef.current?.render()} disabled={!!serverRendererRef.current?.rendering}>
                   {serverRendererRef.current?.rendering ? 'Rendu en cours...' : renderOutputUrl ? 'Ré-exporter' : 'Exporter le montage'}
-                </button>
+                </NavButton>
               )}
             </div>
             {/* Deliver button — shown after render completes if this session has a recipient */}
@@ -2424,34 +2589,30 @@ export function ProcessView({ recordings, themeName, sessionId, themeSlug, monta
                 {delivered ? (
                   <p style={{ textAlign: 'center', fontSize: 12, color: 'rgb(52,211,153)', fontFamily: 'monospace' }}>Email envoyé au client ✓</p>
                 ) : (
-                  <button
-                    onClick={async () => {
-                      setDelivering(true)
-                      setDeliverError('')
-                      try {
-                        const res = await fetch(`/api/admin/sessions/${sessionId}/deliver`, { method: 'POST' })
-                        if (!res.ok) throw new Error(await res.text())
-                        setDelivered(true)
-                      } catch (err) {
-                        setDeliverError(String(err))
-                      } finally {
-                        setDelivering(false)
-                      }
-                    }}
-                    disabled={delivering}
-                    style={{ padding: '12px', borderRadius: 14, background: 'rgba(52,211,153,0.12)', border: '1px solid rgba(52,211,153,0.25)', color: 'rgb(52,211,153)', fontSize: 13, fontWeight: 700, opacity: delivering ? 0.6 : 1 }}
-                  >
+                  <NavButton variant="deliver" disabled={delivering} onClick={async () => {
+                    setDelivering(true)
+                    setDeliverError('')
+                    try {
+                      const res = await fetch(`/api/admin/sessions/${sessionId}/deliver`, { method: 'POST' })
+                      if (!res.ok) throw new Error(await res.text())
+                      setDelivered(true)
+                    } catch (err) {
+                      setDeliverError(String(err))
+                    } finally {
+                      setDelivering(false)
+                    }
+                  }}>
                     {delivering ? 'Envoi...' : 'Confirmer et envoyer au client ✉'}
-                  </button>
+                  </NavButton>
                 )}
-                {deliverError && <p style={{ fontSize: 11, color: '#f87171', fontFamily: 'monospace', textAlign: 'center' }}>{deliverError}</p>}
+                {deliverError && <p style={{ fontSize: 11, color: S.error, fontFamily: 'monospace', textAlign: 'center' }}>{deliverError}</p>}
               </div>
             )}
           </div>
         </div>
 
         {/* Right panel: format selector + persistent Player */}
-        <div style={{ flex: 1, display: 'flex', flexDirection: 'column', gap: 16, padding: '20px', overflow: 'hidden', minWidth: 0 }}>
+        <div style={{ flex: 1, display: isMobile && mobileView !== 'preview' ? 'none' : 'flex', flexDirection: 'column', gap: 16, padding: '20px', overflow: 'hidden', minWidth: 0 }}>
           {/* Format selector */}
           <div style={{ flexShrink: 0 }}>
             <Label>Format</Label>
@@ -2460,11 +2621,10 @@ export function ProcessView({ recordings, themeName, sessionId, themeSlug, monta
                 <button key={key} onClick={() => setFormat(key)}
                   style={{
                     padding: '10px 8px', borderRadius: 12, textAlign: 'center',
-                    background: format === key ? 'rgba(255,255,255,0.1)' : S.surface,
-                    border: `1px solid ${format === key ? 'rgba(255,255,255,0.3)' : S.border}`,
+                    ...selectableStyle(format === key),
                   }}
                 >
-                  <p style={{ color: format === key ? S.text : S.muted, fontWeight: 700, fontSize: 13, fontFamily: 'monospace' }}>{f.label}</p>
+                  <p style={{ fontWeight: 700, fontSize: 13, fontFamily: 'monospace' }}>{f.label}</p>
                   <p style={{ color: S.dim, fontSize: 9, marginTop: 3, fontFamily: 'monospace' }}>{f.description}</p>
                 </button>
               ))}
@@ -2497,6 +2657,7 @@ export function ProcessView({ recordings, themeName, sessionId, themeSlug, monta
                 compositionHeight={fmt.height}
                 style={{ width: '100%', aspectRatio: `${fmt.width} / ${fmt.height}`, maxHeight: '100%', display: 'block' }}
                 playbackRate={playbackRate}
+                showPlaybackRateControl
                 controls
                 clickToPlay
               />
@@ -2530,6 +2691,7 @@ export function ProcessView({ recordings, themeName, sessionId, themeSlug, monta
 
       <style>{`
         @keyframes spin { to { transform: rotate(360deg); } }
+        @keyframes fadeSlideIn { from { opacity: 0; transform: translateY(4px); } to { opacity: 1; transform: translateY(0); } }
         @keyframes pulse { 0%, 100% { opacity: 1; } 50% { opacity: 0.3; } }
         ::-webkit-scrollbar { display: none; }
       `}</style>
