@@ -32,6 +32,8 @@ export interface MotionSettings {
   wordPop: boolean
   progressBar: boolean
   kenBurns: boolean
+  /** Punch zoom every N words — mimics viral short-form editing rhythm */
+  dynamicZoom?: boolean
   questionCardStyle?: QuestionCardStyle
   questionCardTransition?: TransitionStyle
   questionCardBgPattern?: SlideBgPattern
@@ -44,6 +46,7 @@ export const DEFAULT_MOTION_SETTINGS: MotionSettings = {
   wordPop: false,
   progressBar: false,
   kenBurns: false,
+  dynamicZoom: false,
 }
 
 export interface TransitionTheme {

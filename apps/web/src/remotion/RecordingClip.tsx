@@ -23,6 +23,8 @@ interface WordWindow {
   framesIntoActiveWord: number
 }
 
+interface ZoomKeyframe { frame: number; scale: number }
+
 // Sentence-aware subtitle windowing.
 // Returns the end index (exclusive) of the window starting at `start`, respecting
 // sentence-ending punctuation so a new sentence never bleeds into the current line.
@@ -524,21 +526,7 @@ export function RecordingClip({
     ? interpolate(frame, [0, durationInFrames], [1.0, 1.04], { extrapolateRight: 'clamp' })
     : 1.0
 
-  const finalVideoScale = entryScale * spinEntryScale * kenBurnsScale
-  const combinedTranslateX = entryTranslateX + glitchX + shakeX
-  const videoTransform = [
-    `scale(${finalVideoScale})`,
-    `translateY(${entryTranslateY}px)`,
-    combinedTranslateX !== 0 ? `translateX(${combinedTranslateX}px)` : '',
-    entryRotate !== 0 ? `rotate(${entryRotate}deg)` : '',
-  ].filter(Boolean).join(' ')
-
-  const videoFilter = [
-    blurVal > 0 ? `blur(${blurVal}px)` : '',
-    glitchFilter ?? '',
-  ].filter(Boolean).join(' ') || undefined
-
-  // ─── Subtitles with Word Pop ────────────────────────────────────────────────
+  // ─── Subtitles timestamps (needed by Dynamic Zoom below) ────────────────────
   // Memoized: recomputed only when wordTimestamps or offsetMs changes, not every frame
   const shiftedTimestamps = useMemo(
     () => wordTimestamps?.map(w => ({
@@ -570,6 +558,101 @@ export function RecordingClip({
   const { words, activeIndex, framesIntoActiveWord } = transcript
     ? getWordWindow(transcript, frame, durationInFrames, wordsPerLine, fps, mergedTimestamps)
     : { words: [], activeIndex: 0, framesIntoActiveWord: 0 }
+
+  // ─── Dynamic Zoom — "camera operator" reframe ───────────────────────────────
+  // Detects emphasis moments (post-pause, long word, sentence start) and snaps
+  // to a new zoom level, holding it for several seconds before the next reframe.
+  // Feels like a human cameraperson adjusting the shot, not a mechanical pulse.
+
+  // Zoom levels the camera cycles through (like changing shot composition)
+  const ZOOM_LEVELS = [1.0, 1.30, 1.12, 1.40, 1.05, 1.25, 1.08, 1.35]
+  // Transition speed: snap to new zoom in ~10 frames (≈0.33s at 30fps)
+  const SNAP_FRAMES = 1
+  // Min hold between reframes (1.8s) — avoids nausea-inducing rapid changes
+  const MIN_HOLD_FRAMES = Math.round(fps * 1.8)
+
+  const zoomKeyframes = useMemo((): ZoomKeyframe[] => {
+    if (!motionSettings?.dynamicZoom) return []
+
+    const kf: ZoomKeyframe[] = [{ frame: 0, scale: 1.0 }]
+    let lastFrame = 0
+    let levelIdx = 0
+
+    if (mergedTimestamps && mergedTimestamps.length > 0) {
+      for (let i = 1; i < mergedTimestamps.length; i++) {
+        const w = mergedTimestamps[i]
+        const prev = mergedTimestamps[i - 1]
+        const triggerFrame = Math.round(w.start * fps)
+
+        if (triggerFrame - lastFrame < MIN_HOLD_FRAMES) continue
+
+        const gap = w.start - prev.end           // silence before this word
+        const wordDur = w.end - w.start           // duration = emphasis proxy
+        const afterPunct = /[.!?,;]/.test(prev.word)
+
+        // Emphasis score: pause ≥0.2s, long word ≥0.32s, after sentence end
+        const isEmphasis = gap >= 0.2 || wordDur >= 0.32 || afterPunct
+
+        if (isEmphasis) {
+          levelIdx++
+          kf.push({ frame: triggerFrame, scale: ZOOM_LEVELS[levelIdx % ZOOM_LEVELS.length] })
+          lastFrame = triggerFrame
+        }
+      }
+    }
+
+    // Fallback: fixed interval every 2.5s when no word timestamps or too few events
+    if (kf.length < 3) {
+      const interval = Math.round(fps * 2.5)
+      for (let f = interval; f < durationInFrames; f += interval) {
+        levelIdx++
+        kf.push({ frame: f, scale: ZOOM_LEVELS[levelIdx % ZOOM_LEVELS.length] })
+      }
+    }
+
+    return kf
+  }, [motionSettings?.dynamicZoom, mergedTimestamps, fps, durationInFrames])
+
+  // Compute zoom at current frame:
+  // Quick snap (SNAP_FRAMES) to the keyframe's scale, then hold until next keyframe.
+  let dynamicZoomScale = 1.0
+  if (motionSettings?.dynamicZoom && zoomKeyframes.length >= 2) {
+    // Find the most recent keyframe ≤ current frame
+    let prevIdx = 0
+    for (let i = 1; i < zoomKeyframes.length; i++) {
+      if (zoomKeyframes[i].frame <= frame) prevIdx = i
+      else break
+    }
+    const curr = zoomKeyframes[prevIdx]
+    const fromScale = prevIdx > 0 ? zoomKeyframes[prevIdx - 1].scale : curr.scale
+    const framesSince = frame - curr.frame
+
+    if (framesSince < SNAP_FRAMES) {
+      // Transition: smoothstep from fromScale → curr.scale
+      const t = framesSince / SNAP_FRAMES
+      const eased = t * t * (3 - 2 * t) // smoothstep — natural camera feel
+      dynamicZoomScale = fromScale + (curr.scale - fromScale) * eased
+    } else {
+      // Hold at current zoom level
+      dynamicZoomScale = curr.scale
+    }
+  }
+
+  const finalVideoScale = entryScale * spinEntryScale * kenBurnsScale * dynamicZoomScale
+  const combinedTranslateX = entryTranslateX + glitchX + shakeX
+  const videoTransform = [
+    `scale(${finalVideoScale})`,
+    `translateY(${entryTranslateY}px)`,
+    combinedTranslateX !== 0 ? `translateX(${combinedTranslateX}px)` : '',
+    entryRotate !== 0 ? `rotate(${entryRotate}deg)` : '',
+  ].filter(Boolean).join(' ')
+
+  const videoFilter = [
+    blurVal > 0 ? `blur(${blurVal}px)` : '',
+    glitchFilter ?? '',
+  ].filter(Boolean).join(' ') || undefined
+
+  // ─── Subtitles with Word Pop ─────────────────────────────────────────────────
 
   const hasWords = words.length > 0
 

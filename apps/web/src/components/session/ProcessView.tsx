@@ -2124,6 +2124,7 @@ export function ProcessView({ recordings, themeName, sessionId, themeSlug, monta
             { key: 'wordPop'     as const, label: 'Word Pop',      desc: 'Bounce sur le mot actif' },
             { key: 'progressBar' as const, label: 'Progress Bar',  desc: 'Barre de progression en haut' },
             { key: 'kenBurns'    as const, label: 'Ken Burns',     desc: 'Zoom lent cinématique' },
+            { key: 'dynamicZoom' as const, label: 'Dynamic Zoom',  desc: 'Punch zoom rythmique tous les 4 mots' },
           ].map(({ key, label, desc }, idx, arr) => (
             <div key={key} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '12px 0', borderBottom: idx < arr.length - 1 ? `1px solid ${S.border}` : 'none' }}>
               <div>
