@@ -12,6 +12,8 @@ import type { TransitionTheme, IntroSettings, OutroSettings, MotionSettings, Tra
 import { DEFAULT_TRANSITION_THEME, DEFAULT_INTRO_SETTINGS, DEFAULT_OUTRO_SETTINGS, DEFAULT_MOTION_SETTINGS, FONT_OPTIONS, THEME_PRESETS, SLIDE_PRESETS } from '@/remotion/themeTypes'
 import { ServerRenderer, type ServerRendererHandle } from './ServerRenderer'
 import { TranscriptEditor } from './TranscriptEditor'
+import { Timeline, type ClipEdit } from './Timeline'
+import { useClipEdits } from '@/hooks/useClipEdits'
 
 // Remap word timestamps after silence/filler cuts.
 // keepIntervals: segments of the original video that were kept (in original time).
@@ -346,6 +348,11 @@ export function ProcessView({ recordings, themeName, sessionId, themeSlug, monta
   const [delivered, setDelivered] = useState(false)
   const [deliverError, setDeliverError] = useState('')
 
+  // Non-destructive clip edits (split/delete)
+  const { clipEdits, splitAt, deleteRange, resetClip, undo: undoClipEdit, restore: restoreClipEdits } = useClipEdits()
+  const [timelineVisible, setTimelineVisible] = useState(true)
+  const [playbackRate, setPlaybackRate] = useState(1)
+
   // Cache for processed assets (S3-backed)
   const [ttsCache, setTtsCache] = useState<Record<string, { voiceId: string; url: string }>>({})
   const [processedCache, setProcessedCache] = useState<Record<string, { hash: string; url: string }>>({})
@@ -432,6 +439,7 @@ export function ProcessView({ recordings, themeName, sessionId, themeSlug, monta
       if (s.localTranscripts) setLocalTranscripts(s.localTranscripts)
       if (s.wordTimestampsMap) setWordTimestampsMap(s.wordTimestampsMap)
       if (s.sourceWordTimestampsMap) sourceWordTimestampsRef.current = s.sourceWordTimestampsMap
+      if (s.clipEdits?.length) restoreClipEdits(s.clipEdits)
     }
 
     // Initialize asset caches from recording DB fields
@@ -456,7 +464,7 @@ export function ProcessView({ recordings, themeName, sessionId, themeSlug, monta
     motionSettings, questionCardFrames, activePresetId, audioSettings,
     bgMusicPrompt, transitionSfxPrompt, silenceCutEnabled, silenceThreshold,
     fillerCutEnabled, denoiseEnabled, denoiseStrength, cleanvoiceEnabled, cleanvoiceConfig,
-    localTranscripts, wordTimestampsMap,
+    localTranscripts, wordTimestampsMap, clipEdits,
     sourceWordTimestampsMap: sourceWordTimestampsRef.current,
   })
   const settingsForSaveRef = useRef(settingsForSave)
@@ -773,25 +781,59 @@ export function ProcessView({ recordings, themeName, sessionId, themeSlug, monta
   const introFrames = intro.enabled && intro.hookText ? Math.round(intro.durationSeconds * FPS) : 0
   const outroFrames = outro.enabled && (outro.ctaText || outro.subText || outro.logoUrl) ? Math.round(outro.durationSeconds * FPS) : 0
 
-  // Maps each recording to its global frame range in the composition
-  // Also kept in a ref so the RAF tick can read it without closure staleness
-  const segmentTimeline = useMemo(() => {
-    if (!segments?.length) return []
-    let offset = introFrames
+  // ─── Apply clip edits to produce effective segments for the Player ──────────
+  const effectiveSegments = useMemo(() => {
+    if (!segments?.length || !clipEdits.length) return segments
     return segments.map(seg => {
+      const edit = clipEdits.find(e => e.recordingId === seg.id)
+      if (!edit || edit.visibleRanges.length === 0) return seg
+
+      const totalVisibleFrames = edit.visibleRanges.reduce((a, r) => a + (r.endFrame - r.startFrame), 0)
+      // Remap word timestamps to match visible ranges
+      let remappedWts = seg.wordTimestamps
+      if (seg.wordTimestamps?.length) {
+        const keepIntervals = edit.visibleRanges.map(r => ({
+          start: r.startFrame / FPS,
+          end: r.endFrame / FPS,
+        }))
+        remappedWts = remapWordTimestamps(seg.wordTimestamps, keepIntervals)
+      }
+
+      return {
+        ...seg,
+        videoDurationFrames: totalVisibleFrames,
+        wordTimestamps: remappedWts,
+        visibleRanges: edit.visibleRanges,
+      }
+    })
+  }, [segments, clipEdits])
+
+  // Maps each recording to its global frame range in the composition
+  // Uses effectiveSegments so the RAF playhead tracking matches the Player
+  const segmentTimeline = useMemo(() => {
+    if (!effectiveSegments?.length) return []
+    let offset = introFrames
+    return effectiveSegments.map(seg => {
       const qf = seg.questionDurationFrames ?? QUESTION_CARD_FRAMES
       const start = offset + qf
       const end = start + seg.videoDurationFrames
       offset = end
       return { id: seg.id, startFrame: start, endFrame: end }
     })
-  }, [segments, introFrames])
+  }, [effectiveSegments, introFrames])
   useEffect(() => { segmentTimelineRef.current = segmentTimeline }, [segmentTimeline])
-  const totalFrames = segments?.length
-    ? Math.max(introFrames + outroFrames + END_CARD_FRAMES + segments.reduce((a, s) => a + (s.questionDurationFrames ?? questionCardFrames) + s.videoDurationFrames, 0), 1)
+  const totalFrames = effectiveSegments?.length
+    ? Math.max(introFrames + outroFrames + END_CARD_FRAMES + effectiveSegments.reduce((a, s) => a + (s.questionDurationFrames ?? questionCardFrames) + s.videoDurationFrames, 0), 1)
     : 1
 
   const selectedVoice = voices.find(v => v.id === selectedVoiceId)
+
+  // ─── Split handler for Timeline ─────────────────────────────────────────────
+  const handleTimelineSplit = useCallback((recordingId: string, frameInClip: number) => {
+    const seg = segments?.find(s => s.id === recordingId)
+    if (!seg) return
+    splitAt(recordingId, frameInClip, seg.videoDurationFrames)
+  }, [segments, splitAt])
 
   // ─── Step renderers ────────────────────────────────────────────────────────
 
@@ -2240,7 +2282,7 @@ export function ProcessView({ recordings, themeName, sessionId, themeSlug, monta
       {ready && segments && (
         <ServerRenderer
           ref={serverRendererRef}
-          segments={segments}
+          segments={effectiveSegments!}
           originalVideoUrls={effectiveVideoUrlsRef.current.length > 0 ? effectiveVideoUrlsRef.current : recordings.map(r => r.videoUrl)}
           voiceId={selectedVoiceId}
           themeName={themeName}
@@ -2448,17 +2490,40 @@ export function ProcessView({ recordings, themeName, sessionId, themeSlug, monta
                 key={`${theme.fontFamily}|${theme.backgroundColor}|${theme.textColor}`}
                 ref={playerRef as any}
                 component={LavidzComposition as any}
-                inputProps={{ segments, questionCardFrames, subtitleSettings, theme, intro, outro, fps: FPS, motionSettings, audioSettings }}
+                inputProps={{ segments: effectiveSegments, questionCardFrames, subtitleSettings, theme, intro, outro, fps: FPS, motionSettings, audioSettings }}
                 durationInFrames={totalFrames}
                 fps={FPS}
                 compositionWidth={fmt.width}
                 compositionHeight={fmt.height}
                 style={{ width: '100%', aspectRatio: `${fmt.width} / ${fmt.height}`, maxHeight: '100%', display: 'block' }}
+                playbackRate={playbackRate}
                 controls
                 clickToPlay
               />
             )}
           </div>
+
+          {/* Timeline editor */}
+          {ready && effectiveSegments && timelineVisible && (
+            <div style={{ flexShrink: 0 }}>
+              <Timeline
+                segments={segments}
+                introFrames={introFrames}
+                outroFrames={outroFrames}
+                questionCardFrames={questionCardFrames}
+                fps={FPS}
+                playerRef={playerRef}
+                playerFrameRef={playerFrameRef}
+                clipEdits={clipEdits}
+                onSplit={handleTimelineSplit}
+                onDeleteRange={deleteRange}
+                onResetClip={resetClip}
+                onUndo={undoClipEdit}
+                playbackRate={playbackRate}
+                onPlaybackRateChange={setPlaybackRate}
+              />
+            </div>
+          )}
         </div>
 
       </div>

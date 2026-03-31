@@ -20,6 +20,8 @@ export interface CompositionSegment {
   ttsUrl: string | null
   /** Per-segment question card duration (frames). Falls back to global questionCardFrames. */
   questionDurationFrames?: number
+  /** When present, only these frame ranges of the original video are shown (non-destructive cuts). */
+  visibleRanges?: { startFrame: number; endFrame: number }[]
 }
 
 interface Props {
@@ -78,20 +80,43 @@ export function LavidzComposition({
       </Sequence>,
     )
 
-    sequences.push(
-      <Sequence key={`r-${seg.id}`} from={recordingFrom} durationInFrames={seg.videoDurationFrames}>
-        <RecordingClip
-          videoUrl={seg.videoUrl}
-          transcript={seg.transcript}
-          wordTimestamps={seg.wordTimestamps}
-          durationInFrames={seg.videoDurationFrames}
-          subtitleSettings={subtitleSettings}
-          motionSettings={motionSettings}
-        />
-      </Sequence>,
-    )
-
-    offset += qFrames + seg.videoDurationFrames
+    if (seg.visibleRanges && seg.visibleRanges.length > 0) {
+      // Non-destructive cuts: render one sub-sequence per visible range
+      let clipOffset = recordingFrom
+      for (let r = 0; r < seg.visibleRanges.length; r++) {
+        const range = seg.visibleRanges[r]
+        const rangeDur = range.endFrame - range.startFrame
+        sequences.push(
+          <Sequence key={`r-${seg.id}-${r}`} from={clipOffset} durationInFrames={rangeDur}>
+            <RecordingClip
+              videoUrl={seg.videoUrl}
+              transcript={seg.transcript}
+              wordTimestamps={seg.wordTimestamps}
+              durationInFrames={rangeDur}
+              startFromFrame={range.startFrame}
+              subtitleSettings={subtitleSettings}
+              motionSettings={motionSettings}
+            />
+          </Sequence>,
+        )
+        clipOffset += rangeDur
+      }
+      offset = clipOffset
+    } else {
+      sequences.push(
+        <Sequence key={`r-${seg.id}`} from={recordingFrom} durationInFrames={seg.videoDurationFrames}>
+          <RecordingClip
+            videoUrl={seg.videoUrl}
+            transcript={seg.transcript}
+            wordTimestamps={seg.wordTimestamps}
+            durationInFrames={seg.videoDurationFrames}
+            subtitleSettings={subtitleSettings}
+            motionSettings={motionSettings}
+          />
+        </Sequence>,
+      )
+      offset += qFrames + seg.videoDurationFrames
+    }
   }
 
   // Outro slide

@@ -9,6 +9,8 @@ interface Props {
   transcript: string | null
   wordTimestamps?: WordTimestamp[]
   durationInFrames: number
+  /** Frame offset into the source video (for non-destructive cuts). */
+  startFromFrame?: number
   subtitleSettings?: SubtitleSettings
   motionSettings?: MotionSettings
   sfxUrl?: string
@@ -444,6 +446,7 @@ export function RecordingClip({
   transcript,
   wordTimestamps,
   durationInFrames,
+  startFromFrame,
   subtitleSettings,
   motionSettings,
   sfxUrl,
@@ -669,6 +672,7 @@ export function RecordingClip({
         <Video
           src={videoUrl}
           muted
+          {...(startFromFrame ? { startFrom: startFromFrame } : {})}
           style={{
             position: 'absolute',
             width: '100%',
@@ -689,7 +693,7 @@ export function RecordingClip({
           }}
         >
           <div style={{ position: 'absolute', inset: 0, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-            <Video src={videoUrl} style={{ width: '100%', objectFit: 'contain' }} />
+            <Video src={videoUrl} {...(startFromFrame ? { startFrom: startFromFrame } : {})} style={{ width: '100%', objectFit: 'contain' }} />
           </div>
         </div>
         {progressBarNode}
@@ -704,7 +708,7 @@ export function RecordingClip({
     <AbsoluteFill style={{ background: 'black', opacity: entryOpacity }}>
       {sfxNode}
       <div style={{ position: 'absolute', inset: 0, transform: videoTransform, filter: videoFilter }}>
-        <Video src={videoUrl} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+        <Video src={videoUrl} {...(startFromFrame ? { startFrom: startFromFrame } : {})} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
       </div>
       {progressBarNode}
       {subtitlesNode}
