@@ -7,7 +7,7 @@ import { S3Client, PutObjectCommand, GetObjectCommand } from '@aws-sdk/client-s3
 import { getSignedUrl } from '@aws-sdk/s3-request-presigner'
 
 export const runtime = 'nodejs'
-export const maxDuration = 600
+export const maxDuration = 120
 
 const API = process.env.API_URL ?? 'http://localhost:3001'
 const ADMIN_SECRET = process.env.ADMIN_SECRET ?? ''
@@ -104,11 +104,10 @@ export async function POST(req: Request) {
 
     purgeStaleTmpFiles('cleanvoice-')
     const id = crypto.randomUUID()
-    const outputPath = path.join('/tmp', `cleanvoice-${id}.mp4`)
 
     // Cleanvoice does not support WebM (browser MediaRecorder format).
     // If the source is WebM, download, convert to MP4 via FFmpeg, upload to S3,
-    // and pass the presigned S3 URL to Cleanvoice (same type of URL it already accepts).
+    // and pass the presigned S3 URL to Cleanvoice.
     const isWebm = /\.webm(\?|$)/i.test(videoUrl)
     if (isWebm) {
       const rawPath = path.join('/tmp', `cleanvoice-raw-${id}.webm`)
@@ -153,43 +152,10 @@ export async function POST(req: Request) {
       const errText = await editRes.text()
       return new Response(`Cleanvoice submit error (${editRes.status}): ${errText}`, { status: 502 })
     }
-    const { id: jobId } = await editRes.json()
+    const { id: cleanvoiceJobId } = await editRes.json()
 
-    let jobResult: any = null
-    for (let attempt = 0; attempt < 110; attempt++) {
-      await new Promise(r => setTimeout(r, 5000))
-      const statusRes = await fetch(`https://api.cleanvoice.ai/v2/edits/${jobId}`, {
-        headers: { 'X-API-Key': apiKey },
-      })
-      const data = await statusRes.json()
-      if (data.status === 'SUCCESS') { jobResult = data; break }
-      if (data.status === 'FAILURE') return new Response(`Cleanvoice processing failed: ${JSON.stringify(data)}`, { status: 502 })
-    }
-    if (!jobResult) return new Response('Cleanvoice timeout — vidéo trop longue pour être traitée dans le délai imparti', { status: 504 })
-
-    const result = jobResult.result ?? jobResult
-    const downloadUrl = result.download_url
-    if (!downloadUrl) return new Response(`Cleanvoice: aucun lien de téléchargement dans la réponse: ${JSON.stringify(jobResult)}`, { status: 502 })
-
-    const cleanedRes = await fetch(downloadUrl)
-    if (!cleanedRes.ok) return new Response(`Impossible de télécharger la vidéo nettoyée (${cleanedRes.status})`, { status: 502 })
-    fs.writeFileSync(outputPath, Buffer.from(await cleanedRes.arrayBuffer()))
-
-    const rawWords: any[] = result.transcription?.transcription?.words ?? result.transcript?.words ?? []
-    const wordTimestamps = rawWords
-      .map((w: any) => ({
-        word: (w.text ?? w.word ?? '') as string,
-        start: (w.start ?? w.start_time ?? 0) as number,
-        end: (w.end ?? w.end_time ?? 0) as number,
-      }))
-      .filter((w: any) => w.word.trim().length > 0)
-
-    const stats = result.statistics ?? {}
-    const removed: number =
-      result.processing_stats?.filler_words_removed ??
-      Object.values(stats).reduce((sum: number, v) => sum + (typeof v === 'number' ? v : 0), 0)
-
-    return Response.json({ id, removed, wordTimestamps })
+    // Return immediately — the client will poll /api/cleanvoice/status to track completion
+    return Response.json({ cleanvoiceJobId, id })
   } catch (err) {
     console.error('[cleanvoice] error:', err)
     return new Response(`Cleanvoice erreur interne: ${String(err)}`, { status: 500 })

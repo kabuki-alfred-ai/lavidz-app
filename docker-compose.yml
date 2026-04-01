@@ -111,12 +111,14 @@ services:
       DATABASE_URL: postgresql://${POSTGRES_USER:-lavidz}:${POSTGRES_PASSWORD}@postgres:5432/${POSTGRES_DB:-lavidz}
       JWT_SECRET: ${JWT_SECRET:?JWT_SECRET is required}
       RESEND_API_KEY: ${RESEND_API_KEY:-}
+      REDIS_URL: redis://redis:6379
       RUSTFS_ENDPOINT: http://minio:9000
       RUSTFS_ACCESS_KEY: ${MINIO_ROOT_USER:-admin}
       RUSTFS_SECRET_KEY: ${MINIO_ROOT_PASSWORD}
       RUSTFS_BUCKET: ${RUSTFS_BUCKET:-lavidz-videos}
     depends_on:
       - api
+      - redis
     networks:
       - coolify
 

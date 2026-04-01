@@ -1,11 +1,11 @@
 import fs from 'fs'
-import { jobs } from '../../jobs-store'
+import { getJob, deleteJob } from '../../jobs-store'
 
 export const runtime = 'nodejs'
 
 export async function GET(_req: Request, { params }: { params: Promise<{ jobId: string }> }) {
   const { jobId } = await params
-  const job = jobs.get(jobId)
+  const job = await getJob(jobId)
 
   if (!job?.done || !job.outputPath) {
     return new Response('Not ready', { status: 404 })
@@ -24,7 +24,7 @@ export async function GET(_req: Request, { params }: { params: Promise<{ jobId: 
   }
 
   // Clean up job metadata immediately so it can't be downloaded twice
-  jobs.delete(jobId)
+  await deleteJob(jobId)
 
   // Stream the file instead of loading it entirely into memory
   const nodeStream = fs.createReadStream(outputPath)

@@ -1,7 +1,7 @@
 'use client'
 
 import React from 'react'
-import { LayoutGrid, Clapperboard, Building2, Activity, Users, Brain, Music, MessageSquare, Mic } from 'lucide-react'
+import { LayoutGrid, Clapperboard, Building2, Activity, Users, Brain, Music, MessageSquare, Mic, LifeBuoy } from 'lucide-react'
 import { AdminNavItem } from './AdminNavItem'
 
 interface AdminSidebarNavProps {
@@ -37,6 +37,24 @@ export function AdminSidebarNav({ userRole }: AdminSidebarNavProps) {
           <AdminNavItem href="/admin/team" label="Équipe" icon={Users} />
         </>
       )}
+
+      {/* Support Button (Crisp) */}
+      <button
+        type="button"
+        onClick={() => {
+          if (typeof window !== 'undefined' && (window as any).$crisp) {
+            (window as any).$crisp.push(['do', 'chat:show']);
+            (window as any).$crisp.push(['do', 'chat:open']);
+          }
+        }}
+        className="group mt-auto flex items-center gap-3 px-3 h-9 text-xs font-mono transition-all duration-200 outline-none w-full text-muted-foreground hover:text-foreground hover:bg-surface-raised"
+      >
+        <LifeBuoy
+          size={14}
+          className="shrink-0 transition-transform duration-200 group-hover:scale-110"
+        />
+        <span className="tracking-tight">Support</span>
+      </button>
     </nav>
   )
 }

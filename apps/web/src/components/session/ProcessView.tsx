@@ -703,22 +703,38 @@ export function ProcessView({ recordings, themeName, sessionId, themeSlug, monta
         if (cleanvoiceEnabled) {
           setLoadingStep(`Cleanvoice ${i+1}/${recordings.length}...`)
           try {
-            const res = await fetch('/api/cleanvoice', {
+            // Step 1: submit the job (fast, < 120s including optional WebM conversion)
+            const submitRes = await fetch('/api/cleanvoice', {
               method: 'POST',
               headers: { 'Content-Type': 'application/json' },
               body: JSON.stringify({ videoUrl: realUrl, config: cleanvoiceConfig }),
             })
-            if (res.ok) {
-              const { id, wordTimestamps } = await res.json()
-              if (id) {
-                realUrl = `${window.location.origin}/api/cleanvoice/${id}`
-                if (wordTimestamps?.length) {
-                  setWordTimestampsMap(prev => ({ ...prev, [rec.id]: wordTimestamps }))
-                  wordTimestampsRef.current[rec.id] = wordTimestamps
+            if (!submitRes.ok) {
+              setCleanvoiceError(await submitRes.text())
+            } else {
+              const { cleanvoiceJobId, id } = await submitRes.json()
+              // Step 2: poll /api/cleanvoice/status until done (each call is < 30s)
+              let done = false
+              for (let attempt = 0; attempt < 120 && !done; attempt++) {
+                await new Promise(r => setTimeout(r, 5000))
+                setLoadingStep(`Cleanvoice ${i+1}/${recordings.length} (${Math.round((attempt+1)*5)}s)...`)
+                const statusRes = await fetch(`/api/cleanvoice/status?jobId=${cleanvoiceJobId}&id=${id}`)
+                if (!statusRes.ok) { setCleanvoiceError(await statusRes.text()); break }
+                const data = await statusRes.json()
+                if (data.done) {
+                  done = true
+                  if (data.error) {
+                    setCleanvoiceError(data.error)
+                  } else if (data.id) {
+                    realUrl = `${window.location.origin}/api/cleanvoice/${data.id}`
+                    if (data.wordTimestamps?.length) {
+                      setWordTimestampsMap(prev => ({ ...prev, [rec.id]: data.wordTimestamps }))
+                      wordTimestampsRef.current[rec.id] = data.wordTimestamps
+                    }
+                  }
                 }
               }
-            } else {
-              setCleanvoiceError(await res.text())
+              if (!done) setCleanvoiceError('Cleanvoice timeout — vidéo trop longue pour être traitée dans le délai imparti')
             }
           } catch { setCleanvoiceError('Cleanvoice échoué') }
         } else {

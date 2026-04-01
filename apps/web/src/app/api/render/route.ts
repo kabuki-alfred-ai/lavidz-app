@@ -13,26 +13,7 @@ let cachedBundle: string | null = null
 
 const DEFAULT_VOICE_ID = 'EXAVITQu4vr4xnSDxMaL'
 
-import { jobs } from './jobs-store'
-
-// ─── Concurrency limiter (max 2 simultaneous renders) ─────────────────────────
-let activeRenders = 0
-const MAX_CONCURRENT_RENDERS = 2
-const renderQueue: Array<() => void> = []
-
-function acquireRenderSlot(): Promise<void> {
-  if (activeRenders < MAX_CONCURRENT_RENDERS) {
-    activeRenders++
-    return Promise.resolve()
-  }
-  return new Promise((resolve) => renderQueue.push(resolve))
-}
-
-function releaseRenderSlot(): void {
-  const next = renderQueue.shift()
-  if (!next) activeRenders--
-  else next()
-}
+import { setJob, getJob } from './jobs-store'
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
@@ -130,15 +111,13 @@ async function runRender(jobId: string, body: any) {
   const apiKey = process.env.ELEVENLABS_API_KEY ?? ''
   const ttsIds: (string | null)[] = []
 
-  const setProgress = (p: number) => {
-    const job = jobs.get(jobId)
-    if (job) jobs.set(jobId, { ...job, progress: p })
+  const setProgress = async (p: number) => {
+    const job = await getJob(jobId)
+    if (job) await setJob(jobId, { ...job, progress: p })
   }
 
-  await acquireRenderSlot()
-
   try {
-    setProgress(2)
+    await setProgress(2)
 
     // Generate TTS server-side — max 3 concurrent to avoid ElevenLabs 429
     const generatedIds = await generateTTSBatched(segments, voiceId ?? DEFAULT_VOICE_ID, apiKey)
@@ -149,13 +128,13 @@ async function runRender(jobId: string, body: any) {
       ttsUrl: ttsIds[i] ? `${origin}/api/tts-asset/${ttsIds[i]}` : null,
     }))
 
-    setProgress(10)
+    await setProgress(10)
 
     if (!cachedBundle) {
       cachedBundle = await bundle({ entryPoint: path.join(process.cwd(), 'src/remotion/Root.tsx'), onProgress: () => {} })
     }
 
-    setProgress(15)
+    await setProgress(15)
 
     const totalFrames = calcTotalFrames(serverSegments, questionCardFrames, intro, outro, fps)
     const inputProps = { segments: serverSegments, questionCardFrames, subtitleSettings, theme, intro, outro, fps, motionSettings, audioSettings }
@@ -200,15 +179,13 @@ async function runRender(jobId: string, body: any) {
       }
     }
 
-    jobs.set(jobId, { progress: 100, done: true, outputPath, error: null })
+    await setJob(jobId, { progress: 100, done: true, outputPath, sessionId: sessionId ?? null, error: null })
   } catch (err) {
     // Cleanup TTS files on error
     await Promise.all(
       ttsIds.map(id => id ? fs.promises.unlink(path.join('/tmp', `tts-render-${id}.mp3`)).catch(() => {}) : Promise.resolve())
     )
-    jobs.set(jobId, { progress: 0, done: true, outputPath: null, error: String(err) })
-  } finally {
-    releaseRenderSlot()
+    await setJob(jobId, { progress: 0, done: true, outputPath: null, sessionId: sessionId ?? null, error: String(err) })
   }
 }
 
@@ -218,9 +195,9 @@ export async function POST(req: Request) {
   try {
     const body = await req.json()
     const jobId = crypto.randomUUID()
-    jobs.set(jobId, { progress: 0, done: false, outputPath: null, error: null })
+    await setJob(jobId, { progress: 0, done: false, outputPath: null, sessionId: body.sessionId ?? null, error: null })
 
-    // Fire and forget (concurrency limited internally)
+    // Fire and forget — Vercel keeps the function alive (maxDuration: 600) while the render runs
     runRender(jobId, body)
 
     return Response.json({ jobId })

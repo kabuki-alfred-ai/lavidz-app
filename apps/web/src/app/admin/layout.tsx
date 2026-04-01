@@ -3,6 +3,7 @@ import { getSessionUser } from '@/lib/auth'
 import { prisma } from '@lavidz/database'
 import { LogoutButton } from './LogoutButton'
 import { AdminSidebarNav } from './AdminSidebarNav'
+import { MobileAdminSidebar } from './MobileAdminSidebar'
 import { AiDrawer } from './AiDrawer'
 import { ChevronRight, Home } from 'lucide-react'
 
@@ -14,8 +15,8 @@ export default async function AdminLayout({ children }: { children: React.ReactN
 
   return (
     <div className="flex h-screen bg-background overflow-hidden selection:bg-primary/30">
-      {/* Sidebar */}
-      <aside className="w-[240px] shrink-0 border-r border-border flex flex-col bg-surface-raised/40 backdrop-blur-md z-20">
+      {/* Sidebar — desktop only */}
+      <aside className="hidden md:flex w-[240px] shrink-0 border-r border-border flex-col bg-surface-raised/40 backdrop-blur-md z-20">
         {/* Logo */}
         <div className="h-14 flex items-center px-6 border-b border-border mb-4">
           <Link href="/admin" className="flex items-center gap-3 group">
@@ -70,13 +71,22 @@ export default async function AdminLayout({ children }: { children: React.ReactN
         <div className="absolute -bottom-[10%] -left-[10%] w-[30%] h-[30%] bg-primary/5 blur-[100px] rounded-full pointer-events-none" />
 
         {/* Topbar */}
-        <header className="h-14 border-b border-border flex items-center justify-between px-8 bg-background/60 backdrop-blur-md z-10 shrink-0">
-          <div className="flex items-center gap-3 text-[10px] font-mono text-muted-foreground uppercase tracking-widest leading-none">
-            <Home size={10} className="text-muted-foreground/60" />
-            <ChevronRight size={10} className="text-muted-foreground/40" />
-            <span className="text-foreground/70 font-medium">Panel</span>
-            <ChevronRight size={10} className="text-muted-foreground/40" />
-            <span className="text-foreground font-bold">Admin</span>
+        <header className="h-14 border-b border-border flex items-center justify-between px-4 md:px-8 bg-background/60 backdrop-blur-md z-10 shrink-0">
+          <div className="flex items-center gap-3">
+            {/* Mobile hamburger */}
+            <MobileAdminSidebar
+              userRole={user?.role}
+              userName={user ? (user.firstName ? `${user.firstName} ${user.lastName || ''}`.trim() : user.email.split('@')[0]) : ''}
+              userInitial={user ? user.email[0].toUpperCase() : ''}
+              avatarSrc={dbUser?.avatarKey}
+            />
+            <div className="flex items-center gap-3 text-[10px] font-mono text-muted-foreground uppercase tracking-widest leading-none">
+              <Home size={10} className="text-muted-foreground/60 hidden md:block" />
+              <ChevronRight size={10} className="text-muted-foreground/40 hidden md:block" />
+              <span className="text-foreground/70 font-medium">Panel</span>
+              <ChevronRight size={10} className="text-muted-foreground/40" />
+              <span className="text-foreground font-bold">Admin</span>
+            </div>
           </div>
 
           <div className="flex items-center gap-4">
@@ -91,7 +101,7 @@ export default async function AdminLayout({ children }: { children: React.ReactN
         </header>
 
         {/* Content */}
-        <main className="flex-1 overflow-auto p-8 lg:p-12 relative animate-in fade-in duration-700">
+        <main className="flex-1 overflow-auto p-4 md:p-8 lg:p-12 relative animate-in fade-in duration-700">
           {children}
         </main>
       </div>
