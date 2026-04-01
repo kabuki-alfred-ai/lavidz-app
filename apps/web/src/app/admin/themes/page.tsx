@@ -26,10 +26,10 @@ export default async function AdminThemesPage() {
               Bibliothèque
             </p>
           </div>
-          <h1 className="font-inter font-black text-4xl text-foreground tracking-tighter">
+          <h1 className="text-3xl font-black uppercase tracking-tighter text-foreground">
             Thèmes
           </h1>
-          <p className="text-[11px] font-mono text-muted-foreground/80 mt-2 uppercase tracking-widest leading-relaxed">
+          <p className="text-[11px] font-mono text-muted-foreground mt-2 uppercase tracking-widest leading-relaxed">
             Configuration des parcours d'enregistrement
           </p>
         </div>
@@ -45,9 +45,9 @@ export default async function AdminThemesPage() {
       {/* Table */}
       {themes.length === 0 ? (
         <div className="border border-border/40 border-dashed p-20 text-center rounded-sm bg-surface/10">
-          <Sparkles size={32} className="mx-auto text-muted-foreground/20 mb-4" />
+          <Sparkles size={32} className="mx-auto text-muted-foreground/30 mb-4" />
           <p className="font-inter font-bold text-lg text-foreground mb-2">Aucun thème actif</p>
-          <p className="text-[10px] font-mono text-muted-foreground/60 mb-8 uppercase tracking-widest">
+          <p className="text-[10px] font-mono text-muted-foreground/80 mb-8 uppercase tracking-widest">
             Créez votre premier parcours pour commencer
           </p>
           <Button asChild variant="outline" size="sm" className="rounded-none">
@@ -78,7 +78,7 @@ export default async function AdminThemesPage() {
                 <div className="pr-4">
                   <p className="font-inter font-bold text-[14px] text-foreground group-hover:text-primary transition-colors">{theme.name}</p>
                   {theme.description && (
-                    <p className="text-[10px] font-mono text-muted-foreground/60 mt-1 truncate max-w-[320px] uppercase tracking-tighter">
+                    <p className="text-[10px] font-mono text-muted-foreground mt-1 truncate max-w-[320px] uppercase tracking-tighter">
                       {theme.description}
                     </p>
                   )}
@@ -89,10 +89,10 @@ export default async function AdminThemesPage() {
                 </div>
 
                 <div className="flex items-center gap-2">
-                  <Layers size={12} className="text-muted-foreground/20" />
+                  <Layers size={12} className="text-muted-foreground/40" />
                   <span className="text-[11px] font-mono text-foreground font-bold">
                     {theme.questions.length}
-                    <span className="text-muted-foreground/60 font-normal ml-1">q.</span>
+                    <span className="text-muted-foreground/80 font-normal ml-1">q.</span>
                   </span>
                 </div>
 

@@ -102,10 +102,10 @@ export function VoicesClient({ initialVoices }: Props) {
             ElevenLabs
           </p>
         </div>
-        <h1 className="font-inter font-black text-4xl text-foreground tracking-tighter">
+        <h1 className="text-3xl font-black uppercase tracking-tighter text-foreground">
           Voix IA
         </h1>
-        <p className="text-[11px] font-mono text-muted-foreground/60 mt-2 uppercase tracking-widest leading-relaxed">
+        <p className="text-[11px] font-mono text-muted-foreground mt-2 uppercase tracking-widest leading-relaxed">
           {voices.length} voix · utilisées pour lire les questions
         </p>
       </div>
@@ -125,7 +125,7 @@ export function VoicesClient({ initialVoices }: Props) {
 
             <div className="flex gap-4 items-end">
               <div className="flex-1 space-y-2">
-                <Label className="text-[10px] font-mono uppercase tracking-widest text-muted-foreground/60">
+                <Label className="text-[10px] font-mono uppercase tracking-widest text-muted-foreground/80">
                   Voice ID ElevenLabs
                 </Label>
                 <Input
@@ -158,19 +158,19 @@ export function VoicesClient({ initialVoices }: Props) {
       {/* Voices list */}
       <section className="space-y-4">
         <div className="flex items-center gap-3">
-          <Mic size={12} className="text-primary/40" />
-          <span className="text-[10px] font-mono uppercase tracking-[0.2em] text-muted-foreground/60">
+          <Mic size={12} className="text-primary/60" />
+          <span className="text-[10px] font-mono uppercase tracking-[0.2em] text-muted-foreground/80">
             Bibliothèque
           </span>
-          <span className="text-[10px] font-mono text-muted-foreground/30">
+          <span className="text-[10px] font-mono text-muted-foreground/60">
             {voices.length} voix
           </span>
         </div>
 
         {voices.length === 0 ? (
           <div className="border border-dashed border-border/40 py-8 text-center">
-            <Mic size={20} className="mx-auto text-muted-foreground/15 mb-2" />
-            <p className="text-[10px] font-mono text-muted-foreground/30 uppercase tracking-widest">
+            <Mic size={20} className="mx-auto text-muted-foreground/20 mb-2" />
+            <p className="text-[10px] font-mono text-muted-foreground/60 uppercase tracking-widest">
               Aucune voix disponible
             </p>
           </div>
@@ -178,7 +178,7 @@ export function VoicesClient({ initialVoices }: Props) {
           <div className="border border-border/60 bg-surface/30 rounded-sm overflow-hidden backdrop-blur-sm">
             <div className="grid grid-cols-[1fr_120px_80px_60px] border-b border-border/40 bg-surface/50 px-6 py-3">
               {['Voix', 'Catégorie', 'Écoute', 'Action'].map(h => (
-                <div key={h} className="text-[9px] font-mono uppercase tracking-[0.2em] text-muted-foreground/40">
+                <div key={h} className="text-[9px] font-mono uppercase tracking-[0.2em] text-muted-foreground/70">
                   {h}
                 </div>
               ))}
@@ -198,7 +198,7 @@ export function VoicesClient({ initialVoices }: Props) {
                       <span className="font-inter font-bold text-[13px] text-foreground truncate block group-hover:text-primary transition-colors">
                         {voice.name}
                       </span>
-                      <span className="text-[10px] font-mono text-muted-foreground/40 truncate block">
+                      <span className="text-[10px] font-mono text-muted-foreground/70 truncate block">
                         {[voice.gender, voice.accent].filter(Boolean).join(' · ') || voice.id}
                       </span>
                     </div>
@@ -207,11 +207,11 @@ export function VoicesClient({ initialVoices }: Props) {
                   {/* Category */}
                   <div>
                     {voice.category && CATEGORY_LABEL[voice.category] ? (
-                      <span className="text-[9px] font-mono uppercase tracking-[0.2em] px-2 py-1 border rounded-none bg-primary/5 text-primary/60 border-primary/10">
+                      <span className="text-[9px] font-mono uppercase tracking-[0.2em] px-2 py-1 border rounded-none bg-primary/5 text-primary border-primary/10">
                         {CATEGORY_LABEL[voice.category]}
                       </span>
                     ) : (
-                      <span className="text-[10px] font-mono text-muted-foreground/30">—</span>
+                      <span className="text-[10px] font-mono text-muted-foreground/60">—</span>
                     )}
                   </div>
 
@@ -223,7 +223,7 @@ export function VoicesClient({ initialVoices }: Props) {
                     >
                       {previewingId === voice.id
                         ? <Pause size={11} className="text-primary" />
-                        : <Play size={11} className="text-muted-foreground/60" />
+                        : <Play size={11} className="text-muted-foreground/80" />
                       }
                     </button>
                   </div>
@@ -238,7 +238,7 @@ export function VoicesClient({ initialVoices }: Props) {
                         >
                           {deletingId === voice.id
                             ? <Loader2 size={11} className="animate-spin text-muted-foreground" />
-                            : <Trash2 size={11} className="text-muted-foreground/40 group-hover:text-destructive" />
+                            : <Trash2 size={11} className="text-muted-foreground/70 group-hover:text-destructive" />
                           }
                         </button>
                       </AlertDialogTrigger>

@@ -63,4 +63,41 @@ export class UsersController {
       body.organizationName,
     )
   }
+
+  @Post('org-invitations')
+  @UseGuards(AdminGuard)
+  createOrgInvitation(
+    @Body() body: { email: string; organizationId: string; role: 'ADMIN' | 'USER'; invitedById?: string },
+    @Req() req: Request,
+  ): Promise<unknown> {
+    const origin = (req.headers as unknown as Record<string, string>)['x-forwarded-origin']
+      ?? (req.headers as unknown as Record<string, string>)['origin']
+      ?? 'http://localhost:3000'
+    return this.usersService.createOrgInvitation(
+      body.email,
+      body.organizationId,
+      body.role,
+      body.invitedById ?? null,
+      origin,
+    )
+  }
+
+  @Get('org-invitations/verify/:token')
+  verifyOrgToken(@Param('token') token: string): Promise<unknown> {
+    return this.usersService.verifyOrgToken(token)
+  }
+
+  @Get('org-invitations/by-org/:orgId')
+  @UseGuards(AdminGuard)
+  listOrgInvitations(@Param('orgId') orgId: string): Promise<unknown[]> {
+    return this.usersService.listOrgInvitations(orgId)
+  }
+
+  @Post('org-invitations/:token/accept')
+  acceptOrgInvitation(
+    @Param('token') token: string,
+    @Body() body: { password: string; firstName?: string; lastName?: string },
+  ): Promise<unknown> {
+    return this.usersService.acceptOrgInvitation(token, body.password, body.firstName, body.lastName)
+  }
 }

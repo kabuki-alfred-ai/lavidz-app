@@ -40,9 +40,11 @@ export default function RegisterPage() {
     return (
       <div className="min-h-screen bg-background grid-bg flex items-center justify-center px-6">
         <div className="w-full max-w-sm animate-fade-in text-center">
-          <div className="flex items-center justify-center gap-2 mb-12">
-            <span className="w-2 h-2 bg-primary rounded-none" />
-            <span className="font-sans font-extrabold text-base tracking-tight text-foreground">LAVIDZ</span>
+          <div className="flex items-center justify-center gap-1.5 mb-12 group cursor-pointer">
+            <div className="relative w-6 h-6 flex items-center justify-center">
+              <span className="block w-3 h-3 bg-primary animate-logo-morph shadow-[0_0_10px_rgba(var(--primary),0.2)]" />
+            </div>
+            <span className="font-sans font-black text-lg tracking-tighter text-foreground uppercase">LAVIDZ</span>
           </div>
           <div className="border border-border p-8">
             <p className="text-xs font-mono uppercase tracking-widest text-muted-foreground mb-3">Demande envoyée</p>
@@ -62,9 +64,11 @@ export default function RegisterPage() {
   return (
     <div className="min-h-screen bg-background grid-bg flex items-center justify-center px-6">
       <div className="w-full max-w-sm animate-fade-in">
-        <div className="flex items-center gap-2 mb-12">
-          <span className="w-2 h-2 bg-primary" />
-          <span className="font-sans font-extrabold text-sm tracking-widest uppercase text-muted-foreground">Lavidz</span>
+        <div className="flex items-center gap-1.5 mb-12 group cursor-pointer">
+          <div className="relative w-6 h-6 flex items-center justify-center">
+            <span className="block w-3 h-3 bg-primary animate-logo-morph shadow-[0_0_10px_rgba(var(--primary),0.2)]" />
+          </div>
+          <span className="font-sans font-black text-lg tracking-tighter text-foreground uppercase">Lavidz</span>
         </div>
 
         <h1 className="font-sans font-extrabold text-2xl tracking-tight mb-1">Créer une organisation</h1>

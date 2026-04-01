@@ -14,7 +14,7 @@ function Stars({ value, size = 16 }: { value: number; size?: number }) {
   return (
     <span className="inline-flex gap-0.5">
       {[1, 2, 3, 4, 5].map(s => (
-        <span key={s} style={{ fontSize: size, color: s <= value ? '#facc15' : 'rgba(255,255,255,0.12)' }}>
+        <span key={s} style={{ fontSize: size, color: s <= value ? '#facc15' : 'currentColor', opacity: s <= value ? 1 : 0.15 }}>
           &#9733;
         </span>
       ))}
@@ -52,7 +52,7 @@ export function FeedbacksClient({ feedbacks, stats }: Props) {
   return (
     <div className="space-y-8">
       <div>
-        <h1 className="text-2xl font-black tracking-tight">Feedbacks</h1>
+        <h1 className="text-3xl font-black uppercase tracking-tighter text-foreground">Feedbacks</h1>
         <p className="text-sm text-muted-foreground mt-1">Retours des participants après chaque session</p>
       </div>
 
@@ -65,7 +65,7 @@ export function FeedbacksClient({ feedbacks, stats }: Props) {
 
       {/* Feedback list */}
       {feedbacks.length === 0 ? (
-        <div className="text-center py-16 text-muted-foreground/60 text-sm">
+        <div className="text-center py-16 text-muted-foreground text-sm">
           Aucun feedback pour le moment
         </div>
       ) : (
@@ -104,7 +104,7 @@ export function FeedbacksClient({ feedbacks, stats }: Props) {
 
                 {/* Comment */}
                 {fb.comment && (
-                  <p className="text-sm text-muted-foreground/80 bg-muted/30 rounded-lg px-3 py-2 italic">
+                  <p className="text-sm text-muted-foreground bg-muted/40 rounded-lg px-3 py-2 italic font-medium">
                     &ldquo;{fb.comment}&rdquo;
                   </p>
                 )}

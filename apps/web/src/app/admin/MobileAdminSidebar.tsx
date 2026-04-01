@@ -43,17 +43,16 @@ export function MobileAdminSidebar({ userRole, userName, userInitial, avatarSrc 
       {/* Drawer */}
       <aside
         className={cn(
-          "fixed top-0 left-0 h-full w-[240px] z-50 flex flex-col border-r border-border transition-transform duration-300 md:hidden",
+          "fixed top-0 left-0 h-full w-[240px] z-50 flex flex-col border-r border-border transition-transform duration-300 md:hidden dark",
           open ? "translate-x-0" : "-translate-x-full"
         )}
         style={{ backgroundColor: '#0a0a0a' }}
       >
         {/* Logo + close */}
         <div className="h-14 flex items-center justify-between px-6 border-b border-border mb-4">
-          <Link href="/admin" className="flex items-center gap-3 group">
-            <div className="relative">
-              <span className="block w-3 h-3 bg-primary rounded-none transition-all duration-300 group-hover:rotate-45" />
-              <span className="absolute -top-0.5 -right-0.5 w-1.5 h-1.5 bg-primary/40 rounded-none group-hover:translate-x-1 group-hover:-translate-y-1 transition-transform" />
+          <Link href="/admin" className="flex items-center gap-1.5 group">
+            <div className="relative w-6 h-6 flex items-center justify-center">
+              <span className="block w-3 h-3 bg-primary animate-logo-morph shadow-[0_0_10px_rgba(var(--primary),0.2)]" />
             </div>
             <span className="font-sans font-black text-lg tracking-tighter text-foreground uppercase">
               LAVIDZ

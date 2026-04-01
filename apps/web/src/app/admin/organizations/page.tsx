@@ -5,7 +5,8 @@ import Link from 'next/link'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
-import { Loader2, Building2, Search, Users, LayoutGrid, CheckCircle2, PauseCircle, RotateCcw, UserX, ArrowRightLeft } from 'lucide-react'
+import { Label } from '@/components/ui/label'
+import { Loader2, Building2, Search, Users, LayoutGrid, CheckCircle2, PauseCircle, RotateCcw, UserX, ArrowRightLeft, Plus, X } from 'lucide-react'
 
 interface Org {
   id: string
@@ -26,6 +27,94 @@ interface UnassignedUser {
   createdAt: string
 }
 
+function CreateOrgModal({ onClose, onCreated }: { onClose: () => void; onCreated: (org: Org) => void }) {
+  const [name, setName] = useState('')
+  const [loading, setLoading] = useState(false)
+  const [error, setError] = useState('')
+
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault()
+    if (!name.trim()) return
+    setLoading(true)
+    setError('')
+    try {
+      const res = await fetch('/api/admin/organizations', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ name: name.trim() }),
+      })
+      if (!res.ok) { setError(await res.text()); return }
+      const org = await res.json()
+      onCreated(org)
+      onClose()
+    } catch {
+      setError('Une erreur est survenue.')
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm">
+      <div className="w-full max-w-md border border-border bg-background shadow-2xl rounded-sm animate-in fade-in zoom-in-95 duration-200">
+        <div className="flex items-center justify-between px-6 py-5 border-b border-border/60">
+          <div>
+            <p className="text-[10px] font-mono uppercase tracking-[0.2em] text-primary/60 mb-1">Nouvelle organisation</p>
+            <h3 className="font-inter font-bold text-lg text-foreground tracking-tight">Créer une organisation</h3>
+          </div>
+          <button
+            onClick={onClose}
+            className="w-8 h-8 flex items-center justify-center rounded-sm border border-border hover:border-primary/40 hover:text-primary transition-all text-muted-foreground"
+          >
+            <X size={14} />
+          </button>
+        </div>
+
+        <form onSubmit={handleSubmit} className="px-6 py-6 space-y-4">
+          <div className="flex flex-col gap-2">
+            <Label htmlFor="org-name">Nom de l&apos;organisation</Label>
+            <Input
+              id="org-name"
+              value={name}
+              onChange={e => setName(e.target.value)}
+              placeholder="Acme Corp"
+              required
+              autoFocus
+              className="font-mono text-sm"
+            />
+            <p className="text-[10px] font-mono text-muted-foreground/50">
+              Un slug sera généré automatiquement depuis le nom.
+            </p>
+          </div>
+
+          {error && <p className="text-xs text-destructive font-mono">{error}</p>}
+
+          <div className="flex gap-3 pt-2">
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              onClick={onClose}
+              className="flex-1 rounded-none text-[10px] font-mono uppercase tracking-widest"
+            >
+              Annuler
+            </Button>
+            <Button
+              type="submit"
+              size="sm"
+              disabled={loading || !name.trim()}
+              className="flex-1 rounded-none text-[10px] font-mono uppercase tracking-widest"
+            >
+              {loading ? <Loader2 size={10} className="animate-spin mr-2" /> : <Plus size={10} className="mr-2" />}
+              {loading ? 'Création...' : 'Créer'}
+            </Button>
+          </div>
+        </form>
+      </div>
+    </div>
+  )
+}
+
 export default function OrganizationsPage() {
   const [orgs, setOrgs] = useState<Org[]>([])
   const [unassignedUsers, setUnassignedUsers] = useState<UnassignedUser[]>([])
@@ -36,6 +125,7 @@ export default function OrganizationsPage() {
   const [selectedOrg, setSelectedOrg] = useState<Record<string, string>>({})
   const [assignError, setAssignError] = useState<Record<string, string>>({})
   const [search, setSearch] = useState('')
+  const [showCreateModal, setShowCreateModal] = useState(false)
 
   useEffect(() => {
     fetch('/api/admin/organizations')
@@ -94,6 +184,13 @@ export default function OrganizationsPage() {
 
   return (
     <div className="max-w-6xl space-y-10">
+      {showCreateModal && (
+        <CreateOrgModal
+          onClose={() => setShowCreateModal(false)}
+          onCreated={(org) => setOrgs(prev => [org, ...prev])}
+        />
+      )}
+
       {/* Header */}
       <div className="flex flex-col md:flex-row md:items-end justify-between gap-6">
         <div>
@@ -103,7 +200,7 @@ export default function OrganizationsPage() {
               Superadmin
             </p>
           </div>
-          <h1 className="font-inter font-black text-4xl text-foreground tracking-tighter">
+          <h1 className="text-3xl font-black uppercase tracking-tighter text-foreground">
             Organisations
           </h1>
           <p className="text-[11px] font-mono text-muted-foreground/60 mt-2 uppercase tracking-widest leading-relaxed">
@@ -111,14 +208,24 @@ export default function OrganizationsPage() {
           </p>
         </div>
 
-        <div className="relative w-full md:w-80 group">
-          <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground/40 group-focus-within:text-primary transition-colors" />
-          <Input
-            placeholder="Rechercher une org..."
-            className="pl-10 h-10 bg-surface/30 border-border/40 focus:border-primary/40 transition-all rounded-sm font-mono text-xs"
-            value={search}
-            onChange={(e) => setSearch(e.target.value)}
-          />
+        <div className="flex items-center gap-3">
+          <div className="relative w-full md:w-64 group">
+            <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground/40 group-focus-within:text-primary transition-colors" />
+            <Input
+              placeholder="Rechercher une org..."
+              className="pl-10 h-10 bg-surface/30 border-border/40 focus:border-primary/40 transition-all rounded-sm font-mono text-xs"
+              value={search}
+              onChange={(e) => setSearch(e.target.value)}
+            />
+          </div>
+          <Button
+            size="sm"
+            onClick={() => setShowCreateModal(true)}
+            className="h-10 px-4 rounded-none font-mono text-[10px] uppercase tracking-[0.2em] shrink-0"
+          >
+            <Plus size={12} className="mr-2" />
+            Nouvelle org
+          </Button>
         </div>
       </div>
 

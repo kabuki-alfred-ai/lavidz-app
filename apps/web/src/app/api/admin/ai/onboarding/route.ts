@@ -30,7 +30,7 @@ RÈGLES :
 
 export async function POST(req: Request) {
   const user = await getFreshUser()
-  if (!user || user.role !== 'SUPERADMIN') {
+  if (!user) {
     return new Response('Unauthorized', { status: 401 })
   }
 

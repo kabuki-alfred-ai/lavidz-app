@@ -8,7 +8,7 @@ const ADMIN_SECRET = process.env.ADMIN_SECRET ?? ''
 export async function GET(req: Request) {
   try {
     const user = await getFreshUser()
-    if (!user || user.role !== 'SUPERADMIN') {
+    if (!user) {
       return new Response('Unauthorized', { status: 401 })
     }
 
@@ -30,11 +30,11 @@ export async function GET(req: Request) {
 export async function POST(req: Request) {
   try {
     const user = await getFreshUser()
-    if (!user || user.role !== 'SUPERADMIN') {
+    if (!user) {
       return new Response('Unauthorized', { status: 401 })
     }
     if (!user.organizationId) {
-      return new Response('SUPERADMIN sans organisation assignée.', { status: 400 })
+      return new Response('Aucune organisation assignée.', { status: 400 })
     }
 
     const body = await req.json()

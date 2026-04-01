@@ -1,5 +1,5 @@
 import type { ReactNode } from 'react'
-import { AbsoluteFill, Audio, Sequence } from 'remotion'
+import { AbsoluteFill, Audio, Sequence, interpolate, useCurrentFrame } from 'remotion'
 import { QuestionCard } from './QuestionCard'
 import { RecordingClip } from './RecordingClip'
 import { IntroCard } from './IntroCard'
@@ -47,6 +47,7 @@ export function LavidzComposition({
   audioSettings,
   outro,
 }: Props) {
+  const frame = useCurrentFrame()
   let offset = 0
   const sequences: ReactNode[] = []
 
@@ -157,8 +158,29 @@ export function LavidzComposition({
         pointerEvents: 'none',
       }}
     >
-      {/* Official logo: square dot */}
-      <div style={{ width: 10, height: 10, background: '#ffffff', flexShrink: 0 }} />
+      {/* Standardized liquid logo morph icon */}
+      <div
+        style={{
+          width: 14,
+          height: 14,
+          background: '#ffffff',
+          borderRadius: `${interpolate(
+            Math.sin((frame / fps / 4) * Math.PI * 2),
+            [-1, 1],
+            [0, 50]
+          )}%`,
+          transform: `rotate(${interpolate(
+            frame % (fps * 4),
+            [0, fps * 4],
+            [0, 360]
+          )}deg) scale(${interpolate(
+            Math.sin((frame / fps / 4) * Math.PI * 2),
+            [-1, 1],
+            [1, 0.85]
+          )})`,
+          flexShrink: 0,
+        }}
+      />
       <span
         style={{
           fontFamily: "sans-serif",

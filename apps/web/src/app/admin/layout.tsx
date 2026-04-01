@@ -19,10 +19,9 @@ export default async function AdminLayout({ children }: { children: React.ReactN
       <aside className="hidden md:flex w-[240px] shrink-0 border-r border-border flex-col bg-surface-raised/40 backdrop-blur-md z-20">
         {/* Logo */}
         <div className="h-14 flex items-center px-6 border-b border-border mb-4">
-          <Link href="/admin" className="flex items-center gap-3 group">
-            <div className="relative">
-              <span className="block w-3 h-3 bg-primary rounded-none transition-all duration-300 group-hover:rotate-45" />
-              <span className="absolute -top-0.5 -right-0.5 w-1.5 h-1.5 bg-primary/40 rounded-none group-hover:translate-x-1 group-hover:-translate-y-1 transition-transform" />
+          <Link href="/admin" className="flex items-center gap-1.5 group">
+            <div className="relative w-6 h-6 flex items-center justify-center">
+              <span className="block w-3 h-3 bg-primary animate-logo-morph shadow-[0_0_10px_rgba(var(--primary),0.2)]" />
             </div>
             <span className="font-sans font-black text-lg tracking-tighter text-foreground uppercase">
               LAVIDZ
@@ -81,10 +80,10 @@ export default async function AdminLayout({ children }: { children: React.ReactN
               avatarSrc={dbUser?.avatarKey}
             />
             <div className="flex items-center gap-3 text-[10px] font-mono text-muted-foreground uppercase tracking-widest leading-none">
-              <Home size={10} className="text-muted-foreground/60 hidden md:block" />
-              <ChevronRight size={10} className="text-muted-foreground/40 hidden md:block" />
-              <span className="text-foreground/70 font-medium">Panel</span>
-              <ChevronRight size={10} className="text-muted-foreground/40" />
+              <Home size={10} className="text-muted-foreground/80 hidden md:block" />
+              <ChevronRight size={10} className="text-muted-foreground/60 hidden md:block" />
+              <span className="text-foreground/80 font-medium">Panel</span>
+              <ChevronRight size={10} className="text-muted-foreground/60" />
               <span className="text-foreground font-bold">Admin</span>
             </div>
           </div>
@@ -106,8 +105,8 @@ export default async function AdminLayout({ children }: { children: React.ReactN
         </main>
       </div>
 
-      {/* AI floating drawer — SUPERADMIN only */}
-      {user?.role === 'SUPERADMIN' && <AiDrawer />}
+      {/* AI floating drawer — all authenticated users */}
+      {user && <AiDrawer />}
     </div>
   )
 }

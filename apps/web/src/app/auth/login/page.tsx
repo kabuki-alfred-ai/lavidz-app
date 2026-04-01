@@ -39,9 +39,11 @@ function LoginForm() {
 
   return (
     <div className="w-full max-w-sm animate-fade-in">
-      <div className="flex items-center gap-2 mb-12">
-        <span className="w-2 h-2 bg-primary rounded-none" />
-        <span className="font-sans font-extrabold text-base tracking-tight text-foreground">LAVIDZ</span>
+      <div className="flex items-center gap-1.5 mb-12 group cursor-pointer">
+        <div className="relative w-6 h-6 flex items-center justify-center">
+          <span className="block w-3 h-3 bg-primary animate-logo-morph shadow-[0_0_10px_rgba(var(--primary),0.2)]" />
+        </div>
+        <span className="font-sans font-black text-lg tracking-tighter text-foreground uppercase">LAVIDZ</span>
       </div>
 
       <h1 className="font-sans font-extrabold text-2xl tracking-tight mb-1">Connexion</h1>

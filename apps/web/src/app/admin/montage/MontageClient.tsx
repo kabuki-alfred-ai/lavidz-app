@@ -236,7 +236,7 @@ export function MontageClient({ themes, initialSessions }: Props) {
             Workflow
           </p>
         </div>
-        <h1 className="font-inter font-black text-4xl text-foreground tracking-tighter">
+        <h1 className="text-3xl font-black uppercase tracking-tighter text-foreground">
           Espace Montage
         </h1>
       </div>

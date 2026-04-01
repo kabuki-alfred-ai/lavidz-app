@@ -978,7 +978,7 @@ export default function AiProfilePage() {
                 <span>Profil</span>
               </div>
             </div>
-            <h1 className="font-inter font-black text-4xl text-foreground tracking-tighter">
+            <h1 className="text-3xl font-black uppercase tracking-tighter text-foreground">
               Profil IA
             </h1>
             <p className="text-[11px] font-mono text-muted-foreground/60 mt-2 uppercase tracking-widest">

@@ -8,11 +8,11 @@ const ADMIN_SECRET = process.env.ADMIN_SECRET ?? ''
 export async function POST() {
   try {
     const user = await getFreshUser()
-    if (!user || user.role !== 'SUPERADMIN') {
+    if (!user) {
       return new Response('Unauthorized', { status: 401 })
     }
     if (!user.organizationId) {
-      return new Response('SUPERADMIN sans organisation assignée.', { status: 400 })
+      return new Response('Aucune organisation assignée.', { status: 400 })
     }
 
     const res = await fetch(`${API}/api/ai/profile/summarize`, {

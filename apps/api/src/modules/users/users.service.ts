@@ -176,6 +176,149 @@ export class UsersService {
     return { ok: true, userId: user.id }
   }
 
+  async createOrgInvitation(
+    email: string,
+    organizationId: string,
+    role: 'ADMIN' | 'USER',
+    invitedById: string | null,
+    baseUrl: string,
+  ): Promise<unknown> {
+    const normalized = email.toLowerCase().trim()
+
+    const org = await prisma.organization.findUnique({ where: { id: organizationId } })
+    if (!org) throw new NotFoundException('Organisation introuvable')
+
+    const existingUser = await prisma.user.findUnique({ where: { email: normalized } })
+    if (existingUser) {
+      if (existingUser.organizationId === organizationId) {
+        throw new ConflictException('Cet utilisateur appartient déjà à cette organisation')
+      }
+      throw new ConflictException('Un compte existe déjà avec cet email')
+    }
+
+    const token = crypto.randomUUID()
+    const expiresAt = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000)
+
+    const invitation = await prisma.orgInvitation.upsert({
+      where: { email_organizationId: { email: normalized, organizationId } },
+      create: { email: normalized, token, status: 'PENDING', role, organizationId, invitedById, expiresAt },
+      update: { token, status: 'PENDING', role, invitedById, expiresAt },
+      include: { organization: { select: { name: true } } },
+    })
+
+    const registerUrl = `${baseUrl}/auth/register-org?token=${invitation.token}`
+    await this.sendOrgInvitationEmail(normalized, org.name, role, registerUrl)
+
+    return invitation
+  }
+
+  async listOrgInvitations(organizationId: string): Promise<unknown[]> {
+    return prisma.orgInvitation.findMany({
+      where: { organizationId },
+      orderBy: { createdAt: 'desc' },
+      include: {
+        invitedBy: { select: { email: true, firstName: true, lastName: true } },
+      },
+    })
+  }
+
+  async verifyOrgToken(token: string): Promise<unknown> {
+    const invitation = await prisma.orgInvitation.findUnique({
+      where: { token },
+      include: { organization: { select: { name: true, slug: true } } },
+    })
+    if (!invitation) throw new NotFoundException('Invitation introuvable')
+    if (invitation.status === 'ACCEPTED') throw new BadRequestException('Cette invitation a déjà été utilisée')
+    if (invitation.expiresAt < new Date()) {
+      await prisma.orgInvitation.update({ where: { token }, data: { status: 'EXPIRED' } })
+      throw new BadRequestException('Cette invitation a expiré')
+    }
+    return {
+      email: invitation.email,
+      token: invitation.token,
+      role: invitation.role,
+      organizationName: invitation.organization.name,
+    }
+  }
+
+  async acceptOrgInvitation(
+    token: string,
+    password: string,
+    firstName?: string,
+    lastName?: string,
+  ): Promise<unknown> {
+    const invitation = await prisma.orgInvitation.findUnique({ where: { token } })
+    if (!invitation) throw new NotFoundException('Invitation introuvable')
+    if (invitation.status === 'ACCEPTED') throw new BadRequestException('Invitation déjà utilisée')
+    if (invitation.expiresAt < new Date()) throw new BadRequestException('Invitation expirée')
+
+    const existingUser = await prisma.user.findUnique({ where: { email: invitation.email } })
+    if (existingUser) throw new ConflictException('Un compte existe déjà avec cet email')
+
+    if (password.length < 8) throw new BadRequestException('Le mot de passe doit contenir au moins 8 caractères')
+
+    const passwordHash = await bcrypt.hash(password, 12)
+
+    const user = await prisma.user.create({
+      data: {
+        email: invitation.email,
+        passwordHash,
+        firstName: firstName ?? null,
+        lastName: lastName ?? null,
+        role: invitation.role,
+        organizationId: invitation.organizationId,
+      },
+    })
+
+    await prisma.orgInvitation.update({ where: { token }, data: { status: 'ACCEPTED' } })
+
+    return { ok: true, userId: user.id }
+  }
+
+  private async sendOrgInvitationEmail(to: string, orgName: string, role: string, registerUrl: string): Promise<void> {
+    if (!this.resend) return
+
+    const roleLabel = role === 'ADMIN' ? 'Admin' : 'Membre'
+
+    const logoHtml = `
+      <div style="display: inline-flex; align-items: center; gap: 10px;">
+        <div style="position: relative; width: 14px; height: 14px; flex-shrink: 0;">
+          <span style="display: block; width: 12px; height: 12px; background: hsl(14, 100%, 55%);"></span>
+          <span style="display: block; position: absolute; top: -2px; right: -2px; width: 6px; height: 6px; background: rgba(255, 107, 46, 0.4);"></span>
+        </div>
+        <span style="font-family: sans-serif; font-weight: 900; font-size: 15px; letter-spacing: 0.1em; color: #fff;">LAVIDZ</span>
+      </div>
+    `
+
+    await this.resend.emails.send({
+      from: process.env.EMAIL_FROM ?? process.env.RESEND_FROM ?? 'Lavidz <noreply@lavidz.fr>',
+      to,
+      subject: `Invitation à rejoindre ${orgName} — Lavidz`,
+      html: `
+        <div style="font-family: sans-serif; max-width: 520px; margin: 0 auto; padding: 40px 24px; background: #0a0a0a; color: #fff;">
+          <div style="margin-bottom: 32px;">${logoHtml}</div>
+
+          <h1 style="font-size: 22px; font-weight: 900; margin: 0 0 12px; letter-spacing: -0.02em;">Vous êtes invité(e) à rejoindre ${orgName}</h1>
+          <p style="color: rgba(255,255,255,0.5); font-size: 14px; margin: 0 0 8px; line-height: 1.6;">
+            Rôle : <strong style="color: #fff;">${roleLabel}</strong>
+          </p>
+          <p style="color: rgba(255,255,255,0.5); font-size: 14px; margin: 0 0 32px; line-height: 1.6;">
+            Cliquez sur le bouton ci-dessous pour créer votre compte et rejoindre l'organisation. Ce lien est valable 7 jours.
+          </p>
+
+          <a href="${registerUrl}" style="display: inline-block; background: hsl(14, 100%, 55%); color: #fff; font-weight: 700; font-size: 14px; padding: 14px 28px; text-decoration: none; letter-spacing: 0.02em;">
+            Rejoindre l'organisation →
+          </a>
+
+          <p style="color: rgba(255,255,255,0.2); font-size: 11px; margin: 32px 0 0; font-family: monospace;">
+            Si vous n'attendiez pas cet email, ignorez-le.<br/>
+            Lien : ${registerUrl}
+          </p>
+        </div>
+      `,
+    })
+  }
+
   private async sendInvitationEmail(to: string, registerUrl: string): Promise<void> {
     if (!this.resend) return
 

@@ -2393,9 +2393,11 @@ export function ProcessView({ recordings, themeName, sessionId, themeSlug, monta
           </button>
         </Link>
         <div style={{ textAlign: 'center', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 4 }}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-            <span style={{ width: 8, height: 8, background: 'hsl(14, 100%, 55%)', flexShrink: 0 }} />
-            <span style={{ fontFamily: 'sans-serif', fontWeight: 800, fontSize: 14, color: '#ffffff', letterSpacing: -0.5, textTransform: 'uppercase' }}>LAVIDZ</span>
+          <div className="flex items-center gap-1.5 group cursor-pointer">
+            <div className="relative w-5 h-5 flex items-center justify-center">
+              <span className="block w-2.5 h-2.5 bg-primary animate-logo-morph shadow-[0_0_10px_rgba(var(--primary),0.2)]" />
+            </div>
+            <span className="font-sans font-black text-[13px] tracking-tighter text-white uppercase">LAVIDZ</span>
           </div>
           <p style={{ color: S.muted, fontSize: 10, fontFamily: 'monospace', textTransform: 'uppercase', letterSpacing: '0.08em' }}>{themeName}</p>
         </div>

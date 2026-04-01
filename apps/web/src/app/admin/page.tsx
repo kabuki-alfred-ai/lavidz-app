@@ -71,14 +71,14 @@ export default async function AdminDashboardPage() {
       <CardContent className="p-6">
         <div className="flex items-start justify-between">
           <div>
-            <p className="text-[10px] font-mono uppercase tracking-[0.2em] text-muted-foreground/80 mb-2">
+            <p className="text-[10px] font-mono uppercase tracking-[0.2em] text-muted-foreground mb-2">
               {title}
             </p>
             <h3 className="text-3xl font-inter font-black tracking-tighter text-foreground">
               {value}
             </h3>
             {sub && (
-              <p className="text-[10px] font-mono text-muted-foreground/70 mt-1 uppercase tracking-wider">
+              <p className="text-[10px] font-mono text-muted-foreground mt-1 uppercase tracking-wider">
                 {sub}
               </p>
             )}
@@ -103,7 +103,7 @@ export default async function AdminDashboardPage() {
               Overview
             </p>
           </div>
-          <h1 className="font-inter font-black text-4xl text-foreground tracking-tighter">
+          <h1 className="text-3xl font-black uppercase tracking-tighter text-foreground">
             Vue d'ensemble
           </h1>
         </div>
@@ -139,7 +139,7 @@ export default async function AdminDashboardPage() {
           <div className="border border-border/60 bg-surface/30 rounded-sm overflow-hidden backdrop-blur-sm">
             <div className="grid grid-cols-[1fr_100px_120px] border-b border-border/40 bg-surface/50 px-5 py-4">
               {['Utilisateur', 'Rôle', 'Inscription'].map(h => (
-                <div key={h} className="text-[9px] font-mono uppercase tracking-[0.2em] text-muted-foreground/70">{h}</div>
+                <div key={h} className="text-[9px] font-mono uppercase tracking-[0.2em] text-muted-foreground">{h}</div>
               ))}
             </div>
             
@@ -148,7 +148,7 @@ export default async function AdminDashboardPage() {
                 <div key={u.id} className="grid grid-cols-[1fr_100px_120px] items-center px-5 py-4 hover:bg-primary/[0.02] transition-colors group">
                   <div className="min-w-0 pr-4">
                     <p className="font-inter font-bold text-[13px] text-foreground group-hover:text-primary transition-colors">{[u.firstName, u.lastName].filter(Boolean).join(' ') || (isSuper ? u.email : u.email.split('@')[0])}</p>
-                    <p className="text-[10px] font-mono text-muted-foreground/80 truncate">{u.email}</p>
+                    <p className="text-[10px] font-mono text-muted-foreground truncate">{u.email}</p>
                     {isSuper && u.organization && (
                       <p className="text-[9px] font-mono mt-1 text-primary/70 uppercase tracking-tighter">{u.organization.name}</p>
                     )}
@@ -158,7 +158,7 @@ export default async function AdminDashboardPage() {
                       {u.role}
                     </Badge>
                   </div>
-                  <div className="text-[10px] font-mono text-muted-foreground/70">
+                  <div className="text-[10px] font-mono text-muted-foreground">
                     {formatDate(u.createdAt)}
                   </div>
                 </div>
@@ -189,7 +189,7 @@ export default async function AdminDashboardPage() {
           <div className="border border-border/60 bg-surface/30 rounded-sm overflow-hidden backdrop-blur-sm">
             <div className="grid grid-cols-[1fr_90px_130px] border-b border-border/40 bg-surface/50 px-5 py-4">
               {['Thème / Bénéficiaire', 'Statut', 'Dernière MAJ'].map(h => (
-                <div key={h} className="text-[9px] font-mono uppercase tracking-[0.2em] text-muted-foreground/70">{h}</div>
+                <div key={h} className="text-[9px] font-mono uppercase tracking-[0.2em] text-muted-foreground">{h}</div>
               ))}
             </div>
             
@@ -198,7 +198,7 @@ export default async function AdminDashboardPage() {
                 <div key={s.id} className="grid grid-cols-[1fr_90px_130px] items-center px-5 py-4 hover:bg-primary/[0.02] transition-colors group">
                   <div className="min-w-0 pr-4">
                     <p className="font-inter font-bold text-[13px] text-foreground group-hover:text-primary transition-colors truncate">{s.theme.name}</p>
-                    <p className="text-[10px] font-mono text-muted-foreground/80 truncate">{s.recipientEmail || s.recipientName || 'Anonyme'}</p>
+                    <p className="text-[10px] font-mono text-muted-foreground truncate">{s.recipientEmail || s.recipientName || 'Anonyme'}</p>
                     {isSuper && s.theme.organization && (
                       <p className="text-[9px] font-mono mt-1 text-primary/70 uppercase tracking-tighter">{s.theme.organization.name}</p>
                     )}
@@ -208,7 +208,7 @@ export default async function AdminDashboardPage() {
                       {s.status}
                     </Badge>
                   </div>
-                  <div className="text-[10px] font-mono text-muted-foreground/70 flex items-center gap-1.5">
+                  <div className="text-[10px] font-mono text-muted-foreground flex items-center gap-1.5">
                     <Clock size={10} />
                     {formatDate(s.submittedAt || s.updatedAt)}
                   </div>

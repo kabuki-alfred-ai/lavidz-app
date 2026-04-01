@@ -59,7 +59,7 @@ export default async function OrganizationDetailsPage({ params }: { params: Prom
               </p>
             </div>
           </div>
-          <h1 className="font-inter font-black text-4xl text-foreground tracking-tighter">
+          <h1 className="text-3xl font-black uppercase tracking-tighter text-foreground">
             {org.name}
           </h1>
           <div className="flex items-center gap-6 mt-4">

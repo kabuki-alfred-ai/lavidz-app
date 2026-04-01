@@ -101,9 +101,9 @@ export function TeamClient({ admins: initialAdmins, invitations: initialInvitati
   }
 
   const StatusIcon = ({ status }: { status: Invitation['status'] }) => {
-    if (status === 'ACCEPTED') return <CheckCircle2 size={12} className="text-emerald-400" />
-    if (status === 'EXPIRED') return <XCircle size={12} className="text-muted-foreground/60" />
-    return <Clock size={12} className="text-amber-400" />
+    if (status === 'ACCEPTED') return <CheckCircle2 size={12} className="text-emerald-600" />
+    if (status === 'EXPIRED') return <XCircle size={12} className="text-muted-foreground/80" />
+    return <Clock size={12} className="text-amber-600" />
   }
 
   return (
@@ -114,8 +114,8 @@ export function TeamClient({ admins: initialAdmins, invitations: initialInvitati
           <span className="w-8 h-[1px] bg-primary/40" />
           <p className="text-[10px] font-mono uppercase tracking-[0.3em] text-primary/60">Gestion</p>
         </div>
-        <h1 className="font-inter font-black text-4xl text-foreground tracking-tighter">Équipe</h1>
-        <p className="text-[11px] font-mono text-muted-foreground/80 mt-2 uppercase tracking-widest">
+        <h1 className="text-3xl font-black uppercase tracking-tighter text-foreground">Équipe</h1>
+        <p className="text-[11px] font-mono text-muted-foreground mt-2 uppercase tracking-widest">
           Superadmins et invitations
         </p>
       </div>
@@ -145,8 +145,8 @@ export function TeamClient({ admins: initialAdmins, invitations: initialInvitati
           </Button>
         </form>
         {error && <p className="text-xs text-destructive font-mono">{error}</p>}
-        {success && <p className="text-xs text-emerald-400 font-mono">{success}</p>}
-        <p className="text-[10px] font-mono text-muted-foreground/60 leading-relaxed">
+        {success && <p className="text-xs text-emerald-600 font-mono font-bold">{success}</p>}
+        <p className="text-[10px] font-mono text-muted-foreground mt-2 leading-relaxed">
           Un email avec un lien d&apos;inscription sécurisé sera envoyé. Le lien est valable 7 jours et ne peut être utilisé qu&apos;une seule fois avec l&apos;adresse email indiquée.
         </p>
       </div>
@@ -158,7 +158,7 @@ export function TeamClient({ admins: initialAdmins, invitations: initialInvitati
         </h2>
         <div className="border border-border/60 bg-surface/30 rounded-sm overflow-hidden">
           {admins.length === 0 ? (
-            <p className="text-xs font-mono text-muted-foreground/60 p-6">Aucun superadmin.</p>
+            <p className="text-xs font-mono text-muted-foreground p-6">Aucun superadmin.</p>
           ) : (
             <div className="divide-y divide-border/40">
               {admins.map(admin => (
@@ -174,9 +174,9 @@ export function TeamClient({ admins: initialAdmins, invitations: initialInvitati
                     <div>
                       <p className="text-sm font-bold text-foreground">
                         {admin.firstName ? `${admin.firstName} ${admin.lastName ?? ''}`.trim() : admin.email.split('@')[0]}
-                        {admin.id === currentUserId && <span className="ml-2 text-[9px] font-mono text-muted-foreground/60">(vous)</span>}
+                        {admin.id === currentUserId && <span className="ml-2 text-[9px] font-mono text-muted-foreground">(vous)</span>}
                       </p>
-                      <p className="text-[10px] font-mono text-muted-foreground/80">{admin.email}</p>
+                      <p className="text-[10px] font-mono text-muted-foreground tracking-tight">{admin.email}</p>
                     </div>
                   </div>
                   <div className="flex items-center gap-3">
@@ -184,7 +184,7 @@ export function TeamClient({ admins: initialAdmins, invitations: initialInvitati
                       <ShieldCheck size={9} className="mr-1" />
                       Superadmin
                     </Badge>
-                    <span className="text-[9px] font-mono text-muted-foreground/60">
+                    <span className="text-[9px] font-mono text-muted-foreground">
                       {new Date(admin.createdAt).toLocaleDateString('fr-FR')}
                     </span>
                   </div>
@@ -209,7 +209,7 @@ export function TeamClient({ admins: initialAdmins, invitations: initialInvitati
                     <StatusIcon status={inv.status} />
                     <div className="min-w-0">
                       <p className="text-sm font-mono text-foreground truncate">{inv.email}</p>
-                      <p className="text-[9px] font-mono text-muted-foreground/60">
+                      <p className="text-[9px] font-mono text-muted-foreground">
                         Invité le {new Date(inv.createdAt).toLocaleDateString('fr-FR')}
                         {inv.invitedBy && ` par ${inv.invitedBy.firstName ?? inv.invitedBy.email}`}
                         {inv.status === 'PENDING' && ` · expire le ${new Date(inv.expiresAt).toLocaleDateString('fr-FR')}`}

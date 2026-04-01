@@ -26,10 +26,10 @@ const TAG_LABELS: Record<SoundTag, string> = {
 }
 
 const TAG_COLORS: Record<SoundTag, string> = {
-  TRANSITION: 'bg-blue-500/10 text-blue-400 border-blue-500/20',
-  INTRO: 'bg-emerald-500/10 text-emerald-400 border-emerald-500/20',
-  OUTRO: 'bg-orange-500/10 text-orange-400 border-orange-500/20',
-  BACKGROUND: 'bg-purple-500/10 text-purple-400 border-purple-500/20',
+  TRANSITION: 'bg-blue-500/10 text-blue-600 border-blue-500/20',
+  INTRO: 'bg-emerald-500/10 text-emerald-600 border-emerald-500/20',
+  OUTRO: 'bg-orange-500/10 text-orange-600 border-orange-500/20',
+  BACKGROUND: 'bg-purple-500/10 text-purple-600 border-purple-500/20',
 }
 
 interface Props {
@@ -123,10 +123,10 @@ export function SoundsClient({ initialSounds }: Props) {
               Assets
             </p>
           </div>
-          <h1 className="font-inter font-black text-4xl text-foreground tracking-tighter">
+          <h1 className="text-3xl font-black uppercase tracking-tighter text-foreground">
             Bibliothèque Sonore
           </h1>
-          <p className="text-[11px] font-mono text-muted-foreground/60 mt-2 uppercase tracking-widest leading-relaxed">
+          <p className="text-[11px] font-mono text-muted-foreground mt-2 uppercase tracking-widest leading-relaxed">
             Sons pour transitions, intro & outro du montage
           </p>
         </div>
@@ -147,7 +147,7 @@ export function SoundsClient({ initialSounds }: Props) {
 
             <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
               <div className="space-y-2">
-                <Label className="text-[10px] font-mono uppercase tracking-widest text-muted-foreground/60">
+                <Label className="text-[10px] font-mono uppercase tracking-widest text-muted-foreground/80">
                   Nom
                 </Label>
                 <Input
@@ -160,7 +160,7 @@ export function SoundsClient({ initialSounds }: Props) {
               </div>
 
               <div className="space-y-2">
-                <Label className="text-[10px] font-mono uppercase tracking-widest text-muted-foreground/60">
+                <Label className="text-[10px] font-mono uppercase tracking-widest text-muted-foreground/80">
                   Tag
                 </Label>
                 <select
@@ -176,7 +176,7 @@ export function SoundsClient({ initialSounds }: Props) {
               </div>
 
               <div className="space-y-2">
-                <Label className="text-[10px] font-mono uppercase tracking-widest text-muted-foreground/60">
+                <Label className="text-[10px] font-mono uppercase tracking-widest text-muted-foreground/80">
                   Fichier audio
                 </Label>
                 <div className="relative">
@@ -193,10 +193,10 @@ export function SoundsClient({ initialSounds }: Props) {
                     htmlFor="sound-file"
                     className={cn(
                       'flex h-9 w-full items-center gap-2 border border-input bg-surface/40 px-3 cursor-pointer text-xs font-mono transition-colors hover:border-primary/40',
-                      file ? 'text-foreground' : 'text-muted-foreground/40',
+                      file ? 'text-foreground' : 'text-muted-foreground/70',
                     )}
                   >
-                    <Upload size={12} className="shrink-0 text-primary/40" />
+                    <Upload size={12} className="shrink-0 text-primary/60" />
                     <span className="truncate">
                       {file ? file.name : 'Choisir un fichier…'}
                     </span>
@@ -240,7 +240,7 @@ export function SoundsClient({ initialSounds }: Props) {
               >
                 {TAG_LABELS[t]}
               </span>
-              <span className="text-[10px] font-mono text-muted-foreground/30">
+              <span className="text-[10px] font-mono text-muted-foreground/60">
                 {items.length} son{items.length !== 1 ? 's' : ''}
               </span>
             </div>
@@ -248,7 +248,7 @@ export function SoundsClient({ initialSounds }: Props) {
             {items.length === 0 ? (
               <div className="border border-dashed border-border/40 py-8 text-center">
                 <Music size={20} className="mx-auto text-muted-foreground/15 mb-2" />
-                <p className="text-[10px] font-mono text-muted-foreground/30 uppercase tracking-widest">
+                <p className="text-[10px] font-mono text-muted-foreground/60 uppercase tracking-widest">
                   Aucun son {TAG_LABELS[t].toLowerCase()}
                 </p>
               </div>
@@ -258,7 +258,7 @@ export function SoundsClient({ initialSounds }: Props) {
                   {['Nom', 'Écoute', 'Action'].map((h) => (
                     <div
                       key={h}
-                      className="text-[9px] font-mono uppercase tracking-[0.2em] text-muted-foreground/40"
+                      className="text-[9px] font-mono uppercase tracking-[0.2em] text-muted-foreground/70"
                     >
                       {h}
                     </div>
@@ -298,7 +298,7 @@ export function SoundsClient({ initialSounds }: Props) {
                         <button
                           onClick={() => handleDelete(sound.id)}
                           disabled={deletingId === sound.id}
-                          className="w-8 h-8 flex items-center justify-center border border-border/40 hover:border-destructive/40 hover:bg-destructive/5 text-muted-foreground/40 hover:text-destructive transition-all rounded-none disabled:opacity-30"
+                          className="w-8 h-8 flex items-center justify-center border border-border/40 hover:border-destructive/40 hover:bg-destructive/5 text-muted-foreground/70 hover:text-destructive transition-all rounded-none disabled:opacity-30"
                           title="Supprimer"
                         >
                           {deletingId === sound.id ? (

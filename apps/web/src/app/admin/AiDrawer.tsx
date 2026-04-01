@@ -756,10 +756,10 @@ export function AiDrawer() {
         {/* Label (only when closed) */}
         {!open && (
           <div 
-            className="px-3 py-1.5 bg-black !bg-[#050505] border border-white/10 rounded-full shadow-2xl animate-in fade-in slide-in-from-right-2 duration-500"
+            className="px-3 py-1.5 bg-surface-raised border border-border shadow-2xl animate-in fade-in slide-in-from-right-2 duration-500"
             style={{ animationDelay: '200ms' }}
           >
-            <span className="text-[10px] font-mono font-bold text-white/50 uppercase tracking-widest">
+            <span className="text-[10px] font-mono font-bold text-muted-foreground uppercase tracking-widest">
               Kabou
             </span>
           </div>
@@ -767,7 +767,7 @@ export function AiDrawer() {
 
         <button
           onClick={() => setOpen((v) => !v)}
-          className="w-14 h-14 rounded-full bg-black !bg-[#050505] border border-white/10 shadow-[0_0_30px_rgba(0,0,0,0.5)] hover:border-primary/60 active:scale-95 transition-all flex items-center justify-center overflow-hidden group pointer-events-auto"
+          className="w-14 h-14 rounded-full bg-card border border-border shadow-2xl hover:border-primary/60 active:scale-95 transition-all flex items-center justify-center overflow-hidden group pointer-events-auto"
           aria-label="Assistant IA"
         >
           {open ? (
@@ -780,7 +780,7 @@ export function AiDrawer() {
                 className="w-full h-full object-cover grayscale-[0.2] group-hover:grayscale-0 group-hover:scale-110 transition-all duration-500"
               />
               <div className="absolute inset-0 bg-primary/10 group-hover:bg-transparent transition-colors" />
-              <div className="absolute bottom-1 right-1 w-2.5 h-2.5 bg-emerald-500 border-2 border-[#0a0a0a] rounded-full shadow-sm" />
+              <div className="absolute bottom-1 right-1 w-2.5 h-2.5 bg-emerald-500 border-2 border-background rounded-full shadow-sm" />
             </div>
           )}
         </button>
@@ -791,8 +791,8 @@ export function AiDrawer() {
         onClick={() => setOpen(false)}
         className="fixed inset-0 z-40 transition-all duration-300"
         style={{
-          background: 'rgba(0,0,0,0.25)',
-          backdropFilter: 'blur(2px)',
+          background: 'hsl(var(--background) / 0.4)',
+          backdropFilter: 'blur(4px)',
           opacity: open ? 1 : 0,
           pointerEvents: open ? 'auto' : 'none',
         }}
@@ -986,7 +986,7 @@ export function AiDrawer() {
                 return (
                   <div key={msg.id} className="flex flex-col items-start gap-1 max-w-[80%]">
                     {visibleText ? (
-                      <div className="px-4 py-3 rounded-2xl text-sm leading-relaxed bg-muted/50 border border-border/50 text-foreground prose prose-sm prose-invert max-w-none prose-p:my-1 prose-ul:my-1 prose-li:my-0 prose-strong:text-foreground prose-headings:text-foreground">
+                      <div className="px-4 py-3 rounded-2xl text-sm leading-relaxed bg-muted/50 border border-border/50 text-foreground prose prose-sm dark:prose-invert max-w-none prose-p:my-1 prose-ul:my-1 prose-li:my-0 prose-strong:text-foreground prose-headings:text-foreground">
                         <ReactMarkdown>{visibleText}</ReactMarkdown>
                         <span
                           className="inline-block w-[7px] h-[14px] bg-foreground/70 ml-0.5 align-middle rounded-[1px]"
@@ -1039,7 +1039,7 @@ export function AiDrawer() {
                       return part.content ? (
                         <div
                           key={i}
-                          className="px-4 py-3 rounded-2xl text-sm leading-relaxed bg-muted/50 border border-border/50 text-foreground prose prose-sm prose-invert max-w-none prose-p:my-1 prose-ul:my-1 prose-li:my-0 prose-strong:text-foreground prose-headings:text-foreground"
+                          className="px-4 py-3 rounded-2xl text-sm leading-relaxed bg-muted/50 border border-border/50 text-foreground prose prose-sm dark:prose-invert max-w-none prose-p:my-1 prose-ul:my-1 prose-li:my-0 prose-strong:text-foreground prose-headings:text-foreground"
                         >
                           <ReactMarkdown>{part.content}</ReactMarkdown>
                         </div>

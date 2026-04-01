@@ -633,12 +633,11 @@ export function RecordingSession({ theme, initialSessionId, mode = 'default' }: 
         {theme.logoUrl ? (
           <img src={theme.logoUrl} alt={theme.brandName ?? ''} className="h-8 object-contain" />
         ) : (
-          <div className="flex items-center gap-2.5">
-            <div className="relative" style={{ width: 14, height: 14 }}>
-              <span className="block w-3 h-3" style={{ background: accent }} />
-              <span className="absolute" style={{ top: -2, right: -2, width: 6, height: 6, background: `${accent}66` }} />
+          <div className="flex items-center gap-1.5 group cursor-pointer">
+            <div className="relative w-6 h-6 flex items-center justify-center">
+              <span className="block w-3 h-3 bg-primary animate-logo-morph shadow-[0_0_10px_rgba(var(--primary),0.2)]" />
             </div>
-            <span className="font-sans font-black text-base tracking-tighter text-white uppercase">
+            <span className="font-sans font-black text-lg tracking-tighter text-white uppercase">
               {theme.brandName ?? 'LAVIDZ'}
             </span>
           </div>
@@ -839,21 +838,31 @@ export function RecordingSession({ theme, initialSessionId, mode = 'default' }: 
         </button>
         {brand}
 
-        <div className="flex flex-col gap-10 z-10 w-full max-w-sm">
-          <div>
+        <div className="flex flex-col gap-8 z-10 w-full max-w-sm flex-1 min-h-0 pt-8">
+          <div className="shrink-0">
             <h2 className="text-3xl font-black text-white mb-2">Avant de commencer</h2>
             <p className="text-base text-white/40">Quelques conseils pour une vidéo de qualité</p>
           </div>
-          <div className="flex flex-col gap-7">
-            {tips.map((tip) => (
-              <div key={tip.title} className="flex items-start gap-4">
-                <span className="text-2xl shrink-0">{tip.icon}</span>
-                <div>
-                  <p className="text-lg font-semibold text-white leading-tight mb-1">{tip.title}</p>
-                  <p className="text-sm text-white/40 leading-relaxed">{tip.desc}</p>
+          
+          <div className="relative flex-1 min-h-0">
+            <div className="flex flex-col gap-8 overflow-y-auto h-full py-4 pb-32 scrollbar-hide">
+              {tips.map((tip) => (
+                <div key={tip.title} className="flex items-start gap-5">
+                  <div 
+                    className="w-12 h-12 rounded-2xl flex items-center justify-center shrink-0 text-2xl"
+                    style={{ background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.08)' }}
+                  >
+                    {tip.icon}
+                  </div>
+                  <div>
+                    <p className="text-lg font-bold text-white leading-tight mb-1">{tip.title}</p>
+                    <p className="text-sm text-white/50 leading-relaxed">{tip.desc}</p>
+                  </div>
                 </div>
-              </div>
-            ))}
+              ))}
+            </div>
+            {/* Gradient sombre vers le bouton */}
+            <div className="absolute bottom-0 inset-x-0 h-40 pointer-events-none bg-gradient-to-t from-[#0a0a0a] via-[#0a0a0a]/90 to-transparent z-10" />
           </div>
         </div>
 

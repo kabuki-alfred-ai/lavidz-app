@@ -1,6 +1,6 @@
 import { PrismaClient } from '@prisma/client'
 
-const globalForPrisma = globalThis as unknown as { prisma: PrismaClient }
+const g = globalThis as unknown as { _prismaInstance?: PrismaClient }
 
 function buildDatasourceUrl() {
   const url = process.env.DATABASE_URL ?? ''
@@ -8,14 +8,23 @@ function buildDatasourceUrl() {
   return `${url}${url.includes('?') ? '&' : '?'}connection_limit=25&pool_timeout=20`
 }
 
-export const prisma =
-  globalForPrisma.prisma ??
-  new PrismaClient({
-    log: process.env.NODE_ENV === 'development' ? ['query', 'error', 'warn'] : ['error'],
-    datasources: { db: { url: buildDatasourceUrl() } },
-  })
+function getInstance(): PrismaClient {
+  if (!g._prismaInstance) {
+    g._prismaInstance = new PrismaClient({
+      log: process.env.NODE_ENV === 'development' ? ['query', 'error', 'warn'] : ['error'],
+      datasources: { db: { url: buildDatasourceUrl() } },
+    })
+  }
+  return g._prismaInstance
+}
 
-if (process.env.NODE_ENV !== 'production') globalForPrisma.prisma = prisma
+// Lazy proxy: PrismaClient is only instantiated on first use,
+// ensuring DATABASE_URL is read after env vars are loaded
+export const prisma = new Proxy({} as PrismaClient, {
+  get(_, prop: string | symbol) {
+    return (getInstance() as unknown as Record<string | symbol, unknown>)[prop]
+  },
+})
 
 export { Prisma } from '@prisma/client'
 export type {
@@ -30,6 +39,7 @@ export type {
   UserRole,
   OrgStatus,
   AdminInvitation,
+  OrgInvitation,
   InvitationStatus,
   EntrepreneurProfile,
   ConversationMemory,
