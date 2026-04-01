@@ -59,17 +59,10 @@ ${conversationSummary}`,
     })
   }
   async getOrCreate(organizationId: string): Promise<EntrepreneurProfile> {
-    const existing = await prisma.entrepreneurProfile.findUnique({
+    return prisma.entrepreneurProfile.upsert({
       where: { organizationId },
-    })
-
-    if (existing) return existing
-
-    return prisma.entrepreneurProfile.create({
-      data: {
-        organizationId,
-        ownerType: 'ORGANIZATION',
-      },
+      create: { organizationId, ownerType: 'ORGANIZATION' },
+      update: {},
     })
   }
 

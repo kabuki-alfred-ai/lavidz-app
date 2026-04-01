@@ -16,6 +16,7 @@ import { FeedbacksModule } from './modules/feedbacks/feedbacks.module'
     BullModule.forRoot({
       connection: {
         url: process.env.REDIS_URL ?? 'redis://localhost:6379',
+        enableOfflineQueue: false,
       },
     }),
     ThemesModule,

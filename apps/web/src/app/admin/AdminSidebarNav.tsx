@@ -22,6 +22,12 @@ export function AdminSidebarNav({ userRole }: AdminSidebarNavProps) {
         <AdminNavItem href="/admin/voices" label="Voix IA" icon={Mic} />
         <AdminNavItem href="/admin/feedbacks" label="Feedbacks" icon={MessageSquare} />
 
+        <div className="h-px bg-border/40 mx-3 my-4" />
+        <p className="text-[10px] font-mono font-bold uppercase tracking-[0.2em] text-muted-foreground px-3 pb-3 select-none">
+          IA
+        </p>
+        <AdminNavItem href="/admin/ai-profile" label="Profil IA" icon={Brain} />
+
         {(userRole === 'ADMIN' || userRole === 'USER') && (
           <>
             <div className="h-px bg-border/40 mx-3 my-4" />
@@ -34,12 +40,6 @@ export function AdminSidebarNav({ userRole }: AdminSidebarNavProps) {
 
         {userRole === 'SUPERADMIN' && (
           <>
-            <div className="h-px bg-border/40 mx-3 my-4" />
-            <p className="text-[10px] font-mono font-bold uppercase tracking-[0.2em] text-muted-foreground px-3 pb-3 select-none">
-              IA
-            </p>
-            <AdminNavItem href="/admin/ai-profile" label="Profil IA" icon={Brain} />
-
             <div className="h-px bg-border/40 mx-3 my-4" />
             <p className="text-[10px] font-mono font-bold uppercase tracking-[0.2em] text-muted-foreground px-3 pb-3 select-none">
               Superadmin

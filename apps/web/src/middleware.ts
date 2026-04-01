@@ -52,8 +52,13 @@ export async function middleware(request: NextRequest) {
       return NextResponse.redirect(new URL('/admin', request.url))
     }
 
-    // Must be ADMIN or SUPERADMIN
-    if (user.role !== 'ADMIN' && user.role !== 'SUPERADMIN') {
+    // USER role: only allowed on /admin/ai-profile (and its API calls)
+    if (user.role === 'USER' && !pathname.startsWith('/admin/ai-profile') && !pathname.startsWith('/api/admin/ai/')) {
+      return NextResponse.redirect(new URL('/admin/ai-profile', request.url))
+    }
+
+    // Must be ADMIN, USER or SUPERADMIN (USER restricted above to ai-profile only)
+    if (user.role !== 'ADMIN' && user.role !== 'SUPERADMIN' && user.role !== 'USER') {
       return NextResponse.redirect(new URL('/auth/login', request.url))
     }
 

@@ -1,4 +1,4 @@
-import { Injectable, NotFoundException, BadRequestException } from '@nestjs/common'
+import { Injectable, Logger, NotFoundException, BadRequestException } from '@nestjs/common'
 import { InjectQueue } from '@nestjs/bullmq'
 import { Queue } from 'bullmq'
 import { prisma, type Recording } from '@lavidz/database'
@@ -7,6 +7,7 @@ import { Resend } from 'resend'
 
 @Injectable()
 export class SessionsService {
+  private readonly logger = new Logger(SessionsService.name)
   private readonly resend: Resend | null
 
   constructor(
@@ -289,10 +290,10 @@ export class SessionsService {
       data: { sessionId, questionId, rawVideoKey: key },
     })
 
-    await this.transcriptionQueue.add('transcribe', {
+    this.transcriptionQueue.add('transcribe', {
       recordingId: recording.id,
       audioKey: key,
-    })
+    }).catch((err) => this.logger.error('Failed to queue transcription job', err))
 
     return recording
   }
