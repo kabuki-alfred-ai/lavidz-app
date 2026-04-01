@@ -121,6 +121,7 @@ export default function Home() {
   }, [demoPhase])
 
   const isPhoneActive = phoneMode === 'quiz' || demoPhase !== 'idle'
+  const glowClass = demoPhase === 'recording' ? 'bg-red-500/20' : demoPhase === 'speaking' ? 'bg-primary/25' : 'bg-primary/15'
 
   const handleClosePhone = useCallback(() => {
     stopEverything(); stopCamera()
@@ -215,7 +216,7 @@ export default function Home() {
             )}
             style={isPhoneActive ? { zIndex: 9999 } : undefined}
           >
-            <div className={cn("absolute top-1/2 left-1/2 lg:left-[60%] -translate-x-1/2 -translate-y-1/2 w-[80%] h-[80%] blur-[100px] rounded-full pointer-events-none transition-colors duration-1000 hidden lg:block", isPhoneActive ? 'opacity-0' : demoPhase === 'recording' ? 'bg-red-500/20' : demoPhase === 'speaking' ? 'bg-primary/25' : 'bg-primary/15')} />
+            <div className={cn("absolute top-1/2 left-1/2 lg:left-[60%] -translate-x-1/2 -translate-y-1/2 w-[80%] h-[80%] blur-[100px] rounded-full pointer-events-none transition-colors duration-1000 hidden lg:block", isPhoneActive ? 'opacity-0' : glowClass)} />
             <div
               className={cn(
                 "relative bg-[#09090b] overflow-hidden shrink-0 z-10 group/phone",
