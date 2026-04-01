@@ -16,9 +16,20 @@ export default async function AdminLayout({ children }: { children: React.ReactN
   return (
     <div className="flex h-screen bg-background overflow-hidden selection:bg-primary/30">
       {/* Sidebar — desktop only */}
-      <aside className="hidden md:flex w-[240px] shrink-0 border-r border-border flex-col bg-surface-raised/40 backdrop-blur-md z-20">
+      <aside className="hidden md:flex w-[240px] shrink-0 border-r border-border flex-col relative z-20 overflow-hidden" 
+        style={{
+          background: 'linear-gradient(315deg, hsl(var(--primary) / 0.08), hsl(var(--primary) / 0.02) 40%, rgba(255,255,255,0.01) 100%)',
+          backdropFilter: 'blur(12px)',
+        }}
+      >
+        {/* Visible noise overlay */}
+        <div 
+          className="absolute inset-0 opacity-[0.08] pointer-events-none mix-blend-overlay" 
+          style={{ backgroundImage: 'url("data:image/svg+xml,%3Csvg viewBox=%220 0 400 400%22 xmlns=%22http://www.w3.org/2000/svg%22%3E%3Cfilter id=%22n%22%3E%3CfeTurbulence type=%22fractalNoise%22 baseFrequency=%222.5%22 numOctaves=%224%22 stitchTiles=%22stitch%22/%3E%3C/filter%3E%3Crect width=%22100%25%22 height=%22100%25%22 filter=%22url(%23n)%22/%3E%3C/svg%3E")' }} 
+        />
+
         {/* Logo */}
-        <div className="h-14 flex items-center px-6 border-b border-border mb-4">
+        <div className="h-14 flex items-center px-6 border-b border-border mb-4 relative z-10">
           <Link href="/admin" className="flex items-center gap-1.5 group">
             <div className="relative w-6 h-6 flex items-center justify-center">
               <span className="block w-3 h-3 bg-primary animate-logo-morph shadow-[0_0_10px_rgba(var(--primary),0.2)]" />
@@ -33,7 +44,7 @@ export default async function AdminLayout({ children }: { children: React.ReactN
         <AdminSidebarNav userRole={user?.role} />
 
         {/* Footer — user info + logout */}
-        <div className="p-4 mx-4 mb-4 border border-border/60 bg-surface/40 rounded-sm flex flex-col gap-3">
+        <div className="p-4 mx-4 mb-4 border border-border/60 bg-surface/40 rounded-sm flex flex-col gap-3 relative z-10">
           {user && (
             <Link href="/admin/profile" className="min-w-0 flex items-center gap-3 px-1 hover:bg-surface-raised cursor-pointer rounded p-1 transition-colors group">
               <div className="w-8 h-8 rounded-sm overflow-hidden bg-surface-raised flex items-center justify-center font-mono text-xs font-bold text-primary border border-border group-hover:border-primary/50 transition-colors shrink-0">

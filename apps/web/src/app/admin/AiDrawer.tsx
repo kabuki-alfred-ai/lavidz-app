@@ -789,7 +789,7 @@ export function AiDrawer() {
       {/* Backdrop */}
       <div
         onClick={() => setOpen(false)}
-        className="fixed inset-0 z-40 transition-all duration-300"
+        className="fixed inset-0 z-[90] transition-all duration-300"
         style={{
           background: 'hsl(var(--background) / 0.4)',
           backdropFilter: 'blur(4px)',
@@ -803,11 +803,9 @@ export function AiDrawer() {
         role="dialog"
         aria-label="Assistant IA"
         aria-modal="true"
-        className="fixed top-0 right-0 bottom-0 z-50 flex flex-col bg-background border-l border-border shadow-2xl"
+        className={`fixed top-0 right-0 bottom-0 z-[100] flex flex-col bg-background border-l border-border shadow-2xl transition-transform duration-300 ease-in-out w-full sm:w-[480px] md:w-[528px]`}
         style={{
-          width: 528,
           transform: open ? 'translateX(0)' : 'translateX(100%)',
-          transition: 'transform 300ms ease',
           willChange: 'transform',
         }}
       >
