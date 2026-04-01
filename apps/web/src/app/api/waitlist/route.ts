@@ -6,7 +6,7 @@ const WAITLIST_AUDIENCE_ID = 'd029b0db-8921-4b18-ac07-7f8480cedbe5'
 
 export async function POST(req: Request) {
   try {
-    const { email } = await req.json()
+    const { email, forWho, comWay, frequency } = await req.json()
 
     if (!email || !email.includes('@')) {
       return NextResponse.json({ error: 'Email invalide' }, { status: 400 })
@@ -20,7 +20,11 @@ export async function POST(req: Request) {
     await resend.contacts.create({
       email,
       audienceId: WAITLIST_AUDIENCE_ID,
+      ...(forWho && { firstName: forWho }),
+      unsubscribed: false,
     })
+
+    console.log('[waitlist] new signup', { email, lavidz_for_who: forWho, lavidz_com_way: comWay, lavidz_frequency: frequency })
 
     return NextResponse.json({ success: true })
   } catch (error: any) {

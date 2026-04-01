@@ -4,12 +4,10 @@ import React, { useState, useRef, useEffect, useCallback } from 'react'
 import Link from 'next/link'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
-import { Input } from '@/components/ui/input'
 import {
   ArrowRight, Sparkles, Play, MessageSquare,
   Loader2, Mail, Check, Shield, Video, Brain,
-  Mic, Users, Lightbulb, Bot, Volume2, Send,
-  TrendingUp, Target, Eye, Zap
+  Mic, Users, Lightbulb, Volume2, Send, Target
 } from 'lucide-react'
 import { cn } from '@/lib/utils'
 
@@ -25,6 +23,16 @@ export default function Home() {
   const waveIntervalRef = useRef<NodeJS.Timeout | null>(null)
   const recIntervalRef = useRef<NodeJS.Timeout | null>(null)
   const autoStopRef = useRef<NodeJS.Timeout | null>(null)
+  const phoneRef = useRef<HTMLDivElement>(null)
+
+  // Quiz state
+  const [phoneMode, setPhoneMode] = useState<'demo' | 'quiz'>('demo')
+  const [quizStep, setQuizStep] = useState(0) // 0-2 = questions, 3 = email
+  const [quizAnswers, setQuizAnswers] = useState({ forWho: '', comWay: '', frequency: '' })
+  const [quizEmail, setQuizEmail] = useState('')
+  const [quizSubmitting, setQuizSubmitting] = useState(false)
+  const [quizSuccess, setQuizSuccess] = useState(false)
+  const [quizError, setQuizError] = useState('')
 
   const stopEverything = useCallback(() => {
     audioRef.current?.pause()
@@ -75,6 +83,36 @@ export default function Home() {
   const handleSend = useCallback(() => { setDemoPhase('sending'); stopCamera(); setTimeout(() => setDemoPhase('sent'), 1500) }, [stopCamera])
   const handleReset = useCallback(() => { stopEverything(); stopCamera(); setDemoPhase('idle'); setWaveHeights(Array(24).fill(10)); setRecTimer(0) }, [stopEverything, stopCamera])
 
+  const handleJoinBeta = useCallback(() => {
+    stopEverything(); stopCamera(); setDemoPhase('idle')
+    setPhoneMode('quiz'); setQuizStep(0)
+    setQuizAnswers({ forWho: '', comWay: '', frequency: '' })
+    setQuizEmail(''); setQuizSuccess(false); setQuizError('')
+  }, [stopEverything, stopCamera])
+
+  const handleAnswer = useCallback((field: 'forWho' | 'comWay' | 'frequency', value: string) => {
+    setQuizAnswers(prev => ({ ...prev, [field]: value }))
+    setTimeout(() => setQuizStep(s => s + 1), 250)
+  }, [])
+
+  const handleQuizSubmit = useCallback(async (e: React.FormEvent) => {
+    e.preventDefault()
+    setQuizSubmitting(true); setQuizError('')
+    try {
+      const res = await fetch('/api/waitlist', {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email: quizEmail, forWho: quizAnswers.forWho, comWay: quizAnswers.comWay, frequency: quizAnswers.frequency }),
+      })
+      if (!res.ok) { const d = await res.json(); throw new Error(d.error || 'Erreur') }
+      setQuizSuccess(true)
+    } catch (err: any) { setQuizError(err.message) }
+    finally { setQuizSubmitting(false) }
+  }, [quizEmail, quizAnswers])
+
+  const handleStartDemo = useCallback(() => {
+    setPhoneMode('demo'); setDemoPhase('welcome')
+  }, [])
+
   useEffect(() => { return () => { stopEverything(); stopCamera() } }, [stopEverything, stopCamera])
 
   const videoCallbackRef = useCallback((el: HTMLVideoElement | null) => {
@@ -82,8 +120,27 @@ export default function Home() {
     if (el && streamRef.current) { el.srcObject = streamRef.current; el.muted = true }
   }, [demoPhase])
 
+  const isPhoneActive = phoneMode === 'quiz' || demoPhase !== 'idle'
+
+  const handleClosePhone = useCallback(() => {
+    stopEverything(); stopCamera()
+    setDemoPhase('idle')
+    setPhoneMode('demo')
+    setQuizStep(0)
+    setQuizSuccess(false)
+  }, [stopEverything, stopCamera])
+
   return (
     <div className="min-h-screen bg-background text-foreground selection:bg-primary/30 overflow-hidden font-sans">
+      {/* Overlay — desktop only, shown when phone is active */}
+      {isPhoneActive && (
+        <div
+          className="fixed inset-0 bg-black/75 backdrop-blur-sm"
+          style={{ zIndex: 9998, animation: 'fadeIn 0.35s ease forwards' }}
+          onClick={handleClosePhone}
+        />
+      )}
+
       {/* BG */}
       <div className="fixed inset-0 z-0 pointer-events-none">
         <div className="absolute top-[-20%] left-[-10%] w-[60%] h-[60%] bg-primary/10 blur-[150px] rounded-full mix-blend-screen animate-[pulse_12s_infinite]" />
@@ -106,7 +163,7 @@ export default function Home() {
       </nav>
 
       {/* ═══════════ HERO ═══════════ */}
-      <main className="relative z-10 max-w-7xl mx-auto px-6 pt-16 sm:pt-24 pb-24 sm:pb-32">
+      <main className="relative max-w-7xl mx-auto px-6 pt-16 sm:pt-24 pb-24 sm:pb-32">
         <div className="flex flex-col lg:flex-row items-center gap-16 lg:gap-20">
           <div className="flex-1 space-y-8 animate-in fade-in slide-in-from-bottom-8 duration-1000 fill-mode-both">
             <div className="flex items-center gap-3">
@@ -128,28 +185,63 @@ export default function Home() {
               <strong className="text-white">On s'occupe du montage. Vous recevez une vidéo LinkedIn prête à poster.</strong>
             </p>
 
-            <div className="pt-4"><WaitlistForm /></div>
+            <div className="pt-4 flex flex-col sm:flex-row gap-3">
+              <button onClick={handleJoinBeta} className="group flex items-center justify-center gap-2 h-14 px-8 font-mono text-[10px] uppercase tracking-[0.2em] bg-primary hover:bg-primary/90 text-white shadow-lg transition-all">
+                Rejoindre la liste d'attente <ArrowRight size={14} className="group-hover:translate-x-1 transition-transform" />
+              </button>
+              <button onClick={handleStartDemo} className="flex items-center justify-center gap-2 h-14 px-8 font-mono text-[10px] uppercase tracking-[0.2em] border border-white/20 text-white/60 hover:border-white/40 hover:text-white transition-all">
+                <Play size={13} /> Voir la démo
+              </button>
+            </div>
 
             <div className="flex items-center gap-3 pt-2">
               <Shield size={14} className="text-zinc-500" />
               <p className="text-[10px] font-mono text-zinc-400 uppercase tracking-widest">
-                Gratuit pendant la bêta · Aucune CB requise · Accès prioritaire
+                1 vidéo offerte · Aucune CB requise · Sans engagement
               </p>
             </div>
           </div>
 
           {/* ═══════════ PHONE DEMO ═══════════ */}
-          <div className="flex-1 relative w-full flex justify-center lg:justify-end animate-in fade-in slide-in-from-right-12 duration-1000 delay-300 fill-mode-both">
-            <div className={cn("absolute top-1/2 left-1/2 lg:left-[60%] -translate-x-1/2 -translate-y-1/2 w-[80%] h-[80%] blur-[100px] rounded-full pointer-events-none transition-colors duration-1000", demoPhase === 'recording' ? 'bg-red-500/20' : demoPhase === 'speaking' ? 'bg-primary/25' : 'bg-primary/15')} />
-            <div className="relative w-[300px] sm:w-[320px] h-[600px] sm:h-[650px] bg-[#09090b] border-[8px] border-[#27272a] rounded-[3rem] shadow-[0_30px_60px_-15px_rgba(0,0,0,0.8)] overflow-hidden shrink-0 z-10 group/phone">
-              <div className="absolute top-32 -left-[10px] w-1 h-12 bg-[#27272a] rounded-l-md" />
-              <div className="absolute top-48 -left-[10px] w-1 h-12 bg-[#27272a] rounded-l-md" />
-              <div className="absolute top-36 -right-[10px] w-1 h-16 bg-[#27272a] rounded-r-md" />
-              <div className="absolute top-0 inset-x-0 h-7 flex justify-center z-50">
+          {/* Placeholder preserving layout when phone is lifted on desktop */}
+          {isPhoneActive && <div className="flex-1 pointer-events-none" aria-hidden="true" />}
+
+          <div
+            ref={phoneRef}
+            className={cn(
+              isPhoneActive
+                ? "flex-1 w-full flex justify-center fixed inset-0 items-center justify-center"
+                : "flex-1 relative w-full flex justify-center lg:justify-end animate-in fade-in slide-in-from-right-12 duration-1000 delay-300 fill-mode-both"
+            )}
+            style={isPhoneActive ? { zIndex: 9999 } : undefined}
+          >
+            <div className={cn("absolute top-1/2 left-1/2 lg:left-[60%] -translate-x-1/2 -translate-y-1/2 w-[80%] h-[80%] blur-[100px] rounded-full pointer-events-none transition-colors duration-1000 hidden lg:block", isPhoneActive ? 'opacity-0' : demoPhase === 'recording' ? 'bg-red-500/20' : demoPhase === 'speaking' ? 'bg-primary/25' : 'bg-primary/15')} />
+            <div
+              className={cn(
+                "relative bg-[#09090b] overflow-hidden shrink-0 z-10 group/phone",
+                isPhoneActive
+                  ? "w-full h-full rounded-none border-0 shadow-none lg:w-[320px] lg:h-[650px] lg:border-[8px] lg:border-[#27272a] lg:rounded-[3rem] lg:shadow-[0_30px_60px_-15px_rgba(0,0,0,0.8)]"
+                  : "w-[300px] sm:w-[320px] h-[600px] sm:h-[650px] border-[8px] border-[#27272a] rounded-[3rem] shadow-[0_30px_60px_-15px_rgba(0,0,0,0.8)]"
+              )}
+              style={isPhoneActive ? { animation: 'phoneFocusIn 0.45s cubic-bezier(0.34,1.56,0.64,1) forwards' } : undefined}
+            >
+              <div className={cn("absolute top-32 -left-[10px] w-1 h-12 bg-[#27272a] rounded-l-md", isPhoneActive && "hidden lg:block")} />
+              <div className={cn("absolute top-48 -left-[10px] w-1 h-12 bg-[#27272a] rounded-l-md", isPhoneActive && "hidden lg:block")} />
+              <div className={cn("absolute top-36 -right-[10px] w-1 h-16 bg-[#27272a] rounded-r-md", isPhoneActive && "hidden lg:block")} />
+              <div className={cn("absolute top-0 inset-x-0 h-7 flex justify-center z-50", isPhoneActive && "hidden lg:flex")}>
                 <div className="w-28 h-6 bg-[#09090b] rounded-b-3xl relative">
                   <div className={cn("absolute top-2 right-4 w-1.5 h-1.5 rounded-full transition-colors", demoPhase === 'recording' ? 'bg-red-500 shadow-[0_0_10px_rgba(239,68,68,0.8)] animate-pulse' : demoPhase === 'speaking' ? 'bg-emerald-500 shadow-[0_0_10px_rgba(16,185,129,0.8)]' : 'bg-emerald-500/30')} />
                 </div>
               </div>
+              {isPhoneActive && (
+                <button
+                  onClick={handleClosePhone}
+                  className="absolute top-8 right-4 z-[60] w-7 h-7 rounded-full bg-white/10 hover:bg-white/20 flex items-center justify-center transition-colors"
+                  aria-label="Fermer"
+                >
+                  <span className="text-white/60 text-sm leading-none">✕</span>
+                </button>
+              )}
               <div className="w-full h-full relative bg-[#0a0a0a] rounded-[2.5rem] overflow-hidden flex flex-col">
                 {(demoPhase === 'speaking' || demoPhase === 'recording' || demoPhase === 'loading') && (
                   <>
@@ -159,7 +251,144 @@ export default function Home() {
                   </>
                 )}
 
-                {demoPhase === 'idle' && (
+                {phoneMode === 'quiz' && (
+                  <div className="flex-1 flex flex-col relative overflow-hidden" style={{ animation: 'fadeSlideIn 0.4s ease forwards' }}>
+                    <div className="absolute inset-0 bg-[#111]">
+                      <div className="w-[150%] h-[150%] absolute top-[-25%] left-[-25%] bg-[radial-gradient(circle_at_center,_hsl(14_50%_40%_/_0.12)_0%,_transparent_60%)] animate-[spin_20s_linear_infinite]" />
+                    </div>
+                    {quizSuccess ? (
+                      <div className="relative z-20 flex-1 flex flex-col items-center justify-center gap-6 px-8 text-center" style={{ animation: 'fadeSlideIn 0.5s ease forwards' }}>
+                        <div className="w-16 h-16 rounded-2xl flex items-center justify-center" style={{ background: 'rgba(255,77,28,0.12)', border: '1px solid rgba(255,77,28,0.25)' }}><Check size={28} className="text-primary" /></div>
+                        <div><h3 className="text-2xl font-black text-white mb-2">Vous êtes sur la liste.</h3><p className="text-xs text-white/40 leading-relaxed">On vous envoie l'accès dès que c'est prêt.</p></div>
+                        <button onClick={() => { setPhoneMode('demo'); setQuizSuccess(false) }} className="text-[10px] font-mono text-white/25 uppercase tracking-widest hover:text-white/50 transition-colors">Voir la démo</button>
+                      </div>
+                    ) : (
+                      <>
+                        {/* Progress + back */}
+                        <div className="relative z-20 pt-12 px-6 flex items-center justify-between">
+                          <div className="flex items-center gap-1.5">
+                            {[0, 1, 2].map(i => (
+                              <div key={i} className="h-1 rounded-full transition-all duration-300" style={{ width: i < quizStep ? 16 : i === quizStep && quizStep < 3 ? 24 : 12, background: i < quizStep ? 'rgba(255,77,28,0.5)' : i === quizStep && quizStep < 3 ? '#FF4D1C' : 'rgba(255,255,255,0.15)' }} />
+                            ))}
+                          </div>
+                          <button onClick={() => { setPhoneMode('demo') }} className="text-[9px] font-mono text-white/20 uppercase tracking-widest hover:text-white/40 transition-colors">Démo →</button>
+                        </div>
+
+                        {/* Q1 */}
+                        {quizStep === 0 && (
+                          <div className="relative z-20 flex-1 flex flex-col justify-between px-5 pt-6 pb-10" style={{ animation: 'fadeSlideIn 0.35s ease forwards' }}>
+                            <div>
+                              <p className="text-[9px] font-mono text-primary/60 uppercase tracking-widest mb-3">Question 1 / 3</p>
+                              <p className="text-base font-inter font-bold text-white leading-snug">Pour qui allez-vous créer ces vidéos ?</p>
+                            </div>
+                            <div className="flex flex-col gap-2.5 mt-6">
+                              {[
+                                { label: 'Pour moi', sub: 'Personal Branding', val: 'personal' },
+                                { label: 'Pour mon entreprise', sub: 'Com\' / Marque employeur', val: 'company' },
+                                { label: 'Pour mes clients', sub: 'Agence / Freelance', val: 'clients' },
+                              ].map(opt => (
+                                <button key={opt.val} onClick={() => handleAnswer('forWho', opt.val)}
+                                  className="w-full text-left px-4 py-3 rounded-xl border transition-all duration-150 active:scale-[0.97]"
+                                  style={{ background: 'rgba(255,255,255,0.04)', borderColor: 'rgba(255,255,255,0.1)' }}
+                                  onMouseEnter={e => { (e.currentTarget as HTMLElement).style.borderColor = '#FF4D1C'; (e.currentTarget as HTMLElement).style.background = 'rgba(255,77,28,0.08)' }}
+                                  onMouseLeave={e => { (e.currentTarget as HTMLElement).style.borderColor = 'rgba(255,255,255,0.1)'; (e.currentTarget as HTMLElement).style.background = 'rgba(255,255,255,0.04)' }}
+                                >
+                                  <p className="text-sm font-bold text-white">{opt.label}</p>
+                                  <p className="text-[10px] text-white/40 mt-0.5">{opt.sub}</p>
+                                </button>
+                              ))}
+                            </div>
+                          </div>
+                        )}
+
+                        {/* Q2 */}
+                        {quizStep === 1 && (
+                          <div className="relative z-20 flex-1 flex flex-col justify-between px-5 pt-6 pb-10" style={{ animation: 'fadeSlideIn 0.35s ease forwards' }}>
+                            <div>
+                              <p className="text-[9px] font-mono text-primary/60 uppercase tracking-widest mb-3">Question 2 / 3</p>
+                              <p className="text-base font-inter font-bold text-white leading-snug">Comment gérez-vous vos montages vidéo aujourd'hui ?</p>
+                            </div>
+                            <div className="flex flex-col gap-2 mt-5">
+                              {[
+                                { label: 'Je paie un monteur ou une agence', val: 'agency' },
+                                { label: 'J\'utilise des outils IA', val: 'ai_tools' },
+                                { label: 'Je bricole avec des logiciels gratuits', val: 'diy' },
+                                { label: 'Je n\'en fais pas encore', val: 'none' },
+                              ].map(opt => (
+                                <button key={opt.val} onClick={() => handleAnswer('comWay', opt.val)}
+                                  className="w-full text-left px-4 py-2.5 rounded-xl border transition-all duration-150 active:scale-[0.97]"
+                                  style={{ background: 'rgba(255,255,255,0.04)', borderColor: 'rgba(255,255,255,0.1)' }}
+                                  onMouseEnter={e => { (e.currentTarget as HTMLElement).style.borderColor = '#FF4D1C'; (e.currentTarget as HTMLElement).style.background = 'rgba(255,77,28,0.08)' }}
+                                  onMouseLeave={e => { (e.currentTarget as HTMLElement).style.borderColor = 'rgba(255,255,255,0.1)'; (e.currentTarget as HTMLElement).style.background = 'rgba(255,255,255,0.04)' }}
+                                >
+                                  <p className="text-xs font-bold text-white leading-snug">{opt.label}</p>
+                                </button>
+                              ))}
+                            </div>
+                          </div>
+                        )}
+
+                        {/* Q3 */}
+                        {quizStep === 2 && (
+                          <div className="relative z-20 flex-1 flex flex-col justify-between px-5 pt-6 pb-10" style={{ animation: 'fadeSlideIn 0.35s ease forwards' }}>
+                            <div>
+                              <p className="text-[9px] font-mono text-primary/60 uppercase tracking-widest mb-3">Question 3 / 3</p>
+                              <p className="text-base font-inter font-bold text-white leading-snug">Combien de vidéos par mois pour être efficace sur LinkedIn ?</p>
+                            </div>
+                            <div className="flex flex-col gap-2 mt-5">
+                              {[
+                                { label: '1 à 2 vidéos', val: '1-2' },
+                                { label: '3 à 4 vidéos (1 par semaine)', val: '3-4' },
+                                { label: '5 vidéos et plus', val: '5+' },
+                                { label: 'Je ne sais pas', val: 'unknown' },
+                              ].map(opt => (
+                                <button key={opt.val} onClick={() => handleAnswer('frequency', opt.val)}
+                                  className="w-full text-left px-4 py-2.5 rounded-xl border transition-all duration-150 active:scale-[0.97]"
+                                  style={{ background: 'rgba(255,255,255,0.04)', borderColor: 'rgba(255,255,255,0.1)' }}
+                                  onMouseEnter={e => { (e.currentTarget as HTMLElement).style.borderColor = '#FF4D1C'; (e.currentTarget as HTMLElement).style.background = 'rgba(255,77,28,0.08)' }}
+                                  onMouseLeave={e => { (e.currentTarget as HTMLElement).style.borderColor = 'rgba(255,255,255,0.1)'; (e.currentTarget as HTMLElement).style.background = 'rgba(255,255,255,0.04)' }}
+                                >
+                                  <p className="text-xs font-bold text-white leading-snug">{opt.label}</p>
+                                </button>
+                              ))}
+                            </div>
+                          </div>
+                        )}
+
+                        {/* Email */}
+                        {quizStep === 3 && (
+                          <div className="relative z-20 flex-1 flex flex-col justify-between px-5 pt-6 pb-10" style={{ animation: 'fadeSlideIn 0.35s ease forwards' }}>
+                            <div>
+                              <p className="text-[9px] font-mono text-primary/60 uppercase tracking-widest mb-3">Dernière étape</p>
+                              <p className="text-base font-inter font-bold text-white leading-snug">Où vous envoyer votre vidéo offerte ?</p>
+                              <p className="text-[11px] text-white/40 mt-2">1 vidéo LinkedIn montée offerte, sans CB.</p>
+                            </div>
+                            <form onSubmit={handleQuizSubmit} className="flex flex-col gap-3 mt-6">
+                              <input
+                                type="email" required
+                                value={quizEmail} onChange={e => setQuizEmail(e.target.value)}
+                                placeholder="votre@email.com"
+                                className="w-full px-4 py-3 rounded-xl text-sm text-white placeholder:text-white/30 outline-none focus:ring-1 transition-all"
+                                style={{ background: 'rgba(255,255,255,0.06)', border: '1px solid rgba(255,255,255,0.12)' }}
+                                onFocus={e => { (e.currentTarget as HTMLElement).style.borderColor = '#FF4D1C' }}
+                                onBlur={e => { (e.currentTarget as HTMLElement).style.borderColor = 'rgba(255,255,255,0.12)' }}
+                              />
+                              {quizError && <p className="text-[10px] font-mono text-red-400">{quizError}</p>}
+                              <button type="submit" disabled={quizSubmitting}
+                                className="w-full py-3.5 rounded-2xl font-bold text-sm flex items-center justify-center gap-2 transition-all active:scale-95 disabled:opacity-60"
+                                style={{ background: '#FF4D1C', color: '#fff' }}
+                              >
+                                {quizSubmitting ? <Loader2 size={14} className="animate-spin" /> : <><Mail size={14} /> Rejoindre la liste d'attente</>}
+                              </button>
+                            </form>
+                          </div>
+                        )}
+                      </>
+                    )}
+                  </div>
+                )}
+
+                {phoneMode === 'demo' && demoPhase === 'idle' && (
                   <div className="flex-1 flex flex-col items-center justify-center relative">
                     <div className="absolute inset-0 bg-[#111] overflow-hidden">
                       <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_center,_transparent_40%,_black_100%)] z-10 pointer-events-none" />
@@ -179,7 +408,7 @@ export default function Home() {
                   </div>
                 )}
 
-                {demoPhase === 'welcome' && (
+                {phoneMode === 'demo' && demoPhase === 'welcome' && (
                   <div className="flex-1 flex flex-col items-center justify-between relative">
                     <div className="absolute inset-0 bg-[#111] overflow-hidden">
                       <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_center,_transparent_40%,_black_100%)] z-10 pointer-events-none" />
@@ -201,11 +430,11 @@ export default function Home() {
                   </div>
                 )}
 
-                {demoPhase === 'loading' && (
+                {phoneMode === 'demo' && demoPhase === 'loading' && (
                   <div className="flex-1 flex flex-col items-center justify-center z-20 gap-4"><Loader2 size={32} className="text-primary animate-spin" /><p className="text-xs font-mono text-white/50 uppercase tracking-widest">Préparation...</p></div>
                 )}
 
-                {(demoPhase === 'speaking' || demoPhase === 'recording') && (
+                {phoneMode === 'demo' && (demoPhase === 'speaking' || demoPhase === 'recording') && (
                   <div className="flex-1 flex flex-col z-20 relative">
                     {demoPhase === 'recording' && (
                       <div className="absolute top-12 inset-x-5 flex items-center justify-between z-30" style={{ animation: 'fadeSlideIn 0.4s ease forwards' }}>
@@ -228,7 +457,7 @@ export default function Home() {
                   </div>
                 )}
 
-                {demoPhase === 'done' && (
+                {phoneMode === 'demo' && demoPhase === 'done' && (
                   <div className="flex-1 flex flex-col items-center justify-center z-20 gap-6 px-8" style={{ animation: 'fadeSlideIn 0.5s ease forwards' }}>
                     <div className="w-16 h-16 rounded-2xl flex items-center justify-center" style={{ background: 'rgba(52,211,153,0.12)', border: '1px solid rgba(52,211,153,0.25)' }}><Check size={28} className="text-emerald-400" /></div>
                     <div className="text-center"><h3 className="text-2xl font-black text-white mb-2">Dans la boîte.</h3><p className="text-xs text-white/40">Votre réponse a été enregistrée.</p></div>
@@ -236,9 +465,9 @@ export default function Home() {
                   </div>
                 )}
 
-                {demoPhase === 'sending' && (<div className="flex-1 flex flex-col items-center justify-center z-20 gap-4"><Loader2 size={28} className="text-primary animate-spin" /><p className="text-sm font-mono text-white/50 uppercase tracking-widest">Envoi en cours...</p></div>)}
+                {phoneMode === 'demo' && demoPhase === 'sending' && (<div className="flex-1 flex flex-col items-center justify-center z-20 gap-4"><Loader2 size={28} className="text-primary animate-spin" /><p className="text-sm font-mono text-white/50 uppercase tracking-widest">Envoi en cours...</p></div>)}
 
-                {demoPhase === 'sent' && (
+                {phoneMode === 'demo' && demoPhase === 'sent' && (
                   <div className="flex-1 flex flex-col items-center justify-center z-20 gap-6 px-8" style={{ animation: 'fadeSlideIn 0.5s ease forwards' }}>
                     <div className="w-16 h-16 rounded-2xl flex items-center justify-center" style={{ background: 'rgba(255,77,28,0.12)', border: '1px solid rgba(255,77,28,0.25)' }}><Video size={28} className="text-primary" /></div>
                     <div className="text-center"><h3 className="text-2xl font-black text-white mb-2">Montage en cours</h3><p className="text-xs text-white/40">Vidéo prête à publier par email.</p></div>
@@ -247,7 +476,11 @@ export default function Home() {
                   </div>
                 )}
               </div>
-              <style>{`@keyframes fadeSlideIn { from { opacity: 0; transform: translateY(12px); } to { opacity: 1; transform: translateY(0); } }`}</style>
+              <style>{`
+                @keyframes fadeSlideIn { from { opacity: 0; transform: translateY(12px); } to { opacity: 1; transform: translateY(0); } }
+                @keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
+                @keyframes phoneFocusIn { from { opacity: 0; transform: scale(0.88); } to { opacity: 1; transform: scale(1); } }
+              `}</style>
             </div>
           </div>
         </div>
@@ -377,6 +610,18 @@ export default function Home() {
         </div>
       </section>
 
+      {/* ═══════════ FAQ ═══════════ */}
+      <section className="relative z-10 border-t border-white/5 bg-black">
+        <div className="absolute top-0 left-1/2 -translate-x-1/2 w-1/3 h-[1px] bg-gradient-to-r from-transparent via-primary/50 to-transparent" />
+        <div className="max-w-3xl mx-auto px-6 py-24 lg:py-32">
+          <div className="text-center mb-16">
+            <p className="text-[10px] font-mono uppercase tracking-[0.3em] text-primary/60 mb-4">FAQ</p>
+            <h2 className="text-3xl sm:text-4xl font-inter font-extrabold text-white">Questions fréquentes</h2>
+          </div>
+          <FaqList />
+        </div>
+      </section>
+
       {/* ═══════════ FINAL CTA ═══════════ */}
       <section className="relative z-10 border-t border-border/40 bg-surface/30">
         <div className="absolute top-0 left-1/2 -translate-x-1/2 w-full h-[1px] bg-gradient-to-r from-transparent via-primary/50 to-transparent" />
@@ -386,8 +631,15 @@ export default function Home() {
             Répondez à quelques questions.<br />
             <span className="text-transparent bg-clip-text bg-gradient-to-r from-primary via-orange-400 to-yellow-500">Recevez votre vidéo LinkedIn.</span>
           </h2>
-          <p className="text-zinc-300 font-inter text-lg">Premiers inscrits = accès gratuit illimité pendant la bêta.</p>
-          <div className="flex justify-center"><WaitlistForm /></div>
+          <p className="text-zinc-300 font-inter text-lg">Rejoignez la liste et recevez votre <strong className="text-white">première vidéo LinkedIn offerte.</strong></p>
+          <div className="flex flex-col sm:flex-row justify-center gap-3">
+            <button onClick={handleJoinBeta} className="group flex items-center justify-center gap-2 h-14 px-10 font-mono text-[10px] uppercase tracking-[0.2em] bg-primary hover:bg-primary/90 text-white shadow-lg transition-all">
+              Rejoindre la liste d'attente <ArrowRight size={14} className="group-hover:translate-x-1 transition-transform" />
+            </button>
+            <button onClick={handleStartDemo} className="flex items-center justify-center gap-2 h-14 px-8 font-mono text-[10px] uppercase tracking-[0.2em] border border-white/20 text-white/60 hover:border-white/40 hover:text-white transition-all">
+              <Play size={13} /> Voir la démo
+            </button>
+          </div>
           <p className="text-[10px] font-mono text-zinc-500 uppercase tracking-widest">Pas de spam · Juste l'accès quand c'est prêt</p>
         </div>
       </section>
@@ -419,6 +671,58 @@ export default function Home() {
   )
 }
 
+// ── FAQ ──
+const FAQ_ITEMS = [
+  {
+    q: "C'est quoi exactement Lavidz ?",
+    a: "Lavidz est un outil qui transforme vos réponses face caméra en vidéos LinkedIn montées automatiquement. Vous répondez à des questions guidées par IA — on s'occupe du montage, des sous-titres et de la livraison.",
+  },
+  {
+    q: "Est-ce que j'ai besoin d'expérience en vidéo ?",
+    a: "Aucune. Lavidz est conçu pour les experts qui veulent créer du contenu, pas pour les vidéastes. Pas de logiciel à maîtriser, pas de script à écrire. Vous parlez, on assemble.",
+  },
+  {
+    q: "Combien de temps ça prend par vidéo ?",
+    a: "Entre 5 et 15 minutes selon la longueur. Vous répondez aux questions face caméra depuis votre navigateur, et la vidéo montée vous est envoyée par email. Zéro post-production de votre côté.",
+  },
+  {
+    q: "Quelle est la qualité du montage automatique ?",
+    a: "Le montage supprime les silences, les tics de langage et les hésitations grâce à l'IA. Les sous-titres sont générés et synchronisés automatiquement. Le résultat est une vidéo native LinkedIn, prête à publier.",
+  },
+  {
+    q: "Mes données et ma vidéo sont-elles sécurisées ?",
+    a: "Oui. Vos enregistrements sont chiffrés et stockés de manière sécurisée. Vous restez propriétaire de votre contenu à 100%. Aucune vidéo n'est utilisée pour entraîner des modèles IA.",
+  },
+  {
+    q: "Ça fonctionne pour quel type de contenu LinkedIn ?",
+    a: "Témoignages experts, prises de position, conseils métier, storytelling fondateur, FAQ de votre niche — tout contenu où votre parole a de la valeur. Lavidz génère les questions pour maximiser l'engagement.",
+  },
+]
+
+function FaqList() {
+  const [open, setOpen] = useState<number | null>(null)
+  return (
+    <div className="flex flex-col divide-y divide-border/40">
+      {FAQ_ITEMS.map((item, i) => (
+        <div key={i} className="group">
+          <button
+            onClick={() => setOpen(open === i ? null : i)}
+            className="w-full flex items-center justify-between gap-4 py-5 text-left"
+          >
+            <span className="font-inter font-semibold text-base text-white group-hover:text-primary transition-colors">{item.q}</span>
+            <span className={cn("text-primary/60 text-lg leading-none transition-transform duration-300 shrink-0", open === i && "rotate-45")}>+</span>
+          </button>
+          {open === i && (
+            <p className="pb-5 text-sm text-zinc-400 font-inter leading-relaxed" style={{ animation: 'fadeSlideIn 0.25s ease forwards' }}>
+              {item.a}
+            </p>
+          )}
+        </div>
+      ))}
+    </div>
+  )
+}
+
 // ── Use Case Card ──
 function UseCard({ icon: Icon, color, title, sub, desc, badges, stat, statLabel }: { icon: any; color: string; title: string; sub: string; desc: string; badges: string[]; stat: string; statLabel: string }) {
   const colors: Record<string, { border: string; bg: string; text: string; badge: string }> = {
@@ -445,43 +749,3 @@ function UseCard({ icon: Icon, color, title, sub, desc, badges, stat, statLabel 
   )
 }
 
-// ── Waitlist Form ──
-function WaitlistForm() {
-  const [email, setEmail] = useState('')
-  const [loading, setLoading] = useState(false)
-  const [success, setSuccess] = useState(false)
-  const [error, setError] = useState('')
-
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault(); setLoading(true); setError('')
-    try {
-      const res = await fetch('/api/waitlist', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ email }) })
-      if (!res.ok) { const data = await res.json(); throw new Error(data.error || 'Erreur') }
-      setSuccess(true); setEmail('')
-    } catch (err: any) { setError(err.message) } finally { setLoading(false) }
-  }
-
-  if (success) return (
-    <div className="flex items-center gap-3 text-emerald-400 bg-emerald-500/10 border border-emerald-500/20 px-6 py-4 animate-in fade-in zoom-in duration-500">
-      <Check size={18} />
-      <div><p className="font-mono text-[10px] uppercase tracking-widest font-bold">Vous êtes sur la liste.</p><p className="font-inter text-[11px] text-emerald-400/70 mt-0.5">On vous envoie l'accès dès que c'est prêt.</p></div>
-    </div>
-  )
-
-  return (
-    <div className="w-full max-w-md">
-      <form onSubmit={handleSubmit} className="relative group">
-        <div className="flex flex-col sm:flex-row gap-0 border border-white/20 bg-white/5 backdrop-blur-xl focus-within:border-primary focus-within:ring-1 focus-within:ring-primary/50 transition-all duration-500 shadow-2xl">
-          <div className="relative flex-1">
-            <Mail className="absolute left-4 top-1/2 -translate-y-1/2 text-white/40 group-focus-within:text-primary transition-colors" size={14} />
-            <Input type="email" placeholder="votre@email.com" value={email} onChange={(e) => setEmail(e.target.value)} required disabled={loading} className="h-14 pl-12 border-none bg-transparent rounded-none focus-visible:ring-0 text-white placeholder:text-white/30 text-sm" />
-          </div>
-          <Button type="submit" disabled={loading} className="h-14 sm:w-auto px-8 rounded-none font-mono text-[10px] uppercase tracking-[0.2em] bg-primary hover:bg-primary/90 text-white shadow-lg">
-            {loading ? <Loader2 className="animate-spin" size={14} /> : <>Rejoindre la bêta <ArrowRight className="ml-2 group-hover:translate-x-1 transition-transform" size={14} /></>}
-          </Button>
-        </div>
-        {error && <p className="absolute -bottom-6 left-0 text-[9px] font-mono text-pink-500 uppercase tracking-widest animate-in fade-in slide-in-from-top-2">{error}</p>}
-      </form>
-    </div>
-  )
-}
