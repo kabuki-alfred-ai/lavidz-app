@@ -33,6 +33,13 @@ export default function Home() {
   const [quizSubmitting, setQuizSubmitting] = useState(false)
   const [quizSuccess, setQuizSuccess] = useState(false)
   const [quizError, setQuizError] = useState('')
+  const [scrolled, setScrolled] = useState(false)
+
+  useEffect(() => {
+    const onScroll = () => setScrolled(window.scrollY > 400)
+    window.addEventListener('scroll', onScroll)
+    return () => window.removeEventListener('scroll', onScroll)
+  }, [])
 
   const stopEverything = useCallback(() => {
     audioRef.current?.pause()
@@ -149,20 +156,42 @@ export default function Home() {
         <div className="absolute inset-0 bg-transparent opacity-[0.12]" style={{ backgroundImage: 'url("data:image/svg+xml,%3Csvg viewBox=%220 0 400 400%22 xmlns=%22http://www.w3.org/2000/svg%22%3E%3Cfilter id=%22n%22%3E%3CfeTurbulence type=%22fractalNoise%22 baseFrequency=%222.5%22 numOctaves=%224%22 stitchTiles=%22stitch%22/%3E%3C/filter%3E%3Crect width=%22100%25%22 height=%22100%25%22 filter=%22url(%23n)%22/%3E%3C/svg%3E")', mixBlendMode: 'overlay' }} />
       </div>
 
-      {/* Nav */}
-      <nav className="relative z-10 flex items-center justify-between px-6 py-4 max-w-7xl mx-auto">
-        <div className="flex items-center gap-1.5 group cursor-pointer">
-          <div className="relative w-6 h-6 flex items-center justify-center">
-            {/* Background glow shadow */}
-            <div className="absolute inset-x-0 bottom-0 top-1/2 bg-primary/20 blur-md rounded-full group-hover:bg-primary/30 transition-colors" />
-            <span className="block w-3 h-3 bg-primary animate-logo-morph shadow-[0_0_15px_rgba(var(--primary),0.3)]" />
+      <header className={cn(
+        "fixed top-0 inset-x-0 z-[100] transition-all duration-300 border-b bg-background/60 backdrop-blur-md",
+        scrolled ? "border-border/40 py-3" : "border-transparent py-5"
+      )}>
+        <nav className="flex items-center justify-between px-6 max-w-7xl mx-auto">
+          <Link href="/" className="flex items-center gap-1.5 group">
+            <div className="relative w-6 h-6 flex items-center justify-center">
+              <div className="absolute inset-x-0 bottom-0 top-1/2 bg-primary/20 blur-md rounded-full group-hover:bg-primary/30 transition-colors" />
+              <span className="block w-3 h-3 bg-primary animate-logo-morph shadow-[0_0_15px_rgba(var(--primary),0.3)]" />
+            </div>
+            <span className="font-sans font-black text-lg tracking-tighter text-foreground uppercase">Lavidz</span>
+          </Link>
+
+          <div className="flex items-center gap-4">
+            <div className={cn(
+              "transition-all duration-500 ease-out flex items-center gap-3",
+              scrolled ? "translate-x-0 opacity-100" : "translate-x-8 opacity-0 pointer-events-none"
+            )}>
+              <Button
+                onClick={handleJoinBeta}
+                size="sm"
+                className="h-9 px-5 font-mono text-[9px] uppercase tracking-[0.15em] bg-primary hover:bg-primary/90 text-white rounded-none hidden sm:flex"
+              >
+                Inscrivez-vous
+              </Button>
+            </div>
+
+            <Badge variant="outline" className="font-mono text-[9px] uppercase tracking-widest py-1 px-3 border-primary/30 bg-primary/5 text-primary animate-pulse whitespace-nowrap">
+              Lancement bientôt
+            </Badge>
           </div>
-          <span className="font-sans font-black text-lg tracking-tighter text-foreground uppercase">Lavidz</span>
-        </div>
-        <Badge variant="outline" className="font-mono text-[9px] uppercase tracking-widest py-1 px-3 border-primary/30 bg-primary/5 text-primary animate-pulse">
-          Lancement bientôt
-        </Badge>
-      </nav>
+        </nav>
+      </header>
+
+      {/* Spacer to avoid hero being hidden behind sticky header */}
+      <div className="h-20 sm:h-24" />
 
       {/* ═══════════ HERO ═══════════ */}
       <main className="relative max-w-7xl mx-auto px-6 pt-4 sm:pt-8 pb-24 sm:pb-32">
@@ -585,7 +614,7 @@ export default function Home() {
             {[
               { value: '78%', label: 'des marketeurs B2B font déjà de la vidéo', src: 'LinkedIn Ads 2026' },
               { value: '94%', label: 'disent que la confiance fait la vente', src: 'LinkedIn Ads 2026' },
-              { value: '75%', label: 'se fient à leur réseau, pas aux pubs', src: 'Ioana Erhan, LinkedIn' },
+              { value: '75%', label: 'se fient à leur réseau, pas aux pubs', src: 'LinkedIn' },
               { value: 'x1.6', label: 'plus de leads avec une vidéo vue', src: 'LinkedIn Ads 2026' },
             ].map((s, i) => (
               <div key={i} className="p-6 bg-background border border-border hover:border-primary/20 transition-all group text-center">
