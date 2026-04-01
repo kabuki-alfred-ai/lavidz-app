@@ -20,8 +20,12 @@ export async function POST(req: Request) {
     await resend.contacts.create({
       email,
       audienceId: WAITLIST_AUDIENCE_ID,
-      ...(forWho && { firstName: forWho }),
       unsubscribed: false,
+      properties: {
+        ...(forWho && { lavidz_for_who: forWho }),
+        ...(comWay && { lavidz_com_way: comWay }),
+        ...(frequency && { lavidz_frequency: frequency }),
+      },
     })
 
     console.log('[waitlist] new signup', { email, lavidz_for_who: forWho, lavidz_com_way: comWay, lavidz_frequency: frequency })
