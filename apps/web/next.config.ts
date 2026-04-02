@@ -7,6 +7,7 @@ const nextConfig: NextConfig = {
       bodySizeLimit: '500mb',
     },
   },
+  middlewareClientMaxBodySize: '500mb',
   serverExternalPackages: [
     '@remotion/bundler',
     '@remotion/renderer',
