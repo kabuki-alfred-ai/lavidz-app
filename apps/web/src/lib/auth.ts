@@ -11,6 +11,7 @@ export interface SessionPayload {
   lastName: string | null
   role: UserRole
   organizationId: string | null
+  activeOrgId?: string | null
 }
 
 const COOKIE_NAME = 'lavidz_session'

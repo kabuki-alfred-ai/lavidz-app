@@ -980,7 +980,7 @@ export function RecordingSession({ theme, initialSessionId, mode = 'default' }: 
                         border: `1px solid ${feedbackOverall === star ? 'rgba(250,204,21,0.4)' : 'rgba(255,255,255,0.08)'}`,
                       }}
                     >
-                      <span style={{ fontSize: 32, lineHeight: 1, filter: feedbackOverall >= star ? 'none' : 'grayscale(1) opacity(0.2)' }}>★</span>
+                      <span style={{ fontSize: 32, lineHeight: 1, color: feedbackOverall >= star ? '#facc15' : 'rgba(255,255,255,0.15)' }}>★</span>
                       <span className="text-[10px] font-mono" style={{ color: feedbackOverall === star ? '#facc15' : 'rgba(255,255,255,0.25)' }}>
                         {star === 1 ? 'Mauvais' : star === 2 ? 'Moyen' : star === 3 ? 'Bien' : star === 4 ? 'Super' : 'Parfait'}
                       </span>
@@ -1007,7 +1007,7 @@ export function RecordingSession({ theme, initialSessionId, mode = 'default' }: 
                         border: `1px solid ${feedbackQuestion === star ? 'rgba(250,204,21,0.4)' : 'rgba(255,255,255,0.08)'}`,
                       }}
                     >
-                      <span style={{ fontSize: 32, lineHeight: 1, filter: feedbackQuestion >= star ? 'none' : 'grayscale(1) opacity(0.2)' }}>★</span>
+                      <span style={{ fontSize: 32, lineHeight: 1, color: feedbackQuestion >= star ? '#facc15' : 'rgba(255,255,255,0.15)' }}>★</span>
                       <span className="text-[10px] font-mono" style={{ color: feedbackQuestion === star ? '#facc15' : 'rgba(255,255,255,0.25)' }}>
                         {star === 1 ? 'Non' : star === 2 ? 'Peu' : star === 3 ? 'Oui' : star === 4 ? 'Très' : 'Top !'}
                       </span>

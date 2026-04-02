@@ -5,6 +5,7 @@ import { LogoutButton } from './LogoutButton'
 import { AdminSidebarNav } from './AdminSidebarNav'
 import { MobileAdminSidebar } from './MobileAdminSidebar'
 import { AiDrawer } from './AiDrawer'
+import { OrgSwitcher } from './OrgSwitcher'
 import { ChevronRight, Home } from 'lucide-react'
 
 export default async function AdminLayout({ children }: { children: React.ReactNode }) {
@@ -41,7 +42,7 @@ export default async function AdminLayout({ children }: { children: React.ReactN
         </div>
 
         {/* Nav */}
-        <AdminSidebarNav userRole={user?.role} />
+        <AdminSidebarNav userRole={user?.role} activeOrgId={user?.activeOrgId} />
 
         {/* Footer — user info + logout */}
         <div className="p-4 mx-4 mb-4 border border-border/60 bg-surface/40 rounded-sm flex flex-col gap-3 relative z-10">
@@ -89,6 +90,7 @@ export default async function AdminLayout({ children }: { children: React.ReactN
               userName={user ? (user.firstName ? `${user.firstName} ${user.lastName || ''}`.trim() : user.email.split('@')[0]) : ''}
               userInitial={user ? user.email[0].toUpperCase() : ''}
               avatarSrc={dbUser?.avatarKey}
+              activeOrgId={user?.activeOrgId}
             />
             <div className="flex items-center gap-3 text-[10px] font-mono text-muted-foreground uppercase tracking-widest leading-none">
               <Home size={10} className="text-muted-foreground/80 hidden md:block" />
@@ -99,7 +101,10 @@ export default async function AdminLayout({ children }: { children: React.ReactN
             </div>
           </div>
 
-          <div className="flex items-center gap-4">
+          <div className="flex items-center gap-3">
+            {user?.role === 'SUPERADMIN' && (
+              <OrgSwitcher activeOrgId={user.activeOrgId} />
+            )}
             <div className="px-2.5 py-1 rounded-full bg-surface-raised border border-border flex items-center gap-2">
               <span className="relative flex h-1.5 w-1.5">
                 <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>

@@ -66,7 +66,13 @@ export async function middleware(request: NextRequest) {
     res.headers.set('x-user-id', user.userId)
     res.headers.set('x-user-role', user.role)
     res.headers.set('x-user-email', user.email)
-    if (user.organizationId) res.headers.set('x-org-id', user.organizationId)
+    const effectiveOrgId = user.role === 'SUPERADMIN' && user.activeOrgId
+      ? user.activeOrgId
+      : user.organizationId
+    if (effectiveOrgId) res.headers.set('x-org-id', effectiveOrgId)
+    if (user.role === 'SUPERADMIN' && user.activeOrgId) {
+      res.headers.set('x-active-org-id', user.activeOrgId)
+    }
     return res
   }
 

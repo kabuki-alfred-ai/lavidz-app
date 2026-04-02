@@ -14,9 +14,10 @@ interface Props {
   userName: string
   userInitial: string
   avatarSrc?: string | null
+  activeOrgId?: string | null
 }
 
-export function MobileAdminSidebar({ userRole, userName, userInitial, avatarSrc }: Props) {
+export function MobileAdminSidebar({ userRole, userName, userInitial, avatarSrc, activeOrgId }: Props) {
   const [open, setOpen] = useState(false)
   const pathname = usePathname()
 
@@ -67,7 +68,7 @@ export function MobileAdminSidebar({ userRole, userName, userInitial, avatarSrc 
         </div>
 
         {/* Nav */}
-        <AdminSidebarNav userRole={userRole} />
+        <AdminSidebarNav userRole={userRole} activeOrgId={activeOrgId} />
 
         {/* Footer */}
         <div className="p-4 mx-4 mb-4 border border-border/60 bg-surface/40 rounded-sm flex flex-col gap-3">
