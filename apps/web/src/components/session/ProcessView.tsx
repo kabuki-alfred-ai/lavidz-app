@@ -224,7 +224,14 @@ function getVideoDuration(url: string): Promise<number> {
 
 function getAudioDuration(url: string): Promise<number> {
   return new Promise((resolve) => {
-    const a = new Audio(); a.onloadedmetadata = () => resolve(isFinite(a.duration) ? a.duration : 4); a.onerror = () => resolve(4); a.src = url
+    const a = new Audio()
+    const cleanup = (dur: number) => {
+      a.onloadedmetadata = null; a.onerror = null
+      a.src = ''; a.load(); resolve(dur)
+    }
+    a.onloadedmetadata = () => cleanup(isFinite(a.duration) ? a.duration : 4)
+    a.onerror = () => cleanup(4)
+    a.src = url
   })
 }
 
@@ -484,6 +491,8 @@ export function ProcessView({ recordings, themeName, sessionId, themeSlug, monta
   const localTranscriptsRef = useRef<Record<string, string>>({})
   const serverRendererRef = useRef<ServerRendererHandle | null>(null)
   const previewAudioRef = useRef<HTMLAudioElement | null>(null)
+  const soundPreviewAudioRef = useRef<HTMLAudioElement | null>(null)
+  const prepareAbortRef = useRef<AbortController | null>(null)
   const blobUrlsRef = useRef<string[]>([])
   const durationsRef = useRef<number[]>([])
   const effectiveVideoUrlsRef = useRef<string[]>([])
@@ -498,10 +507,13 @@ export function ProcessView({ recordings, themeName, sessionId, themeSlug, monta
   const segmentTimelineRef = useRef<{ id: string; startFrame: number; endFrame: number }[]>([])
   const currentStepRef = useRef(0)
 
-  // Revoke render output blob URL on unmount to free browser memory
+  // Revoke render output blob URL on unmount, stop audio, abort in-flight prepare
   useEffect(() => {
     return () => {
       if (renderOutputUrlRef.current) URL.revokeObjectURL(renderOutputUrlRef.current)
+      if (previewAudioRef.current) { previewAudioRef.current.pause(); previewAudioRef.current = null }
+      if (soundPreviewAudioRef.current) { soundPreviewAudioRef.current.pause(); soundPreviewAudioRef.current = null }
+      prepareAbortRef.current?.abort()
     }
   }, [])
 
@@ -681,6 +693,10 @@ export function ProcessView({ recordings, themeName, sessionId, themeSlug, monta
   }
 
   const prepare = async (voiceId: string | null) => {
+    prepareAbortRef.current?.abort()
+    const abortCtrl = new AbortController()
+    prepareAbortRef.current = abortCtrl
+
     setSilenceCutError('')
     setFillerCutError('')
     setCleanvoiceError('')
@@ -846,7 +862,11 @@ export function ProcessView({ recordings, themeName, sessionId, themeSlug, monta
         ttsUrls.push(ttsUrl)
 
         if (ttsUrl) {
-          setTtsCache(p => ({ ...p, [rec.id]: { voiceId, url: ttsUrl } }))
+          setTtsCache(p => {
+            const old = p[rec.id]
+            if (old?.url?.startsWith('blob:')) URL.revokeObjectURL(old.url)
+            return { ...p, [rec.id]: { voiceId, url: ttsUrl } }
+          })
           uploadToCache(rec.id, ttsUrl, 'tts', { voiceId })
         }
       }
@@ -1514,7 +1534,7 @@ export function ProcessView({ recordings, themeName, sessionId, themeSlug, monta
                     {isActive && <span style={{ fontSize: 10, color: S.dim, fontFamily: 'monospace' }}>actif</span>}
                   </button>
                   <button
-                    onClick={() => { const a = new Audio(s.signedUrl); a.play() }}
+                    onClick={() => { if (soundPreviewAudioRef.current) { soundPreviewAudioRef.current.pause(); soundPreviewAudioRef.current = null } const a = new Audio(s.signedUrl); soundPreviewAudioRef.current = a; a.onended = () => { soundPreviewAudioRef.current = null }; a.play() }}
                     style={{ padding: '8px 10px', borderRadius: 10, background: S.surface, border: `1px solid ${S.border}`, color: S.muted, display: 'flex', alignItems: 'center' }}
                   >
                     <Play size={11} />
@@ -1814,7 +1834,7 @@ export function ProcessView({ recordings, themeName, sessionId, themeSlug, monta
                     {isActive && <span style={{ fontSize: 10, color: S.dim, fontFamily: 'monospace' }}>actif</span>}
                   </button>
                   <button
-                    onClick={() => { const a = new Audio(s.signedUrl); a.play() }}
+                    onClick={() => { if (soundPreviewAudioRef.current) { soundPreviewAudioRef.current.pause(); soundPreviewAudioRef.current = null } const a = new Audio(s.signedUrl); soundPreviewAudioRef.current = a; a.onended = () => { soundPreviewAudioRef.current = null }; a.play() }}
                     style={{ padding: '8px 10px', borderRadius: 10, background: S.surface, border: `1px solid ${S.border}`, color: S.muted, display: 'flex', alignItems: 'center' }}
                   >
                     <Play size={11} />
@@ -2169,7 +2189,7 @@ export function ProcessView({ recordings, themeName, sessionId, themeSlug, monta
                             {isActive && <span style={{ fontSize: 10, color: S.dim, fontFamily: 'monospace' }}>actif</span>}
                           </button>
                           <button
-                            onClick={() => { const a = new Audio(s.signedUrl); a.play() }}
+                            onClick={() => { if (soundPreviewAudioRef.current) { soundPreviewAudioRef.current.pause(); soundPreviewAudioRef.current = null } const a = new Audio(s.signedUrl); soundPreviewAudioRef.current = a; a.onended = () => { soundPreviewAudioRef.current = null }; a.play() }}
                             style={{ padding: '8px 10px', borderRadius: 10, background: S.surface, border: `1px solid ${S.border}`, color: S.muted, display: 'flex', alignItems: 'center' }}
                           >
                             <Play size={11} />
@@ -2250,7 +2270,7 @@ export function ProcessView({ recordings, themeName, sessionId, themeSlug, monta
                       {isActive && <span style={{ fontSize: 10, color: S.dim, fontFamily: 'monospace' }}>actif</span>}
                     </button>
                     <button
-                      onClick={() => { const a = new Audio(s.signedUrl); a.play() }}
+                      onClick={() => { if (soundPreviewAudioRef.current) { soundPreviewAudioRef.current.pause(); soundPreviewAudioRef.current = null } const a = new Audio(s.signedUrl); soundPreviewAudioRef.current = a; a.onended = () => { soundPreviewAudioRef.current = null }; a.play() }}
                       style={{ padding: '10px 12px', borderRadius: 12, background: S.surface, border: `1px solid ${S.border}`, color: S.muted, display: 'flex', alignItems: 'center' }}
                       title="Écouter"
                     >
