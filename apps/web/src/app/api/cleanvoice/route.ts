@@ -105,12 +105,13 @@ export async function POST(req: Request) {
     purgeStaleTmpFiles('cleanvoice-')
     const id = crypto.randomUUID()
 
-    // Cleanvoice does not support WebM (browser MediaRecorder format).
-    // If the source is WebM, download, convert to MP4 via FFmpeg, upload to S3,
-    // and pass the presigned S3 URL to Cleanvoice.
-    const isWebm = /\.webm(\?|$)/i.test(videoUrl)
-    if (isWebm) {
-      const rawPath = path.join('/tmp', `cleanvoice-raw-${id}.webm`)
+    // Cleanvoice does not support WebM. Detect by content-type (more reliable than URL extension).
+    // If not MP4, convert via FFmpeg before sending to Cleanvoice.
+    const headRes = await fetch(videoUrl, { method: 'HEAD' })
+    const contentType = headRes.headers.get('content-type') ?? ''
+    const needsConversion = !contentType.includes('mp4') && !contentType.includes('h264')
+    if (needsConversion) {
+      const rawPath = path.join('/tmp', `cleanvoice-raw-${id}`)
       const convertedPath = path.join('/tmp', `cleanvoice-in-${id}.mp4`)
       try {
         const sourceRes = await fetch(videoUrl)

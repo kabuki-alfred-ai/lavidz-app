@@ -828,7 +828,7 @@ function RawsPanel({
                   variant="outline" 
                   size="sm" 
                   className="w-full h-8 rounded-none border-border/40 hover:border-primary/40 group/btn transition-all font-mono text-[9px] uppercase tracking-widest text-muted-foreground hover:text-primary"
-                  onClick={() => onDownload(rec.signedUrl, `raw-${session.id}-q${idx + 1}.webm`)}
+                  onClick={() => onDownload(rec.signedUrl, `raw-${session.id}-q${idx + 1}.mp4`)}
                 >
                   <Download size={12} className="mr-2 text-muted-foreground group-hover/btn:text-primary transition-colors" />
                   Télécharger

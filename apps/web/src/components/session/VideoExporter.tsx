@@ -261,12 +261,12 @@ export function VideoExporter({ recordings, themeName, theme, intro, subtitleSet
         setStep('videos')
         setDetail(`Clip ${i + 1}/${recordings.length}...`)
         const rawData = await fetchFile(recordings[i].videoUrl)
-        await ffmpeg.writeFile(`raw_${i}.webm`, rawData)
+        await ffmpeg.writeFile(`raw_${i}.mp4`, rawData)
 
         // Step 1: transcode + scale (always works)
         const exitScale = await ffmpeg.exec([
           '-fflags', '+genpts',
-          '-i', `raw_${i}.webm`,
+          '-i', `raw_${i}.mp4`,
           '-c:v', 'libx264', '-preset', 'ultrafast', '-pix_fmt', 'yuv420p',
           '-vf', `scale=${width}:${height}:force_original_aspect_ratio=decrease,pad=${width}:${height}:(ow-iw)/2:(oh-ih)/2:color=black`,
           '-r', String(FPS),

@@ -237,8 +237,11 @@ export function VideoRecorder({
         ...dest.stream.getAudioTracks(),
       ])
 
-      const mimeType = MediaRecorder.isTypeSupported('video/webm;codecs=vp9,opus')
-        ? 'video/webm;codecs=vp9,opus' : 'video/webm'
+      const mimeType = MediaRecorder.isTypeSupported('video/mp4;codecs=avc1,mp4a.40.2')
+        ? 'video/mp4;codecs=avc1,mp4a.40.2'
+        : MediaRecorder.isTypeSupported('video/webm;codecs=vp9,opus')
+        ? 'video/webm;codecs=vp9,opus'
+        : 'video/webm'
       const mediaRecorder = new MediaRecorder(combined, { mimeType })
       const chunks: Blob[] = []
       mediaRecorder.ondataavailable = (e) => { if (e.data.size > 0) chunks.push(e.data) }
@@ -337,7 +340,7 @@ export function VideoRecorder({
     if (!outputUrl) return
     const a = document.createElement('a')
     a.href = outputUrl
-    a.download = `${themeName.toLowerCase().replace(/\s+/g, '-')}-montage.webm`
+    a.download = `${themeName.toLowerCase().replace(/\s+/g, '-')}-montage.mp4`
     a.click()
   }
 

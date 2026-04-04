@@ -80,7 +80,7 @@ export function VideoProcessor({ recordings, themeName }: Props) {
       for (let i = 0; i < recordings.length; i++) {
         const rec = recordings[i]
         const data = await fetchFile(rec.videoUrl)
-        const filename = `input_${i}.webm`
+        const filename = `input_${i}.mp4`
         await ffmpeg.writeFile(filename, data)
         inputFiles.push(filename)
       }

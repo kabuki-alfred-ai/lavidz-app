@@ -324,7 +324,7 @@ export function RecordingSession({ theme, initialSessionId, mode = 'default' }: 
     setUploadProgress(0)
 
     try {
-      const recordedMimeType = mediaRecorderRef.current?.mimeType ?? 'video/webm'
+      const recordedMimeType = mediaRecorderRef.current?.mimeType ?? 'video/mp4'
       const blob = new Blob(chunksRef.current, { type: recordedMimeType })
 
       // 1. Obtenir la presigned PUT URL (via proxy Next.js → NestJS)
