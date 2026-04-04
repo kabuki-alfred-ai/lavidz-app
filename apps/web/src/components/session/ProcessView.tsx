@@ -475,6 +475,7 @@ export function ProcessView({ recordings, themeName, sessionId, themeSlug, monta
   const durationsRef = useRef<number[]>([])
   const effectiveVideoUrlsRef = useRef<string[]>([])
   const lastProcessingHashRef = useRef<string | null>(null)
+  const renderOutputUrlRef = useRef<string | null>(null)
   const playerRef = useRef<PlayerRef | null>(null)
   // ref — no re-render on frame change
   const playerFrameRef = useRef(0)
@@ -483,6 +484,14 @@ export function ProcessView({ recordings, themeName, sessionId, themeSlug, monta
   const activeSegIdRef = useRef<string | null>(null)
   const segmentTimelineRef = useRef<{ id: string; startFrame: number; endFrame: number }[]>([])
   const currentStepRef = useRef(0)
+
+  // Revoke all blob URLs on unmount to free browser memory
+  useEffect(() => {
+    return () => {
+      for (const url of blobUrlsRef.current) URL.revokeObjectURL(url)
+      if (renderOutputUrlRef.current) URL.revokeObjectURL(renderOutputUrlRef.current)
+    }
+  }, [])
 
   useEffect(() => { currentStepRef.current = currentStep }, [currentStep])
 
@@ -665,6 +674,7 @@ export function ProcessView({ recordings, themeName, sessionId, themeSlug, monta
     const processingChanged = lastProcessingHashRef.current !== currentProcessingHash
 
     if (blobUrlsRef.current.length === 0 || processingChanged) {
+      for (const url of blobUrlsRef.current) URL.revokeObjectURL(url)
       blobUrlsRef.current = []; effectiveVideoUrlsRef.current = []; durationsRef.current = []
 
       for (let i = 0; i < recordings.length; i++) {
@@ -2367,7 +2377,11 @@ export function ProcessView({ recordings, themeName, sessionId, themeSlug, monta
           sessionId={sessionId}
           motionSettings={motionSettings}
           audioSettings={audioSettings}
-          onRenderComplete={(url) => setRenderOutputUrl(url)}
+          onRenderComplete={(url) => {
+            if (renderOutputUrlRef.current) URL.revokeObjectURL(renderOutputUrlRef.current)
+            renderOutputUrlRef.current = url
+            setRenderOutputUrl(url)
+          }}
         />
       )}
 
