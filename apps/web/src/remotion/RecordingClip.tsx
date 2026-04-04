@@ -1,4 +1,4 @@
-import { AbsoluteFill, Audio, Video, interpolate, spring, useCurrentFrame, useVideoConfig } from 'remotion'
+import { AbsoluteFill, Audio, Video, OffthreadVideo, interpolate, spring, useCurrentFrame, useVideoConfig } from 'remotion'
 import { useMemo } from 'react'
 import type { SubtitleSettings } from './subtitleTypes'
 import { DEFAULT_SUBTITLE_SETTINGS } from './subtitleTypes'
@@ -751,22 +751,7 @@ export function RecordingClip({
     return (
       <AbsoluteFill style={{ background: 'black', overflow: 'hidden', opacity: entryOpacity }}>
         {sfxNode}
-        {/* Blurred background — muted to avoid double audio */}
-        <Video
-          src={videoUrl}
-          muted
-          {...(startFromFrame ? { startFrom: startFromFrame } : {})}
-          style={{
-            position: 'absolute',
-            width: '100%',
-            height: '100%',
-            objectFit: 'cover',
-            filter: 'blur(22px)',
-            transform: 'scale(1.12)',
-            opacity: 0.55,
-          }}
-        />
-        {/* Centered main video with entry + ken burns */}
+        {/* Single video element — blurred background achieved via CSS on a wrapper div */}
         <div
           style={{
             position: 'absolute',
@@ -775,6 +760,22 @@ export function RecordingClip({
             filter: videoFilter,
           }}
         >
+          {/* Blurred background — OffthreadVideo renders as image (no HTMLVideoElement buffer) */}
+          <div style={{ position: 'absolute', inset: 0, overflow: 'hidden' }}>
+            <OffthreadVideo
+              src={videoUrl}
+              {...(startFromFrame ? { startFrom: startFromFrame } : {})}
+              style={{
+                width: '100%',
+                height: '100%',
+                objectFit: 'cover',
+                filter: 'blur(22px)',
+                transform: 'scale(1.12)',
+                opacity: 0.55,
+              }}
+            />
+          </div>
+          {/* Foreground centered video */}
           <div style={{ position: 'absolute', inset: 0, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
             <Video src={videoUrl} {...(startFromFrame ? { startFrom: startFromFrame } : {})} style={{ width: '100%', objectFit: 'contain' }} />
           </div>

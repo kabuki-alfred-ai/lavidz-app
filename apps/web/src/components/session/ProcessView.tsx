@@ -640,24 +640,23 @@ export function ProcessView({ recordings, themeName, sessionId, themeSlug, monta
     } catch { return null }
   }
 
-  // Upload a processed asset blob to S3 via NestJS and update recording cache in DB
+  // Upload a processed asset to S3 via NestJS — server fetches the URL directly,
+  // so the browser never holds large video bytes in memory.
   const uploadToCache = async (
     recordingId: string,
-    blobUrl: string,
+    sourceUrl: string,
     type: 'tts' | 'processed',
     extra: { voiceId?: string; processingHash?: string },
   ) => {
     try {
-      const blob = await (await fetch(blobUrl)).blob()
-      const form = new FormData()
-      form.append('file', blob, type === 'tts' ? 'audio.mp3' : 'video.mp4')
-      form.append('type', type)
-      if (extra.voiceId) form.append('voiceId', extra.voiceId)
-      if (extra.processingHash) form.append('processingHash', extra.processingHash)
       const params = new URLSearchParams({ sessionId, type })
       if (extra.voiceId) params.set('voiceId', extra.voiceId)
       if (extra.processingHash) params.set('processingHash', extra.processingHash)
-      await fetch(`/api/admin/recordings/${recordingId}/cache?${params}`, { method: 'POST', body: form })
+      await fetch(`/api/admin/recordings/${recordingId}/cache?${params}`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ sourceUrl, type, ...extra }),
+      })
     } catch (e) { console.warn('[cache] upload failed', e) }
   }
 
