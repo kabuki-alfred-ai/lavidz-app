@@ -485,10 +485,9 @@ export function ProcessView({ recordings, themeName, sessionId, themeSlug, monta
   const segmentTimelineRef = useRef<{ id: string; startFrame: number; endFrame: number }[]>([])
   const currentStepRef = useRef(0)
 
-  // Revoke all blob URLs on unmount to free browser memory
+  // Revoke render output blob URL on unmount to free browser memory
   useEffect(() => {
     return () => {
-      for (const url of blobUrlsRef.current) URL.revokeObjectURL(url)
       if (renderOutputUrlRef.current) URL.revokeObjectURL(renderOutputUrlRef.current)
     }
   }, [])
@@ -673,9 +672,8 @@ export function ProcessView({ recordings, themeName, sessionId, themeSlug, monta
 
     const processingChanged = lastProcessingHashRef.current !== currentProcessingHash
 
-    if (blobUrlsRef.current.length === 0 || processingChanged) {
-      for (const url of blobUrlsRef.current) URL.revokeObjectURL(url)
-      blobUrlsRef.current = []; effectiveVideoUrlsRef.current = []; durationsRef.current = []
+    if (effectiveVideoUrlsRef.current.length === 0 || processingChanged) {
+      effectiveVideoUrlsRef.current = []; durationsRef.current = []
 
       for (let i = 0; i < recordings.length; i++) {
         const rec = recordings[i]
@@ -684,9 +682,7 @@ export function ProcessView({ recordings, themeName, sessionId, themeSlug, monta
         if (cachedProcessed?.hash === currentProcessingHash && cachedProcessed.url) {
           console.log(`[cache] using cached processed video for recording ${rec.id}`)
           effectiveVideoUrlsRef.current.push(cachedProcessed.url)
-          const blobUrl = await downloadAsBlob(cachedProcessed.url)
-          blobUrlsRef.current.push(blobUrl)
-          durationsRef.current.push(await getVideoDuration(blobUrl))
+          durationsRef.current.push(await getVideoDuration(cachedProcessed.url))
           continue
         }
         // If we have a cached entry with empty url, fetch the signed URL
@@ -696,9 +692,7 @@ export function ProcessView({ recordings, themeName, sessionId, themeSlug, monta
             setProcessedCache(p => ({ ...p, [rec.id]: { hash: currentProcessingHash, url: signedUrl } }))
             console.log(`[cache] resolved processed URL for recording ${rec.id}`)
             effectiveVideoUrlsRef.current.push(signedUrl)
-            const blobUrl = await downloadAsBlob(signedUrl)
-            blobUrlsRef.current.push(blobUrl)
-            durationsRef.current.push(await getVideoDuration(blobUrl))
+            durationsRef.current.push(await getVideoDuration(signedUrl))
             continue
           }
         }
@@ -797,9 +791,7 @@ export function ProcessView({ recordings, themeName, sessionId, themeSlug, monta
         }
 
         effectiveVideoUrlsRef.current.push(realUrl)
-        const blobUrl = await downloadAsBlob(realUrl)
-        blobUrlsRef.current.push(blobUrl)
-        durationsRef.current.push(await getVideoDuration(blobUrl))
+        durationsRef.current.push(await getVideoDuration(realUrl))
 
         // Upload processed video to S3 cache in background
         setProcessedCache(p => ({ ...p, [rec.id]: { hash: currentProcessingHash, url: realUrl } }))
@@ -847,7 +839,7 @@ export function ProcessView({ recordings, themeName, sessionId, themeSlug, monta
     const built: CompositionSegment[] = recordings.map((rec, i) => {
       const ttsSecs = ttsDurations[i]
       return {
-        id: rec.id, questionText: rec.questionText, videoUrl: blobUrlsRef.current[i],
+        id: rec.id, questionText: rec.questionText, videoUrl: effectiveVideoUrlsRef.current[i],
         transcript: localTranscriptsRef.current[rec.id] ?? rec.transcript,
         wordTimestamps: wordTimestampsRef.current[rec.id],
         videoDurationFrames: Math.max(Math.ceil((isFinite(durationsRef.current[i]) ? durationsRef.current[i] : 60) * FPS), FPS),
