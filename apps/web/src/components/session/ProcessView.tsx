@@ -493,6 +493,7 @@ export function ProcessView({ recordings, themeName, sessionId, themeSlug, monta
   const previewAudioRef = useRef<HTMLAudioElement | null>(null)
   const soundPreviewAudioRef = useRef<HTMLAudioElement | null>(null)
   const prepareAbortRef = useRef<AbortController | null>(null)
+  const saveIdleTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
   const blobUrlsRef = useRef<string[]>([])
   const durationsRef = useRef<number[]>([])
   const effectiveVideoUrlsRef = useRef<string[]>([])
@@ -513,6 +514,7 @@ export function ProcessView({ recordings, themeName, sessionId, themeSlug, monta
       if (renderOutputUrlRef.current) URL.revokeObjectURL(renderOutputUrlRef.current)
       if (previewAudioRef.current) { previewAudioRef.current.pause(); previewAudioRef.current = null }
       if (soundPreviewAudioRef.current) { soundPreviewAudioRef.current.pause(); soundPreviewAudioRef.current = null }
+      if (saveIdleTimerRef.current) clearTimeout(saveIdleTimerRef.current)
       prepareAbortRef.current?.abort()
     }
   }, [])
@@ -629,7 +631,7 @@ export function ProcessView({ recordings, themeName, sessionId, themeSlug, monta
           body: JSON.stringify({ montageSettings: JSON.parse(settingsForSaveRef.current) }),
         })
         setSaveStatus(res.ok ? 'saved' : 'error')
-        if (res.ok) setTimeout(() => setSaveStatus('idle'), 2500)
+        if (res.ok) { saveIdleTimerRef.current = setTimeout(() => setSaveStatus('idle'), 2500) }
       } catch {
         setSaveStatus('error')
       }
@@ -754,10 +756,14 @@ export function ProcessView({ recordings, themeName, sessionId, themeSlug, monta
               const { cleanvoiceJobId, id } = await submitRes.json()
               // Step 2: poll /api/cleanvoice/status until done (each call is < 30s)
               let done = false
-              for (let attempt = 0; attempt < 120 && !done; attempt++) {
-                await new Promise(r => setTimeout(r, 5000))
+              for (let attempt = 0; attempt < 120 && !done && !abortCtrl.signal.aborted; attempt++) {
+                await new Promise<void>((res) => {
+                  const t = setTimeout(res, 5000)
+                  abortCtrl.signal.addEventListener('abort', () => { clearTimeout(t); res() }, { once: true })
+                })
+                if (abortCtrl.signal.aborted) break
                 setLoadingStep(`Cleanvoice ${i+1}/${recordings.length} (${Math.round((attempt+1)*5)}s)...`)
-                const statusRes = await fetch(`/api/cleanvoice/status?jobId=${cleanvoiceJobId}&id=${id}`)
+                const statusRes = await fetch(`/api/cleanvoice/status?jobId=${cleanvoiceJobId}&id=${id}`, { signal: abortCtrl.signal })
                 if (!statusRes.ok) { setCleanvoiceError(await statusRes.text()); break }
                 const data = await statusRes.json()
                 if (data.done) {
@@ -2630,7 +2636,6 @@ export function ProcessView({ recordings, themeName, sessionId, themeSlug, monta
               </div>
             ) : segments && (
               <Player
-                key={`${theme.fontFamily}|${theme.backgroundColor}|${theme.textColor}`}
                 ref={playerRef as any}
                 component={LavidzComposition as any}
                 inputProps={{ segments: effectiveSegments, questionCardFrames, subtitleSettings, theme, intro, outro, fps: FPS, motionSettings, audioSettings }}
