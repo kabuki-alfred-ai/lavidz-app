@@ -764,6 +764,7 @@ export function RecordingClip({
           <div style={{ position: 'absolute', inset: 0, overflow: 'hidden' }}>
             <OffthreadVideo
               src={videoUrl}
+              muted
               {...(startFromFrame ? { startFrom: startFromFrame } : {})}
               style={{
                 width: '100%',
