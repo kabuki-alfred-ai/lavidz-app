@@ -197,14 +197,27 @@ function getVideoDuration(url: string): Promise<number> {
   return new Promise((resolve) => {
     const video = document.createElement('video')
     video.preload = 'metadata'
+    const cleanup = (dur: number) => {
+      video.onloadedmetadata = null
+      video.ontimeupdate = null
+      video.onerror = null
+      video.src = ''
+      video.load()
+      resolve(dur)
+    }
+    // Timeout fallback — avoids blocking on unresolvable durations
+    const timer = setTimeout(() => cleanup(60), 8000)
     video.onloadedmetadata = () => {
+      clearTimeout(timer)
       const dur = video.duration
       if (!isFinite(dur)) {
-        video.currentTime = 1e101
-        video.ontimeupdate = () => { video.ontimeupdate = null; resolve(isFinite(video.duration) ? video.duration : 60); video.src = '' }
-      } else resolve(dur)
+        // Avoid expensive full-download seek — fall back immediately
+        cleanup(60)
+      } else {
+        cleanup(dur)
+      }
     }
-    video.onerror = () => resolve(30)
+    video.onerror = () => { clearTimeout(timer); cleanup(30) }
     video.src = url
   })
 }
@@ -576,14 +589,21 @@ export function ProcessView({ recordings, themeName, sessionId, themeSlug, monta
   }, []) // eslint-disable-line react-hooks/exhaustive-deps
 
   // Auto-save settings to DB (debounced 1500ms)
-  const settingsForSave = JSON.stringify({
+  // useMemo avoids blocking JSON.stringify on every render — only runs when deps change
+  const settingsForSave = useMemo(() => JSON.stringify({
     selectedVoiceId, voiceEnabled, format, subtitleSettings, theme, intro, outro,
     motionSettings, questionCardFrames, activePresetId, audioSettings,
     bgMusicPrompt, transitionSfxPrompt, silenceCutEnabled, silenceThreshold,
     fillerCutEnabled, denoiseEnabled, denoiseStrength, cleanvoiceEnabled, cleanvoiceConfig,
     localTranscripts, wordTimestampsMap, clipEdits,
     sourceWordTimestampsMap: sourceWordTimestampsRef.current,
-  })
+  }), [
+    selectedVoiceId, voiceEnabled, format, subtitleSettings, theme, intro, outro,
+    motionSettings, questionCardFrames, activePresetId, audioSettings,
+    bgMusicPrompt, transitionSfxPrompt, silenceCutEnabled, silenceThreshold,
+    fillerCutEnabled, denoiseEnabled, denoiseStrength, cleanvoiceEnabled, cleanvoiceConfig,
+    localTranscripts, wordTimestampsMap, clipEdits,
+  ])
   const settingsForSaveRef = useRef(settingsForSave)
   useEffect(() => {
     if (settingsForSave === settingsForSaveRef.current) return
