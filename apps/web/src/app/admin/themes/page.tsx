@@ -1,6 +1,5 @@
-import { apiClient } from '@/lib/api'
+import { prisma } from '@lavidz/database'
 import { getSessionUser } from '@/lib/auth'
-import type { ThemeDto } from '@lavidz/types'
 import Link from 'next/link'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
@@ -15,14 +14,13 @@ export default async function AdminThemesPage() {
       ? user.activeOrgId
       : user?.organizationId ?? null
 
-  let themes: ThemeDto[] = []
-  try {
-    themes = await apiClient<ThemeDto[]>('/themes/admin/all', {
-      headers: effectiveOrgId ? { 'x-organization-id': effectiveOrgId } : {},
-    })
-  } catch {
-    themes = []
-  }
+  const themes = await prisma.theme.findMany({
+    where: effectiveOrgId ? { organizationId: effectiveOrgId } : {},
+    include: {
+      questions: { orderBy: { order: 'asc' } },
+    },
+    orderBy: { order: 'asc' },
+  })
 
   return (
     <div className="max-w-6xl space-y-10 animate-in fade-in duration-700">
@@ -39,10 +37,10 @@ export default async function AdminThemesPage() {
             Thèmes
           </h1>
           <p className="text-[11px] font-mono text-muted-foreground mt-2 uppercase tracking-widest leading-relaxed">
-            Configuration des parcours d'enregistrement
+            Configuration des parcours d&apos;enregistrement
           </p>
         </div>
-        
+
         <Button asChild size="sm" className="h-10 px-6 rounded-none font-mono text-[10px] uppercase tracking-[0.2em] group transition-all">
           <Link href="/admin/themes/new">
             <Plus size={14} className="group-hover:rotate-90 transition-transform duration-300" />

@@ -1,19 +1,6 @@
-import { apiClient } from '@/lib/api'
+import { prisma } from '@lavidz/database'
 import { getSessionUser } from '@/lib/auth'
-import type { ThemeDto } from '@lavidz/types'
 import { MontageClient } from './MontageClient'
-
-interface SubmittedSession {
-  id: string
-  status: string
-  recipientEmail?: string
-  recipientName?: string
-  version: number
-  finalVideoKey?: string
-  submittedAt?: string
-  deliveredAt?: string
-  theme: { id: string; name: string; slug: string }
-}
 
 export default async function MontagePage() {
   const user = await getSessionUser()
@@ -22,22 +9,49 @@ export default async function MontagePage() {
       ? user.activeOrgId
       : user?.organizationId ?? null
 
-  const orgHeaders = effectiveOrgId ? { 'x-organization-id': effectiveOrgId } : {}
+  const orgWhere = effectiveOrgId ? { organizationId: effectiveOrgId } : {}
+  const sessionWhere = effectiveOrgId ? { theme: { organizationId: effectiveOrgId } } : {}
 
-  let themes: ThemeDto[] = []
-  let sessions: SubmittedSession[] = []
+  const [rawThemes, rawSessions] = await Promise.all([
+    prisma.theme.findMany({
+      where: orgWhere,
+      include: { questions: { orderBy: { order: 'asc' } } },
+      orderBy: { order: 'asc' },
+    }),
+    prisma.session.findMany({
+      where: {
+        ...sessionWhere,
+        status: { in: ['SUBMITTED', 'PROCESSING', 'DONE'] },
+      },
+      include: {
+        theme: { select: { id: true, name: true, slug: true } },
+      },
+      orderBy: { submittedAt: 'desc' },
+    }),
+  ])
 
-  try {
-    themes = await apiClient<ThemeDto[]>('/themes/admin/all', { headers: orgHeaders })
-  } catch {
-    themes = []
-  }
+  const themes = rawThemes.map(t => ({
+    ...t,
+    createdAt: t.createdAt.toISOString(),
+    updatedAt: t.updatedAt.toISOString(),
+    questions: t.questions.map(q => ({
+      ...q,
+      createdAt: q.createdAt.toISOString(),
+      updatedAt: q.updatedAt.toISOString(),
+    })),
+  }))
 
-  try {
-    sessions = await apiClient<SubmittedSession[]>('/sessions/submitted', { headers: orgHeaders })
-  } catch {
-    sessions = []
-  }
+  const sessions = rawSessions.map(s => ({
+    id: s.id,
+    status: s.status,
+    recipientEmail: s.recipientEmail ?? undefined,
+    recipientName: s.recipientName ?? undefined,
+    version: s.version,
+    finalVideoKey: s.finalVideoKey ?? undefined,
+    submittedAt: s.submittedAt?.toISOString(),
+    deliveredAt: s.deliveredAt?.toISOString(),
+    theme: s.theme,
+  }))
 
   return <MontageClient themes={themes} initialSessions={sessions} />
 }
