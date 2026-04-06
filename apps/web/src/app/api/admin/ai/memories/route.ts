@@ -11,7 +11,7 @@ export async function GET(req: Request) {
     if (!user) {
       return new Response('Unauthorized', { status: 401 })
     }
-    if (!user.organizationId) {
+    if (!user.effectiveOrgId) {
       return new Response('Aucune organisation assignée.', { status: 400 })
     }
 
@@ -19,7 +19,7 @@ export async function GET(req: Request) {
     const limit = url.searchParams.get('limit') ?? '20'
 
     const res = await fetch(`${API}/api/ai/memories?limit=${limit}`, {
-      headers: { 'x-admin-secret': ADMIN_SECRET, 'x-organization-id': user.organizationId },
+      headers: { 'x-admin-secret': ADMIN_SECRET, 'x-organization-id': user.effectiveOrgId },
     })
 
     if (!res.ok) return new Response(await res.text(), { status: res.status })

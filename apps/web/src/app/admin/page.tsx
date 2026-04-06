@@ -11,8 +11,10 @@ export default async function AdminDashboardPage() {
   if (!user) redirect('/auth/login')
 
   const isSuper = user.role === 'SUPERADMIN'
-  const orgFilter = isSuper ? {} : { organizationId: user.organizationId }
-  const sessionFilter = isSuper ? {} : { theme: { organizationId: user.organizationId } }
+  // When SUPERADMIN has switched to an org context, scope data to that org
+  const effectiveOrgId = isSuper ? (user.activeOrgId ?? null) : user.organizationId
+  const orgFilter = effectiveOrgId ? { organizationId: effectiveOrgId } : {}
+  const sessionFilter = effectiveOrgId ? { theme: { organizationId: effectiveOrgId } } : {}
 
   // Fetch Stats
   const [

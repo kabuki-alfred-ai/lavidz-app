@@ -1,6 +1,7 @@
 import fs from 'fs'
 import path from 'path'
 import { isTmpFileExpired } from '@/lib/tmp-cleanup'
+import { streamFileResponse } from '@/lib/stream-file'
 
 export const runtime = 'nodejs'
 
@@ -37,12 +38,5 @@ export async function GET(req: Request, { params }: { params: Promise<{ id: stri
     })
   }
 
-  const data = fs.readFileSync(filePath)
-  return new Response(data, {
-    headers: {
-      'Content-Type': 'video/mp4',
-      'Content-Length': String(fileSize),
-      'Accept-Ranges': 'bytes',
-    },
-  })
+  return streamFileResponse(filePath, 'video/mp4', fileSize)
 }

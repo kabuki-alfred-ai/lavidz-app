@@ -3,6 +3,7 @@ import crypto from 'crypto'
 import fs from 'fs'
 import path from 'path'
 import { purgeStaleTmpFiles } from '@/lib/tmp-cleanup'
+import { streamResponseToFile } from '@/lib/stream-file'
 
 export const runtime = 'nodejs'
 export const maxDuration = 120
@@ -48,7 +49,7 @@ export async function POST(req: Request) {
   try {
     const videoRes = await fetch(videoUrl)
     if (!videoRes.ok) throw new Error(`Impossible de télécharger la vidéo (${videoRes.status})`)
-    fs.writeFileSync(inputPath, Buffer.from(await videoRes.arrayBuffer()))
+    await streamResponseToFile(videoRes, inputPath)
 
     // Use silencedetect to find silent ranges, then cut both audio+video together
     const detectResult = spawnSync(ffmpeg, [

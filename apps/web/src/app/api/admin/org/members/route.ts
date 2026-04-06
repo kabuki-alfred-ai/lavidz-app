@@ -7,10 +7,10 @@ export async function GET() {
   try {
     const user = await getFreshUser()
     if (!user) return new Response('Unauthorized', { status: 401 })
-    if (!user.organizationId) return new Response('Aucune organisation assignée.', { status: 400 })
+    if (!user.effectiveOrgId) return new Response('Aucune organisation assignée.', { status: 400 })
 
     const members = await prisma.user.findMany({
-      where: { organizationId: user.organizationId },
+      where: { organizationId: user.effectiveOrgId },
       select: {
         id: true,
         email: true,

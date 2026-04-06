@@ -129,9 +129,9 @@ export async function POST(req: Request) {
   let topicsExplored: string[] | undefined
   let linkedinUrl: string | null = null
   try {
-    if (user.organizationId) {
+    if (user.effectiveOrgId) {
       const profileRes = await fetch(`${API}/api/ai/profile`, {
-        headers: { 'x-admin-secret': ADMIN_SECRET, 'x-organization-id': user.organizationId },
+        headers: { 'x-admin-secret': ADMIN_SECRET, 'x-organization-id': user.effectiveOrgId },
       })
       if (profileRes.ok) {
         const profile = await profileRes.json()
@@ -154,10 +154,10 @@ export async function POST(req: Request) {
         ? lastUserMsg.content.filter((p: { type: string }) => p.type === 'text').map((p: { text: string }) => p.text).join(' ')
         : ''
 
-    if (lastText.trim() && lastText !== '__INIT__' && user.organizationId) {
+    if (lastText.trim() && lastText !== '__INIT__' && user.effectiveOrgId) {
       const ragRes = await fetch(
         `${API}/api/ai/memories/search?q=${encodeURIComponent(lastText)}&k=5`,
-        { headers: { 'x-admin-secret': ADMIN_SECRET, 'x-organization-id': user.organizationId } },
+        { headers: { 'x-admin-secret': ADMIN_SECRET, 'x-organization-id': user.effectiveOrgId } },
       )
       if (ragRes.ok) {
         const { results } = await ragRes.json()

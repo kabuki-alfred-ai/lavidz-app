@@ -9,7 +9,7 @@ export async function POST(req: Request) {
   if (!user) {
     return new Response('Unauthorized', { status: 401 })
   }
-  if (!user.organizationId) {
+  if (!user.effectiveOrgId) {
     return new Response('Organization manquante', { status: 400 })
   }
 
@@ -45,7 +45,7 @@ export async function POST(req: Request) {
     headers: {
       'Content-Type': 'application/json',
       'x-admin-secret': ADMIN_SECRET,
-      'x-organization-id': user.organizationId,
+      'x-organization-id': user.effectiveOrgId,
     },
     body: JSON.stringify({ content, filename }),
   })

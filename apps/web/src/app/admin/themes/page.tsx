@@ -1,4 +1,5 @@
 import { apiClient } from '@/lib/api'
+import { getSessionUser } from '@/lib/auth'
 import type { ThemeDto } from '@lavidz/types'
 import Link from 'next/link'
 import { Button } from '@/components/ui/button'
@@ -8,9 +9,17 @@ import { TestThemeButton } from '@/components/admin/TestThemeButton'
 import { DeleteThemeButton } from '@/components/admin/DeleteThemeButton'
 
 export default async function AdminThemesPage() {
+  const user = await getSessionUser()
+  const effectiveOrgId =
+    user?.role === 'SUPERADMIN' && user?.activeOrgId
+      ? user.activeOrgId
+      : user?.organizationId ?? null
+
   let themes: ThemeDto[] = []
   try {
-    themes = await apiClient<ThemeDto[]>('/themes/admin/all')
+    themes = await apiClient<ThemeDto[]>('/themes/admin/all', {
+      headers: effectiveOrgId ? { 'x-organization-id': effectiveOrgId } : {},
+    })
   } catch {
     themes = []
   }

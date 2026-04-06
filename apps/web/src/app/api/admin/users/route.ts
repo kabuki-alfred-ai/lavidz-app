@@ -17,7 +17,7 @@ export async function GET(req: NextRequest) {
   if (user.role === 'SUPERADMIN') {
     where = withoutOrg ? { organizationId: null } : {}
   } else {
-    where = { organizationId: user.organizationId }
+    where = { organizationId: user.effectiveOrgId }
   }
 
   const users = await prisma.user.findMany({

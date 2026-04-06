@@ -3,6 +3,7 @@ import crypto from 'crypto'
 import fs from 'fs'
 import path from 'path'
 import { purgeStaleTmpFiles } from '@/lib/tmp-cleanup'
+import { streamResponseToFile } from '@/lib/stream-file'
 
 export const runtime = 'nodejs'
 export const maxDuration = 180
@@ -116,7 +117,7 @@ export async function POST(req: Request) {
   try {
     const videoRes = await fetch(videoUrl)
     if (!videoRes.ok) throw new Error(`Téléchargement échoué (${videoRes.status})`)
-    fs.writeFileSync(inputPath, Buffer.from(await videoRes.arrayBuffer()))
+    await streamResponseToFile(videoRes, inputPath)
 
     if (strength === 'isolate') {
       await isolateWithElevenLabs(ffmpeg, inputPath, outputPath, id)

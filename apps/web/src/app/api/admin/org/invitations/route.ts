@@ -9,9 +9,9 @@ export async function GET() {
   try {
     const user = await getFreshUser()
     if (!user) return new Response('Unauthorized', { status: 401 })
-    if (!user.organizationId) return new Response('Aucune organisation assignée.', { status: 400 })
+    if (!user.effectiveOrgId) return new Response('Aucune organisation assignée.', { status: 400 })
 
-    const res = await fetch(`${API}/api/users/org-invitations/by-org/${user.organizationId}`, {
+    const res = await fetch(`${API}/api/users/org-invitations/by-org/${user.effectiveOrgId}`, {
       headers: { 'x-admin-secret': ADMIN_SECRET },
     })
     if (!res.ok) return new Response(await res.text(), { status: res.status })
@@ -28,7 +28,7 @@ export async function POST(req: Request) {
     if (user.role !== 'ADMIN' && user.role !== 'SUPERADMIN') {
       return new Response('Forbidden', { status: 403 })
     }
-    if (!user.organizationId) return new Response('Aucune organisation assignée.', { status: 400 })
+    if (!user.effectiveOrgId) return new Response('Aucune organisation assignée.', { status: 400 })
 
     const { email, role } = await req.json()
     const origin = req.headers.get('origin') ?? 'http://localhost:3000'
@@ -40,7 +40,7 @@ export async function POST(req: Request) {
         'x-admin-secret': ADMIN_SECRET,
         'x-forwarded-origin': origin,
       },
-      body: JSON.stringify({ email, organizationId: user.organizationId, role, invitedById: user.userId }),
+      body: JSON.stringify({ email, organizationId: user.effectiveOrgId, role, invitedById: user.userId }),
     })
     if (!res.ok) return new Response(await res.text(), { status: res.status })
     return Response.json(await res.json(), { status: 201 })

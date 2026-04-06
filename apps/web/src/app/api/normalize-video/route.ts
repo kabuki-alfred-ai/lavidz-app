@@ -3,6 +3,7 @@ import crypto from 'crypto'
 import fs from 'fs'
 import path from 'path'
 import { purgeStaleTmpFiles } from '@/lib/tmp-cleanup'
+import { streamResponseToFile } from '@/lib/stream-file'
 
 export const runtime = 'nodejs'
 export const maxDuration = 120
@@ -46,7 +47,7 @@ export async function POST(req: Request) {
   try {
     const videoRes = await fetch(videoUrl)
     if (!videoRes.ok) throw new Error(`Download failed (${videoRes.status})`)
-    fs.writeFileSync(inputPath, Buffer.from(await videoRes.arrayBuffer()))
+    await streamResponseToFile(videoRes, inputPath)
 
     // Remux to MP4 with regenerated timestamps — fixes WebM A/V sync issues
     // Re-encode video to H264 for broad compatibility (VP8/VP9 don't embed well in MP4)

@@ -11,7 +11,7 @@ export async function POST(req: Request) {
     if (!user) {
       return new Response('Unauthorized', { status: 401 })
     }
-    if (!user.organizationId) {
+    if (!user.effectiveOrgId) {
       return new Response('Aucune organisation assignée.', { status: 400 })
     }
 
@@ -20,7 +20,7 @@ export async function POST(req: Request) {
     const res = await fetch(`${API}/api/ai/create-session`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json', 'x-admin-secret': ADMIN_SECRET },
-      body: JSON.stringify({ ...body, organizationId: user.organizationId }),
+      body: JSON.stringify({ ...body, organizationId: user.effectiveOrgId }),
     })
 
     if (!res.ok) return new Response(await res.text(), { status: res.status })

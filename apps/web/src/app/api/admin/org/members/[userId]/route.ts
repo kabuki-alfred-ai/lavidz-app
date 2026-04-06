@@ -10,7 +10,7 @@ export async function DELETE(_req: Request, { params }: { params: Promise<{ user
     if (user.role !== 'ADMIN' && user.role !== 'SUPERADMIN') {
       return new Response('Forbidden', { status: 403 })
     }
-    if (!user.organizationId) return new Response('Aucune organisation assignée.', { status: 400 })
+    if (!user.effectiveOrgId) return new Response('Aucune organisation assignée.', { status: 400 })
 
     const { userId } = await params
 
@@ -23,7 +23,7 @@ export async function DELETE(_req: Request, { params }: { params: Promise<{ user
       select: { organizationId: true },
     })
 
-    if (!target || target.organizationId !== user.organizationId) {
+    if (!target || target.organizationId !== user.effectiveOrgId) {
       return new Response('Utilisateur introuvable dans cette organisation.', { status: 404 })
     }
 
