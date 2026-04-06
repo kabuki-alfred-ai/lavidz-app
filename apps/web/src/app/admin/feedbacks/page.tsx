@@ -1,21 +1,48 @@
-import { apiClient } from '@/lib/api'
-import type { FeedbackDto } from '@lavidz/types'
+import { prisma } from '@lavidz/database'
+import { getSessionUser } from '@/lib/auth'
 import { FeedbacksClient } from './FeedbacksClient'
 
 export default async function FeedbacksPage() {
-  let feedbacks: FeedbackDto[] = []
-  let stats = { count: 0, avgOverall: 0, avgQuestion: 0 }
+  const user = await getSessionUser()
+  const effectiveOrgId =
+    user?.role === 'SUPERADMIN' && user?.activeOrgId
+      ? user.activeOrgId
+      : user?.organizationId ?? null
 
-  try {
-    feedbacks = await apiClient<FeedbackDto[]>('/feedbacks')
-  } catch {
-    feedbacks = []
-  }
+  const where = effectiveOrgId
+    ? { session: { theme: { organizationId: effectiveOrgId } } }
+    : {}
 
-  try {
-    stats = await apiClient<typeof stats>('/feedbacks/stats')
-  } catch {
-    // keep defaults
+  const [rawFeedbacks, agg] = await Promise.all([
+    prisma.feedback.findMany({
+      where,
+      include: {
+        session: {
+          select: {
+            recipientName: true,
+            recipientEmail: true,
+            theme: { select: { name: true } },
+          },
+        },
+      },
+      orderBy: { createdAt: 'desc' },
+    }),
+    prisma.feedback.aggregate({
+      where,
+      _count: { id: true },
+      _avg: { overallRating: true, questionRating: true },
+    }),
+  ])
+
+  const feedbacks = rawFeedbacks.map(f => ({
+    ...f,
+    createdAt: f.createdAt.toISOString(),
+  }))
+
+  const stats = {
+    count: agg._count.id,
+    avgOverall: Math.round((agg._avg.overallRating ?? 0) * 10) / 10,
+    avgQuestion: Math.round((agg._avg.questionRating ?? 0) * 10) / 10,
   }
 
   return <FeedbacksClient feedbacks={feedbacks} stats={stats} />
