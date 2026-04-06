@@ -122,7 +122,7 @@ export default async function AdminLayout({ children }: { children: React.ReactN
       </div>
 
       {/* AI floating drawer — all authenticated users */}
-      {user && <AiDrawer />}
+      {user && <AiDrawer activeOrgId={user.activeOrgId ?? null} />}
     </div>
   )
 }

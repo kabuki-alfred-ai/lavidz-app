@@ -6,10 +6,11 @@ import { OrgTeamClient } from './OrgTeamClient'
 export default async function OrgTeamPage() {
   const user = await getFreshUser()
   if (!user) redirect('/auth/login')
-  if (!user.organizationId) redirect('/admin')
+  // SUPERADMIN peut accéder via effectiveOrgId (org sélectionnée)
+  if (!user.effectiveOrgId) redirect('/admin')
 
   const members = await prisma.user.findMany({
-    where: { organizationId: user.organizationId },
+    where: { organizationId: user.effectiveOrgId },
     select: {
       id: true,
       email: true,
@@ -26,7 +27,7 @@ export default async function OrgTeamPage() {
 
   let invitations: unknown[] = []
   try {
-    const res = await fetch(`${API}/api/users/org-invitations/by-org/${user.organizationId}`, {
+    const res = await fetch(`${API}/api/users/org-invitations/by-org/${user.effectiveOrgId}`, {
       headers: { 'x-admin-secret': ADMIN_SECRET },
     })
     if (res.ok) invitations = await res.json()

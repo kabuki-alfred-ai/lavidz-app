@@ -439,24 +439,29 @@ const SUGGESTIONS = [
 
 // ─── Drawer + FAB ─────────────────────────────────────────────────────────────
 
-const LS_KEY = 'lavidz-ai-drawer-messages'
-const LS_HISTORY_KEY = 'lavidz-ai-drawer-history'
 const MAX_HISTORY = 30
 
-function loadHistory(): HistoryEntry[] {
+function lsKey(orgId?: string | null) {
+  return `lavidz-ai-drawer-messages-${orgId ?? 'global'}`
+}
+function lsHistoryKey(orgId?: string | null) {
+  return `lavidz-ai-drawer-history-${orgId ?? 'global'}`
+}
+
+function loadHistory(orgId?: string | null): HistoryEntry[] {
   try {
-    const saved = localStorage.getItem(LS_HISTORY_KEY)
+    const saved = localStorage.getItem(lsHistoryKey(orgId))
     return saved ? (JSON.parse(saved) as HistoryEntry[]) : []
   } catch { return [] }
 }
 
-function saveHistory(entries: HistoryEntry[]) {
+function saveHistory(entries: HistoryEntry[], orgId?: string | null) {
   try {
-    localStorage.setItem(LS_HISTORY_KEY, JSON.stringify(entries.slice(0, MAX_HISTORY)))
+    localStorage.setItem(lsHistoryKey(orgId), JSON.stringify(entries.slice(0, MAX_HISTORY)))
   } catch { /* ignore */ }
 }
 
-function archiveMessages(messages: ChatMessage[]) {
+function archiveMessages(messages: ChatMessage[], orgId?: string | null) {
   const userMessages = messages.filter((m) => m.role === 'user')
   if (userMessages.length === 0) return
   const firstUser = userMessages[0].parts
@@ -468,8 +473,8 @@ function archiveMessages(messages: ChatMessage[]) {
     messageCount: messages.filter((m) => !m.raw).length,
     messages: messages.filter((m) => !m.raw),
   }
-  const existing = loadHistory()
-  saveHistory([entry, ...existing])
+  const existing = loadHistory(orgId)
+  saveHistory([entry, ...existing], orgId)
 }
 
 function formatHistoryDate(iso: string) {
@@ -485,11 +490,11 @@ function formatHistoryDate(iso: string) {
   return d.toLocaleDateString('fr-FR', { day: 'numeric', month: 'short' })
 }
 
-export function AiDrawer() {
+export function AiDrawer({ activeOrgId }: { activeOrgId?: string | null }) {
   const [open, setOpen] = useState(false)
   const [messages, setMessages] = useState<ChatMessage[]>(() => {
     try {
-      const saved = localStorage.getItem(LS_KEY)
+      const saved = localStorage.getItem(lsKey(activeOrgId))
       return saved ? (JSON.parse(saved) as ChatMessage[]) : []
     } catch {
       return []
@@ -500,17 +505,31 @@ export function AiDrawer() {
   const [error, setError] = useState<string | null>(null)
   const [panelView, setPanelView] = useState<PanelView>('chat')
   const [selectedEntry, setSelectedEntry] = useState<HistoryEntry | null>(null)
-  const [historyEntries, setHistoryEntries] = useState<HistoryEntry[]>(() => loadHistory())
+  const [historyEntries, setHistoryEntries] = useState<HistoryEntry[]>(() => loadHistory(activeOrgId))
   const bottomRef = useRef<HTMLDivElement>(null)
   const textareaRef = useRef<HTMLTextAreaElement>(null)
+
+  // Reset messages + history when org changes
+  useEffect(() => {
+    try {
+      const saved = localStorage.getItem(lsKey(activeOrgId))
+      const loaded = saved ? (JSON.parse(saved) as ChatMessage[]) : []
+      setMessages(loaded)
+      setHistoryEntries(loadHistory(activeOrgId))
+      setOpen(false)
+      setPanelView('chat')
+      setSelectedEntry(null)
+    } catch { /* ignore */ }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [activeOrgId])
 
   // Persist messages to localStorage whenever they change
   useEffect(() => {
     if (streaming) return // Don't save mid-stream (raw state)
     try {
-      localStorage.setItem(LS_KEY, JSON.stringify(messages))
+      localStorage.setItem(lsKey(activeOrgId), JSON.stringify(messages))
     } catch { /* quota exceeded or SSR — ignore */ }
-  }, [messages, streaming])
+  }, [messages, streaming, activeOrgId])
 
   // Auto-greet on first open with empty conversation
   useEffect(() => {
@@ -710,18 +729,18 @@ export function AiDrawer() {
   }
 
   function clearConversation() {
-    archiveMessages(messages)
-    setHistoryEntries(loadHistory())
+    archiveMessages(messages, activeOrgId)
+    setHistoryEntries(loadHistory(activeOrgId))
     setMessages([])
     setError(null)
     setPanelView('chat')
-    try { localStorage.removeItem(LS_KEY) } catch { /* ignore */ }
+    try { localStorage.removeItem(lsKey(activeOrgId)) } catch { /* ignore */ }
     setTimeout(() => greet(), 0)
   }
 
   function deleteHistoryEntry(id: string) {
     const updated = historyEntries.filter((e) => e.id !== id)
-    saveHistory(updated)
+    saveHistory(updated, activeOrgId)
     setHistoryEntries(updated)
     if (selectedEntry?.id === id) {
       setSelectedEntry(null)
@@ -849,7 +868,7 @@ export function AiDrawer() {
                   </button>
                 )}
                 <button
-                  onClick={() => { setHistoryEntries(loadHistory()); setPanelView('history') }}
+                  onClick={() => { setHistoryEntries(loadHistory(activeOrgId)); setPanelView('history') }}
                   className="flex items-center gap-1.5 px-2.5 py-1.5 text-[10px] font-mono text-muted-foreground hover:text-foreground rounded-lg hover:bg-muted/50 transition-all"
                   aria-label="Historique"
                 >
