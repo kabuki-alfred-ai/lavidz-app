@@ -3,6 +3,7 @@ import fs from 'fs'
 import path from 'path'
 import { execSync } from 'child_process'
 import { purgeStaleTmpFiles } from '@/lib/tmp-cleanup'
+import { streamResponseToFile } from '@/lib/stream-file'
 import { S3Client, PutObjectCommand, GetObjectCommand } from '@aws-sdk/client-s3'
 import { getSignedUrl } from '@aws-sdk/s3-request-presigner'
 
@@ -23,13 +24,13 @@ async function uploadToS3AndPresign(filePath: string, key: string): Promise<stri
     },
     forcePathStyle: true,
   })
-  const data = fs.readFileSync(filePath)
+  const stat = fs.statSync(filePath)
   await uploadClient.send(new PutObjectCommand({
     Bucket: BUCKET,
     Key: key,
-    Body: data,
+    Body: fs.createReadStream(filePath),
     ContentType: 'video/mp4',
-    ContentLength: data.byteLength,
+    ContentLength: stat.size,
   }))
 
   // Use public endpoint for presigned URL so Cleanvoice can reach it
@@ -116,7 +117,7 @@ export async function POST(req: Request) {
       try {
         const sourceRes = await fetch(videoUrl)
         if (!sourceRes.ok) return new Response(`Impossible de télécharger la vidéo source (${sourceRes.status})`, { status: 502 })
-        fs.writeFileSync(rawPath, Buffer.from(await sourceRes.arrayBuffer()))
+        await streamResponseToFile(sourceRes, rawPath)
         execSync(`ffmpeg -y -i "${rawPath}" -c:v libx264 -c:a aac "${convertedPath}"`, { stdio: 'pipe' })
         videoUrl = await uploadToS3AndPresign(convertedPath, `cleanvoice-tmp/${id}.mp4`)
       } finally {

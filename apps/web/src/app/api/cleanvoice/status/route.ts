@@ -1,5 +1,6 @@
 import fs from 'fs'
 import path from 'path'
+import { streamResponseToFile } from '@/lib/stream-file'
 
 export const runtime = 'nodejs'
 export const maxDuration = 60
@@ -41,7 +42,7 @@ export async function GET(req: Request) {
   if (!cleanedRes.ok) {
     return Response.json({ done: true, error: `Impossible de télécharger la vidéo nettoyée (${cleanedRes.status})` })
   }
-  fs.writeFileSync(outputPath, Buffer.from(await cleanedRes.arrayBuffer()))
+  await streamResponseToFile(cleanedRes, outputPath)
 
   const rawWords: any[] = result.transcription?.transcription?.words ?? result.transcript?.words ?? []
   const wordTimestamps = rawWords
