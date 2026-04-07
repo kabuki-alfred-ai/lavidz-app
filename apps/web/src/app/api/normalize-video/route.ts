@@ -49,19 +49,21 @@ export async function POST(req: Request) {
     if (!videoRes.ok) throw new Error(`Download failed (${videoRes.status})`)
     await streamResponseToFile(videoRes, inputPath)
 
-    // Remux to MP4 with regenerated timestamps — fixes WebM A/V sync issues
-    // Re-encode video to H264 for broad compatibility (VP8/VP9 don't embed well in MP4)
-    // Apply loudnorm (EBU R128 -23 LUFS) to match ElevenLabs TTS output level
+    // Remux to MP4 with regenerated timestamps — fixes WebM A/V sync and duration issues.
+    // Re-encode video to H264 for broad browser compatibility (VP8/VP9 in MP4 container is unreliable).
+    // Use preset ultrafast + loudnorm to stay within route timeout on long videos.
     const result = spawnSync(ffmpeg, [
       '-y',
       '-fflags', '+genpts',
       '-i', inputPath,
       '-c:v', 'libx264',
+      '-preset', 'ultrafast',
+      '-crf', '28',
       '-af', 'loudnorm',
       '-c:a', 'aac',
       '-movflags', '+faststart',
       outputPath,
-    ], { timeout: 60_000 })
+    ], { timeout: 110_000 })
 
     if (result.status !== 0) {
       return Response.json({ url: videoUrl, normalized: false })

@@ -898,7 +898,7 @@ export function ProcessView({ recordings, themeName, sessionId, themeSlug, monta
         id: rec.id, questionText: rec.questionText, videoUrl: effectiveVideoUrlsRef.current[i],
         transcript: localTranscriptsRef.current[rec.id] ?? rec.transcript,
         wordTimestamps: wordTimestampsRef.current[rec.id],
-        videoDurationFrames: Math.max(Math.ceil((isFinite(durationsRef.current[i]) && durationsRef.current[i] < 600 ? durationsRef.current[i] : 60) * FPS), FPS),
+        videoDurationFrames: Math.max(Math.ceil((isFinite(durationsRef.current[i]) && durationsRef.current[i] > 0 && durationsRef.current[i] < 3600 ? durationsRef.current[i] : 120) * FPS), FPS),
         ttsUrl: ttsUrls[i],
         questionDurationFrames: Math.max(Math.ceil((ttsSecs + 0.5) * FPS), 3 * FPS),
       }
