@@ -1,7 +1,7 @@
 import fs from 'fs'
 import path from 'path'
 import { isTmpFileExpired } from '@/lib/tmp-cleanup'
-import { streamFileResponse } from '@/lib/stream-file'
+import { serveVideoFile } from '@/lib/stream-file'
 
 export const runtime = 'nodejs'
 
@@ -38,5 +38,5 @@ export async function GET(req: Request, { params }: { params: Promise<{ id: stri
     })
   }
 
-  return streamFileResponse(filePath, 'video/mp4', fileSize)
+  return serveVideoFile(req, filePath, fileSize)
 }

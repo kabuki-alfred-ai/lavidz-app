@@ -12,10 +12,30 @@ export async function streamResponseToFile(response: Response, filePath: string)
 }
 
 /**
- * Stream a file to a Response without loading it into JS heap.
- * Replaces: new Response(fs.readFileSync(filePath), { headers })
+ * Serve a local file with proper Range request support (required for video seeking).
+ * Replaces the full readFileSync pattern while keeping Range/206 support.
  */
-export function streamFileResponse(filePath: string, contentType: string, fileSize: number): Response {
+export function serveVideoFile(req: Request, filePath: string, fileSize: number, contentType = 'video/mp4'): Response {
+  const rangeHeader = req.headers.get('range')
+
+  if (rangeHeader) {
+    const [startStr, endStr] = rangeHeader.replace('bytes=', '').split('-')
+    const start = parseInt(startStr, 10)
+    const end = endStr ? parseInt(endStr, 10) : fileSize - 1
+    const chunkSize = end - start + 1
+
+    const stream = fs.createReadStream(filePath, { start, end })
+    return new Response(Readable.toWeb(stream) as ReadableStream, {
+      status: 206,
+      headers: {
+        'Content-Range': `bytes ${start}-${end}/${fileSize}`,
+        'Accept-Ranges': 'bytes',
+        'Content-Length': String(chunkSize),
+        'Content-Type': contentType,
+      },
+    })
+  }
+
   const stream = fs.createReadStream(filePath)
   return new Response(Readable.toWeb(stream) as ReadableStream, {
     headers: {
