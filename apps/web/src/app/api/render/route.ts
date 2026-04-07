@@ -136,8 +136,19 @@ async function runRender(jobId: string, body: any) {
 
     await setProgress(15)
 
+    // Make relative sound proxy URLs absolute so Remotion renderer can fetch them
+    const absolutifyUrl = (url: string | undefined) =>
+      url && url.startsWith('/') ? `${origin}${url}` : url
+    const resolvedAudioSettings = audioSettings ? {
+      ...audioSettings,
+      bgMusic:       audioSettings.bgMusic       ? { ...audioSettings.bgMusic,       url: absolutifyUrl(audioSettings.bgMusic.url) }       : undefined,
+      transitionSfx: audioSettings.transitionSfx ? { ...audioSettings.transitionSfx, url: absolutifyUrl(audioSettings.transitionSfx.url) } : undefined,
+      introSfx:      audioSettings.introSfx      ? { ...audioSettings.introSfx,      url: absolutifyUrl(audioSettings.introSfx.url) }      : undefined,
+      outroSfx:      audioSettings.outroSfx      ? { ...audioSettings.outroSfx,      url: absolutifyUrl(audioSettings.outroSfx.url) }      : undefined,
+    } : audioSettings
+
     const totalFrames = calcTotalFrames(serverSegments, questionCardFrames, intro, outro, fps)
-    const inputProps = { segments: serverSegments, questionCardFrames, subtitleSettings, theme, intro, outro, fps, motionSettings, audioSettings }
+    const inputProps = { segments: serverSegments, questionCardFrames, subtitleSettings, theme, intro, outro, fps, motionSettings, audioSettings: resolvedAudioSettings }
 
     const composition = await selectComposition({ serveUrl: cachedBundle, id: 'LavidzComposition', inputProps })
     const comp = { ...composition, width: width ?? composition.width, height: height ?? composition.height, durationInFrames: totalFrames, fps }

@@ -1647,7 +1647,7 @@ export function ProcessView({ recordings, themeName, sessionId, themeSlug, monta
                   <button
                     onClick={() => setAudioSettings(p => ({
                       ...p,
-                      introSfx: isActive ? undefined : { prompt: s.id, url: s.signedUrl, volume: 1 },
+                      introSfx: isActive ? undefined : { prompt: s.id, url: `/api/admin/sounds/${s.id}/audio`, volume: 1 },
                     }))}
                     style={{
                       flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'space-between',
@@ -1947,7 +1947,7 @@ export function ProcessView({ recordings, themeName, sessionId, themeSlug, monta
                   <button
                     onClick={() => setAudioSettings(p => ({
                       ...p,
-                      outroSfx: isActive ? undefined : { prompt: s.id, url: s.signedUrl, volume: 1 },
+                      outroSfx: isActive ? undefined : { prompt: s.id, url: `/api/admin/sounds/${s.id}/audio`, volume: 1 },
                     }))}
                     style={{
                       flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'space-between',
@@ -2302,7 +2302,7 @@ export function ProcessView({ recordings, themeName, sessionId, themeSlug, monta
                           <button
                             onClick={() => setAudioSettings(p => ({
                               ...p,
-                              transitionSfx: isActive ? undefined : { prompt: s.id, url: s.signedUrl, volume: 0.8 },
+                              transitionSfx: isActive ? undefined : { prompt: s.id, url: `/api/admin/sounds/${s.id}/audio`, volume: 0.8 },
                             }))}
                             style={{
                               flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'space-between',
@@ -2383,7 +2383,7 @@ export function ProcessView({ recordings, themeName, sessionId, themeSlug, monta
                     <button
                       onClick={() => setAudioSettings(p => ({
                         ...p,
-                        bgMusic: isActive ? undefined : { prompt: s.id, url: s.signedUrl, volume: 0.25 },
+                        bgMusic: isActive ? undefined : { prompt: s.id, url: `/api/admin/sounds/${s.id}/audio`, volume: 0.25 },
                       }))}
                       style={{
                         flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'space-between',
