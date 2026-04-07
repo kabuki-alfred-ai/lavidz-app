@@ -3,7 +3,8 @@ import { renderMedia, selectComposition } from '@remotion/renderer'
 import path from 'path'
 import fs from 'fs'
 import crypto from 'crypto'
-import { S3Client, PutObjectCommand } from '@aws-sdk/client-s3'
+import { S3Client, PutObjectCommand, GetObjectCommand } from '@aws-sdk/client-s3'
+import { getSignedUrl } from '@aws-sdk/s3-request-presigner'
 import { purgeStaleTmpFiles } from '@/lib/tmp-cleanup'
 
 export const runtime = 'nodejs'
@@ -136,15 +137,37 @@ async function runRender(jobId: string, body: any) {
 
     await setProgress(15)
 
-    // Make relative sound proxy URLs absolute so Remotion renderer can fetch them
-    const absolutifyUrl = (url: string | undefined) =>
-      url && url.startsWith('/') ? `${origin}${url}` : url
+    // Resolve sound URLs: handle both relative proxy URLs and legacy presigned S3 URLs
+    // Legacy presigned URLs contain X-Amz- params and may have expired — re-sign them
+    const resolveSoundUrl = async (url: string | undefined): Promise<string | undefined> => {
+      if (!url) return url
+      // Relative proxy URL — make absolute
+      if (url.startsWith('/')) return `${origin}${url}`
+      // Presigned S3 URL that may have expired — extract key and re-sign with 12h expiry
+      if (url.includes('X-Amz-Signature')) {
+        try {
+          const parsed = new URL(url)
+          // Path format: /bucket/key or /key depending on path style
+          // e.g. /lavidz-videos/sounds/uuid.wav → key = sounds/uuid.wav
+          const bucket = process.env.RUSTFS_BUCKET ?? 'lavidz-videos'
+          const pathParts = parsed.pathname.replace(/^\//, '').split('/')
+          // If first segment = bucket name, strip it
+          const key = pathParts[0] === bucket ? pathParts.slice(1).join('/') : pathParts.join('/')
+          const s3 = getS3Client()
+          return await getSignedUrl(s3, new GetObjectCommand({ Bucket: bucket, Key: key }), { expiresIn: 43200 })
+        } catch {
+          return url // fallback: return original, let Remotion fail naturally
+        }
+      }
+      return url
+    }
+
     const resolvedAudioSettings = audioSettings ? {
       ...audioSettings,
-      bgMusic:       audioSettings.bgMusic       ? { ...audioSettings.bgMusic,       url: absolutifyUrl(audioSettings.bgMusic.url) }       : undefined,
-      transitionSfx: audioSettings.transitionSfx ? { ...audioSettings.transitionSfx, url: absolutifyUrl(audioSettings.transitionSfx.url) } : undefined,
-      introSfx:      audioSettings.introSfx      ? { ...audioSettings.introSfx,      url: absolutifyUrl(audioSettings.introSfx.url) }      : undefined,
-      outroSfx:      audioSettings.outroSfx      ? { ...audioSettings.outroSfx,      url: absolutifyUrl(audioSettings.outroSfx.url) }      : undefined,
+      bgMusic:       audioSettings.bgMusic       ? { ...audioSettings.bgMusic,       url: await resolveSoundUrl(audioSettings.bgMusic.url) }       : undefined,
+      transitionSfx: audioSettings.transitionSfx ? { ...audioSettings.transitionSfx, url: await resolveSoundUrl(audioSettings.transitionSfx.url) } : undefined,
+      introSfx:      audioSettings.introSfx      ? { ...audioSettings.introSfx,      url: await resolveSoundUrl(audioSettings.introSfx.url) }      : undefined,
+      outroSfx:      audioSettings.outroSfx      ? { ...audioSettings.outroSfx,      url: await resolveSoundUrl(audioSettings.outroSfx.url) }      : undefined,
     } : audioSettings
 
     const totalFrames = calcTotalFrames(serverSegments, questionCardFrames, intro, outro, fps)
