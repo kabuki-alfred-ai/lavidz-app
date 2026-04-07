@@ -88,7 +88,7 @@ export function RecordingSession({ theme, initialSessionId, mode = 'default' }: 
   const canvasRafRef = useRef<number | null>(null)
   const facingModeRef = useRef<'user' | 'environment'>('user')
 
-  const QUESTION_VOICE_ID = 'MmafIMKg28Wr0yMh8CEB'
+  const QUESTION_VOICE_ID = 'KSyQzmsYhFbuOhqj1Xxv'
 
   const announceQuestion = async (text: string) => {
     try {

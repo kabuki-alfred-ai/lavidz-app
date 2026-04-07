@@ -415,7 +415,7 @@ export function ProcessView({ recordings, themeName, sessionId, themeSlug, monta
   const [loadingStep, setLoadingStep] = useState<string>('')
   const [ready, setReady] = useState(false)
   const [voices, setVoices] = useState<Voice[]>([])
-  const [selectedVoiceId, setSelectedVoiceId] = useState('EXAVITQu4vr4xnSDxMaL')
+  const [selectedVoiceId, setSelectedVoiceId] = useState('KSyQzmsYhFbuOhqj1Xxv')
   const [format, setFormat] = useState<FormatKey>('9/16')
   const [subtitleSettings, setSubtitleSettings] = useState<SubtitleSettings>(DEFAULT_SUBTITLE_SETTINGS)
   const [theme, setTheme] = useState<TransitionTheme>(DEFAULT_TRANSITION_THEME)
