@@ -686,11 +686,25 @@ export function ProcessView({ recordings, themeName, sessionId, themeSlug, monta
       const params = new URLSearchParams({ sessionId, type })
       if (extra.voiceId) params.set('voiceId', extra.voiceId)
       if (extra.processingHash) params.set('processingHash', extra.processingHash)
-      await fetch(`/api/admin/recordings/${recordingId}/cache?${params}`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ sourceUrl, type, ...extra }),
-      })
+      const endpoint = `/api/admin/recordings/${recordingId}/cache?${params}`
+
+      if (sourceUrl.startsWith('blob:')) {
+        // blob: URLs are browser-only — fetch the bytes locally and send as multipart
+        const blobRes = await fetch(sourceUrl)
+        const blob = await blobRes.blob()
+        const form = new FormData()
+        form.append('file', blob, type === 'tts' ? 'audio.mp3' : 'video.mp4')
+        form.append('type', type)
+        if (extra.voiceId) form.append('voiceId', extra.voiceId)
+        if (extra.processingHash) form.append('processingHash', extra.processingHash)
+        await fetch(endpoint, { method: 'POST', body: form })
+      } else {
+        await fetch(endpoint, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ sourceUrl, type, ...extra }),
+        })
+      }
     } catch (e) { console.warn('[cache] upload failed', e) }
   }
 
