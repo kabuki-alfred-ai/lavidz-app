@@ -66,6 +66,7 @@ export async function POST(req: Request) {
     ], { timeout: 110_000 })
 
     if (result.status !== 0) {
+      console.error('[normalize-video] FFmpeg failed:', result.stderr?.toString?.() ?? result.error)
       return Response.json({ url: videoUrl, normalized: false })
     }
 

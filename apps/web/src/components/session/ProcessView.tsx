@@ -840,14 +840,27 @@ export function ProcessView({ recordings, themeName, sessionId, themeSlug, monta
           }
         }
 
-        effectiveVideoUrlsRef.current.push(realUrl)
-        const dur = await getVideoDuration(realUrl)
-        console.log(`[prepare] recording ${rec.id} duration=${dur}s url=${realUrl}`)
-        durationsRef.current.push(dur)
+        // Upload processed video to S3 cache and swap to stable S3 URL for the Player.
+        // /tmp URLs are ephemeral — if the file is purged before the Player loads, video is black.
+        let stableUrl = realUrl
+        if (realUrl.includes('/api/normalize-video/') || realUrl.includes('/api/silence-cut/') || realUrl.includes('/api/denoise-video/') || realUrl.includes('/api/filler-cut/')) {
+          try {
+            await uploadToCache(rec.id, realUrl, 'processed', { processingHash: currentProcessingHash })
+            const s3Url = await getCachedUrl(rec.id, 'processed')
+            if (s3Url) {
+              stableUrl = s3Url
+              setProcessedCache(p => ({ ...p, [rec.id]: { hash: currentProcessingHash, url: s3Url } }))
+            }
+          } catch {}
+        } else {
+          setProcessedCache(p => ({ ...p, [rec.id]: { hash: currentProcessingHash, url: realUrl } }))
+          uploadToCache(rec.id, realUrl, 'processed', { processingHash: currentProcessingHash })
+        }
 
-        // Upload processed video to S3 cache in background
-        setProcessedCache(p => ({ ...p, [rec.id]: { hash: currentProcessingHash, url: realUrl } }))
-        uploadToCache(rec.id, realUrl, 'processed', { processingHash: currentProcessingHash })
+        effectiveVideoUrlsRef.current.push(stableUrl)
+        const dur = await getVideoDuration(stableUrl)
+        console.log(`[prepare] recording ${rec.id} duration=${dur}s url=${stableUrl}`)
+        durationsRef.current.push(dur)
       }
       lastProcessingHashRef.current = currentProcessingHash
     }
