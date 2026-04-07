@@ -1096,6 +1096,88 @@ export function ProcessView({ recordings, themeName, sessionId, themeSlug, monta
         )}
       </Card>
 
+      {/* Legacy options — only shown when Cleanvoice is OFF */}
+      {!cleanvoiceEnabled && (
+        <>
+          {/* Silence cut */}
+          <Card>
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: silenceCutEnabled ? 16 : 0 }}>
+              <div>
+                <p style={{ color: S.text, fontWeight: 600, fontSize: 14 }}>Couper les silences</p>
+                <p style={{ color: S.muted, fontSize: 11, marginTop: 2 }}>Supprime les pauses dans les clips</p>
+              </div>
+              <Toggle value={silenceCutEnabled} onChange={setSilenceCutEnabled} />
+            </div>
+            {silenceCutEnabled && (
+              <SliderRow label="Sensibilité" value={silenceThreshold} min={-55} max={-20} step={5}
+                format={v => v >= -25 ? 'Agressive' : v >= -38 ? 'Modérée' : 'Légère'}
+                onChange={setSilenceThreshold}
+              />
+            )}
+            {silenceCutError && <p style={{ color: S.error, fontSize: 11, marginTop: 8, fontFamily: 'monospace' }}>{silenceCutError}</p>}
+          </Card>
+
+          {/* Filler cut */}
+          <Card>
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+              <div>
+                <p style={{ color: S.text, fontWeight: 600, fontSize: 14 }}>Couper les tics de langage</p>
+                <p style={{ color: S.muted, fontSize: 11, marginTop: 2 }}>Supprime les "euh", "hm", "bah"…</p>
+              </div>
+              <Toggle value={fillerCutEnabled} onChange={setFillerCutEnabled} />
+            </div>
+            {fillerCutError && <p style={{ color: S.error, fontSize: 11, marginTop: 8, fontFamily: 'monospace' }}>{fillerCutError}</p>}
+          </Card>
+
+          {/* Denoise + ElevenLabs Voice Isolator */}
+          <Card>
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: denoiseEnabled ? 16 : 0 }}>
+              <div>
+                <p style={{ color: S.text, fontWeight: 600, fontSize: 14 }}>Amélioration audio</p>
+                <p style={{ color: S.muted, fontSize: 11, marginTop: 2 }}>FFmpeg ou Voice Isolator IA (ElevenLabs)</p>
+              </div>
+              <Toggle value={denoiseEnabled} onChange={setDenoiseEnabled} />
+            </div>
+            {denoiseEnabled && (
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+                <Label>Méthode</Label>
+                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 8 }}>
+                  {([
+                    { value: 'light',    label: 'Léger',  desc: 'Discret' },
+                    { value: 'moderate', label: 'Modéré', desc: 'Recommandé' },
+                    { value: 'strong',   label: 'Fort',   desc: 'Agressif' },
+                  ] as { value: 'light' | 'moderate' | 'strong'; label: string; desc: string }[]).map(opt => (
+                    <button key={opt.value} onClick={() => setDenoiseStrength(opt.value)}
+                      onMouseEnter={() => setHoveredDenoiseStrength(opt.value)}
+                      onMouseLeave={() => setHoveredDenoiseStrength(null)}
+                      style={{
+                        padding: '10px 8px', borderRadius: 12, textAlign: 'center',
+                        ...selectableStyle(denoiseStrength === opt.value, hoveredDenoiseStrength === opt.value),
+                      }}
+                    >
+                      <p style={{ color: denoiseStrength === opt.value ? S.text : S.muted, fontWeight: 700, fontSize: 12 }}>{opt.label}</p>
+                      <p style={{ color: S.dim, fontSize: 9, marginTop: 2, fontFamily: 'monospace' }}>{opt.desc}</p>
+                    </button>
+                  ))}
+                </div>
+                <button onClick={() => setDenoiseStrength('isolate')}
+                  style={{
+                    padding: '10px 12px', borderRadius: 12, textAlign: 'left', display: 'flex', alignItems: 'center', gap: 10,
+                    background: denoiseStrength === 'isolate' ? 'rgba(139,92,246,0.15)' : S.surface,
+                    border: `1px solid ${denoiseStrength === 'isolate' ? 'rgba(139,92,246,0.6)' : S.border}`,
+                  }}
+                >
+                  <span style={{ fontSize: 16 }}>✨</span>
+                  <div>
+                    <p style={{ color: denoiseStrength === 'isolate' ? '#c4b5fd' : S.muted, fontWeight: 700, fontSize: 12 }}>Voice Isolator IA</p>
+                    <p style={{ color: S.dim, fontSize: 9, marginTop: 2, fontFamily: 'monospace' }}>ElevenLabs · Isole la voix, supprime tout le reste</p>
+                  </div>
+                </button>
+              </div>
+            )}
+          </Card>
+        </>
+      )}
 
       {/* Voice toggle */}
       <Card>

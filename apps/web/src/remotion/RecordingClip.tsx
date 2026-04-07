@@ -560,23 +560,31 @@ export function RecordingClip({
     : { words: [], activeIndex: 0, framesIntoActiveWord: 0 }
 
   // ─── Dynamic Zoom — "camera operator" reframe ───────────────────────────────
-  // Detects emphasis moments (post-pause, long word, sentence start) and snaps
-  // to a new zoom level, holding it for several seconds before the next reframe.
-  // Feels like a human cameraperson adjusting the shot, not a mechanical pulse.
+  // Mimics professional editor behavior:
+  //   • Emphasis scoring (weighted: pause + word length + punctuation + sentence start)
+  //   • Push/pull alternation: zoom in → wider → zoom in deeper → breathe out
+  //   • Intensity tiered by emphasis strength (subtle / medium / punch)
+  //   • Spring easing over ~12 frames for organic camera feel
+  //   • Periodic return to wide (1.0) so viewer never feels trapped
 
-  // Zoom levels the camera cycles through (like changing shot composition)
-  const ZOOM_LEVELS = [1.0, 1.30, 1.12, 1.40, 1.05, 1.25, 1.08, 1.35]
-  // Transition speed: snap to new zoom in ~10 frames (≈0.33s at 30fps)
-  const SNAP_FRAMES = 1
-  // Min hold between reframes (1.8s) — avoids nausea-inducing rapid changes
-  const MIN_HOLD_FRAMES = Math.round(fps * 1.8)
+  // Transition duration: ~12 frames ≈ 0.4s — feels like a human camera move
+  const SNAP_FRAMES = 12
+  // Min hold between reframes (2s) — avoids nausea
+  const MIN_HOLD_FRAMES = Math.round(fps * 2.0)
+  // Force a return to wide (1.0) after this many consecutive zoomed-in reframes
+  const WIDE_RESET_EVERY = 3
 
   const zoomKeyframes = useMemo((): ZoomKeyframe[] => {
     if (!motionSettings?.dynamicZoom) return []
 
     const kf: ZoomKeyframe[] = [{ frame: 0, scale: 1.0 }]
     let lastFrame = 0
-    let levelIdx = 0
+    let consecutivePushes = 0
+
+    // Push/pull pattern: each push zooms in, every WIDE_RESET_EVERY we pull back
+    // Levels: subtle (1.08), medium (1.18), punch (1.32), deep (1.42)
+    const PUSH_LEVELS = [1.32, 1.18, 1.42, 1.08, 1.28, 1.15, 1.38, 1.12]
+    let pushIdx = 0
 
     if (mergedTimestamps && mergedTimestamps.length > 0) {
       for (let i = 1; i < mergedTimestamps.length; i++) {
@@ -586,38 +594,71 @@ export function RecordingClip({
 
         if (triggerFrame - lastFrame < MIN_HOLD_FRAMES) continue
 
-        const gap = w.start - prev.end           // silence before this word
-        const wordDur = w.end - w.start           // duration = emphasis proxy
-        const afterPunct = /[.!?,;]/.test(prev.word)
+        const gap = w.start - prev.end           // silence gap = breath before word
+        const wordDur = w.end - w.start           // long word = deliberate emphasis
+        const afterSentence = /[.!?]/.test(prev.word)   // new sentence = fresh beat
+        const afterComma = /[,;]/.test(prev.word)        // lighter pause
+        const isFirstWord = i <= 1                       // hook moment
 
-        // Emphasis score: pause ≥0.2s, long word ≥0.32s, after sentence end
-        const isEmphasis = gap >= 0.2 || wordDur >= 0.32 || afterPunct
+        // Weighted emphasis score (0.0 → 1.0)
+        let score = 0
+        if (gap >= 0.5)      score += 0.5   // long pause = strong beat
+        else if (gap >= 0.2) score += 0.25  // short pause = mild beat
+        if (wordDur >= 0.45) score += 0.3   // very long word
+        else if (wordDur >= 0.3) score += 0.15
+        if (afterSentence)   score += 0.35  // new sentence = visual reset beat
+        if (afterComma)      score += 0.1
+        if (isFirstWord)     score += 0.4
 
-        if (isEmphasis) {
-          levelIdx++
-          kf.push({ frame: triggerFrame, scale: ZOOM_LEVELS[levelIdx % ZOOM_LEVELS.length] })
-          lastFrame = triggerFrame
+        // Only trigger on meaningful moments (score above threshold)
+        if (score < 0.25) continue
+
+        // Every WIDE_RESET_EVERY pushes → pull back to wide for a breath
+        if (consecutivePushes >= WIDE_RESET_EVERY) {
+          // Wide shot: pull back toward 1.0 (slightly above to stay dynamic)
+          const wideScale = score >= 0.6 ? 1.0 : 1.05
+          kf.push({ frame: triggerFrame, scale: wideScale })
+          consecutivePushes = 0
+        } else {
+          // Push in — intensity modulated by emphasis score
+          // High score (≥0.7) → punch level; low score → subtle reframe
+          const baseScale = score >= 0.7
+            ? PUSH_LEVELS[pushIdx % PUSH_LEVELS.length]             // punch
+            : PUSH_LEVELS[pushIdx % PUSH_LEVELS.length] * 0.85 + 0.15 // subtle
+          kf.push({ frame: triggerFrame, scale: Math.min(baseScale, 1.45) })
+          pushIdx++
+          consecutivePushes++
         }
+
+        lastFrame = triggerFrame
       }
     }
 
-    // Fallback: fixed interval every 2.5s when no word timestamps or too few events
+    // Fallback: push/pull at regular intervals when no timestamps or too sparse
     if (kf.length < 3) {
       const interval = Math.round(fps * 2.5)
+      let pushCount = 0
+      const FALLBACK_LEVELS = [1.25, 1.12, 1.38, 1.0, 1.30, 1.08]
+      let fi = 0
       for (let f = interval; f < durationInFrames; f += interval) {
-        levelIdx++
-        kf.push({ frame: f, scale: ZOOM_LEVELS[levelIdx % ZOOM_LEVELS.length] })
+        if (pushCount >= WIDE_RESET_EVERY) {
+          kf.push({ frame: f, scale: 1.0 })
+          pushCount = 0
+        } else {
+          kf.push({ frame: f, scale: FALLBACK_LEVELS[fi % FALLBACK_LEVELS.length] })
+          fi++
+          pushCount++
+        }
       }
     }
 
     return kf
   }, [motionSettings?.dynamicZoom, mergedTimestamps, fps, durationInFrames])
 
-  // Compute zoom at current frame:
-  // Quick snap (SNAP_FRAMES) to the keyframe's scale, then hold until next keyframe.
+  // Compute zoom at current frame using spring easing:
+  // Ease-out cubic over SNAP_FRAMES for organic camera feel, then hold.
   let dynamicZoomScale = 1.0
   if (motionSettings?.dynamicZoom && zoomKeyframes.length >= 2) {
-    // Find the most recent keyframe ≤ current frame
     let prevIdx = 0
     for (let i = 1; i < zoomKeyframes.length; i++) {
       if (zoomKeyframes[i].frame <= frame) prevIdx = i
@@ -628,12 +669,11 @@ export function RecordingClip({
     const framesSince = frame - curr.frame
 
     if (framesSince < SNAP_FRAMES) {
-      // Transition: smoothstep from fromScale → curr.scale
       const t = framesSince / SNAP_FRAMES
-      const eased = t * t * (3 - 2 * t) // smoothstep — natural camera feel
+      // Ease-out cubic: starts fast, decelerates — like a camera settling on frame
+      const eased = 1 - Math.pow(1 - t, 3)
       dynamicZoomScale = fromScale + (curr.scale - fromScale) * eased
     } else {
-      // Hold at current zoom level
       dynamicZoomScale = curr.scale
     }
   }
