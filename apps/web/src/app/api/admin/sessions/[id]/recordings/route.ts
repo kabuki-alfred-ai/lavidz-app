@@ -14,7 +14,7 @@ export async function GET(_req: Request, { params }: { params: Promise<{ id: str
     if (!sessionRes.ok) return new Response(await sessionRes.text(), { status: sessionRes.status })
     const session = await sessionRes.json()
 
-    const recordings: { id: string; questionText: string; questionOrder: number; signedUrl: string }[] = []
+    const recordings: { id: string; questionText: string; questionOrder: number; signedUrl: string; rawVideoKey: string }[] = []
 
     for (const recording of session.recordings ?? []) {
       if (!recording.rawVideoKey) continue
@@ -31,7 +31,8 @@ export async function GET(_req: Request, { params }: { params: Promise<{ id: str
         id: recording.id,
         questionText: question?.text ?? `Question ${recordings.length + 1}`,
         questionOrder: question?.order ?? recordings.length,
-        signedUrl: signedUrl.replace(/^"|"$/g, ''), // strip surrounding quotes if JSON string
+        signedUrl: signedUrl.replace(/^"|"$/g, ''),
+        rawVideoKey: recording.rawVideoKey,
       })
     }
 

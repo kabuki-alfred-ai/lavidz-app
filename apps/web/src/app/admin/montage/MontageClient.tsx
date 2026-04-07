@@ -25,6 +25,7 @@ interface RawRecording {
   questionText: string
   questionOrder: number
   signedUrl: string
+  rawVideoKey: string
 }
 
 interface SubmittedSession {
@@ -772,7 +773,7 @@ function HistoryRow({
 
 function RawsPanel({
   session,
-  recordings,
+  recordings: initialRecordings,
   loadingRaws,
   onDownload,
   border = true
@@ -783,6 +784,39 @@ function RawsPanel({
   onDownload: (url: string, filename: string) => void
   border?: boolean
 }) {
+  const [recs, setRecs] = useState(initialRecordings)
+  const [durations, setDurations] = useState<Record<string, number>>({})
+  const [converting, setConverting] = useState<string | null>(null)
+
+  React.useEffect(() => { setRecs(initialRecordings) }, [initialRecordings])
+
+  const handleDuration = (id: string, dur: number) => {
+    if (isFinite(dur) && dur > 0 && dur < 3600) setDurations(prev => ({ ...prev, [id]: dur }))
+  }
+
+  const handleConvert = async (rec: RawRecording) => {
+    setConverting(rec.id)
+    try {
+      const res = await fetch(`/api/admin/recordings/${rec.id}/convert?sessionId=${session.id}`, { method: 'POST' })
+      if (res.ok) {
+        const data = await res.json()
+        if (data.converted) {
+          // Refresh recordings list
+          const fresh = await fetch(`/api/admin/sessions/${session.id}/recordings`)
+          if (fresh.ok) setRecs(await fresh.json())
+        }
+      }
+    } finally {
+      setConverting(null)
+    }
+  }
+
+  const formatDur = (s: number) => {
+    const m = Math.floor(s / 60)
+    const sec = Math.floor(s % 60)
+    return m > 0 ? `${m}m${sec.toString().padStart(2, '0')}s` : `${sec}s`
+  }
+
   return (
     <div className={cn(
       "bg-primary/[0.02] p-8 space-y-6 animate-in slide-in-from-top-4 duration-300 shadow-inner",
@@ -800,42 +834,74 @@ function RawsPanel({
            <Loader2 size={14} className="animate-spin text-primary/40" />
            <span className="text-[10px] font-mono uppercase tracking-widest text-muted-foreground/40">Synchronisation des vidéos...</span>
         </div>
-      ) : recordings.length === 0 ? (
+      ) : recs.length === 0 ? (
         <p className="text-xs font-mono text-muted-foreground/40 p-8 text-center border border-dashed border-border/40 rounded-sm">Aucune vidéo brute disponible.</p>
       ) : (
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
-          {recordings.map((rec, idx) => (
-            <Card key={rec.id} className="border-border/60 bg-background/50 overflow-hidden group/video hover:border-primary/40 transition-all rounded-none">
-              <div className="relative bg-black aspect-[9/16] overflow-hidden">
-                <video
-                  src={rec.signedUrl}
-                  controls
-                  playsInline
-                  preload="metadata"
-                  className="w-full h-full object-cover transition-transform duration-500 group-hover/video:scale-105"
-                />
-                <div className="absolute top-2 left-2 px-1.5 py-0.5 bg-black/60 backdrop-blur-md border border-white/10 text-[9px] font-mono text-white/50 uppercase">
-                  #{idx + 1}
+          {recs.map((rec, idx) => {
+            const isWebm = rec.rawVideoKey?.endsWith('.webm')
+            const dur = durations[rec.id]
+            return (
+              <Card key={rec.id} className="border-border/60 bg-background/50 overflow-hidden group/video hover:border-primary/40 transition-all rounded-none">
+                <div className="relative bg-black aspect-[9/16] overflow-hidden">
+                  <video
+                    src={rec.signedUrl}
+                    controls
+                    playsInline
+                    preload="metadata"
+                    className="w-full h-full object-cover transition-transform duration-500 group-hover/video:scale-105"
+                    onLoadedMetadata={e => handleDuration(rec.id, (e.target as HTMLVideoElement).duration)}
+                  />
+                  <div className="absolute top-2 left-2 flex items-center gap-1">
+                    <span className="px-1.5 py-0.5 bg-black/60 backdrop-blur-md border border-white/10 text-[9px] font-mono text-white/50 uppercase">
+                      #{idx + 1}
+                    </span>
+                    <span className={cn(
+                      "px-1.5 py-0.5 backdrop-blur-md border text-[9px] font-mono uppercase",
+                      isWebm
+                        ? "bg-orange-500/20 border-orange-500/40 text-orange-300"
+                        : "bg-black/60 border-white/10 text-white/50"
+                    )}>
+                      {isWebm ? 'WebM' : 'MP4'}
+                    </span>
+                  </div>
+                  {dur && (
+                    <div className="absolute bottom-2 right-2 px-1.5 py-0.5 bg-black/60 backdrop-blur-md border border-white/10 text-[9px] font-mono text-white/50">
+                      {formatDur(dur)}
+                    </div>
+                  )}
                 </div>
-              </div>
-              <CardContent className="p-4 space-y-4">
-                <div className="space-y-1">
+                <CardContent className="p-4 space-y-3">
                   <p className="text-[11px] font-bold text-foreground line-clamp-2 leading-relaxed h-[34px]">
                     {rec.questionText}
                   </p>
-                </div>
-                <Button 
-                  variant="outline" 
-                  size="sm" 
-                  className="w-full h-8 rounded-none border-border/40 hover:border-primary/40 group/btn transition-all font-mono text-[9px] uppercase tracking-widest text-muted-foreground hover:text-primary"
-                  onClick={() => onDownload(rec.signedUrl, `raw-${session.id}-q${idx + 1}.mp4`)}
-                >
-                  <Download size={12} className="mr-2 text-muted-foreground group-hover/btn:text-primary transition-colors" />
-                  Télécharger
-                </Button>
-              </CardContent>
-            </Card>
-          ))}
+                  {isWebm && (
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      className="w-full h-8 rounded-none border-orange-500/30 hover:border-orange-500/60 font-mono text-[9px] uppercase tracking-widest text-orange-400 hover:text-orange-300 transition-all"
+                      disabled={converting === rec.id}
+                      onClick={() => handleConvert(rec)}
+                    >
+                      {converting === rec.id
+                        ? <><Loader2 size={10} className="mr-2 animate-spin" />Conversion…</>
+                        : <><Video size={10} className="mr-2" />Convertir en MP4</>
+                      }
+                    </Button>
+                  )}
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    className="w-full h-8 rounded-none border-border/40 hover:border-primary/40 group/btn transition-all font-mono text-[9px] uppercase tracking-widest text-muted-foreground hover:text-primary"
+                    onClick={() => onDownload(rec.signedUrl, `raw-${session.id}-q${idx + 1}.${isWebm ? 'webm' : 'mp4'}`)}
+                  >
+                    <Download size={12} className="mr-2 text-muted-foreground group-hover/btn:text-primary transition-colors" />
+                    Télécharger
+                  </Button>
+                </CardContent>
+              </Card>
+            )
+          })}
         </div>
       )}
     </div>

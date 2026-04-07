@@ -135,4 +135,13 @@ export class SessionsController {
   getRecordingUrl(@Param('recordingId') recordingId: string): Promise<string> {
     return this.sessionsService.getRecordingUrl(recordingId)
   }
+
+  @Patch(':sessionId/recordings/:recordingId/raw-key')
+  @UseGuards(AdminGuard)
+  updateRawKey(
+    @Param('recordingId') recordingId: string,
+    @Body() body: { rawVideoKey: string },
+  ): Promise<any> {
+    return this.sessionsService.updateRawKey(recordingId, body.rawVideoKey)
+  }
 }

@@ -298,6 +298,13 @@ export class SessionsService {
     return recording
   }
 
+  async updateRawKey(recordingId: string, rawVideoKey: string): Promise<any> {
+    return prisma.recording.update({
+      where: { id: recordingId },
+      data: { rawVideoKey },
+    })
+  }
+
   async getRecordingUrl(recordingId: string): Promise<string> {
     const recording = await prisma.recording.findUnique({ where: { id: recordingId } })
     if (!recording?.finalVideoKey && !recording?.rawVideoKey) {

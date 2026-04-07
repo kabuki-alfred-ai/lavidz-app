@@ -16,6 +16,8 @@ FROM node:22-alpine AS runner
 WORKDIR /app
 ENV NODE_ENV=production
 
+RUN apk add --no-cache ffmpeg
+
 # Copy pnpm virtual store — relative symlinks resolve correctly in the runner.
 # This includes the generated Prisma client from the db:generate step above.
 COPY --from=builder /app/node_modules ./node_modules
