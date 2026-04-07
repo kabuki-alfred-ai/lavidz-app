@@ -1,4 +1,4 @@
-import { AbsoluteFill, Audio, OffthreadVideo, interpolate, spring, useCurrentFrame, useVideoConfig } from 'remotion'
+import { AbsoluteFill, Audio, Video, OffthreadVideo, interpolate, spring, useCurrentFrame, useVideoConfig } from 'remotion'
 import { useMemo } from 'react'
 import type { SubtitleSettings } from './subtitleTypes'
 import { DEFAULT_SUBTITLE_SETTINGS } from './subtitleTypes'
@@ -776,9 +776,9 @@ export function RecordingClip({
               }}
             />
           </div>
-          {/* Foreground centered video — OffthreadVideo renders frame-by-frame (no persistent buffer) */}
+          {/* Foreground centered video */}
           <div style={{ position: 'absolute', inset: 0, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-            <OffthreadVideo src={videoUrl} muted={false} {...(startFromFrame ? { startFrom: startFromFrame } : {})} style={{ width: '100%', objectFit: 'contain' }} />
+            <Video src={videoUrl} {...(startFromFrame ? { startFrom: startFromFrame } : {})} style={{ width: '100%', objectFit: 'contain' }} />
           </div>
         </div>
         {progressBarNode}
@@ -793,7 +793,7 @@ export function RecordingClip({
     <AbsoluteFill style={{ background: 'black', opacity: entryOpacity }}>
       {sfxNode}
       <div style={{ position: 'absolute', inset: 0, transform: videoTransform, filter: videoFilter }}>
-        <OffthreadVideo src={videoUrl} muted={false} {...(startFromFrame ? { startFrom: startFromFrame } : {})} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+        <Video src={videoUrl} {...(startFromFrame ? { startFrom: startFromFrame } : {})} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
       </div>
       {progressBarNode}
       {subtitlesNode}

@@ -1,53 +1,14 @@
 import crypto from 'crypto'
-import fs from 'fs'
-import path from 'path'
-import { execSync } from 'child_process'
 import { purgeStaleTmpFiles } from '@/lib/tmp-cleanup'
-import { streamResponseToFile } from '@/lib/stream-file'
-import { S3Client, PutObjectCommand, GetObjectCommand } from '@aws-sdk/client-s3'
-import { getSignedUrl } from '@aws-sdk/s3-request-presigner'
 
 export const runtime = 'nodejs'
 export const maxDuration = 120
 
 const API = process.env.API_URL ?? 'http://localhost:3001'
 const ADMIN_SECRET = process.env.ADMIN_SECRET ?? ''
-const BUCKET = process.env.RUSTFS_BUCKET ?? 'lavidz-videos'
-
-async function uploadToS3AndPresign(filePath: string, key: string): Promise<string> {
-  const uploadClient = new S3Client({
-    endpoint: process.env.RUSTFS_ENDPOINT ?? 'http://localhost:9000',
-    region: 'us-east-1',
-    credentials: {
-      accessKeyId: process.env.RUSTFS_ACCESS_KEY ?? 'admin',
-      secretAccessKey: process.env.RUSTFS_SECRET_KEY ?? 'password123',
-    },
-    forcePathStyle: true,
-  })
-  const stat = fs.statSync(filePath)
-  await uploadClient.send(new PutObjectCommand({
-    Bucket: BUCKET,
-    Key: key,
-    Body: fs.createReadStream(filePath),
-    ContentType: 'video/mp4',
-    ContentLength: stat.size,
-  }))
-
-  // Use public endpoint for presigned URL so Cleanvoice can reach it
-  const presignClient = new S3Client({
-    endpoint: process.env.RUSTFS_PUBLIC_ENDPOINT ?? process.env.RUSTFS_ENDPOINT ?? 'http://localhost:9000',
-    region: 'us-east-1',
-    credentials: {
-      accessKeyId: process.env.RUSTFS_ACCESS_KEY ?? 'admin',
-      secretAccessKey: process.env.RUSTFS_SECRET_KEY ?? 'password123',
-    },
-    forcePathStyle: true,
-  })
-  return getSignedUrl(presignClient, new GetObjectCommand({ Bucket: BUCKET, Key: key }), { expiresIn: 7200 })
-}
 
 // Resolve a proxy URL like /api/video/:id?sessionId=... to the actual S3 presigned URL.
-// Cleanvoice rejects proxy URLs — it needs a direct link to the media file.
+// Cleanvoice rejects proxy/streaming URLs — it needs a direct link to the media file.
 async function resolveToPresignedUrl(videoUrl: string): Promise<string> {
   const match = videoUrl.match(/\/api\/video\/([^/?]+)\?sessionId=([^&]+)/)
   if (!match) return videoUrl
@@ -105,26 +66,6 @@ export async function POST(req: Request) {
 
     purgeStaleTmpFiles('cleanvoice-')
     const id = crypto.randomUUID()
-
-    // Cleanvoice does not support WebM. Detect by content-type (more reliable than URL extension).
-    // If not MP4, convert via FFmpeg before sending to Cleanvoice.
-    const headRes = await fetch(videoUrl, { method: 'HEAD' })
-    const contentType = headRes.headers.get('content-type') ?? ''
-    const needsConversion = !contentType.includes('mp4') && !contentType.includes('h264')
-    if (needsConversion) {
-      const rawPath = path.join('/tmp', `cleanvoice-raw-${id}`)
-      const convertedPath = path.join('/tmp', `cleanvoice-in-${id}.mp4`)
-      try {
-        const sourceRes = await fetch(videoUrl)
-        if (!sourceRes.ok) return new Response(`Impossible de télécharger la vidéo source (${sourceRes.status})`, { status: 502 })
-        await streamResponseToFile(sourceRes, rawPath)
-        execSync(`ffmpeg -y -i "${rawPath}" -c:v libx264 -c:a aac "${convertedPath}"`, { stdio: 'pipe' })
-        videoUrl = await uploadToS3AndPresign(convertedPath, `cleanvoice-tmp/${id}.mp4`)
-      } finally {
-        try { fs.unlinkSync(rawPath) } catch {}
-        try { fs.unlinkSync(convertedPath) } catch {}
-      }
-    }
 
     const editRes = await fetch('https://api.cleanvoice.ai/v2/edits', {
       method: 'POST',
