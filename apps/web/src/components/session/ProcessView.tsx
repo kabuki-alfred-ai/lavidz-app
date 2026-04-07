@@ -782,6 +782,15 @@ export function ProcessView({ recordings, themeName, sessionId, themeSlug, monta
               if (!done) setCleanvoiceError('Cleanvoice timeout — vidéo trop longue pour être traitée dans le délai imparti')
             }
           } catch { setCleanvoiceError('Cleanvoice échoué') }
+
+          // Fallback: normalize WebM to MP4 if Cleanvoice didn't update realUrl
+          // (ensures correct duration metadata and smooth playback regardless of source format)
+          if (realUrl === rec.videoUrl) {
+            try {
+              const res = await fetch('/api/normalize-video', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ videoUrl: realUrl }) })
+              if (res.ok) { const d = await res.json(); if (d.normalized && d.id) realUrl = `${window.location.origin}/api/normalize-video/${d.id}` }
+            } catch {}
+          }
         } else {
           if (silenceCutEnabled) {
             setLoadingStep(`Coupure silences ${i+1}/${recordings.length}...`)
