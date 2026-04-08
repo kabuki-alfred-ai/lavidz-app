@@ -604,13 +604,16 @@ export function AiDrawer({ activeOrgId }: { activeOrgId?: string | null }) {
       .filter((m) => m.role === 'user')
       .map((m) => m.parts.filter((p) => p.type === 'text').map((p) => p.content).join(''))
 
-    await fetch('/api/admin/ai/profile', {
+    const putRes = await fetch('/api/admin/ai/profile', {
       method: 'PUT',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
         businessContext: { conversationSummary: conversation, answers },
       }),
-    }).catch(() => {/* silently continue */})
+    }).catch((e) => { console.error('[AiDrawer] persistConversation PUT failed', e); return null })
+    if (putRes && !putRes.ok) {
+      console.error('[AiDrawer] persistConversation PUT error', putRes.status, await putRes.text().catch(() => ''))
+    }
   }
 
   async function send(overrideText?: string) {
@@ -675,9 +678,10 @@ export function AiDrawer({ activeOrgId }: { activeOrgId?: string | null }) {
       // Auto-persist + re-summarize after each exchange (≥ 2 user messages)
       const userCount = finalMessages.filter((m) => m.role === 'user').length
       if (userCount >= 2) {
-        persistConversation(finalMessages).then(() => {
+        persistConversation(finalMessages).then(async () => {
           // Fire-and-forget: regenerate AI summary after saving
-          fetch('/api/admin/ai/profile/summarize', { method: 'POST' }).catch(() => {})
+          const sumRes = await fetch('/api/admin/ai/profile/summarize', { method: 'POST' }).catch((e) => { console.error('[AiDrawer] summarize failed', e); return null })
+          if (sumRes && !sumRes.ok) console.error('[AiDrawer] summarize error', sumRes.status, await sumRes.text().catch(() => ''))
         })
       }
     } catch (err) {

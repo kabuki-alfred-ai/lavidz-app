@@ -138,10 +138,14 @@ export async function POST(req: Request) {
         summary = profile.businessContext?.summary
         topicsExplored = profile.topicsExplored
         linkedinUrl = profile.linkedinUrl ?? null
+      } else {
+        console.warn('[ai/chat] profile fetch failed', profileRes.status, await profileRes.text())
       }
+    } else {
+      console.warn('[ai/chat] effectiveOrgId is null for user', user.userId, 'role', user.role, 'orgId', user.organizationId, 'activeOrgId', user.activeOrgId)
     }
-  } catch {
-    // Non-blocking: continue without profile context
+  } catch (err) {
+    console.error('[ai/chat] profile fetch error', err)
   }
 
   // RAG: search relevant memories based on last user message
