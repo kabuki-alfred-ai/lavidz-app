@@ -30,7 +30,7 @@ export async function generateMiniMaxTTS(text: string, voiceId: string): Promise
         model: 'speech-2.8-turbo',
         text,
         stream: false,
-        voice_setting: { voice_id: rawVoiceId, speed: 1.0, vol: 1.0, pitch: 0 },
+        voice_setting: { voice_id: rawVoiceId, speed: 1.15, vol: 1.0, pitch: 0, emotion: 'happy' },
         audio_setting: { sample_rate: 32000, bitrate: 128000, format: 'mp3', channel: 1 },
       }),
     })
