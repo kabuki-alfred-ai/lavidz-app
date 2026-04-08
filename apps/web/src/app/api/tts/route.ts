@@ -1,12 +1,20 @@
+import { isMiniMax, generateMiniMaxTTS } from '@/lib/tts-provider'
+
 const DEFAULT_VOICE_ID = 'EXAVITQu4vr4xnSDxMaL' // Sarah — multilingual fallback
 
 export async function POST(req: Request) {
   const { text, voiceId } = await req.json()
-  const apiKey = process.env.ELEVENLABS_API_KEY
 
-  if (!apiKey) {
-    return new Response('Missing ElevenLabs API key', { status: 500 })
+  // ─── MiniMax branch ───────────────────────────────────────────────────────
+  if (isMiniMax(voiceId)) {
+    const audio = await generateMiniMaxTTS(text, voiceId)
+    if (!audio) return new Response('MiniMax TTS failed', { status: 502 })
+    return new Response(audio, { headers: { 'Content-Type': 'audio/mpeg' } })
   }
+
+  // ─── ElevenLabs branch ────────────────────────────────────────────────────
+  const apiKey = process.env.ELEVENLABS_API_KEY
+  if (!apiKey) return new Response('Missing ElevenLabs API key', { status: 500 })
 
   const res = await fetch(`https://api.elevenlabs.io/v1/text-to-speech/${voiceId ?? DEFAULT_VOICE_ID}`, {
     method: 'POST',
@@ -44,7 +52,5 @@ export async function POST(req: Request) {
   }
 
   const audio = await res.arrayBuffer()
-  return new Response(audio, {
-    headers: { 'Content-Type': 'audio/mpeg' },
-  })
+  return new Response(audio, { headers: { 'Content-Type': 'audio/mpeg' } })
 }

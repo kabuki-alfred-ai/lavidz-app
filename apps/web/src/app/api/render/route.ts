@@ -6,6 +6,7 @@ import crypto from 'crypto'
 import { S3Client, PutObjectCommand, GetObjectCommand } from '@aws-sdk/client-s3'
 import { getSignedUrl } from '@aws-sdk/s3-request-presigner'
 import { purgeStaleTmpFiles } from '@/lib/tmp-cleanup'
+import { isMiniMax, generateMiniMaxTTS } from '@/lib/tts-provider'
 
 export const runtime = 'nodejs'
 export const maxDuration = 600
@@ -67,10 +68,16 @@ function calcTotalFrames(segments: any[], questionCardFrames: number, intro: any
   return Math.max(total, 1)
 }
 
-async function generateTTS(text: string, voiceId: string, apiKey: string): Promise<Buffer | null> {
+async function generateTTS(text: string, voiceId: string, elevenLabsApiKey: string): Promise<Buffer | null> {
+  // ─── MiniMax branch ─────────────────────────────────────────────────────
+  if (isMiniMax(voiceId)) {
+    return generateMiniMaxTTS(text, voiceId)
+  }
+
+  // ─── ElevenLabs branch ──────────────────────────────────────────────────
   const tryVoice = async (vid: string) => fetch(`https://api.elevenlabs.io/v1/text-to-speech/${vid}`, {
     method: 'POST',
-    headers: { 'xi-api-key': apiKey, 'Content-Type': 'application/json' },
+    headers: { 'xi-api-key': elevenLabsApiKey, 'Content-Type': 'application/json' },
     body: JSON.stringify({ text, model_id: 'eleven_multilingual_v2', voice_settings: { stability: 0.4, similarity_boost: 0.75, style: 0.1 } }),
   })
 

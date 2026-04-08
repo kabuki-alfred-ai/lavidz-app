@@ -157,7 +157,7 @@ const STANDARD_VOICE_IDS = new Set([
   'jGpnMdbhtKgQbVrYezOx','k1w1SeihHyKDJXr7nZRX',
 ])
 
-interface Voice { id: string; name: string; previewUrl: string; accent: string; gender: string; language: string }
+interface Voice { id: string; name: string; previewUrl: string; accent: string; gender: string; language: string; provider?: 'elevenlabs' | 'minimax' }
 
 interface CleanvoiceConfig {
   fillers: boolean
@@ -949,7 +949,16 @@ export function ProcessView({ recordings, themeName, sessionId, themeSlug, monta
     if (previewAudioRef.current) { previewAudioRef.current.pause(); previewAudioRef.current = null }
     if (previewingVoiceId === voice.id) { setPreviewingVoiceId(null); return }
     setPreviewingVoiceId(voice.id)
-    const audio = new Audio(voice.previewUrl); previewAudioRef.current = audio
+
+    let previewSrc = voice.previewUrl
+    if (!previewSrc) {
+      // MiniMax voices have no previewUrl — generate live TTS sample
+      const sampleUrl = await generateTTS('Bonjour, je suis votre voix IA pour vos vidéos.', voice.id)
+      if (!sampleUrl) { setPreviewingVoiceId(null); return }
+      previewSrc = sampleUrl
+    }
+
+    const audio = new Audio(previewSrc); previewAudioRef.current = audio
     audio.onended = () => setPreviewingVoiceId(null); audio.play()
   }
 
@@ -1209,7 +1218,8 @@ export function ProcessView({ recordings, themeName, sessionId, themeSlug, monta
         <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
           <Label>Choisir une voix</Label>
           {voices.map(voice => {
-            const isLibrary = !STANDARD_VOICE_IDS.has(voice.id)
+            const isMM = voice.id.startsWith('mm:')
+            const isCreator = !isMM && !STANDARD_VOICE_IDS.has(voice.id)
             const selected = selectedVoiceId === voice.id
             return (
               <button key={voice.id} onClick={() => setSelectedVoiceId(voice.id)}
@@ -1224,7 +1234,10 @@ export function ProcessView({ recordings, themeName, sessionId, themeSlug, monta
                 <div style={{ minWidth: 0 }}>
                   <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
                     <span style={{ color: S.text, fontWeight: 600, fontSize: 14 }}>{voice.name}</span>
-                    {isLibrary && (
+                    {isMM && (
+                      <span style={{ fontSize: 9, color: '#60a5fa', border: '1px solid rgba(96,165,250,0.3)', padding: '1px 5px', borderRadius: 4, fontFamily: 'monospace' }}>MiniMax</span>
+                    )}
+                    {isCreator && (
                       <span style={{ fontSize: 9, color: '#f59e0b', border: '1px solid rgba(245,158,11,0.3)', padding: '1px 5px', borderRadius: 4, fontFamily: 'monospace' }}>Creator</span>
                     )}
                   </div>

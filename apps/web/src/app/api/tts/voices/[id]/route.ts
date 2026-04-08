@@ -1,5 +1,11 @@
+import { isMiniMax } from '@/lib/tts-provider'
+
 export async function DELETE(_req: Request, { params }: { params: Promise<{ id: string }> }) {
   const { id } = await params
+
+  // MiniMax voices are local only — no remote account to delete from
+  if (isMiniMax(id)) return new Response(null, { status: 204 })
+
   const apiKey = process.env.ELEVENLABS_API_KEY
   if (!apiKey) return new Response('Missing API key', { status: 500 })
 

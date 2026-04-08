@@ -1,34 +1,14 @@
 import { VoicesClient } from './VoicesClient'
 
 async function fetchVoices() {
-  const apiKey = process.env.ELEVENLABS_API_KEY
-  if (!apiKey) return []
-
-  const ALLOWED_VOICE_IDS = new Set([
-    'Hy28BjVfgieDVMiyQpQe', 'MmafIMKg28Wr0yMh8CEB', 'KSyQzmsYhFbuOhqj1Xxv',
-    'jGpnMdbhtKgQbVrYezOx', 'k1w1SeihHyKDJXr7nZRX',
-  ])
-
+  // Delegate to the internal API route — automatically includes ElevenLabs + MiniMax
+  const baseUrl = process.env.API_URL
+    ? process.env.NEXT_PUBLIC_APP_URL ?? 'http://localhost:3000'
+    : 'http://localhost:3000'
   try {
-    const res = await fetch('https://api.elevenlabs.io/v1/voices', {
-      headers: { 'xi-api-key': apiKey },
-      cache: 'no-store',
-    })
+    const res = await fetch(`${baseUrl}/api/tts/voices`, { cache: 'no-store' })
     if (!res.ok) return []
-    const data = await res.json() as {
-      voices: Array<{ voice_id: string; name: string; preview_url: string; category: string; labels: Record<string, string> }>
-    }
-    return data.voices
-      .filter(v => ALLOWED_VOICE_IDS.has(v.voice_id))
-      .map(v => ({
-        id: v.voice_id,
-        name: v.name,
-        previewUrl: v.preview_url,
-        category: v.category,
-        accent: v.labels?.accent ?? '',
-        gender: v.labels?.gender ?? '',
-        language: v.labels?.language ?? '',
-      }))
+    return await res.json()
   } catch {
     return []
   }

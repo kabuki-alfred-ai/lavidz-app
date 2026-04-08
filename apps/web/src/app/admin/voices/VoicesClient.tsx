@@ -40,6 +40,8 @@ export function VoicesClient({ initialVoices }: Props) {
   const [previewingId, setPreviewingId] = useState<string | null>(null)
   const [deletingId, setDeletingId] = useState<string | null>(null)
   const audioRef = useRef<HTMLAudioElement | null>(null)
+  // Cache live-generated MiniMax preview blob URLs to avoid regenerating
+  const mmPreviewCache = useRef<Map<string, string>>(new Map())
 
   const handleAdd = async (e: React.FormEvent) => {
     e.preventDefault()
@@ -65,7 +67,7 @@ export function VoicesClient({ initialVoices }: Props) {
   const handleDelete = async (id: string) => {
     setDeletingId(id)
     try {
-      const res = await fetch(`/api/tts/voices/${id}`, { method: 'DELETE' })
+      const res = await fetch(`/api/tts/voices/${encodeURIComponent(id)}`, { method: 'DELETE' })
       if (res.ok) {
         setVoices(prev => prev.filter(v => v.id !== id))
         if (previewingId === id) {
@@ -78,16 +80,42 @@ export function VoicesClient({ initialVoices }: Props) {
     }
   }
 
-  const handlePreview = (voice: Voice) => {
+  const handlePreview = async (voice: Voice) => {
     if (previewingId === voice.id) {
       audioRef.current?.pause()
       setPreviewingId(null)
       return
     }
     audioRef.current?.pause()
-    const audio = new Audio(voice.previewUrl)
-    audioRef.current = audio
     setPreviewingId(voice.id)
+
+    let src = voice.previewUrl
+
+    if (!src) {
+      // MiniMax voices have no previewUrl — generate live TTS sample (cached)
+      const cached = mmPreviewCache.current.get(voice.id)
+      if (cached) {
+        src = cached
+      } else {
+        try {
+          const res = await fetch('/api/tts', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ text: 'Bonjour, je suis votre voix IA pour vos vidéos.', voiceId: voice.id }),
+          })
+          if (!res.ok) { setPreviewingId(null); return }
+          const blob = await res.blob()
+          src = URL.createObjectURL(blob)
+          mmPreviewCache.current.set(voice.id, src)
+        } catch {
+          setPreviewingId(null)
+          return
+        }
+      }
+    }
+
+    const audio = new Audio(src)
+    audioRef.current = audio
     audio.play()
     audio.onended = () => setPreviewingId(null)
   }
@@ -99,7 +127,7 @@ export function VoicesClient({ initialVoices }: Props) {
         <div className="flex items-center gap-2 mb-2">
           <span className="w-8 h-[1px] bg-primary/40" />
           <p className="text-[10px] font-mono uppercase tracking-[0.3em] text-primary/60">
-            ElevenLabs
+            ElevenLabs · MiniMax
           </p>
         </div>
         <h1 className="text-3xl font-black uppercase tracking-tighter text-foreground">
@@ -119,22 +147,25 @@ export function VoicesClient({ initialVoices }: Props) {
                 <Plus size={13} className="text-primary" />
               </div>
               <h2 className="font-inter font-bold text-base text-foreground">
-                Vérifier une voix par ID
+                Ajouter une voix par ID
               </h2>
             </div>
 
             <div className="flex gap-4 items-end">
               <div className="flex-1 space-y-2">
                 <Label className="text-[10px] font-mono uppercase tracking-widest text-muted-foreground/80">
-                  Voice ID ElevenLabs
+                  Voice ID
                 </Label>
                 <Input
                   value={addId}
                   onChange={e => setAddId(e.target.value)}
-                  placeholder="ex: EXAVITQu4vr4xnSDxMaL"
+                  placeholder="ElevenLabs: EXAVITQu4… · MiniMax: mm:female-shaen"
                   required
                   className="h-9 bg-surface/40 font-mono text-xs"
                 />
+                <p className="text-[9px] font-mono text-muted-foreground/50">
+                  ElevenLabs : ID bare · MiniMax : préfixe <span className="text-blue-400">mm:</span> (ex: mm:female-shaen)
+                </p>
               </div>
               <Button
                 type="submit"
@@ -142,7 +173,7 @@ export function VoicesClient({ initialVoices }: Props) {
                 className="h-10 px-8 rounded-none font-mono text-[10px] uppercase tracking-[0.2em] shadow-lg"
               >
                 {adding ? <Loader2 size={13} className="animate-spin mr-2" /> : <Plus size={13} className="mr-2" />}
-                {adding ? 'Vérif…' : 'Vérifier'}
+                {adding ? 'Vérif…' : 'Ajouter'}
               </Button>
             </div>
 
@@ -176,7 +207,7 @@ export function VoicesClient({ initialVoices }: Props) {
           </div>
         ) : (
           <div className="border border-border/60 bg-surface/30 rounded-sm overflow-hidden backdrop-blur-sm">
-            <div className="grid grid-cols-[1fr_120px_80px_60px] border-b border-border/40 bg-surface/50 px-6 py-3">
+            <div className="grid grid-cols-[1fr_140px_80px_60px] border-b border-border/40 bg-surface/50 px-6 py-3">
               {['Voix', 'Catégorie', 'Écoute', 'Action'].map(h => (
                 <div key={h} className="text-[9px] font-mono uppercase tracking-[0.2em] text-muted-foreground/70">
                   {h}
@@ -184,85 +215,95 @@ export function VoicesClient({ initialVoices }: Props) {
               ))}
             </div>
             <div className="divide-y divide-border/40">
-              {voices.map(voice => (
-                <div
-                  key={voice.id}
-                  className="grid grid-cols-[1fr_120px_80px_60px] items-center px-6 py-4 hover:bg-primary/[0.02] transition-colors group"
-                >
-                  {/* Name + meta */}
-                  <div className="flex items-center gap-3 min-w-0">
-                    <div className="w-6 h-6 rounded-sm bg-primary/5 border border-primary/10 flex items-center justify-center shrink-0">
-                      <Mic size={11} className="text-primary/40" />
+              {voices.map(voice => {
+                const isMM = voice.id.startsWith('mm:')
+                return (
+                  <div
+                    key={voice.id}
+                    className="grid grid-cols-[1fr_140px_80px_60px] items-center px-6 py-4 hover:bg-primary/[0.02] transition-colors group"
+                  >
+                    {/* Name + meta */}
+                    <div className="flex items-center gap-3 min-w-0">
+                      <div className="w-6 h-6 rounded-sm bg-primary/5 border border-primary/10 flex items-center justify-center shrink-0">
+                        <Mic size={11} className="text-primary/40" />
+                      </div>
+                      <div className="min-w-0">
+                        <span className="font-inter font-bold text-[13px] text-foreground truncate block group-hover:text-primary transition-colors">
+                          {voice.name}
+                        </span>
+                        <span className="text-[10px] font-mono text-muted-foreground/70 truncate block">
+                          {[voice.gender, voice.accent].filter(Boolean).join(' · ') || voice.id}
+                        </span>
+                      </div>
                     </div>
-                    <div className="min-w-0">
-                      <span className="font-inter font-bold text-[13px] text-foreground truncate block group-hover:text-primary transition-colors">
-                        {voice.name}
-                      </span>
-                      <span className="text-[10px] font-mono text-muted-foreground/70 truncate block">
-                        {[voice.gender, voice.accent].filter(Boolean).join(' · ') || voice.id}
-                      </span>
+
+                    {/* Category */}
+                    <div>
+                      {isMM ? (
+                        <span className="text-[9px] font-mono uppercase tracking-[0.2em] px-2 py-1 border rounded-none bg-blue-500/5 text-blue-400 border-blue-400/20">
+                          MiniMax
+                        </span>
+                      ) : voice.category && CATEGORY_LABEL[voice.category] ? (
+                        <span className="text-[9px] font-mono uppercase tracking-[0.2em] px-2 py-1 border rounded-none bg-primary/5 text-primary border-primary/10">
+                          {CATEGORY_LABEL[voice.category]}
+                        </span>
+                      ) : (
+                        <span className="text-[10px] font-mono text-muted-foreground/60">—</span>
+                      )}
                     </div>
-                  </div>
 
-                  {/* Category */}
-                  <div>
-                    {voice.category && CATEGORY_LABEL[voice.category] ? (
-                      <span className="text-[9px] font-mono uppercase tracking-[0.2em] px-2 py-1 border rounded-none bg-primary/5 text-primary border-primary/10">
-                        {CATEGORY_LABEL[voice.category]}
-                      </span>
-                    ) : (
-                      <span className="text-[10px] font-mono text-muted-foreground/60">—</span>
-                    )}
-                  </div>
+                    {/* Preview */}
+                    <div>
+                      <button
+                        onClick={() => handlePreview(voice)}
+                        className="w-7 h-7 rounded-sm border border-border/60 flex items-center justify-center hover:border-primary/40 hover:bg-primary/5 transition-colors"
+                      >
+                        {previewingId === voice.id
+                          ? <Pause size={11} className="text-primary" />
+                          : <Play size={11} className="text-muted-foreground/80" />
+                        }
+                      </button>
+                    </div>
 
-                  {/* Preview */}
-                  <div>
-                    <button
-                      onClick={() => handlePreview(voice)}
-                      className="w-7 h-7 rounded-sm border border-border/60 flex items-center justify-center hover:border-primary/40 hover:bg-primary/5 transition-colors"
-                    >
-                      {previewingId === voice.id
-                        ? <Pause size={11} className="text-primary" />
-                        : <Play size={11} className="text-muted-foreground/80" />
-                      }
-                    </button>
-                  </div>
-
-                  {/* Delete */}
-                  <div>
-                    <AlertDialog>
-                      <AlertDialogTrigger asChild>
-                        <button
-                          disabled={deletingId === voice.id}
-                          className="w-7 h-7 rounded-sm border border-border/60 flex items-center justify-center hover:border-destructive/40 hover:bg-destructive/5 transition-colors disabled:opacity-40"
-                        >
-                          {deletingId === voice.id
-                            ? <Loader2 size={11} className="animate-spin text-muted-foreground" />
-                            : <Trash2 size={11} className="text-muted-foreground/70 group-hover:text-destructive" />
-                          }
-                        </button>
-                      </AlertDialogTrigger>
-                      <AlertDialogContent>
-                        <AlertDialogHeader>
-                          <AlertDialogTitle>Supprimer "{voice.name}" ?</AlertDialogTitle>
-                          <AlertDialogDescription>
-                            Cette voix sera définitivement supprimée de ton compte ElevenLabs. Cette action est irréversible.
-                          </AlertDialogDescription>
-                        </AlertDialogHeader>
-                        <AlertDialogFooter>
-                          <AlertDialogCancel>Annuler</AlertDialogCancel>
-                          <AlertDialogAction
-                            onClick={() => handleDelete(voice.id)}
-                            className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+                    {/* Delete */}
+                    <div>
+                      <AlertDialog>
+                        <AlertDialogTrigger asChild>
+                          <button
+                            disabled={deletingId === voice.id}
+                            className="w-7 h-7 rounded-sm border border-border/60 flex items-center justify-center hover:border-destructive/40 hover:bg-destructive/5 transition-colors disabled:opacity-40"
                           >
-                            Supprimer
-                          </AlertDialogAction>
-                        </AlertDialogFooter>
-                      </AlertDialogContent>
-                    </AlertDialog>
+                            {deletingId === voice.id
+                              ? <Loader2 size={11} className="animate-spin text-muted-foreground" />
+                              : <Trash2 size={11} className="text-muted-foreground/70 group-hover:text-destructive" />
+                            }
+                          </button>
+                        </AlertDialogTrigger>
+                        <AlertDialogContent>
+                          <AlertDialogHeader>
+                            <AlertDialogTitle>Supprimer "{voice.name}" ?</AlertDialogTitle>
+                            <AlertDialogDescription>
+                              {isMM
+                                ? 'Cette voix sera retirée de la liste des voix disponibles.'
+                                : 'Cette voix sera définitivement supprimée de ton compte ElevenLabs. Cette action est irréversible.'
+                              }
+                            </AlertDialogDescription>
+                          </AlertDialogHeader>
+                          <AlertDialogFooter>
+                            <AlertDialogCancel>Annuler</AlertDialogCancel>
+                            <AlertDialogAction
+                              onClick={() => handleDelete(voice.id)}
+                              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+                            >
+                              Supprimer
+                            </AlertDialogAction>
+                          </AlertDialogFooter>
+                        </AlertDialogContent>
+                      </AlertDialog>
+                    </div>
                   </div>
-                </div>
-              ))}
+                )
+              })}
             </div>
           </div>
         )}
