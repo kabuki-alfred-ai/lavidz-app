@@ -9,7 +9,7 @@ export async function POST(req: Request) {
   if (isMiniMax(voiceId)) {
     const audio = await generateMiniMaxTTS(text, voiceId)
     if (!audio) return new Response('MiniMax TTS failed', { status: 502 })
-    return new Response(audio, { headers: { 'Content-Type': 'audio/mpeg' } })
+    return new Response(new Uint8Array(audio), { headers: { 'Content-Type': 'audio/mpeg' } })
   }
 
   // ─── ElevenLabs branch ────────────────────────────────────────────────────
