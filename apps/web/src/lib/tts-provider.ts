@@ -27,7 +27,7 @@ export async function generateMiniMaxTTS(text: string, voiceId: string): Promise
         'Content-Type': 'application/json',
       },
       body: JSON.stringify({
-        model: 'speech-02-turbo',
+        model: 'speech-2.8-turbo',
         text,
         stream: false,
         voice_setting: { voice_id: rawVoiceId, speed: 1.0, vol: 1.0, pitch: 0 },
