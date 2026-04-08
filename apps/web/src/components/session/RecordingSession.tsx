@@ -197,9 +197,18 @@ export function RecordingSession({ theme, initialSessionId, mode = 'default' }: 
     if (question?.text) announceQuestion(question.text)
   }
 
+  const playCountdownBeep = (n: number) => {
+    try {
+      const audio = new Audio(`/countdown/${n}.mp3`)
+      audio.volume = 0.9
+      audio.play().catch(() => {})
+    } catch {}
+  }
+
   const beginCountdown = () => {
     setPhase('countdown')
     setCountdown(3)
+    playCountdownBeep(3)
     try { navigator.vibrate(80) } catch {}
     let c = 3
     countdownRef.current = setInterval(() => {
@@ -209,6 +218,7 @@ export function RecordingSession({ theme, initialSessionId, mode = 'default' }: 
         doStartRecording()
       } else {
         setCountdown(c)
+        playCountdownBeep(c)
         try { navigator.vibrate(80) } catch {}
       }
     }, 1000)
@@ -479,6 +489,9 @@ export function RecordingSession({ theme, initialSessionId, mode = 'default' }: 
       if (oldTrack) { streamRef.current.removeTrack(oldTrack); oldTrack.stop() }
       streamRef.current.addTrack(newTrack)
       setSelectedVideoId(deviceId)
+      // Detect facing mode from track settings so mirror transform stays correct
+      const trackFacing = (newTrack.getSettings().facingMode ?? '') as string
+      setFacingMode(trackFacing === 'environment' ? 'environment' : 'user')
       const el = checkVideoRef.current ?? videoRef.current
       if (el) { el.srcObject = null; el.srcObject = streamRef.current; el.muted = true }
     } catch {}
