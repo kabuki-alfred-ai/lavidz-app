@@ -1,4 +1,4 @@
-import { AbsoluteFill, Audio, Video, OffthreadVideo, interpolate, spring, useCurrentFrame, useVideoConfig } from 'remotion'
+import { AbsoluteFill, Audio, Video, OffthreadVideo, Img, interpolate, spring, useCurrentFrame, useVideoConfig } from 'remotion'
 import { useMemo, useRef, useEffect, useState } from 'react'
 import type { SubtitleSettings } from './subtitleTypes'
 import { DEFAULT_SUBTITLE_SETTINGS } from './subtitleTypes'
@@ -263,10 +263,8 @@ function EmojiPop({
       alignItems: 'center',
       justifyContent: 'center',
     }}>
-      {/* eslint-disable-next-line @next/next/no-img-element */}
-      <img
+      <Img
         src={gifUrl}
-        alt={emoji}
         width={SIZE}
         height={SIZE}
         style={{ display: 'block', imageRendering: 'auto' }}
