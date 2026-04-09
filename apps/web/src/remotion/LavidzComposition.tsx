@@ -132,6 +132,15 @@ export function LavidzComposition({
             start: Math.max(0, w.start - accumulatedSec),
             end: Math.min(rangeSec, w.end - accumulatedSec),
           }))
+        // Re-offset context emojis for this specific range (same logic as wordTimestamps)
+        const rangeEmojis = seg.contextEmojis
+          ?.filter(e => e.endInSeconds > accumulatedSec - 0.05 && e.startInSeconds < accumulatedSec + rangeSec + 0.05)
+          .map(e => ({
+            emoji: e.emoji,
+            startInSeconds: Math.max(0, e.startInSeconds - accumulatedSec),
+            endInSeconds: Math.min(rangeSec, e.endInSeconds - accumulatedSec),
+          }))
+          .filter(e => e.endInSeconds > e.startInSeconds)
         sequences.push(
           <Sequence key={`r-${seg.id}-${r}`} from={clipOffset} durationInFrames={rangeDur}>
             <RecordingClip
@@ -140,7 +149,7 @@ export function LavidzComposition({
               wordTimestamps={rangeWts}
               durationInFrames={rangeDur}
               startFromFrame={range.startFrame}
-              subtitleSettings={seg.contextEmojis ? { ...subtitleSettings, contextEmojis: seg.contextEmojis } : subtitleSettings}
+              subtitleSettings={rangeEmojis?.length ? { ...subtitleSettings, contextEmojis: rangeEmojis } : subtitleSettings}
               motionSettings={motionSettings}
             />
           </Sequence>,
