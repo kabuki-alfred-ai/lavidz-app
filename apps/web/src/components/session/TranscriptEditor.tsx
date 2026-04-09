@@ -8,6 +8,8 @@ interface Props {
   /** Returns current local playback time for this recording (-1 = not playing) */
   getTimeSec?: () => number
   onChange?: (tokens: WordTimestamp[]) => void
+  /** Cut ranges from smart edit — words outside these intervals are dimmed/struck */
+  visibleIntervals?: { start: number; end: number }[]
 }
 
 const S = {
@@ -19,6 +21,13 @@ const S = {
   silentBg: 'rgba(59,130,246,0.15)',
   silentBorder: 'rgba(59,130,246,0.4)',
   activeBg: 'rgba(59,130,246,0.07)',
+  cutText: '#4b5563',
+}
+
+function isWordVisible(w: WordTimestamp, intervals?: { start: number; end: number }[]): boolean {
+  if (!intervals || !intervals.length) return true
+  const mid = (w.start + w.end) / 2
+  return intervals.some(iv => mid >= iv.start && mid <= iv.end)
 }
 
 const MAJOR_SILENCE = 1.5   // gap >= this → new row
@@ -98,7 +107,7 @@ function redistributeWords(text: string, start: number, end: number): WordTimest
 
 // ── Main component ─────────────────────────────────────────────────────────────
 
-export function TranscriptEditor({ tokens, getTimeSec, onChange }: Props) {
+export function TranscriptEditor({ tokens, getTimeSec, onChange, visibleIntervals }: Props) {
   const rows = useMemo(() => buildRows(tokens), [tokens])
 
   // Internal polling — updates ~10fps, only affects this subtree
@@ -179,6 +188,7 @@ export function TranscriptEditor({ tokens, getTimeSec, onChange }: Props) {
             activeWordGlobalIdx={activeWordGlobalIdx}
             onEdit={handleEdit}
             readonly={!onChange}
+            visibleIntervals={visibleIntervals}
           />
         )
       })}
@@ -203,9 +213,10 @@ function SilentBlock({ row }: { row: SilentRow }) {
 
 // ── Speech block ───────────────────────────────────────────────────────────────
 
-function SpeechBlock({ row, tokenOffset, isActive, activeWordGlobalIdx, onEdit, readonly }: {
+function SpeechBlock({ row, tokenOffset, isActive, activeWordGlobalIdx, onEdit, readonly, visibleIntervals }: {
   row: SpeechRow; tokenOffset: number; isActive: boolean
   activeWordGlobalIdx: number; onEdit: (r: SpeechRow, t: string) => void; readonly: boolean
+  visibleIntervals?: { start: number; end: number }[]
 }) {
   const [editing, setEditing] = useState(false)
   const textareaRef = useRef<HTMLTextAreaElement>(null)
@@ -263,14 +274,17 @@ function SpeechBlock({ row, tokenOffset, isActive, activeWordGlobalIdx, onEdit, 
                 ···{item.duration.toFixed(1)}s
               </span>
             )
-            // word — highlight if active
+            // word — highlight if active, dim/strikethrough if cut
             const isActiveWord = item.globalIdx === activeWordGlobalIdx
+            const isCut = !isWordVisible(item.tok, visibleIntervals)
             return (
               <span key={i} style={{
                 borderRadius: 3, padding: isActiveWord ? '1px 3px' : undefined,
                 background: isActiveWord ? 'rgba(59,130,246,0.35)' : undefined,
-                color: isActiveWord ? '#fff' : (isActive ? S.text : S.text),
+                color: isActiveWord ? '#fff' : (isCut ? S.cutText : S.text),
                 fontWeight: isActiveWord ? 600 : 400,
+                opacity: isCut ? 0.4 : 1,
+                textDecoration: isCut ? 'line-through' : undefined,
                 transition: 'background 0.08s',
               }}>
                 {item.tok.word}{' '}

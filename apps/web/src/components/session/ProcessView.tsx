@@ -1216,8 +1216,12 @@ export function ProcessView({ recordings, themeName, sessionId, themeSlug, monta
         remappedWts = remapWordTimestamps(seg.wordTimestamps, keepIntervals)
       }
 
+      // Rebuild transcript text from visible words only (used by Gemini analysis)
+      const cutTranscript = remappedWts?.map(w => w.word).join(' ') ?? seg.transcript
+
       return {
         ...seg,
+        transcript: cutTranscript,
         videoDurationFrames: totalVisibleFrames,
         wordTimestamps: remappedWts,
         visibleRanges: edit.visibleRanges,
@@ -1933,9 +1937,15 @@ export function ProcessView({ recordings, themeName, sessionId, themeSlug, monta
               const tokens = wordTimestampsMap[rec.id]
               if (tokens?.length) {
                 const recId = rec.id
+                const recEdit = clipEdits.find(e => e.recordingId === recId)
+                const visibleIntervals = recEdit?.visibleRanges.map(r => ({
+                  start: r.startFrame / FPS,
+                  end: r.endFrame / FPS,
+                }))
                 return (
                   <TranscriptEditor
                     tokens={tokens}
+                    visibleIntervals={visibleIntervals}
                     getTimeSec={() => {
                       const f = playerFrameRef.current
                       const seg = segmentTimelineRef.current.find(s => s.id === recId)
