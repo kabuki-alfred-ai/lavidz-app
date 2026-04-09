@@ -84,6 +84,7 @@ services:
       RUSTFS_SECRET_KEY: ${MINIO_ROOT_PASSWORD}
       RUSTFS_BUCKET: ${RUSTFS_BUCKET:-lavidz-videos}
       OPENAI_API_KEY: ${OPENAI_API_KEY:-}
+      GROQ_API_KEY: ${GROQ_API_KEY:-}
       ELEVENLABS_API_KEY: ${ELEVENLABS_API_KEY:-}
       ADMIN_SECRET: ${ADMIN_SECRET:?ADMIN_SECRET is required}
       WEB_URL: ${WEB_URL:-http://localhost:3000}
