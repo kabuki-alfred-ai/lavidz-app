@@ -1,5 +1,5 @@
-import { AbsoluteFill, Audio, Video, OffthreadVideo, Img, interpolate, spring, useCurrentFrame, useVideoConfig } from 'remotion'
-import { useMemo, useRef, useEffect, useState } from 'react'
+import { AbsoluteFill, Audio, Video, OffthreadVideo, interpolate, spring, useCurrentFrame, useVideoConfig } from 'remotion'
+import { useMemo, useRef, useEffect } from 'react'
 import type { SubtitleSettings } from './subtitleTypes'
 import { DEFAULT_SUBTITLE_SETTINGS } from './subtitleTypes'
 import type { MotionSettings, WordTimestamp } from './themeTypes'
@@ -137,49 +137,6 @@ function getWordWindow(
 }
 
 // ─── Animated emoji overlay (Submagic-style) ─────────────────────────────────
-// Strips punctuation and lowercases a word for emoji map lookup
-/** Converts an emoji to a Google Noto Animated GIF URL */
-
-/**
- * Converts an emoji string to a Google Noto Animated Emoji GIF URL.
- * e.g. "🔥" → "https://fonts.gstatic.com/s/e/notoemoji/latest/1f525/512.gif"
- */
-function emojiToNotoGif(emoji: string): string {
-  const codepoints: string[] = []
-  for (const char of emoji) {
-    const cp = char.codePointAt(0)
-    if (cp !== undefined && cp !== 0xFE0F && cp !== 0x200D) {
-      codepoints.push(cp.toString(16))
-    }
-  }
-  const key = codepoints.join('_')
-  return `https://fonts.gstatic.com/s/e/notoemoji/latest/${key}/512.gif`
-}
-
-// Particle burst on emoji entry
-const BURST_ANGLES = [0, 60, 120, 180, 240, 300].map(d => (d * Math.PI) / 180)
-function EmojiBurst() {
-  const frame = useCurrentFrame()
-  return (
-    <>
-      {BURST_ANGLES.map((angle, i) => {
-        const f = Math.max(0, frame - (i % 2))
-        const dist    = interpolate(f, [0, 14], [0, 55], { extrapolateRight: 'clamp' })
-        const opacity = interpolate(f, [0, 3, 14], [0, 1, 0], { extrapolateRight: 'clamp' })
-        const size    = interpolate(f, [0, 4, 14], [2, 8, 3],  { extrapolateRight: 'clamp' })
-        return (
-          <div key={i} style={{
-            position: 'absolute', width: size, height: size, borderRadius: '50%',
-            background: 'rgba(255,255,255,0.95)', opacity,
-            left: '50%', top: '50%',
-            transform: `translate(calc(${Math.cos(angle) * dist}px - 50%), calc(${Math.sin(angle) * dist}px - 50%))`,
-            pointerEvents: 'none',
-          }} />
-        )
-      })}
-    </>
-  )
-}
 
 /**
  * Animated emoji pop around the subtitle block (Submagic-style).
@@ -213,12 +170,7 @@ function EmojiPop({
   subtitlePositionPct: number
   emojiIndex: number
 }) {
-  // Container and image size — Noto GIFs have variable internal padding,
-  // so we render at 120px and use objectFit:contain to fill uniformly.
-  const SIZE = 120
-  const [imgError, setImgError] = useState(false)
-  if (imgError) return null
-
+  const FONT_SIZE = 96 // px — uniform for all emojis (native text rendering)
   const pos = EMOJI_POSITIONS[emojiIndex % EMOJI_POSITIONS.length]
 
   // Entry spring: punchy overshoot 0 → 1
@@ -246,8 +198,6 @@ function EmojiPop({
     ? interpolate(Math.sin(((framesIntoActiveWord - 10) / fps) * Math.PI * floatSpeed), [-1, 1], [-6, 6])
     : 0
 
-  const gifUrl = emojiToNotoGif(emoji)
-
   return (
     <div style={{
       position: 'absolute',
@@ -255,22 +205,19 @@ function EmojiPop({
       top: `${subtitlePositionPct}%`,
       transform: `translate(calc(-50% + ${pos.dx}px), calc(-50% + ${pos.dy + idle}px)) scale(${entryScale}) rotate(${entryRotate}deg)`,
       transformOrigin: 'center center',
-      filter: 'drop-shadow(0 4px 16px rgba(0,0,0,0.55))',
       zIndex: 3,
       pointerEvents: 'none',
-      width: SIZE,
-      height: SIZE,
-      display: 'flex',
-      alignItems: 'center',
-      justifyContent: 'center',
+      lineHeight: 1,
     }}>
-      <Img
-        src={gifUrl}
-        width={SIZE}
-        height={SIZE}
-        style={{ display: 'block', width: SIZE, height: SIZE, objectFit: 'contain' }}
-        onError={() => setImgError(true)}
-      />
+      <span style={{
+        fontSize: FONT_SIZE,
+        lineHeight: 1,
+        display: 'block',
+        filter: 'drop-shadow(0 4px 20px rgba(0,0,0,0.6))',
+        userSelect: 'none',
+      }}>
+        {emoji}
+      </span>
     </div>
   )
 }

@@ -131,10 +131,30 @@ async function runRender(jobId: string, body: any) {
     const generatedIds = await generateTTSBatched(segments, voiceId ?? DEFAULT_VOICE_ID, apiKey)
     ttsIds.push(...generatedIds)
 
-    const serverSegments = segments.map((seg: any, i: number) => ({
+    // Re-sign expired presigned S3 video URLs (X-Amz-Expires=3600 — expires after 1h)
+    const resolveVideoUrl = async (url: string | undefined): Promise<string | undefined> => {
+      if (!url) return url
+      if (url.startsWith('/')) return `${origin}${url}`
+      if (url.includes('X-Amz-Signature')) {
+        try {
+          const parsed = new URL(url)
+          const bucket = process.env.RUSTFS_BUCKET ?? 'lavidz-videos'
+          const pathParts = parsed.pathname.replace(/^\//, '').split('/')
+          const key = pathParts[0] === bucket ? pathParts.slice(1).join('/') : pathParts.join('/')
+          const s3 = getS3Client()
+          return await getSignedUrl(s3, new GetObjectCommand({ Bucket: bucket, Key: key }), { expiresIn: 43200 })
+        } catch {
+          return url
+        }
+      }
+      return url
+    }
+
+    const serverSegments = await Promise.all(segments.map(async (seg: any, i: number) => ({
       ...seg,
+      videoUrl: await resolveVideoUrl(seg.videoUrl),
       ttsUrl: ttsIds[i] ? `${origin}/api/tts-asset/${ttsIds[i]}` : null,
-    }))
+    })))
 
     await setProgress(10)
 
