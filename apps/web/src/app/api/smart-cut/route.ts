@@ -6,128 +6,128 @@ export const runtime = 'nodejs'
 export const maxDuration = 60
 
 type Word = { word: string; start: number; end: number }
-
-const SegmentSchema = z.object({
-  segments: z.array(
-    z.object({
-      start: z.number().describe('Start time in seconds — must match exactly a timestamp from the transcript'),
-      end: z.number().describe('End time in seconds — must match exactly a timestamp from the transcript'),
-    }),
-  ).describe('List of segments to keep. Use ONLY timestamps that appear in the transcript.'),
-})
+type Sentence = { index: number; text: string; start: number; end: number }
 
 /**
- * Snap a time value to the nearest word boundary.
- * For start: snap to the nearest word.start
- * For end: snap to the nearest word.end
+ * Split word timestamps into sentences.
+ * A sentence ends when: punctuation .!? is found, or after MAX_WORDS words without punctuation.
  */
-function snapToWord(time: number, words: Word[], type: 'start' | 'end'): number {
-  if (!words.length) return time
-  let best = words[0]
-  let bestDist = Infinity
-  for (const w of words) {
-    const ref = type === 'start' ? w.start : w.end
-    const dist = Math.abs(ref - time)
-    if (dist < bestDist) { bestDist = dist; best = w }
-  }
-  return type === 'start' ? best.start : best.end
-}
-
-/**
- * Format words as numbered sentences for Gemini.
- * Each line = one sentence (split on .!?), with its start and end timestamp.
- */
-function formatSentences(words: Word[]): string {
-  const sentences: { text: string; start: number; end: number }[] = []
+function buildSentences(words: Word[]): Sentence[] {
+  const MAX_WORDS = 25
+  const sentences: Sentence[] = []
   let buf: Word[] = []
 
-  for (const w of words) {
-    buf.push(w)
-    if (w.word.match(/[.!?]$/) || buf.length >= 20) {
-      sentences.push({
-        text: buf.map(x => x.word).join(' '),
-        start: buf[0].start,
-        end: buf[buf.length - 1].end,
-      })
-      buf = []
-    }
-  }
-  if (buf.length) {
+  const flush = () => {
+    if (!buf.length) return
     sentences.push({
-      text: buf.map(x => x.word).join(' '),
+      index: sentences.length + 1,
+      text: buf.map(w => w.word).join(' '),
       start: buf[0].start,
       end: buf[buf.length - 1].end,
     })
+    buf = []
   }
 
+  for (const w of words) {
+    buf.push(w)
+    if (w.word.match(/[.!?]$/) || buf.length >= MAX_WORDS) flush()
+  }
+  flush()
   return sentences
-    .map((s, i) => `${i + 1}. [${s.start.toFixed(2)}s → ${s.end.toFixed(2)}s] ${s.text}`)
-    .join('\n')
 }
 
+/**
+ * Merge consecutive kept sentence indices into contiguous time segments.
+ */
+function sentencesToSegments(
+  kept: number[],
+  sentences: Sentence[],
+): { start: number; end: number }[] {
+  const keptSet = new Set(kept)
+  const result: { start: number; end: number }[] = []
+
+  for (const s of sentences) {
+    if (!keptSet.has(s.index)) continue
+    const last = result[result.length - 1]
+    if (last && s.start - last.end < 0.5) {
+      // Merge with previous segment if close enough
+      last.end = s.end
+    } else {
+      result.push({ start: s.start, end: s.end })
+    }
+  }
+
+  return result
+}
+
+const SelectionSchema = z.object({
+  keep: z.array(z.number().int()).describe(
+    'List of sentence numbers (1-based) to keep in the final cut',
+  ),
+})
+
 export async function POST(req: Request) {
-  const { transcript, wordTimestamps, duration, maxDuration: maxDur } = await req.json()
+  const { transcript, wordTimestamps, duration } = await req.json()
 
   if (!transcript || typeof transcript !== 'string') {
     return new Response('transcript requis', { status: 400 })
   }
 
   const words: Word[] = Array.isArray(wordTimestamps) ? wordTimestamps : []
-  const hasTimestamps = words.length > 0
 
-  const formattedTranscript = hasTimestamps
-    ? formatSentences(words)
-    : transcript
+  // Fall back to plain transcript if no word timestamps
+  if (!words.length) {
+    return Response.json({ segments: [{ start: 0, end: duration ?? 0 }] })
+  }
+
+  const sentences = buildSentences(words)
+
+  if (sentences.length <= 1) {
+    // Nothing to cut
+    return Response.json({ segments: [{ start: sentences[0]?.start ?? 0, end: sentences[0]?.end ?? (duration ?? 0) }] })
+  }
+
+  const formattedList = sentences
+    .map(s => `${s.index}. [${s.start.toFixed(2)}s → ${s.end.toFixed(2)}s] ${s.text}`)
+    .join('\n')
 
   const durationInfo = duration ? `La vidéo dure ${(duration as number).toFixed(1)} secondes.` : ''
-  const maxDurInfo = maxDur ? `La durée maximale souhaitée est de ${maxDur} secondes.` : ''
 
-  const prompt = `Tu es un monteur vidéo expert pour LinkedIn. ${durationInfo} ${maxDurInfo}
+  const prompt = `Tu es un monteur vidéo expert pour LinkedIn. ${durationInfo}
 
-Voici la transcription numérotée phrase par phrase avec les timestamps exacts :
+Voici la transcription découpée en phrases numérotées :
 
-${formattedTranscript}
+${formattedList}
 
-Renvoie les segments (début, fin en secondes) à CONSERVER pour obtenir une réponse percutante et fluide.
+Renvoie la liste des numéros de phrases à CONSERVER pour obtenir une réponse dynamique et percutante.
 
-RÈGLES STRICTES :
-- Utilise UNIQUEMENT des valeurs de timestamps qui apparaissent dans la transcription ci-dessus
-- Ne coupe JAMAIS au milieu d'une phrase — chaque segment doit commencer et finir à une limite de phrase
-- Supprime les hésitations, répétitions, "euh", "hm", les phrases inachevées
-- Garde les idées fortes et les formulations percutantes
-- Chaque segment doit durer au minimum 2 secondes
-- Si la réponse est déjà bonne, retourne un seul segment couvrant toute la durée`
+RÈGLES :
+- Supprime les hésitations, répétitions, redondances et phrases inachevées
+- Garde les idées fortes, les formulations percutantes et la narration cohérente
+- Ne retourne QUE des numéros de phrases existants (entre 1 et ${sentences.length})
+- Si la réponse est déjà bonne, retourne tous les numéros`
 
   try {
     const model = google(process.env.AI_MODEL ?? 'gemini-2.0-flash')
     const { object } = await generateObject({
       model,
-      schema: SegmentSchema,
+      schema: SelectionSchema,
       prompt,
     })
 
-    const maxTime = (duration as number | undefined) ?? Infinity
+    // Validate indices, clamp to valid range
+    const validKept = [...new Set(object.keep)]
+      .filter(n => Number.isInteger(n) && n >= 1 && n <= sentences.length)
+      .sort((a, b) => a - b)
 
-    const snapped = object.segments
-      .map(s => ({
-        start: hasTimestamps ? snapToWord(s.start, words, 'start') : Math.max(0, s.start),
-        end:   hasTimestamps ? snapToWord(s.end,   words, 'end')   : Math.min(maxTime, s.end),
-      }))
-      .map(s => ({ start: Math.max(0, s.start), end: Math.min(maxTime, s.end) }))
-      .filter(s => s.end - s.start >= 1.5)
-      .sort((a, b) => a.start - b.start)
-      // Merge overlapping or adjacent segments (gap < 0.3s)
-      .reduce<{ start: number; end: number }[]>((acc, seg) => {
-        const last = acc[acc.length - 1]
-        if (last && seg.start - last.end < 0.3) {
-          last.end = Math.max(last.end, seg.end)
-        } else {
-          acc.push({ ...seg })
-        }
-        return acc
-      }, [])
+    if (!validKept.length) {
+      // Gemini returned nothing valid — keep everything
+      return Response.json({ segments: [{ start: sentences[0].start, end: sentences[sentences.length - 1].end }] })
+    }
 
-    return Response.json({ segments: snapped })
+    const segments = sentencesToSegments(validKept, sentences)
+
+    return Response.json({ segments, debug: { sentenceCount: sentences.length, kept: validKept } })
   } catch (err: any) {
     console.error('[smart-cut] Gemini error:', err)
     return new Response(`Gemini erreur : ${err?.message ?? 'inconnue'}`, { status: 500 })
