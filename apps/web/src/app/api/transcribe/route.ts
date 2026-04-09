@@ -88,7 +88,7 @@ export async function POST(req: Request) {
     // Extract audio: mono, 16kHz — optimal for Whisper
     const ffResult = spawnSync(ffmpeg, [
       '-i', inputPath,
-      '-vn', '-ar', '16000', '-ac', '1', '-b:a', '64k',
+      '-vn', '-ar', '16000', '-ac', '1', '-b:a', '128k',
       '-y', audioPath,
     ], { timeout: 60_000 })
 
