@@ -1,4 +1,4 @@
-import { AbsoluteFill, Audio, Sequence, interpolate, spring, useCurrentFrame, useVideoConfig } from 'remotion'
+import { AbsoluteFill, Audio, Sequence, interpolate, spring, staticFile, useCurrentFrame, useVideoConfig } from 'remotion'
 import type { VisualInlay, InlayCategory } from './themeTypes'
 
 // ── Emoji map (Submagic-style: gros emojis colorés, pas des icônes SVG) ──────
@@ -227,7 +227,7 @@ export function InlaysManager({
           <Sequence key={`inlay-${i}`} from={fromFrame} durationInFrames={INLAY_DURATION_FRAMES}>
             <InlayEmoji inlay={inlay} index={i} displayStyle={style} fps={fps} />
             {popSoundEnabled && (
-              <Audio src="/sfx/pop.mp3" volume={popVolume} />
+              <Audio src={staticFile('sfx/pop.mp3')} volume={popVolume} />
             )}
           </Sequence>
         )

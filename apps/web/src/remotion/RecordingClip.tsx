@@ -852,50 +852,52 @@ export function RecordingClip({
     : style === 'fire'     ? FireSubtitle
     : ClassicSubtitle
 
-  // Word-level emoji: match the currently active subtitle word against wordEmojis list
+  // Word-level emoji: pre-compute a deterministic schedule from wordTimestamps.
+  // This works correctly in Remotion export (no refs — purely frame-based).
   const wordEmojis = settings.wordEmojis ?? []
   const animatedEmojis = settings.animatedEmojis !== false
 
-  // Minimum frames an emoji stays visible (prevents micro-flash artefacts)
-  const MIN_EMOJI_FRAMES = Math.round(fps * 0.8) // ~0.8s
+  const MIN_EMOJI_SEC = 0.8 // minimum display duration in seconds
 
-  // Sticky emoji: persists for MIN_EMOJI_FRAMES after the matching word ends
-  const stickyEmojiRef = useRef<{ emoji: string; idx: number; startFrame: number; untilFrame: number } | null>(null)
+  const emojiSchedule = useMemo(() => {
+    if (!wordEmojis.length || !mergedTimestamps?.length) return []
+    const normalize = (s: string) =>
+      s.toLowerCase()
+        .normalize('NFD').replace(/[\u0300-\u036f]/g, '') // strip accents
+        .replace(/[.,!?;:'"«»]/g, '').trim()
 
-  const normalizedActiveWord = words[activeIndex]
-    ?.toLowerCase().replace(/[.,!?;:'"«»]/g, '').trim() ?? ''
-  const activeWordEmojiIdx = normalizedActiveWord && wordEmojis.length
-    ? wordEmojis.findIndex(we => {
-        const norm = we.word.toLowerCase().replace(/[.,!?;:'"«»]/g, '').trim()
-        return norm === normalizedActiveWord || normalizedActiveWord.includes(norm) || norm.includes(normalizedActiveWord)
-      })
-    : -1
-  const activeWordEmoji = activeWordEmojiIdx >= 0 ? wordEmojis[activeWordEmojiIdx] : null
+    const used = new Set<number>() // one match per wordTimestamp entry — no repetitions
+    const schedule: { emoji: string; idx: number; startFrame: number; endFrame: number }[] = []
 
-  // Update sticky when a new match is found
-  if (activeWordEmoji) {
-    const newUntil = frame + MIN_EMOJI_FRAMES
-    if (!stickyEmojiRef.current || stickyEmojiRef.current.emoji !== activeWordEmoji.emoji) {
-      stickyEmojiRef.current = { emoji: activeWordEmoji.emoji, idx: activeWordEmojiIdx, startFrame: frame, untilFrame: newUntil }
-    } else {
-      stickyEmojiRef.current.untilFrame = Math.max(stickyEmojiRef.current.untilFrame, newUntil)
+    for (let ei = 0; ei < wordEmojis.length; ei++) {
+      const target = normalize(wordEmojis[ei].word)
+      if (!target) continue
+      // Find first unmatched timestamp with exact normalized match
+      const matchIdx = mergedTimestamps.findIndex((wt, i) => !used.has(i) && normalize(wt.word) === target)
+      if (matchIdx < 0) continue
+      used.add(matchIdx)
+      const startFrame = Math.floor(mergedTimestamps[matchIdx].start * fps)
+      const naturalEnd = Math.ceil(mergedTimestamps[matchIdx].end * fps)
+      const minEnd = startFrame + Math.round(fps * MIN_EMOJI_SEC)
+      schedule.push({ emoji: wordEmojis[ei].emoji, idx: ei, startFrame, endFrame: Math.max(naturalEnd, minEnd) })
     }
-  }
 
-  const sticky = stickyEmojiRef.current
-  const displayEmoji = sticky && frame <= sticky.untilFrame ? sticky : null
-  const framesIntoDisplay = displayEmoji ? Math.max(0, frame - displayEmoji.startFrame) : 0
+    return schedule
+  }, [wordEmojis, mergedTimestamps, fps])
+
+  const activeSchedule = emojiSchedule.find(s => frame >= s.startFrame && frame <= s.endFrame) ?? null
+  const framesIntoDisplay = activeSchedule ? Math.max(0, frame - activeSchedule.startFrame) : 0
 
   const subtitlesNode = settings.enabled && hasWords && (
     <>
-      {/* Word-level animated emoji — sticky for MIN_EMOJI_FRAMES to avoid micro-flashes */}
-      {displayEmoji && animatedEmojis && (
+      {/* Word-level animated emoji — deterministic schedule, works in export */}
+      {activeSchedule && animatedEmojis && (
         <EmojiPop
-          emoji={displayEmoji.emoji}
+          emoji={activeSchedule.emoji}
           framesIntoActiveWord={framesIntoDisplay}
           fps={fps}
           subtitlePositionPct={position}
-          emojiIndex={displayEmoji.idx}
+          emojiIndex={activeSchedule.idx}
         />
       )}
       <div

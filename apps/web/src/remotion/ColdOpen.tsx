@@ -1,4 +1,4 @@
-import { AbsoluteFill, Audio, Freeze, OffthreadVideo, Sequence, interpolate, spring, useCurrentFrame, useVideoConfig } from 'remotion'
+import { AbsoluteFill, Audio, Freeze, OffthreadVideo, Sequence, interpolate, spring, staticFile, useCurrentFrame, useVideoConfig } from 'remotion'
 import type { SfxTrack } from './themeTypes'
 
 interface ColdOpenProps {
@@ -278,7 +278,7 @@ export function ColdOpen({
         </Sequence>
       ) : swooshEnabled ? (
         <Sequence from={Math.max(0, durationInFrames - Math.round(fps * 0.5))}>
-          <Audio src="/sfx/swoosh.mp3" volume={0.8} />
+          <Audio src={staticFile('sfx/swoosh.mp3')} volume={0.8} />
         </Sequence>
       ) : null}
 
