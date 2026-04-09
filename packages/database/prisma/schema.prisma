@@ -68,6 +68,7 @@ model Recording {
   rawVideoKey       String?
   finalVideoKey     String?
   transcript        String?
+  wordTimestamps    Json?
   ttsAudioKey       String?
   ttsVoiceId        String?
   processedVideoKey String?

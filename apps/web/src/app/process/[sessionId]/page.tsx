@@ -53,6 +53,7 @@ export default async function ProcessPage({ params }: Props) {
         session.theme.questions.find((q: any) => q.id === r.questionId)?.text ?? '',
       videoUrl: videoUrls[r.id],
       transcript: r.transcript ?? null,
+      wordTimestamps: Array.isArray(r.wordTimestamps) ? r.wordTimestamps : null,
       ttsAudioKey: r.ttsAudioKey ?? null,
       ttsVoiceId: r.ttsVoiceId ?? null,
       processedVideoKey: r.processedVideoKey ?? null,

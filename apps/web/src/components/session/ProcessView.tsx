@@ -146,6 +146,7 @@ interface RawRecording {
   questionText: string
   videoUrl: string
   transcript: string | null
+  wordTimestamps?: { word: string; start: number; end: number }[] | null
   ttsAudioKey: string | null
   ttsVoiceId: string | null
   processedVideoKey: string | null
@@ -449,6 +450,8 @@ export function ProcessView({ recordings, themeName, sessionId, themeSlug, monta
   const [cleanvoiceError, setCleanvoiceError] = useState('')
   const [denoiseEnabled, setDenoiseEnabled] = useState(false)
   const [denoiseStrength, setDenoiseStrength] = useState<'light' | 'moderate' | 'strong' | 'isolate'>('moderate')
+  const [smartCutLoading, setSmartCutLoading] = useState(false)
+  const [smartCutError, setSmartCutError] = useState('')
   const [regenerating, setRegenerating] = useState(false)
   const [voiceEnabled, setVoiceEnabled] = useState(false)
   const [previewingVoiceId, setPreviewingVoiceId] = useState<string | null>(null)
@@ -459,7 +462,7 @@ export function ProcessView({ recordings, themeName, sessionId, themeSlug, monta
   const [deliverError, setDeliverError] = useState('')
 
   // Non-destructive clip edits (split/delete)
-  const { clipEdits, splitAt, deleteRange, resetClip, undo: undoClipEdit, restore: restoreClipEdits } = useClipEdits()
+  const { clipEdits, splitAt, deleteRange, resetClip, undo: undoClipEdit, restore: restoreClipEdits, applyRanges } = useClipEdits()
   const [timelineVisible, setTimelineVisible] = useState(true)
   const [playbackRate, setPlaybackRate] = useState(1)
   // Hover states for option grids
@@ -589,6 +592,7 @@ export function ProcessView({ recordings, themeName, sessionId, themeSlug, monta
     // Initialize asset caches from recording DB fields
     const initTts: Record<string, { voiceId: string; url: string }> = {}
     const initProcessed: Record<string, { hash: string; url: string }> = {}
+    const initWordTs: Record<string, WordTimestamp[]> = {}
     for (const r of recordings) {
       if (r.ttsAudioKey && r.ttsVoiceId) {
         // Fetch signed URL lazily when needed (stored as S3 key, resolved on demand)
@@ -597,9 +601,15 @@ export function ProcessView({ recordings, themeName, sessionId, themeSlug, monta
       if (r.processedVideoKey && r.processingHash) {
         initProcessed[r.id] = { hash: r.processingHash, url: '' } // url filled lazily
       }
+      // Pre-load Deepgram word timestamps from DB (only if not already restored from montageSettings)
+      if (r.wordTimestamps?.length && !sourceWordTimestampsRef.current[r.id]) {
+        initWordTs[r.id] = r.wordTimestamps as WordTimestamp[]
+        sourceWordTimestampsRef.current[r.id] = r.wordTimestamps as WordTimestamp[]
+      }
     }
     if (Object.keys(initTts).length) setTtsCache(initTts)
     if (Object.keys(initProcessed).length) setProcessedCache(initProcessed)
+    if (Object.keys(initWordTs).length) setWordTimestampsMap(prev => ({ ...initWordTs, ...prev }))
   }, []) // eslint-disable-line react-hooks/exhaustive-deps
 
   // Auto-save settings to DB (debounced 1500ms)
@@ -962,6 +972,42 @@ export function ProcessView({ recordings, themeName, sessionId, themeSlug, monta
     audio.onended = () => setPreviewingVoiceId(null); audio.play()
   }
 
+  const runSmartMontage = async () => {
+    setSmartCutLoading(true)
+    setSmartCutError('')
+    try {
+      for (const rec of recordings) {
+        const transcript = localTranscriptsRef.current[rec.id] ?? rec.transcript ?? ''
+        const wts = wordTimestampsRef.current[rec.id] ?? []
+        if (!transcript) continue
+
+        const duration = durationsRef.current[recordings.indexOf(rec)] ?? undefined
+        const res = await fetch('/api/smart-cut', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ transcript, wordTimestamps: wts, duration }),
+        })
+        if (!res.ok) {
+          setSmartCutError(await res.text())
+          return
+        }
+        const { segments: smartSegs } = await res.json()
+        if (!smartSegs?.length) continue
+
+        // Convert time segments to frame ranges
+        const ranges = smartSegs.map((s: { start: number; end: number }) => ({
+          startFrame: Math.round(s.start * FPS),
+          endFrame: Math.round(s.end * FPS),
+        }))
+        applyRanges(rec.id, ranges)
+      }
+    } catch (e: any) {
+      setSmartCutError(e?.message ?? 'Erreur smart cut')
+    } finally {
+      setSmartCutLoading(false)
+    }
+  }
+
   const updateTranscript = (recordingId: string, text: string, fromApi = false) => {
     setLocalTranscripts(p => ({ ...p, [recordingId]: text }))
     setSegments(prev => prev ? prev.map(seg =>
@@ -1150,6 +1196,33 @@ export function ProcessView({ recordings, themeName, sessionId, themeSlug, monta
               <Toggle value={fillerCutEnabled} onChange={setFillerCutEnabled} />
             </div>
             {fillerCutError && <p style={{ color: S.error, fontSize: 11, marginTop: 8, fontFamily: 'monospace' }}>{fillerCutError}</p>}
+          </Card>
+
+          {/* Auto-montage IA */}
+          <Card>
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+              <div>
+                <p style={{ color: S.text, fontWeight: 600, fontSize: 14 }}>Auto-montage IA</p>
+                <p style={{ color: S.muted, fontSize: 11, marginTop: 2 }}>Gemini analyse la transcription et coupe automatiquement</p>
+              </div>
+              <button
+                onClick={runSmartMontage}
+                disabled={smartCutLoading}
+                style={{
+                  padding: '8px 14px', borderRadius: 10, fontSize: 12, fontWeight: 600, cursor: smartCutLoading ? 'not-allowed' : 'pointer',
+                  background: smartCutLoading ? 'rgba(139,92,246,0.2)' : 'rgba(139,92,246,0.15)',
+                  border: '1px solid rgba(139,92,246,0.5)',
+                  color: '#c4b5fd',
+                  display: 'flex', alignItems: 'center', gap: 6,
+                  opacity: smartCutLoading ? 0.7 : 1,
+                }}
+              >
+                {smartCutLoading
+                  ? <><Loader2 size={12} style={{ animation: 'spin 1s linear infinite' }} /> Analyse...</>
+                  : '✂ Lancer'}
+              </button>
+            </div>
+            {smartCutError && <p style={{ color: S.error, fontSize: 11, marginTop: 8, fontFamily: 'monospace' }}>{smartCutError}</p>}
           </Card>
 
           {/* Denoise + ElevenLabs Voice Isolator */}

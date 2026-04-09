@@ -95,5 +95,20 @@ export function useClipEdits(initial: ClipEdit[] = []) {
     undoStack.current = []
   }, [])
 
-  return { clipEdits, splitAt, deleteRange, resetClip, undo, restore }
+  /**
+   * Directly apply a set of visible ranges for a recording (e.g., from AI smart cut).
+   */
+  const applyRanges = useCallback((
+    recordingId: string,
+    ranges: { startFrame: number; endFrame: number }[],
+  ) => {
+    setClipEdits(prev => {
+      pushUndo(prev)
+      const updated = prev.filter(e => e.recordingId !== recordingId)
+      if (ranges.length > 0) updated.push({ recordingId, visibleRanges: ranges })
+      return updated
+    })
+  }, [pushUndo])
+
+  return { clipEdits, splitAt, deleteRange, resetClip, undo, restore, applyRanges }
 }

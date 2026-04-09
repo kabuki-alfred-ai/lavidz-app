@@ -85,7 +85,7 @@ export class TranscriptionProcessor extends WorkerHost {
       const audioBuffer = await audioResponse.arrayBuffer()
 
       const response = await fetch(
-        'https://api.deepgram.com/v1/listen?model=nova-3&language=fr&smart_format=true&filler_words=false',
+        'https://api.deepgram.com/v1/listen?model=nova-3&language=fr&smart_format=true&filler_words=false&punctuate=true',
         {
           method: 'POST',
           headers: {
@@ -99,15 +99,23 @@ export class TranscriptionProcessor extends WorkerHost {
       if (!response.ok) throw new Error(`Deepgram error: ${response.statusText}`)
 
       const result = await response.json() as any
-      const raw: string = result?.results?.channels?.[0]?.alternatives?.[0]?.transcript ?? ''
+      const alternative = result?.results?.channels?.[0]?.alternatives?.[0]
+      const raw: string = alternative?.transcript ?? ''
       const transcript = raw
         .replace(/\s+'\s+/g, "'")
         .replace(/\s+'/g, "'")
         .replace(/'\s+/g, "'")
 
+      // Extract word-level timestamps from Deepgram (word, start, end in seconds)
+      const wordTimestamps = (alternative?.words ?? []).map((w: any) => ({
+        word: w.punctuated_word ?? w.word,
+        start: w.start,
+        end: w.end,
+      }))
+
       await prisma.recording.update({
         where: { id: recordingId },
-        data: { transcript, status: 'DONE' },
+        data: { transcript, wordTimestamps, status: 'DONE' },
       })
     } catch (error) {
       await prisma.recording.update({
