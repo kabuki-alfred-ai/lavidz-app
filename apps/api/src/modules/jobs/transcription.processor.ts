@@ -107,11 +107,22 @@ export class TranscriptionProcessor extends WorkerHost {
         .replace(/'\s+/g, "'")
 
       // Extract word-level timestamps from Deepgram (word, start, end in seconds)
-      const wordTimestamps = (alternative?.words ?? []).map((w: any) => ({
-        word: w.punctuated_word ?? w.word,
-        start: w.start,
-        end: w.end,
+      // Merge elided tokens split at apostrophe: ["j'", "étais"] → ["j'étais"]
+      const rawWords = (alternative?.words ?? []).map((w: any) => ({
+        word: (w.punctuated_word ?? w.word) as string,
+        start: w.start as number,
+        end: w.end as number,
       }))
+      const wordTimestamps: typeof rawWords = []
+      for (let i = 0; i < rawWords.length; i++) {
+        const w = rawWords[i]
+        if (w.word.endsWith("'") && i + 1 < rawWords.length) {
+          wordTimestamps.push({ word: w.word + rawWords[i + 1].word, start: w.start, end: rawWords[i + 1].end })
+          i++
+        } else {
+          wordTimestamps.push(w)
+        }
+      }
 
       await prisma.recording.update({
         where: { id: recordingId },

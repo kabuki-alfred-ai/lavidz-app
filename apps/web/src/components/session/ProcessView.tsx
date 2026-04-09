@@ -973,15 +973,23 @@ export function ProcessView({ recordings, themeName, sessionId, themeSlug, monta
   }
 
   const runSmartMontage = async () => {
+    if (!ready || !segments?.length) {
+      setSmartCutError('Lance d\'abord la préparation (bouton "Préparer") pour charger les vidéos.')
+      return
+    }
     setSmartCutLoading(true)
     setSmartCutError('')
     try {
-      for (const rec of recordings) {
+      for (let i = 0; i < recordings.length; i++) {
+        const rec = recordings[i]
         const transcript = localTranscriptsRef.current[rec.id] ?? rec.transcript ?? ''
-        const wts = wordTimestampsRef.current[rec.id] ?? []
+        // Use timestamps from segments (already in effective-video timebase after prepare())
+        const wts = segments[i]?.wordTimestamps ?? wordTimestampsRef.current[rec.id] ?? []
         if (!transcript) continue
 
-        const duration = durationsRef.current[recordings.indexOf(rec)] ?? undefined
+        const duration = durationsRef.current[i]
+        if (!duration || !isFinite(duration)) continue
+
         const res = await fetch('/api/smart-cut', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
@@ -994,7 +1002,7 @@ export function ProcessView({ recordings, themeName, sessionId, themeSlug, monta
         const { segments: smartSegs } = await res.json()
         if (!smartSegs?.length) continue
 
-        // Convert time segments to frame ranges
+        // Convert time segments (relative to effective video) to frame ranges
         const ranges = smartSegs.map((s: { start: number; end: number }) => ({
           startFrame: Math.round(s.start * FPS),
           endFrame: Math.round(s.end * FPS),

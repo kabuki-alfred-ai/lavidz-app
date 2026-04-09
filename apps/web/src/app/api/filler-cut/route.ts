@@ -2,6 +2,7 @@ import crypto from 'crypto'
 import fs from 'fs'
 import path from 'path'
 import { purgeStaleTmpFiles } from '@/lib/tmp-cleanup'
+import { mergeElidedWords } from '@/lib/word-timestamps'
 
 export const runtime = 'nodejs'
 export const maxDuration = 180
@@ -81,13 +82,15 @@ export async function POST(req: Request) {
 
   // Extract word timestamps from Cleanvoice transcript (already in cleaned-video timeline)
   const rawWords: any[] = jobResult.transcript?.words ?? []
-  const wordTimestamps = rawWords
-    .map(w => ({
-      word: (w.text ?? w.word ?? '') as string,
-      start: (w.start ?? w.start_time ?? 0) as number,
-      end: (w.end ?? w.end_time ?? 0) as number,
-    }))
-    .filter(w => w.word.trim().length > 0)
+  const wordTimestamps = mergeElidedWords(
+    rawWords
+      .map(w => ({
+        word: (w.text ?? w.word ?? '') as string,
+        start: (w.start ?? w.start_time ?? 0) as number,
+        end: (w.end ?? w.end_time ?? 0) as number,
+      }))
+      .filter(w => w.word.trim().length > 0)
+  )
 
   const removed: number =
     jobResult.processing_stats?.filler_words_removed ??

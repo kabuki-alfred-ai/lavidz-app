@@ -1,6 +1,7 @@
 import fs from 'fs'
 import path from 'path'
 import { streamResponseToFile } from '@/lib/stream-file'
+import { mergeElidedWords } from '@/lib/word-timestamps'
 
 export const runtime = 'nodejs'
 export const maxDuration = 60
@@ -45,13 +46,15 @@ export async function GET(req: Request) {
   await streamResponseToFile(cleanedRes, outputPath)
 
   const rawWords: any[] = result.transcription?.transcription?.words ?? result.transcript?.words ?? []
-  const wordTimestamps = rawWords
-    .map((w: any) => ({
-      word: (w.text ?? w.word ?? '') as string,
-      start: (w.start ?? w.start_time ?? 0) as number,
-      end: (w.end ?? w.end_time ?? 0) as number,
-    }))
-    .filter((w: any) => w.word.trim().length > 0)
+  const wordTimestamps = mergeElidedWords(
+    rawWords
+      .map((w: any) => ({
+        word: (w.text ?? w.word ?? '') as string,
+        start: (w.start ?? w.start_time ?? 0) as number,
+        end: (w.end ?? w.end_time ?? 0) as number,
+      }))
+      .filter((w: any) => w.word.trim().length > 0)
+  )
 
   const stats = result.statistics ?? {}
   const removed: number =
