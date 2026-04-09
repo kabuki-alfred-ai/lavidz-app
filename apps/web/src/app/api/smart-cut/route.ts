@@ -35,7 +35,7 @@ export async function POST(req: Request) {
       lineWords.push(w.word)
       lineEnd = w.end
       if (lineWords.length >= 10 || w.word.match(/[.!?]$/)) {
-        lines.push(`[${lineStart.toFixed(2)}s - ${lineEnd.toFixed(2)}s] ${lineWords.join(' ')}`)
+        lines.push(`[${(lineStart as number).toFixed(2)}s - ${lineEnd.toFixed(2)}s] ${lineWords.join(' ')}`)
         lineWords = []
         lineStart = null
       }
