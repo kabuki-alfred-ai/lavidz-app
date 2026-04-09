@@ -158,7 +158,7 @@ export function ThemeEditor({ theme }: { theme: ThemeDto }) {
 
         <CardContent className="p-0">
           {questions.map((q, i) => (
-            <div key={q.id}>
+            <div key={q.id ?? i}>
               <div className="flex items-start gap-3 px-6 py-4 group hover:bg-surface-raised transition-colors">
                 <div className="shrink-0 w-6 h-6 flex items-center justify-center mt-0.5">
                   <span className="text-[10px] font-mono text-muted-foreground/50 group-hover:hidden">

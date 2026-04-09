@@ -5,6 +5,8 @@ import { RecordingClip } from './RecordingClip'
 import { IntroCard } from './IntroCard'
 import { OutroCard } from './OutroCard'
 import { EndCard } from './EndCard'
+import { ColdOpen } from './ColdOpen'
+import { InlaysManager } from './InlaysManager'
 
 export const END_CARD_FRAMES = 150 // 5 seconds at 30fps
 import type { SubtitleSettings } from './subtitleTypes'
@@ -22,6 +24,8 @@ export interface CompositionSegment {
   questionDurationFrames?: number
   /** When present, only these frame ranges of the original video are shown (non-destructive cuts). */
   visibleRanges?: { startFrame: number; endFrame: number }[]
+  /** Per-segment context emojis (timestamps relative to this clip's start = 0) */
+  contextEmojis?: { startInSeconds: number; endInSeconds: number; emoji: string }[]
 }
 
 interface Props {
@@ -51,12 +55,40 @@ export function LavidzComposition({
   let offset = 0
   const sequences: ReactNode[] = []
 
+  // Cold Open (before everything)
+  const coldOpen = motionSettings?.coldOpen
+  let coldOpenDurationFrames = 0
+  if (coldOpen?.enabled && coldOpen.hookPhrase) {
+    coldOpenDurationFrames = Math.round((coldOpen.endInSeconds - coldOpen.startInSeconds) * fps)
+    // Find the video URL from the matching segment
+    const coldOpenSegment = segments.find(s => s.id === coldOpen.segmentId) ?? segments[0]
+    if (coldOpenSegment) {
+      sequences.push(
+        <Sequence key="cold-open" from={0} durationInFrames={coldOpenDurationFrames}>
+          <ColdOpen
+            videoUrl={coldOpenSegment.videoUrl}
+            startInSeconds={coldOpen.startInSeconds}
+            hookPhrase={coldOpen.hookPhrase}
+            swooshEnabled={coldOpen.swooshEnabled}
+            textColor={coldOpen.textColor}
+            highlightColor={coldOpen.highlightColor}
+            fontFamily={coldOpen.fontFamily}
+            fontSize={coldOpen.fontSize}
+            textPosition={coldOpen.textPosition}
+            videoStyle={coldOpen.videoStyle}
+          />
+        </Sequence>,
+      )
+      offset += coldOpenDurationFrames
+    }
+  }
+
   // Intro slide
   if (intro.enabled && intro.hookText) {
     const introDurationFrames = Math.round(intro.durationSeconds * fps)
     const introSfx = audioSettings?.introSfx
     sequences.push(
-      <Sequence key="intro" from={0} durationInFrames={introDurationFrames}>
+      <Sequence key="intro" from={offset} durationInFrames={introDurationFrames}>
         <IntroCard intro={intro} theme={theme} />
         {introSfx?.url && <Audio src={introSfx.url} volume={introSfx.volume ?? 1} />}
       </Sequence>,
@@ -108,7 +140,7 @@ export function LavidzComposition({
               wordTimestamps={rangeWts}
               durationInFrames={rangeDur}
               startFromFrame={range.startFrame}
-              subtitleSettings={subtitleSettings}
+              subtitleSettings={seg.contextEmojis ? { ...subtitleSettings, contextEmojis: seg.contextEmojis } : subtitleSettings}
               motionSettings={motionSettings}
             />
           </Sequence>,
@@ -125,7 +157,7 @@ export function LavidzComposition({
             transcript={seg.transcript}
             wordTimestamps={seg.wordTimestamps}
             durationInFrames={seg.videoDurationFrames}
-            subtitleSettings={subtitleSettings}
+            subtitleSettings={seg.contextEmojis ? { ...subtitleSettings, contextEmojis: seg.contextEmojis } : subtitleSettings}
             motionSettings={motionSettings}
           />
         </Sequence>,
@@ -218,6 +250,16 @@ export function LavidzComposition({
         </Sequence>
       )}
       {sequences}
+      {motionSettings?.inlays?.enabled && motionSettings.inlays.inlays.length > 0 && (
+        <InlaysManager
+          inlays={motionSettings.inlays.inlays}
+          globalFrameOffset={coldOpenDurationFrames + (intro.enabled && intro.hookText ? Math.round(intro.durationSeconds * fps) : 0)}
+          popSoundEnabled={motionSettings.inlays.popSoundEnabled}
+          popVolume={motionSettings.inlays.popVolume}
+          duration={motionSettings.inlays.duration}
+          style={motionSettings.inlays.style}
+        />
+      )}
       {watermark}
     </AbsoluteFill>
   )

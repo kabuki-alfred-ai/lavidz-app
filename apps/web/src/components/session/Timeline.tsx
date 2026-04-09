@@ -16,7 +16,7 @@ export interface ClipEdit {
 }
 
 interface TimelineBlock {
-  type: 'intro' | 'question' | 'clip' | 'outro' | 'endcard'
+  type: 'coldopen' | 'intro' | 'question' | 'clip' | 'outro' | 'endcard'
   label: string
   startFrame: number
   durationFrames: number
@@ -29,6 +29,7 @@ interface TimelineBlock {
 
 interface Props {
   segments: CompositionSegment[] | null
+  coldOpenFrames?: number
   introFrames: number
   outroFrames: number
   questionCardFrames: number
@@ -49,6 +50,7 @@ interface Props {
 
 const CLIP_COLORS = ['#3B82F6', '#8B5CF6', '#06B6D4', '#F59E0B', '#EC4899', '#10B981']
 const Q_COLOR = 'rgba(255,255,255,0.12)'
+const COLDOPEN_COLOR = '#F97316'
 const INTRO_COLOR = '#22C55E'
 const OUTRO_COLOR = '#EF4444'
 const ENDCARD_COLOR = 'rgba(255,255,255,0.08)'
@@ -73,6 +75,7 @@ function ClipWaveform({ videoUrl, width, height, progress }: { videoUrl: string;
 
 export function Timeline({
   segments,
+  coldOpenFrames = 0,
   introFrames,
   outroFrames,
   questionCardFrames,
@@ -101,10 +104,16 @@ export function Timeline({
     const result: TimelineBlock[] = []
     let offset = 0
 
+    // Cold Open
+    if (coldOpenFrames > 0) {
+      result.push({ type: 'coldopen', label: '🎬 Hook', startFrame: 0, durationFrames: coldOpenFrames, color: COLDOPEN_COLOR })
+      offset = coldOpenFrames
+    }
+
     // Intro
     if (introFrames > 0) {
-      result.push({ type: 'intro', label: 'Intro', startFrame: 0, durationFrames: introFrames, color: INTRO_COLOR })
-      offset = introFrames
+      result.push({ type: 'intro', label: 'Intro', startFrame: offset, durationFrames: introFrames, color: INTRO_COLOR })
+      offset += introFrames
     }
 
     for (let i = 0; i < segments.length; i++) {
@@ -154,7 +163,7 @@ export function Timeline({
     offset += END_CARD_FRAMES
 
     return { blocks: result, totalFrames: offset }
-  }, [segments, introFrames, outroFrames, questionCardFrames, clipEdits])
+  }, [segments, coldOpenFrames, introFrames, outroFrames, questionCardFrames, clipEdits])
 
   const timelineWidth = totalFrames * pixelsPerFrame
 

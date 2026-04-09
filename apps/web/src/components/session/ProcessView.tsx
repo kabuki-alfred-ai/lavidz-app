@@ -452,6 +452,27 @@ export function ProcessView({ recordings, themeName, sessionId, themeSlug, monta
   const [denoiseStrength, setDenoiseStrength] = useState<'light' | 'moderate' | 'strong' | 'isolate'>('moderate')
   const [smartCutLoading, setSmartCutLoading] = useState(false)
   const [smartCutError, setSmartCutError] = useState('')
+  // Cold Open & Visual Inlays
+  const [coldOpenEnabled, setColdOpenEnabled] = useState(false)
+  const [coldOpenData, setColdOpenData] = useState<{ hookPhrase: string; startInSeconds: number; endInSeconds: number; segmentId: string } | null>(null)
+  const [inlaysEnabled, setInlaysEnabled] = useState(false)
+  const [inlaysData, setInlaysData] = useState<{ exactWord: string; category: string; timeInSeconds: number; label?: string }[]>([])
+  const [coldOpenLoading, setColdOpenLoading] = useState(false)
+  const [coldOpenError, setColdOpenError] = useState('')
+  const [contextEmojisBySegmentId, setContextEmojisBySegmentId] = useState<Record<string, { startInSeconds: number; endInSeconds: number; emoji: string }[]>>({})
+  const [swooshEnabled, setSwooshEnabled] = useState(true)
+  const [popSoundEnabled, setPopSoundEnabled] = useState(true)
+  // Cold Open style
+  const [coldOpenTextColor, setColdOpenTextColor] = useState('#FFFFFF')
+  const [coldOpenHighlightColor, setColdOpenHighlightColor] = useState('#FFD60A')
+  const [coldOpenFontFamily, setColdOpenFontFamily] = useState("Impact, 'Arial Narrow', sans-serif")
+  const [coldOpenFontSize, setColdOpenFontSize] = useState(72)
+  const [coldOpenTextPosition, setColdOpenTextPosition] = useState<'bottom' | 'center' | 'top'>('bottom')
+  const [coldOpenVideoStyle, setColdOpenVideoStyle] = useState<'bw' | 'desaturated' | 'color' | 'raw'>('desaturated')
+  // Inlays style
+  const [inlaysStyle, setInlaysStyle] = useState<'pill' | 'minimal' | 'bold'>('pill')
+  const [inlaysDuration, setInlaysDuration] = useState(2)
+  const [inlaysPopVolume, setInlaysPopVolume] = useState(0.5)
   const [regenerating, setRegenerating] = useState(false)
   const [voiceEnabled, setVoiceEnabled] = useState(false)
   const [previewingVoiceId, setPreviewingVoiceId] = useState<string | null>(null)
@@ -475,6 +496,9 @@ export function ProcessView({ recordings, themeName, sessionId, themeSlug, monta
   const [hoveredFont, setHoveredFont] = useState<string | null>(null)
   const [hoveredDenoiseStrength, setHoveredDenoiseStrength] = useState<string | null>(null)
   const [hoveredStep, setHoveredStep] = useState<number | null>(null)
+  const [currentPhase, setCurrentPhase] = useState(0)
+  const [phase2Section, setPhase2Section] = useState<'style' | 'bookends' | 'audio' | 'transcripts'>('style')
+  const [bookendTarget, setBookendTarget] = useState<'intro' | 'outro'>('intro')
 
   // Cache for processed assets (S3-backed)
   const [ttsCache, setTtsCache] = useState<Record<string, { voiceId: string; url: string }>>({})
@@ -529,8 +553,8 @@ export function ProcessView({ recordings, themeName, sessionId, themeSlug, monta
     const tick = () => {
       const f = (playerRef.current as any)?.getCurrentFrame?.() ?? 0
       playerFrameRef.current = f
-      // Only compute active segment when on Transcripts tab (step index 1)
-      if (currentStepRef.current === 1) {
+      // Compute active segment (used by TranscriptEditor for word highlighting)
+      if (true) {
         const tl = segmentTimelineRef.current
         let found: { id: string; localTimeSec: number } | null = null
         for (const seg of tl) {
@@ -587,6 +611,21 @@ export function ProcessView({ recordings, themeName, sessionId, themeSlug, monta
       if (s.wordTimestampsMap) setWordTimestampsMap(s.wordTimestampsMap)
       if (s.sourceWordTimestampsMap) sourceWordTimestampsRef.current = s.sourceWordTimestampsMap
       if (s.clipEdits?.length) restoreClipEdits(s.clipEdits)
+      if (typeof s.coldOpenEnabled === 'boolean') setColdOpenEnabled(s.coldOpenEnabled)
+      if (s.coldOpenData) setColdOpenData(s.coldOpenData)
+      if (typeof s.inlaysEnabled === 'boolean') setInlaysEnabled(s.inlaysEnabled)
+      if (s.inlaysData?.length) setInlaysData(s.inlaysData)
+      if (typeof s.swooshEnabled === 'boolean') setSwooshEnabled(s.swooshEnabled)
+      if (typeof s.popSoundEnabled === 'boolean') setPopSoundEnabled(s.popSoundEnabled)
+      if (s.coldOpenTextColor) setColdOpenTextColor(s.coldOpenTextColor)
+      if (s.coldOpenHighlightColor) setColdOpenHighlightColor(s.coldOpenHighlightColor)
+      if (s.coldOpenFontFamily) setColdOpenFontFamily(s.coldOpenFontFamily)
+      if (typeof s.coldOpenFontSize === 'number') setColdOpenFontSize(s.coldOpenFontSize)
+      if (s.coldOpenTextPosition) setColdOpenTextPosition(s.coldOpenTextPosition)
+      if (s.coldOpenVideoStyle) setColdOpenVideoStyle(s.coldOpenVideoStyle)
+      if (s.inlaysStyle) setInlaysStyle(s.inlaysStyle)
+      if (typeof s.inlaysDuration === 'number') setInlaysDuration(s.inlaysDuration)
+      if (typeof s.inlaysPopVolume === 'number') setInlaysPopVolume(s.inlaysPopVolume)
     }
 
     // Initialize asset caches from recording DB fields
@@ -621,12 +660,18 @@ export function ProcessView({ recordings, themeName, sessionId, themeSlug, monta
     fillerCutEnabled, denoiseEnabled, denoiseStrength, cleanvoiceEnabled, cleanvoiceConfig,
     localTranscripts, wordTimestampsMap, clipEdits,
     sourceWordTimestampsMap: sourceWordTimestampsRef.current,
+    coldOpenEnabled, coldOpenData, inlaysEnabled, inlaysData, swooshEnabled, popSoundEnabled,
+    coldOpenTextColor, coldOpenHighlightColor, coldOpenFontFamily, coldOpenFontSize, coldOpenTextPosition, coldOpenVideoStyle,
+    inlaysStyle, inlaysDuration, inlaysPopVolume,
   }), [
     selectedVoiceId, voiceEnabled, format, subtitleSettings, theme, intro, outro,
     motionSettings, questionCardFrames, activePresetId, audioSettings,
     bgMusicPrompt, transitionSfxPrompt, silenceCutEnabled, silenceThreshold,
     fillerCutEnabled, denoiseEnabled, denoiseStrength, cleanvoiceEnabled, cleanvoiceConfig,
     localTranscripts, wordTimestampsMap, clipEdits,
+    coldOpenEnabled, coldOpenData, inlaysEnabled, inlaysData, swooshEnabled, popSoundEnabled,
+    coldOpenTextColor, coldOpenHighlightColor, coldOpenFontFamily, coldOpenFontSize, coldOpenTextPosition, coldOpenVideoStyle,
+    inlaysStyle, inlaysDuration, inlaysPopVolume,
   ])
   const settingsForSaveRef = useRef(settingsForSave)
   useEffect(() => {
@@ -1016,6 +1061,66 @@ export function ProcessView({ recordings, themeName, sessionId, themeSlug, monta
     }
   }
 
+  const runColdOpenAnalysis = async () => {
+    if (!ready || !segments?.length) {
+      setColdOpenError('Lance d\'abord la préparation (bouton "Préparer") pour charger les vidéos.')
+      return
+    }
+    setColdOpenLoading(true)
+    setColdOpenError('')
+    try {
+      // Use effectiveSegments (post-cut, remapped timestamps) not raw segments
+      const segsWithTranscript = (effectiveSegments ?? segments ?? []).filter(s => s.transcript)
+      if (!segsWithTranscript.length) {
+        setColdOpenError('Aucune transcription trouvée.')
+        return
+      }
+
+      // First segment → cold open + inlays (single hook for the whole video)
+      const firstSeg = segsWithTranscript[0]
+      const firstWts = firstSeg.wordTimestamps ?? wordTimestampsRef.current[firstSeg.id] ?? []
+      const firstRes = await fetch('/api/cold-open', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ transcript: firstSeg.transcript, wordTimestamps: firstWts, segmentId: firstSeg.id, videoDurationSeconds: firstSeg.videoDurationFrames / FPS }),
+      })
+      if (!firstRes.ok) { setColdOpenError(await firstRes.text()); return }
+      const firstData = await firstRes.json()
+      if (firstData.coldOpen) { setColdOpenData(firstData.coldOpen); setColdOpenEnabled(true) }
+      if (firstData.inlays?.length) { setInlaysData(firstData.inlays); setInlaysEnabled(true) }
+
+      // All segments → context emojis (parallel, per-segment timestamps)
+      const emojiResults = await Promise.all(
+        segsWithTranscript.map(async seg => {
+          const wts = seg.wordTimestamps ?? wordTimestampsRef.current[seg.id] ?? []
+          try {
+            const res = await fetch('/api/cold-open', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({ transcript: seg.transcript, wordTimestamps: wts, segmentId: seg.id, videoDurationSeconds: seg.videoDurationFrames / FPS }),
+            })
+            if (!res.ok) return { segId: seg.id, emojis: [] }
+            const data = await res.json()
+            return { segId: seg.id, emojis: data.contextEmojis ?? [] }
+          } catch { return { segId: seg.id, emojis: [] } }
+        }),
+      )
+
+      const newMap: Record<string, { startInSeconds: number; endInSeconds: number; emoji: string }[]> = {}
+      for (const { segId, emojis } of emojiResults) {
+        if (emojis.length) newMap[segId] = emojis
+      }
+      if (Object.keys(newMap).length) {
+        setContextEmojisBySegmentId(newMap)
+        setSubtitleSettings(p => ({ ...p, animatedEmojis: true }))
+      }
+    } catch (e: any) {
+      setColdOpenError(e?.message ?? 'Erreur analyse cold open')
+    } finally {
+      setColdOpenLoading(false)
+    }
+  }
+
   const updateTranscript = (recordingId: string, text: string, fromApi = false) => {
     setLocalTranscripts(p => ({ ...p, [recordingId]: text }))
     setSegments(prev => prev ? prev.map(seg =>
@@ -1063,8 +1168,14 @@ export function ProcessView({ recordings, themeName, sessionId, themeSlug, monta
 
   // ─── Apply clip edits to produce effective segments for the Player ──────────
   const effectiveSegments = useMemo(() => {
-    if (!segments?.length || !clipEdits.length) return segments
-    return segments.map(seg => {
+    if (!segments?.length) return segments
+    // Inject per-segment contextEmojis regardless of clip edits
+    const withEmojis = segments.map(seg => {
+      const emojis = contextEmojisBySegmentId[seg.id]
+      return emojis ? { ...seg, contextEmojis: emojis } : seg
+    })
+    if (!clipEdits.length) return withEmojis
+    return withEmojis.map(seg => {
       const edit = clipEdits.find(e => e.recordingId === seg.id)
       if (!edit || edit.visibleRanges.length === 0) return seg
 
@@ -1086,7 +1197,7 @@ export function ProcessView({ recordings, themeName, sessionId, themeSlug, monta
         visibleRanges: edit.visibleRanges,
       }
     })
-  }, [segments, clipEdits])
+  }, [segments, clipEdits, contextEmojisBySegmentId])
 
   // Maps each recording to its global frame range in the composition
   // Uses effectiveSegments so the RAF playhead tracking matches the Player
@@ -1102,9 +1213,48 @@ export function ProcessView({ recordings, themeName, sessionId, themeSlug, monta
     })
   }, [effectiveSegments, introFrames])
   useEffect(() => { segmentTimelineRef.current = segmentTimeline }, [segmentTimeline])
-  const totalFrames = effectiveSegments?.length
+  // Merge coldOpen & inlays data into motionSettings for Remotion
+  const effectiveMotionSettings = useMemo(() => {
+    const ms = { ...motionSettings }
+    if (coldOpenEnabled && coldOpenData) {
+      ms.coldOpen = {
+        enabled: true,
+        hookPhrase: coldOpenData.hookPhrase,
+        startInSeconds: coldOpenData.startInSeconds,
+        endInSeconds: coldOpenData.endInSeconds,
+        segmentId: coldOpenData.segmentId,
+        swooshEnabled,
+        textColor: coldOpenTextColor,
+        highlightColor: coldOpenHighlightColor,
+        fontFamily: coldOpenFontFamily,
+        fontSize: coldOpenFontSize,
+        textPosition: coldOpenTextPosition,
+        videoStyle: coldOpenVideoStyle,
+      }
+    }
+    if (inlaysEnabled && inlaysData.length > 0) {
+      ms.inlays = {
+        enabled: true,
+        inlays: inlaysData.map(d => ({ exactWord: d.exactWord, category: d.category as any, timeInSeconds: d.timeInSeconds, label: d.label })),
+        popSoundEnabled,
+        popVolume: inlaysPopVolume,
+        duration: inlaysDuration,
+        style: inlaysStyle,
+      }
+    }
+    return ms
+  }, [motionSettings, coldOpenEnabled, coldOpenData, inlaysEnabled, inlaysData, swooshEnabled, popSoundEnabled,
+      coldOpenTextColor, coldOpenHighlightColor, coldOpenFontFamily, coldOpenFontSize, coldOpenTextPosition, coldOpenVideoStyle,
+      inlaysStyle, inlaysDuration, inlaysPopVolume])
+
+  const coldOpenFrames = coldOpenEnabled && coldOpenData
+    ? Math.round((coldOpenData.endInSeconds - coldOpenData.startInSeconds) * FPS)
+    : 0
+
+  const totalFramesBase = effectiveSegments?.length
     ? Math.max(introFrames + outroFrames + END_CARD_FRAMES + effectiveSegments.reduce((a, s) => a + (s.questionDurationFrames ?? questionCardFrames) + s.videoDurationFrames, 0), 1)
     : 1
+  const totalFrames = totalFramesBase + coldOpenFrames
 
   const selectedVoice = voices.find(v => v.id === selectedVoiceId)
 
@@ -1233,6 +1383,198 @@ export function ProcessView({ recordings, themeName, sessionId, themeSlug, monta
             {smartCutError && <p style={{ color: S.error, fontSize: 11, marginTop: 8, fontFamily: 'monospace' }}>{smartCutError}</p>}
           </Card>
 
+          {/* Cold Open & Visual Inlays */}
+          <Card>
+            {/* Header + Analyse button */}
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+              <div>
+                <p style={{ color: S.text, fontWeight: 600, fontSize: 14 }}>Cold Open & Incrustations</p>
+                <p style={{ color: S.muted, fontSize: 11, marginTop: 2 }}>Gemini extrait l'accroche et les mots-clés visuels</p>
+              </div>
+              <button
+                onClick={runColdOpenAnalysis}
+                disabled={coldOpenLoading}
+                style={{
+                  padding: '8px 14px', borderRadius: 10, fontSize: 12, fontWeight: 600, cursor: coldOpenLoading ? 'not-allowed' : 'pointer',
+                  background: coldOpenLoading ? 'rgba(249,115,22,0.2)' : 'rgba(249,115,22,0.15)',
+                  border: '1px solid rgba(249,115,22,0.5)',
+                  color: '#fdba74',
+                  display: 'flex', alignItems: 'center', gap: 6,
+                  opacity: coldOpenLoading ? 0.7 : 1,
+                }}
+              >
+                {coldOpenLoading
+                  ? <><Loader2 size={12} style={{ animation: 'spin 1s linear infinite' }} /> Analyse...</>
+                  : '🎬 Analyser'}
+              </button>
+            </div>
+            {coldOpenError && <p style={{ color: S.error, fontSize: 11, marginTop: 8, fontFamily: 'monospace' }}>{coldOpenError}</p>}
+
+            {coldOpenData && (
+              <div style={{ marginTop: 14, display: 'flex', flexDirection: 'column', gap: 14 }}>
+
+                {/* ── COLD OPEN SECTION ── */}
+                <div style={{ background: S.surface, borderRadius: 12, padding: 14, border: `1px solid ${S.border}` }}>
+                  {/* Toggle row */}
+                  <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: coldOpenEnabled ? 14 : 0 }}>
+                    <div>
+                      <p style={{ color: S.text, fontSize: 13, fontWeight: 600 }}>🎬 Accroche (Cold Open)</p>
+                      <p style={{ color: S.dim, fontSize: 10, marginTop: 2 }}>
+                        {coldOpenData.startInSeconds.toFixed(1)}s → {coldOpenData.endInSeconds.toFixed(1)}s
+                      </p>
+                    </div>
+                    <Toggle value={coldOpenEnabled} onChange={setColdOpenEnabled} />
+                  </div>
+
+                  {coldOpenEnabled && (
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+
+                      {/* Editable hook phrase */}
+                      <div>
+                        <Label>Phrase d'accroche</Label>
+                        <input
+                          value={coldOpenData.hookPhrase}
+                          onChange={e => setColdOpenData(d => d ? { ...d, hookPhrase: e.target.value } : d)}
+                          style={{
+                            width: '100%', marginTop: 6, padding: '8px 10px',
+                            background: 'rgba(255,255,255,0.06)', border: `1px solid ${S.border}`,
+                            borderRadius: 8, color: S.text, fontSize: 13,
+                            fontFamily: 'inherit', outline: 'none', boxSizing: 'border-box',
+                          }}
+                        />
+                      </div>
+
+                      {/* Timing sliders */}
+                      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10 }}>
+                        <div>
+                          <Label>Début : {coldOpenData.startInSeconds.toFixed(1)}s</Label>
+                          <input type="range" min={0} max={Math.max(coldOpenData.endInSeconds - 0.5, 0.5)} step={0.1}
+                            value={coldOpenData.startInSeconds}
+                            onChange={e => setColdOpenData(d => d ? { ...d, startInSeconds: parseFloat(e.target.value) } : d)}
+                            style={{ width: '100%', marginTop: 4, accentColor: '#f97316' }}
+                          />
+                        </div>
+                        <div>
+                          <Label>Fin : {coldOpenData.endInSeconds.toFixed(1)}s</Label>
+                          <input type="range" min={coldOpenData.startInSeconds + 0.5} max={30} step={0.1}
+                            value={coldOpenData.endInSeconds}
+                            onChange={e => setColdOpenData(d => d ? { ...d, endInSeconds: parseFloat(e.target.value) } : d)}
+                            style={{ width: '100%', marginTop: 4, accentColor: '#f97316' }}
+                          />
+                        </div>
+                      </div>
+
+                      {/* Video style */}
+                      <div>
+                        <Label>Traitement vidéo</Label>
+                        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 6, marginTop: 6 }}>
+                          {(['bw', 'desaturated', 'color', 'raw'] as const).map(vs => (
+                            <button key={vs}
+                              onClick={() => setColdOpenVideoStyle(vs)}
+                              style={{
+                                padding: '7px 4px', borderRadius: 8, fontSize: 10, fontWeight: 600,
+                                textAlign: 'center', cursor: 'pointer',
+                                background: coldOpenVideoStyle === vs ? 'rgba(249,115,22,0.2)' : 'rgba(255,255,255,0.04)',
+                                border: `1px solid ${coldOpenVideoStyle === vs ? 'rgba(249,115,22,0.7)' : S.border}`,
+                                color: coldOpenVideoStyle === vs ? '#fdba74' : S.muted,
+                              }}
+                            >
+                              {vs === 'bw' ? 'N&B' : vs === 'desaturated' ? 'Désat.' : vs === 'color' ? 'Couleur' : 'Brut'}
+                            </button>
+                          ))}
+                        </div>
+                      </div>
+
+                      {/* Text position */}
+                      <div>
+                        <Label>Position du texte</Label>
+                        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 6, marginTop: 6 }}>
+                          {(['top', 'center', 'bottom'] as const).map(pos => (
+                            <button key={pos}
+                              onClick={() => setColdOpenTextPosition(pos)}
+                              style={{
+                                padding: '7px 4px', borderRadius: 8, fontSize: 10, fontWeight: 600,
+                                textAlign: 'center', cursor: 'pointer',
+                                background: coldOpenTextPosition === pos ? 'rgba(249,115,22,0.2)' : 'rgba(255,255,255,0.04)',
+                                border: `1px solid ${coldOpenTextPosition === pos ? 'rgba(249,115,22,0.7)' : S.border}`,
+                                color: coldOpenTextPosition === pos ? '#fdba74' : S.muted,
+                              }}
+                            >
+                              {pos === 'top' ? '▲ Haut' : pos === 'center' ? '● Centre' : '▼ Bas'}
+                            </button>
+                          ))}
+                        </div>
+                      </div>
+
+                      {/* Colors */}
+                      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10 }}>
+                        <div>
+                          <Label>Couleur texte</Label>
+                          <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginTop: 6 }}>
+                            <input type="color" value={coldOpenTextColor}
+                              onChange={e => setColdOpenTextColor(e.target.value)}
+                              style={{ width: 36, height: 28, borderRadius: 6, border: `1px solid ${S.border}`, cursor: 'pointer', background: 'transparent' }}
+                            />
+                            <span style={{ color: S.muted, fontSize: 11, fontFamily: 'monospace' }}>{coldOpenTextColor}</span>
+                          </div>
+                        </div>
+                        <div>
+                          <Label>Couleur accroche</Label>
+                          <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginTop: 6 }}>
+                            <input type="color" value={coldOpenHighlightColor}
+                              onChange={e => setColdOpenHighlightColor(e.target.value)}
+                              style={{ width: 36, height: 28, borderRadius: 6, border: `1px solid ${S.border}`, cursor: 'pointer', background: 'transparent' }}
+                            />
+                            <span style={{ color: S.muted, fontSize: 11, fontFamily: 'monospace' }}>{coldOpenHighlightColor}</span>
+                          </div>
+                        </div>
+                      </div>
+
+                      {/* Font family */}
+                      <div>
+                        <Label>Police</Label>
+                        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 5, marginTop: 6 }}>
+                          {FONT_OPTIONS.map(f => (
+                            <button key={f.value}
+                              onClick={() => setColdOpenFontFamily(f.value)}
+                              style={{
+                                padding: '7px 6px', borderRadius: 8, fontSize: 10, fontWeight: 600,
+                                textAlign: 'center', cursor: 'pointer', fontFamily: f.value,
+                                background: coldOpenFontFamily === f.value ? 'rgba(249,115,22,0.2)' : 'rgba(255,255,255,0.04)',
+                                border: `1px solid ${coldOpenFontFamily === f.value ? 'rgba(249,115,22,0.7)' : S.border}`,
+                                color: coldOpenFontFamily === f.value ? '#fdba74' : S.muted,
+                                overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap',
+                              }}
+                            >
+                              {f.label}
+                            </button>
+                          ))}
+                        </div>
+                      </div>
+
+                      {/* Font size slider */}
+                      <div>
+                        <Label>Taille texte : {coldOpenFontSize}px</Label>
+                        <input type="range" min={36} max={120} step={2}
+                          value={coldOpenFontSize}
+                          onChange={e => setColdOpenFontSize(parseInt(e.target.value))}
+                          style={{ width: '100%', marginTop: 4, accentColor: '#f97316' }}
+                        />
+                      </div>
+
+                      {/* Swoosh toggle */}
+                      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                        <p style={{ color: S.muted, fontSize: 12 }}>Son de transition (swoosh)</p>
+                        <Toggle value={swooshEnabled} onChange={setSwooshEnabled} />
+                      </div>
+                    </div>
+                  )}
+                </div>
+
+              </div>
+            )}
+          </Card>
+
           {/* Denoise + ElevenLabs Voice Isolator */}
           <Card>
             <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: denoiseEnabled ? 16 : 0 }}>
@@ -1353,26 +1695,6 @@ export function ProcessView({ recordings, themeName, sessionId, themeSlug, monta
           </p>
         </Card>
       )}
-
-      {/* Generate button — always visible */}
-      <button
-        onClick={applyVoice}
-        disabled={regenerating}
-        style={{
-          display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8,
-          padding: '14px 0', borderRadius: S.radius.md,
-          background: ready ? S.surfaceActive : '#ffffff',
-          border: ready ? `1px solid ${S.borderActive}` : 'none',
-          color: ready ? S.text : '#0a0a0a',
-          fontSize: 13, fontWeight: 700,
-          opacity: regenerating ? 0.5 : 1,
-          transition: 'all 0.15s',
-          boxShadow: !ready ? '0 0 0 4px rgba(255,255,255,0.08)' : 'none',
-        }}
-      >
-        {regenerating ? <Loader2 size={14} className="animate-spin" /> : <RefreshCw size={14} />}
-        {regenerating ? 'Génération en cours…' : ready ? 'Appliquer les changements' : 'Générer la preview'}
-      </button>
 
     </div>
   )
@@ -2602,6 +2924,96 @@ export function ProcessView({ recordings, themeName, sessionId, themeSlug, monta
           </p>
         </div>
         </Card>
+
+        {/* ── Emoji sur les mots ── */}
+        <Card>
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 12 }}>
+            <div>
+              <p style={{ color: S.text, fontWeight: 600, fontSize: 14 }}>Emojis animés sur les mots</p>
+              <p style={{ color: S.muted, fontSize: 11, marginTop: 2 }}>Associe un emoji à un mot — il pop au-dessus des sous-titres quand le mot est prononcé</p>
+            </div>
+          </div>
+
+          {/* Animated toggle + Gemini button */}
+          <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 14, padding: '10px 12px', background: S.surface, borderRadius: 10, border: `1px solid ${S.border}` }}>
+            <span style={{ fontSize: 16 }}>✨</span>
+            <div style={{ flex: 1 }}>
+              <p style={{ color: S.text, fontSize: 12, fontWeight: 600 }}>Noto Animated (Google)</p>
+              <p style={{ color: S.dim, fontSize: 10 }}>GIFs animés haute qualité au lieu d'emojis statiques</p>
+            </div>
+            <Toggle
+              value={subtitleSettings.animatedEmojis !== false}
+              onChange={v => setSubtitleSettings(p => ({ ...p, animatedEmojis: v }))}
+            />
+          </div>
+
+          {/* Gemini auto-suggest button */}
+          <button
+            onClick={runColdOpenAnalysis}
+            disabled={coldOpenLoading || !ready}
+            style={{
+              width: '100%', padding: '10px 14px', borderRadius: 10, marginBottom: 14,
+              fontSize: 12, fontWeight: 600, cursor: (coldOpenLoading || !ready) ? 'not-allowed' : 'pointer',
+              background: coldOpenLoading ? 'rgba(168,85,247,0.15)' : 'rgba(168,85,247,0.12)',
+              border: '1px solid rgba(168,85,247,0.45)',
+              color: '#c4b5fd',
+              display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8,
+              opacity: !ready ? 0.5 : 1,
+            }}
+          >
+            {coldOpenLoading
+              ? <><Loader2 size={13} style={{ animation: 'spin 1s linear infinite' }} /> Gemini analyse...</>
+              : <><span>🤖</span> Laisser Gemini choisir les emojis</>}
+          </button>
+
+          {/* Context emoji moments — per segment */}
+          {Object.keys(contextEmojisBySegmentId).length > 0 ? (
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+              {(segments ?? []).filter(s => contextEmojisBySegmentId[s.id]?.length).map((seg, si) => (
+                <div key={seg.id}>
+                  <p style={{ color: S.muted, fontSize: 10, fontFamily: 'monospace', marginBottom: 5 }}>
+                    Vidéo {si + 1}
+                  </p>
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: 5 }}>
+                    {contextEmojisBySegmentId[seg.id].map((ce, idx) => (
+                      <div key={idx} style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '7px 10px', background: S.surface, borderRadius: 8, border: `1px solid ${S.border}` }}>
+                        <input
+                          value={ce.emoji}
+                          onChange={e => {
+                            const val = [...e.target.value].slice(-2).join('')
+                            setContextEmojisBySegmentId(prev => ({
+                              ...prev,
+                              [seg.id]: prev[seg.id].map((x, i) => i === idx ? { ...x, emoji: val } : x),
+                            }))
+                          }}
+                          style={{ width: 40, padding: '3px 5px', borderRadius: 7, textAlign: 'center', background: 'rgba(255,255,255,0.06)', border: `1px solid ${S.border}`, color: S.text, fontSize: 18, fontFamily: 'inherit', outline: 'none' }}
+                        />
+                        <span style={{ color: S.dim, fontSize: 11, fontFamily: 'monospace', flex: 1 }}>
+                          {ce.startInSeconds.toFixed(1)}s → {ce.endInSeconds.toFixed(1)}s
+                        </span>
+                        <button
+                          onClick={() => setContextEmojisBySegmentId(prev => ({
+                            ...prev,
+                            [seg.id]: prev[seg.id].filter((_, i) => i !== idx),
+                          }))}
+                          style={{ padding: '3px 7px', borderRadius: 5, background: 'rgba(239,68,68,0.1)', border: '1px solid rgba(239,68,68,0.3)', color: '#fca5a5', fontSize: 10, cursor: 'pointer' }}
+                        >✕</button>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              ))}
+              <button
+                onClick={() => setContextEmojisBySegmentId({})}
+                style={{ padding: '7px', borderRadius: 8, fontSize: 11, cursor: 'pointer', background: 'rgba(239,68,68,0.08)', border: '1px dashed rgba(239,68,68,0.3)', color: '#fca5a5' }}
+              >Effacer tout</button>
+            </div>
+          ) : (
+            <p style={{ color: S.dim, fontSize: 11, textAlign: 'center', padding: '12px 0' }}>
+              Lance l'analyse Gemini ci-dessus pour générer automatiquement les emojis contextuels.
+            </p>
+          )}
+        </Card>
       </>}
     </div>
   )
@@ -2626,7 +3038,7 @@ export function ProcessView({ recordings, themeName, sessionId, themeSlug, monta
           width={fmt.width}
           height={fmt.height}
           sessionId={sessionId}
-          motionSettings={motionSettings}
+          motionSettings={effectiveMotionSettings}
           audioSettings={audioSettings}
           onRenderComplete={(url) => {
             if (renderOutputUrlRef.current) URL.revokeObjectURL(renderOutputUrlRef.current)
@@ -2644,258 +3056,544 @@ export function ProcessView({ recordings, themeName, sessionId, themeSlug, monta
     </div>
   )
 
-  const stepContent = [stepVoice, stepTranscripts, stepIntro, stepOutro, stepTheme, stepMusic, stepSubtitles, stepPreview]
+  const PHASES = [
+    { id: 'prepare',   label: 'Préparer',      desc: 'Voix IA & traitement audio' },
+    { id: 'customize', label: 'Personnaliser',  desc: 'Style, bookends, musique' },
+    { id: 'export',    label: 'Exporter',       desc: 'Format & rendu final' },
+  ]
+
+  const phase2StyleContent = (
+    <div style={{ display: 'flex', flexDirection: 'column', gap: 20 }}>
+      <Card>
+        <Label>Preset de style</Label>
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: 10 }}>
+          {STYLE_PRESETS.map(preset => {
+            const selected = activePresetId === preset.id
+            return (
+              <button key={preset.id} onClick={() => {
+                setActivePresetId(preset.id)
+                setTheme(preset.theme)
+                setMotionSettings(preset.motionSettings)
+                setSubtitleSettings(p => ({ ...p, ...preset.subtitleSettings }))
+                setQuestionCardFrames(preset.questionCardFrames)
+              }}
+                style={{
+                  padding: '14px', borderRadius: 14, textAlign: 'left',
+                  background: selected ? S.surfaceActive : S.surface,
+                  border: `2px solid ${selected ? S.borderActive : S.border}`, transition: 'all 0.15s',
+                }}
+              >
+                <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 6 }}>
+                  <div style={{ width: 24, height: 24, borderRadius: 6, background: preset.theme.backgroundColor, border: '1px solid rgba(255,255,255,0.2)', flexShrink: 0 }} />
+                  <span style={{ color: S.text, fontWeight: 700, fontSize: 13 }}>{preset.label}</span>
+                </div>
+                <p style={{ color: S.muted, fontSize: 11, fontFamily: 'monospace' }}>{preset.desc}</p>
+              </button>
+            )
+          })}
+        </div>
+      </Card>
+      {stepTheme}
+      {stepSubtitles}
+    </div>
+  )
+
+  const phase2BookendsContent = (
+    <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
+      <div style={{ display: 'flex', background: S.surface, borderRadius: 10, padding: 3, border: `1px solid ${S.border}` }}>
+        {(['intro', 'outro'] as const).map(t => (
+          <button key={t} onClick={() => setBookendTarget(t)} style={{
+            flex: 1, padding: '8px', borderRadius: 8, fontSize: 12, fontWeight: 600,
+            background: bookendTarget === t ? S.surfaceActive : 'transparent',
+            border: `1px solid ${bookendTarget === t ? S.borderActive : 'transparent'}`,
+            color: bookendTarget === t ? S.text : S.muted, transition: 'all 0.15s',
+          }}>
+            {t === 'intro' ? 'Intro' : 'Outro'}
+          </button>
+        ))}
+      </div>
+      {bookendTarget === 'intro' ? stepIntro : stepOutro}
+    </div>
+  )
+
+  const phase2SubNavItems = [
+    { id: 'style' as const,       label: 'Style' },
+    { id: 'bookends' as const,    label: 'Bookends' },
+    { id: 'audio' as const,       label: 'Audio' },
+    { id: 'transcripts' as const, label: 'Transcripts' },
+  ]
+
+  const phase2Content = (
+    <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+      <div style={{ display: 'flex', gap: 4, overflowX: 'auto', scrollbarWidth: 'none' as const }}>
+        {phase2SubNavItems.map(item => (
+          <button key={item.id} onClick={() => setPhase2Section(item.id)}
+            style={{
+              padding: '6px 14px', borderRadius: 20, fontSize: 11, fontWeight: 600, whiteSpace: 'nowrap',
+              background: phase2Section === item.id ? 'rgba(255,255,255,0.12)' : 'transparent',
+              border: `1px solid ${phase2Section === item.id ? S.borderActive : S.border}`,
+              color: phase2Section === item.id ? S.text : S.muted, flexShrink: 0,
+            }}>
+            {item.label}
+          </button>
+        ))}
+      </div>
+      <div key={phase2Section} style={{ animation: 'fadeSlideIn 0.18s ease' }}>
+        {phase2Section === 'style' ? phase2StyleContent :
+         phase2Section === 'bookends' ? phase2BookendsContent :
+         phase2Section === 'audio' ? stepMusic :
+         stepTranscripts}
+      </div>
+    </div>
+  )
+
+  const phaseContent = [stepVoice, phase2Content, stepPreview]
 
   // ─── Render ────────────────────────────────────────────────────────────────
   return (
     <div style={{ position: 'fixed', inset: 0, display: 'flex', flexDirection: 'column', background: '#0a0a0a', color: '#fff' }}>
 
-      {/* Header */}
-      <header style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '12px 20px', borderBottom: `1px solid ${S.border}`, flexShrink: 0 }}>
-        <Link href="/admin/montage">
-          <button style={{ display: 'flex', alignItems: 'center', gap: 6, color: S.muted, fontSize: 13 }}>
-            <ArrowLeft size={16} />
-          </button>
-        </Link>
-        <div style={{ textAlign: 'center', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 4 }}>
-          <div className="flex items-center gap-1.5 group cursor-pointer">
-            <div className="relative w-5 h-5 flex items-center justify-center">
-              <span className="block w-2.5 h-2.5 bg-primary animate-logo-morph shadow-[0_0_10px_rgba(var(--primary),0.2)]" />
+      {/* ══ HEADER ══════════════════════════════════════════════════════════════ */}
+      <header style={{
+        display: 'flex', alignItems: 'center', gap: 0,
+        height: 48, paddingLeft: 12, paddingRight: 16,
+        borderBottom: `1px solid ${S.border}`, flexShrink: 0,
+        background: 'rgba(10,10,10,0.98)',
+      }}>
+        {/* Left: back + logo */}
+        <div style={{ display: 'flex', alignItems: 'center', gap: 10, width: isMobile ? 'auto' : 220, flexShrink: 0 }}>
+          <Link href="/admin/montage">
+            <button style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', width: 32, height: 32, borderRadius: 8, color: S.muted, background: 'transparent', border: 'none', cursor: 'pointer', transition: 'background 0.15s' }}
+              onMouseEnter={e => (e.currentTarget.style.background = S.surface)}
+              onMouseLeave={e => (e.currentTarget.style.background = 'transparent')}
+            >
+              <ArrowLeft size={15} />
+            </button>
+          </Link>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+            <div className="relative w-4 h-4 flex items-center justify-center">
+              <span className="block w-2 h-2 bg-primary animate-logo-morph" />
             </div>
-            <span className="font-sans font-black text-[13px] tracking-tighter text-white uppercase">LAVIDZ</span>
+            <span className="font-sans font-black text-[12px] tracking-tighter text-white uppercase">LAVIDZ</span>
+            <span style={{ color: S.border, fontSize: 13, margin: '0 2px' }}>/</span>
+            <span style={{ color: S.muted, fontSize: 12, maxWidth: 120, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' as const }}>{themeName}</span>
           </div>
-          <p style={{ color: S.muted, fontSize: 10, fontFamily: 'monospace', textTransform: 'uppercase', letterSpacing: '0.08em' }}>{themeName}</p>
         </div>
-        <div style={{ width: 80, display: 'flex', alignItems: 'center', justifyContent: 'flex-end', gap: 6 }}>
-          {saveStatus === 'saving' && (
-            <span style={{ fontSize: 9, fontFamily: 'monospace', color: 'rgba(255,255,255,0.3)', textTransform: 'uppercase', letterSpacing: '0.08em' }}>Sauvegarde...</span>
+
+        {/* Center: Phase tabs (desktop only) */}
+        {!isMobile && (
+          <div style={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 2 }}>
+            {PHASES.map((phase, i) => {
+              const active = currentPhase === i
+              const done = i < currentPhase
+              const locked = i > 0 && !ready
+              return (
+                <button key={phase.id}
+                  onClick={() => { if (!locked) setCurrentPhase(i) }}
+                  title={locked ? 'Générez la preview d\'abord' : undefined}
+                  style={{
+                    display: 'flex', alignItems: 'center', gap: 6,
+                    padding: '5px 16px', borderRadius: 20, fontSize: 12,
+                    fontWeight: active ? 700 : 400,
+                    background: active ? 'rgba(255,255,255,0.1)' : 'transparent',
+                    border: `1px solid ${active ? S.borderHover : 'transparent'}`,
+                    color: active ? S.text : locked ? S.dim : done ? S.muted : S.dim,
+                    transition: 'all 0.15s',
+                    cursor: locked ? 'not-allowed' : 'pointer',
+                    opacity: locked ? 0.45 : 1,
+                  }}>
+                  <span style={{
+                    width: 18, height: 18, borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center',
+                    fontSize: 9, fontFamily: 'monospace', fontWeight: 700, flexShrink: 0,
+                    background: active ? '#fff' : done ? 'rgba(52,211,153,0.2)' : S.surface,
+                    color: active ? '#0a0a0a' : done ? 'rgb(52,211,153)' : S.dim,
+                    border: `1px solid ${active ? 'transparent' : done ? 'rgba(52,211,153,0.3)' : S.border}`,
+                  }}>
+                    {done ? '✓' : locked ? '🔒' : i + 1}
+                  </span>
+                  {phase.label}
+                </button>
+              )
+            })}
+          </div>
+        )}
+
+        {/* Right: save status + export */}
+        <div style={{ display: 'flex', alignItems: 'center', gap: 10, width: isMobile ? 'auto' : 220, justifyContent: 'flex-end', flexShrink: 0 }}>
+          {saveStatus === 'saving' && <span style={{ fontSize: 10, fontFamily: 'monospace', color: S.dim }}>Sauvegarde…</span>}
+          {saveStatus === 'saved' && <span style={{ fontSize: 10, fontFamily: 'monospace', color: 'rgba(52,211,153,0.6)' }}>Sauvegardé ✓</span>}
+          {saveStatus === 'error' && <span style={{ fontSize: 10, fontFamily: 'monospace', color: S.error }}>Erreur</span>}
+          {!ready && saveStatus === 'idle' && <div style={{ width: 5, height: 5, borderRadius: '50%', background: '#f59e0b', animation: 'pulse 1.5s ease infinite' }} />}
+          {ready && segments && (
+            <button
+              onClick={() => serverRendererRef.current?.render()}
+              disabled={!!serverRendererRef.current?.rendering}
+              style={{
+                display: 'flex', alignItems: 'center', gap: 6,
+                padding: '6px 14px', borderRadius: 8, fontSize: 12, fontWeight: 700,
+                background: '#ffffff', border: 'none', color: '#0a0a0a',
+                cursor: serverRendererRef.current?.rendering ? 'not-allowed' : 'pointer',
+                opacity: serverRendererRef.current?.rendering ? 0.5 : 1,
+                transition: 'opacity 0.15s',
+              }}>
+              {serverRendererRef.current?.rendering ? 'Rendu…' : renderOutputUrl ? 'Ré-exporter' : 'Exporter'}
+            </button>
           )}
-          {saveStatus === 'saved' && (
-            <span style={{ fontSize: 9, fontFamily: 'monospace', color: 'rgba(52,211,153,0.7)', textTransform: 'uppercase', letterSpacing: '0.08em' }}>Sauvegardé ✓</span>
-          )}
-          {saveStatus === 'error' && (
-            <span style={{ fontSize: 9, fontFamily: 'monospace', color: 'rgba(248,113,113,0.7)', textTransform: 'uppercase', letterSpacing: '0.08em' }}>Erreur</span>
-          )}
-          {!ready && saveStatus === 'idle' && <div style={{ width: 6, height: 6, borderRadius: 3, background: '#f59e0b', animation: 'pulse 1.5s ease infinite' }} />}
         </div>
       </header>
 
       {/* Loading bar */}
       {regenerating && (
-        <div style={{ padding: '8px 20px', borderBottom: `1px solid ${S.border}`, background: 'rgba(255,255,255,0.02)', display: 'flex', alignItems: 'center', gap: 10, flexShrink: 0 }}>
-          <Loader2 size={12} className="animate-spin" style={{ color: S.muted, flexShrink: 0 }} />
+        <div style={{ padding: '7px 16px', borderBottom: `1px solid ${S.border}`, background: 'rgba(255,255,255,0.015)', display: 'flex', alignItems: 'center', gap: 8, flexShrink: 0 }}>
+          <Loader2 size={11} className="animate-spin" style={{ color: S.muted, flexShrink: 0 }} />
           <p style={{ color: S.muted, fontSize: 11, fontFamily: 'monospace' }}>{loadingStep}</p>
         </div>
       )}
 
       {/* Error banner */}
       {prepareError && (
-        <div style={{ padding: '8px 20px', borderBottom: `1px solid rgba(248,113,113,0.2)`, background: S.errorSoft, display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 10, flexShrink: 0 }}>
+        <div style={{ padding: '7px 16px', borderBottom: `1px solid rgba(248,113,113,0.15)`, background: S.errorSoft, display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 10, flexShrink: 0 }}>
           <p style={{ color: S.error, fontSize: 11, fontFamily: 'monospace' }}>⚠ {prepareError}</p>
           <button onClick={() => setPrepareError('')} style={{ color: S.error, fontSize: 16, background: 'none', border: 'none', cursor: 'pointer', lineHeight: 1, opacity: 0.7 }}>×</button>
         </div>
       )}
 
-      {/* Step tabs */}
-      <div style={{ display: 'flex', gap: 6, padding: '10px 20px', borderBottom: `1px solid ${S.border}`, overflowX: 'auto', flexShrink: 0, scrollbarWidth: 'none' }}>
-        {STEPS.map((step, i) => {
-          const active = currentStep === i
-          const done = i < currentStep
-          const tabHovered = hoveredStep === i && !active
-          return (
-            <button key={step.id} onClick={() => setCurrentStep(i)}
-              onMouseEnter={() => setHoveredStep(i)}
-              onMouseLeave={() => setHoveredStep(null)}
-              style={{
-                display: 'flex', alignItems: 'center', gap: 6,
-                padding: '6px 12px', borderRadius: 20, whiteSpace: 'nowrap', flexShrink: 0,
-                background: active ? '#fff' : tabHovered ? 'rgba(255,255,255,0.1)' : done ? 'rgba(255,255,255,0.08)' : 'transparent',
-                border: active ? 'none' : `1px solid ${done ? 'rgba(255,255,255,0.12)' : tabHovered ? 'rgba(255,255,255,0.1)' : 'transparent'}`,
-                color: active ? '#0a0a0a' : done ? 'rgba(255,255,255,0.6)' : tabHovered ? S.muted : S.dim,
-                fontSize: isMobile ? 11 : 12, fontWeight: active ? 700 : 500, transition: 'all 0.15s',
-              }}
-            >
-              {!isMobile && <span style={{ fontSize: 10, fontFamily: 'monospace', opacity: 0.6 }}>{String(i + 1).padStart(2, '0')}</span>}
-              {step.label}
-              {done && <span style={{ fontSize: 9, opacity: 0.7 }}>✓</span>}
-            </button>
-          )
-        })}
-      </div>
-
-      {/* Mobile view toggle */}
-      {isMobile && (
-        <div style={{ display: 'flex', borderBottom: `1px solid ${S.border}`, flexShrink: 0 }}>
-          <button
-            onClick={() => setMobileView('controls')}
-            style={{ flex: 1, padding: '10px', fontSize: 12, fontWeight: 600, background: mobileView === 'controls' ? S.surfaceActive : 'transparent', border: 'none', borderBottom: mobileView === 'controls' ? `2px solid #fff` : '2px solid transparent', color: mobileView === 'controls' ? S.text : S.muted, transition: 'all 0.15s' }}
-          >
-            Paramètres
-          </button>
-          <button
-            onClick={() => setMobileView('preview')}
-            style={{ flex: 1, padding: '10px', fontSize: 12, fontWeight: 600, background: mobileView === 'preview' ? S.surfaceActive : 'transparent', border: 'none', borderBottom: mobileView === 'preview' ? `2px solid #fff` : '2px solid transparent', color: mobileView === 'preview' ? S.text : S.muted, transition: 'all 0.15s' }}
-          >
-            Aperçu
-          </button>
-        </div>
-      )}
-
-      {/* Main body: split layout */}
-      <div style={{ flex: 1, display: 'flex', flexDirection: isMobile ? 'column' : 'row', overflow: 'hidden' }}>
-
-        {/* Left panel: step controls + bottom nav */}
-        <div style={{ display: isMobile && mobileView !== 'controls' ? 'none' : 'flex', flexDirection: 'column', width: isMobile ? '100%' : '42%', minWidth: isMobile ? 0 : 320, maxWidth: isMobile ? '100%' : 480, borderRight: isMobile ? 'none' : `1px solid ${S.border}`, borderBottom: isMobile && mobileView === 'controls' ? `1px solid ${S.border}` : 'none', overflow: 'hidden', flexShrink: 0 }}>
-          {/* Step content */}
-          <div style={{ flex: 1, overflowY: 'auto', padding: '0 20px 24px' }}>
-            {/* Step header — sticky */}
-            <div style={{
-              position: 'sticky', top: 0, zIndex: 1,
-              background: '#0a0a0a',
-              padding: '20px 0 16px',
-              marginBottom: 8,
-              borderBottom: `1px solid ${S.border}`,
-            }}>
-              <p style={{ fontSize: 10, fontFamily: 'monospace', color: S.dim, textTransform: 'uppercase', letterSpacing: '0.1em', marginBottom: 4 }}>
-                Étape {currentStep + 1} / {STEPS.length}
+      {/* ══ MAIN BODY ═══════════════════════════════════════════════════════════ */}
+      {isMobile ? (
+        /* ── Mobile: player top / controls bottom ── */
+        <div style={{ flex: 1, display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
+          <div style={{ flex: 1, minHeight: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', background: '#000', overflow: 'hidden' }}>
+            {!ready ? (
+              <p style={{ color: S.dim, fontSize: 11, fontFamily: 'monospace', textAlign: 'center', lineHeight: 1.7 }}>
+                Configurez vos paramètres<br />puis cliquez sur <strong style={{ color: S.muted }}>Générer</strong>
               </p>
-              <h2 style={{ fontSize: 20, fontWeight: 800, letterSpacing: '-0.02em' }}>{STEPS[currentStep].label}</h2>
-              <p style={{ color: S.muted, fontSize: 12, marginTop: 3 }}>{STEPS[currentStep].desc}</p>
-            </div>
-
-            {/* Step content with fade animation */}
-            <div key={currentStep} style={{ paddingTop: 16, animation: 'fadeSlideIn 0.18s ease' }}>
-              {stepContent[currentStep]}
+            ) : segments && (
+              <Player ref={playerRef as any} component={LavidzComposition as any}
+                inputProps={{ segments: effectiveSegments, questionCardFrames, subtitleSettings, theme, intro, outro, fps: FPS, motionSettings: effectiveMotionSettings, audioSettings }}
+                durationInFrames={totalFrames} fps={FPS} compositionWidth={fmt.width} compositionHeight={fmt.height}
+                style={{ maxWidth: '100%', maxHeight: '100%', aspectRatio: `${fmt.width} / ${fmt.height}`, display: 'block' }}
+                playbackRate={playbackRate} showPlaybackRateControl controls clickToPlay />
+            )}
+          </div>
+          {/* Mobile phase tabs */}
+          <div style={{ display: 'flex', borderBottom: `1px solid ${S.border}`, flexShrink: 0 }}>
+            {PHASES.map((phase, i) => (
+              <button key={phase.id} onClick={() => setCurrentPhase(i)}
+                style={{ flex: 1, padding: '10px 4px', fontSize: 11, fontWeight: currentPhase === i ? 700 : 500, background: 'transparent', border: 'none', borderBottom: currentPhase === i ? '2px solid #fff' : '2px solid transparent', color: currentPhase === i ? S.text : S.muted }}>
+                {phase.label}
+              </button>
+            ))}
+          </div>
+          <div style={{ flex: 1, overflowY: 'auto', padding: '14px 16px 24px' }}>
+            <div key={`${currentPhase}-${currentPhase === 1 ? phase2Section : ''}`} style={{ animation: 'fadeSlideIn 0.18s ease' }}>
+              {phaseContent[currentPhase]}
             </div>
           </div>
-
-          {/* Bottom nav */}
-          <div style={{ padding: '12px 20px', borderTop: `1px solid ${S.border}`, display: 'flex', flexDirection: 'column', gap: 8, flexShrink: 0 }}>
-            <div style={{ display: 'flex', gap: 10 }}>
-              {currentStep > 0 && (
-                <NavButton variant="back" onClick={() => setCurrentStep(s => s - 1)}>←</NavButton>
-              )}
-              {currentStep < STEPS.length - 1 && (
-                <NavButton variant="next" onClick={() => setCurrentStep(s => s + 1)}>
-                  {STEPS[currentStep + 1].label} <ChevronRight size={14} />
-                </NavButton>
-              )}
-              {currentStep === STEPS.length - 1 && ready && segments && (
-                <NavButton variant="export" onClick={() => serverRendererRef.current?.render()} disabled={!!serverRendererRef.current?.rendering}>
-                  {serverRendererRef.current?.rendering ? 'Rendu en cours...' : renderOutputUrl ? 'Ré-exporter' : 'Exporter le montage'}
-                </NavButton>
+          {renderOutputUrl && sessionId && (
+            <div style={{ padding: '8px 16px', borderTop: `1px solid ${S.border}`, flexShrink: 0 }}>
+              {delivered ? <p style={{ textAlign: 'center', fontSize: 12, color: 'rgb(52,211,153)', fontFamily: 'monospace' }}>Email envoyé ✓</p> : (
+                <button disabled={delivering} onClick={async () => { setDelivering(true); setDeliverError(''); try { const r = await fetch(`/api/admin/sessions/${sessionId}/deliver`, { method: 'POST' }); if (!r.ok) throw new Error(await r.text()); setDelivered(true) } catch (e) { setDeliverError(String(e)) } finally { setDelivering(false) } }}
+                  style={{ width: '100%', padding: '10px', borderRadius: 10, fontSize: 12, fontWeight: 600, cursor: 'pointer', background: 'rgba(52,211,153,0.12)', border: '1px solid rgba(52,211,153,0.25)', color: 'rgb(52,211,153)' }}>
+                  {delivering ? 'Envoi...' : 'Envoyer au client ✉'}
+                </button>
               )}
             </div>
-            {/* Deliver button — shown after render completes if this session has a recipient */}
+          )}
+        </div>
+      ) : (
+        /* ── Desktop: sidebar left + canvas right ── */
+        <div style={{ flex: 1, display: 'flex', overflow: 'hidden' }}>
+
+          {/* ── LEFT SIDEBAR ──────────────────────────────────────────────────── */}
+          <div style={{ width: 360, flexShrink: 0, display: 'flex', flexDirection: 'column', borderRight: `1px solid ${S.border}`, background: '#0a0a0a', overflow: 'hidden' }}>
+
+            {/* Sidebar header: phase title + nav arrows */}
+            <div style={{ padding: '12px 16px', borderBottom: `1px solid ${S.border}`, flexShrink: 0, display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+              <div>
+                <p style={{ color: S.text, fontWeight: 700, fontSize: 13 }}>{PHASES[currentPhase].label}</p>
+                <p style={{ color: S.dim, fontSize: 10, fontFamily: 'monospace', marginTop: 2 }}>{PHASES[currentPhase].desc}</p>
+              </div>
+              <div style={{ display: 'flex', gap: 4 }}>
+                <button onClick={() => setCurrentPhase(p => Math.max(0, p - 1))} disabled={currentPhase === 0}
+                  style={{ width: 28, height: 28, borderRadius: 7, display: 'flex', alignItems: 'center', justifyContent: 'center', background: S.surface, border: `1px solid ${S.border}`, color: currentPhase === 0 ? S.dim : S.muted, cursor: currentPhase === 0 ? 'default' : 'pointer', opacity: currentPhase === 0 ? 0.35 : 1 }}>
+                  <ChevronRight size={13} style={{ transform: 'rotate(180deg)' }} />
+                </button>
+                <button
+                  onClick={() => { if (!ready) return; setCurrentPhase(p => Math.min(PHASES.length - 1, p + 1)) }}
+                  disabled={currentPhase === PHASES.length - 1 || !ready}
+                  title={!ready ? 'Générez la preview d\'abord' : undefined}
+                  style={{
+                    width: 28, height: 28, borderRadius: 7, display: 'flex', alignItems: 'center', justifyContent: 'center',
+                    background: currentPhase < PHASES.length - 1 && ready ? '#fff' : S.surface,
+                    border: `1px solid ${currentPhase < PHASES.length - 1 && ready ? '#fff' : S.border}`,
+                    color: currentPhase < PHASES.length - 1 && ready ? '#0a0a0a' : S.dim,
+                    cursor: (currentPhase === PHASES.length - 1 || !ready) ? 'not-allowed' : 'pointer',
+                    opacity: (currentPhase === PHASES.length - 1 || !ready) ? 0.35 : 1,
+                  }}>
+                  <ChevronRight size={13} />
+                </button>
+              </div>
+            </div>
+
+            {/* Phase 2 sub-nav */}
+            {currentPhase === 1 && (
+              <div style={{ display: 'flex', borderBottom: `1px solid ${S.border}`, flexShrink: 0 }}>
+                {phase2SubNavItems.map(item => (
+                  <button key={item.id} onClick={() => setPhase2Section(item.id)}
+                    style={{
+                      flex: 1, padding: '9px 4px', fontSize: 10, fontWeight: phase2Section === item.id ? 700 : 500,
+                      fontFamily: 'monospace', textTransform: 'uppercase' as const, letterSpacing: '0.06em',
+                      background: 'transparent', border: 'none',
+                      borderBottom: phase2Section === item.id ? '2px solid #fff' : '2px solid transparent',
+                      color: phase2Section === item.id ? S.text : S.dim, cursor: 'pointer',
+                      transition: 'all 0.15s',
+                    }}>
+                    {item.label}
+                  </button>
+                ))}
+              </div>
+            )}
+
+            {/* Scrollable content */}
+            <div style={{ flex: 1, overflowY: 'auto', padding: '16px 16px 32px' }}>
+              <div
+                key={`${currentPhase}-${currentPhase === 1 ? phase2Section : ''}-${currentPhase === 1 && phase2Section === 'bookends' ? bookendTarget : ''}`}
+                style={{ animation: 'fadeSlideIn 0.18s ease' }}
+              >
+                {phaseContent[currentPhase]}
+              </div>
+            </div>
+
+            {/* ── Generate CTA — pinned at bottom of sidebar ── */}
+            {currentPhase === 0 && (
+              <div style={{ padding: '12px 16px', borderTop: `1px solid ${!ready ? 'rgba(255,255,255,0.12)' : S.border}`, flexShrink: 0, background: !ready ? 'rgba(255,255,255,0.03)' : 'transparent' }}>
+                <button
+                  onClick={applyVoice}
+                  disabled={regenerating}
+                  style={{
+                    width: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 9,
+                    padding: ready ? '11px 0' : '15px 0',
+                    borderRadius: 12,
+                    background: regenerating ? 'rgba(255,255,255,0.07)' : ready ? S.surface : '#ffffff',
+                    border: ready ? `1px solid ${S.borderHover}` : 'none',
+                    color: ready ? S.text : '#0a0a0a',
+                    fontSize: ready ? 12 : 14, fontWeight: 700,
+                    cursor: regenerating ? 'not-allowed' : 'pointer',
+                    opacity: regenerating ? 0.6 : 1,
+                    transition: 'all 0.2s',
+                    boxShadow: !ready && !regenerating ? '0 0 0 3px rgba(255,255,255,0.1), 0 4px 20px rgba(255,255,255,0.08)' : 'none',
+                    letterSpacing: !ready ? '-0.01em' : '0',
+                  }}
+                >
+                  {regenerating
+                    ? <><Loader2 size={14} style={{ animation: 'spin 0.8s linear infinite' }} /> Génération en cours…</>
+                    : ready
+                      ? <><RefreshCw size={12} /> Appliquer les changements</>
+                      : <>Générer la preview →</>
+                  }
+                </button>
+                {!ready && !regenerating && (
+                  <p style={{ textAlign: 'center', fontSize: 10, color: S.dim, fontFamily: 'monospace', marginTop: 8 }}>
+                    Étape obligatoire avant de continuer
+                  </p>
+                )}
+              </div>
+            )}
+
+            {/* Deliver action */}
             {renderOutputUrl && sessionId && (
-              <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+              <div style={{ padding: '10px 16px', borderTop: `1px solid ${S.border}`, flexShrink: 0 }}>
                 {delivered ? (
-                  <p style={{ textAlign: 'center', fontSize: 12, color: 'rgb(52,211,153)', fontFamily: 'monospace' }}>Email envoyé au client ✓</p>
+                  <p style={{ textAlign: 'center', fontSize: 11, color: 'rgb(52,211,153)', fontFamily: 'monospace' }}>Email envoyé au client ✓</p>
                 ) : (
-                  <NavButton variant="deliver" disabled={delivering} onClick={async () => {
-                    setDelivering(true)
-                    setDeliverError('')
+                  <button disabled={delivering} onClick={async () => {
+                    setDelivering(true); setDeliverError('')
                     try {
                       const res = await fetch(`/api/admin/sessions/${sessionId}/deliver`, { method: 'POST' })
                       if (!res.ok) throw new Error(await res.text())
                       setDelivered(true)
-                    } catch (err) {
-                      setDeliverError(String(err))
-                    } finally {
-                      setDelivering(false)
-                    }
-                  }}>
-                    {delivering ? 'Envoi...' : 'Confirmer et envoyer au client ✉'}
-                  </NavButton>
-                )}
-                {deliverError && <p style={{ fontSize: 11, color: S.error, fontFamily: 'monospace', textAlign: 'center' }}>{deliverError}</p>}
-              </div>
-            )}
-          </div>
-        </div>
-
-        {/* Right panel: format selector + persistent Player */}
-        <div style={{ flex: 1, display: isMobile && mobileView !== 'preview' ? 'none' : 'flex', flexDirection: 'column', gap: 16, padding: '20px', overflow: 'hidden', minWidth: 0 }}>
-          {/* Format selector */}
-          <div style={{ flexShrink: 0 }}>
-            <Label>Format</Label>
-            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 8 }}>
-              {(Object.entries(FORMATS) as [FormatKey, typeof FORMATS[FormatKey]][]).map(([key, f]) => (
-                <button key={key} onClick={() => setFormat(key)}
-                  style={{
-                    padding: '10px 8px', borderRadius: 12, textAlign: 'center',
-                    ...selectableStyle(format === key),
+                    } catch (err) { setDeliverError(String(err)) } finally { setDelivering(false) }
                   }}
-                >
-                  <p style={{ fontWeight: 700, fontSize: 13, fontFamily: 'monospace' }}>{f.label}</p>
-                  <p style={{ color: S.dim, fontSize: 9, marginTop: 3, fontFamily: 'monospace' }}>{f.description}</p>
-                </button>
-              ))}
-            </div>
-          </div>
-          {/* Player */}
-          <div style={{ flex: 1, minHeight: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', borderRadius: 16, overflow: 'hidden', background: '#000', border: `1px solid ${S.border}` }}>
-            {!ready ? (
-              <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 12, padding: 48 }}>
-                {loadingStep ? (
-                  <>
-                    <div style={{ width: 24, height: 24, border: '2px solid rgba(255,255,255,0.1)', borderTopColor: '#fff', borderRadius: '50%', animation: 'spin 0.8s linear infinite' }} />
-                    <p style={{ color: S.muted, fontSize: 11, fontFamily: 'monospace' }}>{loadingStep}</p>
-                  </>
-                ) : (
-                  <p style={{ color: S.dim, fontSize: 11, fontFamily: 'monospace', textAlign: 'center' }}>
-                    Configurez vos paramètres<br />puis cliquez sur <strong style={{ color: S.muted }}>Générer</strong>
-                  </p>
+                    style={{ width: '100%', padding: '10px', borderRadius: 10, fontSize: 12, fontWeight: 600, cursor: delivering ? 'not-allowed' : 'pointer', background: 'rgba(52,211,153,0.1)', border: '1px solid rgba(52,211,153,0.22)', color: 'rgb(52,211,153)', transition: 'all 0.15s' }}>
+                    {delivering ? 'Envoi…' : 'Confirmer et envoyer au client ✉'}
+                  </button>
                 )}
+                {deliverError && <p style={{ fontSize: 11, color: S.error, fontFamily: 'monospace', marginTop: 6, textAlign: 'center' }}>{deliverError}</p>}
               </div>
-            ) : segments && (
-              <Player
-                ref={playerRef as any}
-                component={LavidzComposition as any}
-                inputProps={{ segments: effectiveSegments, questionCardFrames, subtitleSettings, theme, intro, outro, fps: FPS, motionSettings, audioSettings }}
-                durationInFrames={totalFrames}
-                fps={FPS}
-                compositionWidth={fmt.width}
-                compositionHeight={fmt.height}
-                style={{ width: '100%', aspectRatio: `${fmt.width} / ${fmt.height}`, maxHeight: '100%', display: 'block' }}
-                playbackRate={playbackRate}
-                showPlaybackRateControl
-                controls
-                clickToPlay
-              />
             )}
           </div>
 
-          {/* Timeline editor */}
-          {ready && effectiveSegments && timelineVisible && (
-            <div style={{ flexShrink: 0 }}>
-              <Timeline
-                segments={segments}
-                introFrames={introFrames}
-                outroFrames={outroFrames}
-                questionCardFrames={questionCardFrames}
-                fps={FPS}
-                playerRef={playerRef}
-                playerFrameRef={playerFrameRef}
-                clipEdits={clipEdits}
-                onSplit={handleTimelineSplit}
-                onDeleteRange={deleteRange}
-                onResetClip={resetClip}
-                onUndo={undoClipEdit}
-                playbackRate={playbackRate}
-                onPlaybackRateChange={setPlaybackRate}
-              />
-            </div>
-          )}
-        </div>
+          {/* ── RIGHT: CANVAS + TIMELINE ──────────────────────────────────────── */}
+          <div style={{ flex: 1, display: 'flex', flexDirection: 'column', overflow: 'hidden', background: '#050505' }}>
 
-      </div>
+            {/* Canvas area: video centered in a dark stage */}
+            <div style={{ flex: 1, minHeight: 0, position: 'relative', display: 'flex', alignItems: 'center', justifyContent: 'center', overflow: 'hidden' }}>
+
+              {/* Format selector — floating top-left of canvas */}
+              <div style={{ position: 'absolute', top: 12, left: 14, zIndex: 10, display: 'flex', gap: 3 }}>
+                {(Object.entries(FORMATS) as [FormatKey, typeof FORMATS[FormatKey]][]).map(([key, f]) => (
+                  <button key={key} onClick={() => setFormat(key)}
+                    style={{
+                      padding: '4px 9px', borderRadius: 6, fontSize: 10, fontWeight: 700, fontFamily: 'monospace',
+                      background: format === key ? 'rgba(255,255,255,0.15)' : 'rgba(0,0,0,0.5)',
+                      border: `1px solid ${format === key ? 'rgba(255,255,255,0.35)' : 'rgba(255,255,255,0.1)'}`,
+                      backdropFilter: 'blur(8px)',
+                      color: format === key ? S.text : 'rgba(255,255,255,0.45)', transition: 'all 0.15s', cursor: 'pointer',
+                    }}>
+                    {f.label}
+                    {format === key && <span style={{ fontSize: 8, color: S.dim, marginLeft: 4 }}>{f.description}</span>}
+                  </button>
+                ))}
+              </div>
+
+              {/* Ready state badge — floating top-right */}
+              {ready && (
+                <div style={{ position: 'absolute', top: 12, right: 14, zIndex: 10, display: 'flex', alignItems: 'center', gap: 6, padding: '4px 10px', borderRadius: 6, background: 'rgba(52,211,153,0.1)', border: '1px solid rgba(52,211,153,0.2)', backdropFilter: 'blur(8px)' }}>
+                  <div style={{ width: 5, height: 5, borderRadius: '50%', background: 'rgb(52,211,153)' }} />
+                  <span style={{ fontSize: 10, fontFamily: 'monospace', color: 'rgb(52,211,153)' }}>Preview</span>
+                </div>
+              )}
+
+              {/* Video player or placeholder */}
+              {!ready ? (
+                <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 0, maxWidth: 360, textAlign: 'center' }}>
+                  {regenerating ? (
+                    /* Loading state */
+                    <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 16 }}>
+                      <div style={{ position: 'relative', width: 56, height: 56 }}>
+                        <div style={{ position: 'absolute', inset: 0, borderRadius: '50%', border: '2px solid rgba(255,255,255,0.06)' }} />
+                        <div style={{ position: 'absolute', inset: 0, borderRadius: '50%', border: '2px solid transparent', borderTopColor: 'rgba(255,255,255,0.7)', animation: 'spin 0.9s linear infinite' }} />
+                        <div style={{ position: 'absolute', inset: 8, borderRadius: '50%', background: S.surface, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                          <Loader2 size={14} style={{ color: S.muted, animation: 'spin 1.2s linear infinite reverse' }} />
+                        </div>
+                      </div>
+                      <div>
+                        <p style={{ color: S.muted, fontSize: 13, fontWeight: 600 }}>Génération en cours</p>
+                        <p style={{ color: S.dim, fontSize: 11, fontFamily: 'monospace', marginTop: 6 }}>{loadingStep}</p>
+                      </div>
+                    </div>
+                  ) : (
+                    /* Empty state CTA */
+                    <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 24 }}>
+                      {/* Icon */}
+                      <div style={{ width: 72, height: 72, borderRadius: 20, background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.08)', display: 'flex', alignItems: 'center', justifyContent: 'center', position: 'relative' }}>
+                        <Play size={24} style={{ color: 'rgba(255,255,255,0.4)', marginLeft: 3 }} />
+                        {/* Pulse ring */}
+                        <div style={{ position: 'absolute', inset: -8, borderRadius: 28, border: '1px solid rgba(255,255,255,0.06)', animation: 'pulse 2s ease infinite' }} />
+                        <div style={{ position: 'absolute', inset: -16, borderRadius: 36, border: '1px solid rgba(255,255,255,0.03)', animation: 'pulse 2s ease infinite 0.4s' }} />
+                      </div>
+
+                      {/* Text */}
+                      <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+                        <h3 style={{ fontSize: 18, fontWeight: 800, letterSpacing: '-0.03em', color: S.text }}>
+                          Générez votre preview
+                        </h3>
+                        <p style={{ fontSize: 13, color: S.muted, lineHeight: 1.6 }}>
+                          Configurez le traitement audio dans le panel de gauche,<br />
+                          puis lancez la génération pour voir votre montage.
+                        </p>
+                      </div>
+
+                      {/* CTA button in canvas */}
+                      <button
+                        onClick={applyVoice}
+                        style={{
+                          display: 'flex', alignItems: 'center', gap: 10,
+                          padding: '14px 28px', borderRadius: 14,
+                          background: '#ffffff', border: 'none', color: '#0a0a0a',
+                          fontSize: 14, fontWeight: 800, letterSpacing: '-0.01em',
+                          cursor: 'pointer', transition: 'all 0.2s',
+                          boxShadow: '0 0 0 4px rgba(255,255,255,0.08), 0 8px 32px rgba(255,255,255,0.12)',
+                        }}
+                        onMouseEnter={e => { e.currentTarget.style.transform = 'translateY(-1px)'; e.currentTarget.style.boxShadow = '0 0 0 4px rgba(255,255,255,0.12), 0 12px 40px rgba(255,255,255,0.18)' }}
+                        onMouseLeave={e => { e.currentTarget.style.transform = ''; e.currentTarget.style.boxShadow = '0 0 0 4px rgba(255,255,255,0.08), 0 8px 32px rgba(255,255,255,0.12)' }}
+                      >
+                        <Play size={16} style={{ marginLeft: -2, fill: '#0a0a0a' }} />
+                        Générer la preview
+                      </button>
+
+                      <p style={{ fontSize: 10, color: S.dim, fontFamily: 'monospace' }}>
+                        Vous pourrez personnaliser le style ensuite
+                      </p>
+                    </div>
+                  )}
+                </div>
+              ) : segments && (
+                <Player
+                  ref={playerRef as any}
+                  component={LavidzComposition as any}
+                  inputProps={{ segments: effectiveSegments, questionCardFrames, subtitleSettings, theme, intro, outro, fps: FPS, motionSettings: effectiveMotionSettings, audioSettings }}
+                  durationInFrames={totalFrames}
+                  fps={FPS}
+                  compositionWidth={fmt.width}
+                  compositionHeight={fmt.height}
+                  style={{
+                    maxWidth: '100%',
+                    maxHeight: '100%',
+                    aspectRatio: `${fmt.width} / ${fmt.height}`,
+                    display: 'block',
+                    boxShadow: '0 8px 48px rgba(0,0,0,0.6), 0 2px 8px rgba(0,0,0,0.4)',
+                  }}
+                  playbackRate={playbackRate}
+                  showPlaybackRateControl
+                  controls
+                  clickToPlay
+                />
+              )}
+            </div>
+
+            {/* Timeline (collapsible) */}
+            {ready && effectiveSegments && timelineVisible && (
+              <div style={{ flexShrink: 0, borderTop: `1px solid ${S.border}` }}>
+                <Timeline
+                  segments={segments}
+                  coldOpenFrames={coldOpenFrames}
+                  introFrames={introFrames}
+                  outroFrames={outroFrames}
+                  questionCardFrames={questionCardFrames}
+                  fps={FPS}
+                  playerRef={playerRef}
+                  playerFrameRef={playerFrameRef}
+                  clipEdits={clipEdits}
+                  onSplit={handleTimelineSplit}
+                  onDeleteRange={deleteRange}
+                  onResetClip={resetClip}
+                  onUndo={undoClipEdit}
+                  playbackRate={playbackRate}
+                  onPlaybackRateChange={setPlaybackRate}
+                />
+              </div>
+            )}
+
+            {/* Bottom bar: timeline toggle + playback info */}
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '6px 14px', borderTop: `1px solid ${S.border}`, background: '#0a0a0a', flexShrink: 0 }}>
+              <button
+                onClick={() => setTimelineVisible(v => !v)}
+                style={{
+                  display: 'flex', alignItems: 'center', gap: 5,
+                  padding: '4px 10px', borderRadius: 6, fontSize: 10, fontFamily: 'monospace',
+                  background: timelineVisible ? S.surface : 'transparent',
+                  border: `1px solid ${timelineVisible ? S.border : 'transparent'}`,
+                  color: timelineVisible ? S.muted : S.dim, cursor: 'pointer', transition: 'all 0.15s',
+                }}>
+                <ChevronRight size={10} style={{ transform: timelineVisible ? 'rotate(90deg)' : 'rotate(-90deg)', transition: 'transform 0.2s' }} />
+                Timeline
+              </button>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                {ready && <span style={{ fontSize: 10, fontFamily: 'monospace', color: S.dim }}>{(totalFrames / FPS).toFixed(1)}s · {FPS}fps</span>}
+              </div>
+            </div>
+
+          </div>{/* end right */}
+        </div>/* end desktop */
+      )}
 
       <style>{`
         @keyframes spin { to { transform: rotate(360deg); } }
         @keyframes fadeSlideIn { from { opacity: 0; transform: translateY(4px); } to { opacity: 1; transform: translateY(0); } }
         @keyframes pulse { 0%, 100% { opacity: 1; } 50% { opacity: 0.3; } }
         ::-webkit-scrollbar { display: none; }
+        .remotion-player-controls { border-radius: 0 0 0 0 !important; }
       `}</style>
     </div>
   )

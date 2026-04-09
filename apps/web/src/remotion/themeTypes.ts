@@ -27,6 +27,46 @@ export interface AudioSettings {
   ttsVolume?: number  // volume of the TTS voice (0–2), default 1
 }
 
+export type InlayCategory = 'alert' | 'money' | 'growth' | 'idea' | 'fire' | 'heart' | 'target' | 'star'
+
+export interface VisualInlay {
+  exactWord: string
+  category: InlayCategory
+  timeInSeconds: number
+}
+
+export interface ColdOpenSettings {
+  enabled: boolean
+  hookPhrase: string
+  startInSeconds: number
+  endInSeconds: number
+  segmentId: string
+  swooshEnabled: boolean
+  // Style
+  textColor?: string              // default '#FFFFFF'
+  highlightColor?: string         // default '#FFD60A'
+  fontFamily?: string             // default Impact
+  fontSize?: number               // px, default 72
+  textPosition?: 'bottom' | 'center' | 'top'  // default 'bottom'
+  videoStyle?: 'bw' | 'desaturated' | 'color' | 'raw'  // default 'desaturated'
+}
+
+export interface VisualInlay {
+  exactWord: string
+  category: InlayCategory
+  timeInSeconds: number
+  label?: string   // optional text label shown next to icon
+}
+
+export interface InlaySettings {
+  enabled: boolean
+  inlays: VisualInlay[]
+  popSoundEnabled: boolean
+  popVolume?: number    // 0–1, default 0.5
+  duration?: number     // seconds per inlay, default 2
+  style?: 'pill' | 'minimal' | 'bold'  // default 'pill'
+}
+
 export interface MotionSettings {
   transitionStyle: TransitionStyle
   wordPop: boolean
@@ -39,6 +79,8 @@ export interface MotionSettings {
   questionCardBgPattern?: SlideBgPattern
   lowerThird?: LowerThirdSettings
   questionCardColors?: string[]
+  coldOpen?: ColdOpenSettings
+  inlays?: InlaySettings
 }
 
 export const DEFAULT_MOTION_SETTINGS: MotionSettings = {

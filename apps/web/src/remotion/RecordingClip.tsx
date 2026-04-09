@@ -1,5 +1,5 @@
 import { AbsoluteFill, Audio, Video, OffthreadVideo, interpolate, spring, useCurrentFrame, useVideoConfig } from 'remotion'
-import { useMemo } from 'react'
+import { useMemo, useRef, useEffect, useState } from 'react'
 import type { SubtitleSettings } from './subtitleTypes'
 import { DEFAULT_SUBTITLE_SETTINGS } from './subtitleTypes'
 import type { MotionSettings, WordTimestamp } from './themeTypes'
@@ -134,6 +134,149 @@ function getWordWindow(
   const activeIndex = currentWordIndex - windowStart
 
   return { words: windowWords, activeIndex, framesIntoActiveWord }
+}
+
+// ─── Animated emoji overlay (Submagic-style) ─────────────────────────────────
+// Strips punctuation and lowercases a word for emoji map lookup
+/** Converts an emoji to a Google Noto Animated GIF URL */
+
+/**
+ * Converts an emoji string to a Google Noto Animated Emoji GIF URL.
+ * e.g. "🔥" → "https://fonts.gstatic.com/s/e/notoemoji/latest/1f525/512.gif"
+ */
+function emojiToNotoGif(emoji: string): string {
+  const codepoints: string[] = []
+  for (const char of emoji) {
+    const cp = char.codePointAt(0)
+    if (cp !== undefined && cp !== 0xFE0F && cp !== 0x200D) {
+      codepoints.push(cp.toString(16))
+    }
+  }
+  const key = codepoints.join('_')
+  return `https://fonts.gstatic.com/s/e/notoemoji/latest/${key}/512.gif`
+}
+
+// Particle burst on emoji entry
+const BURST_ANGLES = [0, 60, 120, 180, 240, 300].map(d => (d * Math.PI) / 180)
+function EmojiBurst() {
+  const frame = useCurrentFrame()
+  return (
+    <>
+      {BURST_ANGLES.map((angle, i) => {
+        const f = Math.max(0, frame - (i % 2))
+        const dist    = interpolate(f, [0, 14], [0, 55], { extrapolateRight: 'clamp' })
+        const opacity = interpolate(f, [0, 3, 14], [0, 1, 0], { extrapolateRight: 'clamp' })
+        const size    = interpolate(f, [0, 4, 14], [2, 8, 3],  { extrapolateRight: 'clamp' })
+        return (
+          <div key={i} style={{
+            position: 'absolute', width: size, height: size, borderRadius: '50%',
+            background: 'rgba(255,255,255,0.95)', opacity,
+            left: '50%', top: '50%',
+            transform: `translate(calc(${Math.cos(angle) * dist}px - 50%), calc(${Math.sin(angle) * dist}px - 50%))`,
+            pointerEvents: 'none',
+          }} />
+        )
+      })}
+    </>
+  )
+}
+
+/**
+ * Animated emoji pop around the subtitle block (Submagic-style).
+ * Uses Google Noto Animated Emoji (GIF via CDN) for the animation.
+ * Falls back to plain emoji span if the animated version fails to load.
+ */
+
+// 8 positions around the subtitle block: { dx, dy } pixel offsets from subtitle center.
+// Negative dy = above, positive dy = below. Negative dx = left, positive dx = right.
+const EMOJI_POSITIONS: { dx: number; dy: number }[] = [
+  { dx:    0, dy: -110 }, // above-center
+  { dx: -190, dy:  -80 }, // above-left
+  { dx:  190, dy:  -80 }, // above-right
+  { dx: -260, dy:   -5 }, // side-left
+  { dx:  260, dy:   -5 }, // side-right
+  { dx:    0, dy:   90 }, // below-center
+  { dx: -190, dy:   65 }, // below-left
+  { dx:  190, dy:   65 }, // below-right
+]
+
+function EmojiPop({
+  emoji,
+  framesIntoActiveWord,
+  fps,
+  subtitlePositionPct,
+  emojiIndex,
+}: {
+  emoji: string
+  framesIntoActiveWord: number
+  fps: number
+  subtitlePositionPct: number
+  emojiIndex: number
+}) {
+  const SIZE = 80 // px — balanced size at 1080p
+  const [imgError, setImgError] = useState(false)
+  // If the Noto GIF fails to load, hide the emoji entirely (no static fallback)
+  if (imgError) return null
+
+  const pos = EMOJI_POSITIONS[emojiIndex % EMOJI_POSITIONS.length]
+
+  // Entry spring: punchy overshoot 0 → 1
+  const entryScale = spring({
+    frame: framesIntoActiveWord,
+    fps,
+    from: 0,
+    to: 1,
+    config: { damping: 5, mass: 0.35, stiffness: 320 },
+  })
+
+  // Rotation direction: left side → CCW, right/center → CW
+  const rotateDir = pos.dx <= 0 ? -1 : 1
+  const entryRotate = spring({
+    frame: framesIntoActiveWord,
+    fps,
+    from: rotateDir * 20,
+    to: 0,
+    config: { damping: 8, mass: 0.5, stiffness: 220 },
+  })
+
+  // Idle float — speed varies per emoji
+  const floatSpeed = 2.0 + (emojiIndex % 3) * 0.4
+  const idle = framesIntoActiveWord > 10
+    ? interpolate(Math.sin(((framesIntoActiveWord - 10) / fps) * Math.PI * floatSpeed), [-1, 1], [-6, 6])
+    : 0
+
+  const gifUrl = emojiToNotoGif(emoji)
+
+  return (
+    <div style={{
+      position: 'absolute',
+      left: '50%',
+      top: `${subtitlePositionPct}%`,
+      transform: `translate(calc(-50% + ${pos.dx}px), calc(-50% + ${pos.dy + idle}px)) scale(${entryScale}) rotate(${entryRotate}deg)`,
+      transformOrigin: 'center center',
+      filter: 'drop-shadow(0 4px 16px rgba(0,0,0,0.55))',
+      zIndex: 3,
+      pointerEvents: 'none',
+      width: SIZE,
+      height: SIZE,
+      display: 'flex',
+      alignItems: 'center',
+      justifyContent: 'center',
+    }}>
+      {/* Particle burst on entry */}
+      {framesIntoActiveWord < 16 && <EmojiBurst />}
+
+      {/* eslint-disable-next-line @next/next/no-img-element */}
+      <img
+        src={gifUrl}
+        alt={emoji}
+        width={SIZE}
+        height={SIZE}
+        style={{ display: 'block', imageRendering: 'auto' }}
+        onError={() => setImgError(true)}
+      />
+    </div>
+  )
 }
 
 // ─── Style renderers ──────────────────────────────────────────────────────────
@@ -712,22 +855,54 @@ export function RecordingClip({
     : style === 'fire'     ? FireSubtitle
     : ClassicSubtitle
 
+  // Context emoji overlay: find the emoji whose time range covers the current playhead
+  const currentTimeSec = frame / fps
+  const contextEmojis = settings.contextEmojis ?? []
+  const animatedEmojis = settings.animatedEmojis !== false
+
+  // Find active context emoji + its index (for dynamic positioning)
+  const activeContextEmojiIndex = contextEmojis.findIndex(
+    e => currentTimeSec >= e.startInSeconds && currentTimeSec < e.endInSeconds,
+  )
+  const activeContextEmoji = activeContextEmojiIndex >= 0 ? contextEmojis[activeContextEmojiIndex] : null
+
+  // Track entry frame for the current emoji (resets when emoji changes)
+  const prevEmojiRef = useRef<string | null>(null)
+  const emojiEntryFrameRef = useRef(0)
+  if (activeContextEmoji?.emoji !== prevEmojiRef.current) {
+    prevEmojiRef.current = activeContextEmoji?.emoji ?? null
+    emojiEntryFrameRef.current = frame
+  }
+  const framesIntoEmoji = activeContextEmoji ? Math.max(0, frame - emojiEntryFrameRef.current) : 0
+
   const subtitlesNode = settings.enabled && hasWords && (
-    <div
-      style={{
-        position: 'absolute',
-        top: `${position}%`,
-        left: 0,
-        right: 0,
-        transform: 'translateY(-50%)',
-        display: 'flex',
-        justifyContent: 'center',
-        padding: '0 40px',
-        zIndex: 2,
-      }}
-    >
-      <StyleComponent words={words} activeIndex={activeIndex} size={size} wordPopScale={wordPopScale} />
-    </div>
+    <>
+      {/* Context-aware animated emoji — only shown when animatedEmojis is ON */}
+      {activeContextEmoji && animatedEmojis && (
+        <EmojiPop
+          emoji={activeContextEmoji.emoji}
+          framesIntoActiveWord={framesIntoEmoji}
+          fps={fps}
+          subtitlePositionPct={position}
+          emojiIndex={activeContextEmojiIndex}
+        />
+      )}
+      <div
+        style={{
+          position: 'absolute',
+          top: `${position}%`,
+          left: 0,
+          right: 0,
+          transform: 'translateY(-50%)',
+          display: 'flex',
+          justifyContent: 'center',
+          padding: '0 40px',
+          zIndex: 2,
+        }}
+      >
+        <StyleComponent words={words} activeIndex={activeIndex} size={size} wordPopScale={wordPopScale} />
+      </div>
+    </>
   )
 
   // ─── Progress bar ───────────────────────────────────────────────────────────
