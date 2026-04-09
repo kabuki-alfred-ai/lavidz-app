@@ -82,17 +82,30 @@ export function LavidzComposition({
     )
 
     if (seg.visibleRanges && seg.visibleRanges.length > 0) {
-      // Non-destructive cuts: render one sub-sequence per visible range
+      // Non-destructive cuts: render one sub-sequence per visible range.
+      // wordTimestamps are globally remapped (0..totalVisibleSec). Each RecordingClip
+      // uses useCurrentFrame() starting at 0, so we must re-offset the timestamps to
+      // be local to each range (subtract accumulated seconds from previous ranges).
       let clipOffset = recordingFrom
+      let accumulatedSec = 0
       for (let r = 0; r < seg.visibleRanges.length; r++) {
         const range = seg.visibleRanges[r]
         const rangeDur = range.endFrame - range.startFrame
+        const rangeSec = rangeDur / fps
+        // Extract and re-offset word timestamps for this specific range
+        const rangeWts = seg.wordTimestamps
+          ?.filter(w => w.end > accumulatedSec - 0.05 && w.start < accumulatedSec + rangeSec + 0.05)
+          .map(w => ({
+            word: w.word,
+            start: Math.max(0, w.start - accumulatedSec),
+            end: Math.min(rangeSec, w.end - accumulatedSec),
+          }))
         sequences.push(
           <Sequence key={`r-${seg.id}-${r}`} from={clipOffset} durationInFrames={rangeDur}>
             <RecordingClip
               videoUrl={seg.videoUrl}
               transcript={seg.transcript}
-              wordTimestamps={seg.wordTimestamps}
+              wordTimestamps={rangeWts}
               durationInFrames={rangeDur}
               startFromFrame={range.startFrame}
               subtitleSettings={subtitleSettings}
@@ -101,6 +114,7 @@ export function LavidzComposition({
           </Sequence>,
         )
         clipOffset += rangeDur
+        accumulatedSec += rangeSec
       }
       offset = clipOffset
     } else {
