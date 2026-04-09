@@ -459,7 +459,7 @@ export function ProcessView({ recordings, themeName, sessionId, themeSlug, monta
   const [inlaysData, setInlaysData] = useState<{ exactWord: string; category: string; timeInSeconds: number; label?: string }[]>([])
   const [coldOpenLoading, setColdOpenLoading] = useState(false)
   const [coldOpenError, setColdOpenError] = useState('')
-  const [contextEmojisBySegmentId, setContextEmojisBySegmentId] = useState<Record<string, { startInSeconds: number; endInSeconds: number; emoji: string }[]>>({})
+  const [wordEmojisBySegmentId, setWordEmojisBySegmentId] = useState<Record<string, { word: string; emoji: string }[]>>({})
   const [swooshEnabled, setSwooshEnabled] = useState(true)
   const [popSoundEnabled, setPopSoundEnabled] = useState(true)
   // Cold Open style
@@ -1087,7 +1087,7 @@ export function ProcessView({ recordings, themeName, sessionId, themeSlug, monta
       if (!firstRes.ok) { setColdOpenError(await firstRes.text()); return }
       const firstData = await firstRes.json()
       if (firstData.coldOpen) { setColdOpenData(firstData.coldOpen); setColdOpenEnabled(true) }
-      if (firstData.inlays?.length) { setInlaysData(firstData.inlays); setInlaysEnabled(true) }
+      if (firstData.inlays?.length) { setInlaysData(firstData.inlays) }
 
       // All segments → context emojis (parallel, per-segment timestamps)
       const emojiResults = await Promise.all(
@@ -1101,17 +1101,17 @@ export function ProcessView({ recordings, themeName, sessionId, themeSlug, monta
             })
             if (!res.ok) return { segId: seg.id, emojis: [] }
             const data = await res.json()
-            return { segId: seg.id, emojis: data.contextEmojis ?? [] }
+            return { segId: seg.id, emojis: data.wordEmojis ?? [] }
           } catch { return { segId: seg.id, emojis: [] } }
         }),
       )
 
-      const newMap: Record<string, { startInSeconds: number; endInSeconds: number; emoji: string }[]> = {}
+      const newMap: Record<string, { word: string; emoji: string }[]> = {}
       for (const { segId, emojis } of emojiResults) {
         if (emojis.length) newMap[segId] = emojis
       }
       if (Object.keys(newMap).length) {
-        setContextEmojisBySegmentId(newMap)
+        setWordEmojisBySegmentId(newMap)
         setSubtitleSettings(p => ({ ...p, animatedEmojis: true }))
       }
     } catch (e: any) {
@@ -1169,10 +1169,10 @@ export function ProcessView({ recordings, themeName, sessionId, themeSlug, monta
   // ─── Apply clip edits to produce effective segments for the Player ──────────
   const effectiveSegments = useMemo(() => {
     if (!segments?.length) return segments
-    // Inject per-segment contextEmojis regardless of clip edits
+    // Inject per-segment wordEmojis regardless of clip edits
     const withEmojis = segments.map(seg => {
-      const emojis = contextEmojisBySegmentId[seg.id]
-      return emojis ? { ...seg, contextEmojis: emojis } : seg
+      const emojis = wordEmojisBySegmentId[seg.id]
+      return emojis ? { ...seg, wordEmojis: emojis } : seg
     })
     if (!clipEdits.length) return withEmojis
     return withEmojis.map(seg => {
@@ -1197,7 +1197,7 @@ export function ProcessView({ recordings, themeName, sessionId, themeSlug, monta
         visibleRanges: edit.visibleRanges,
       }
     })
-  }, [segments, clipEdits, contextEmojisBySegmentId])
+  }, [segments, clipEdits, wordEmojisBySegmentId])
 
   // Maps each recording to its global frame range in the composition
   // Uses effectiveSegments so the RAF playhead tracking matches the Player
@@ -2966,37 +2966,35 @@ export function ProcessView({ recordings, themeName, sessionId, themeSlug, monta
               : <><span>🤖</span> Laisser Gemini choisir les emojis</>}
           </button>
 
-          {/* Context emoji moments — per segment */}
-          {Object.keys(contextEmojisBySegmentId).length > 0 ? (
+          {/* Word-level emojis — per segment */}
+          {Object.keys(wordEmojisBySegmentId).length > 0 ? (
             <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
-              {(segments ?? []).filter(s => contextEmojisBySegmentId[s.id]?.length).map((seg, si) => (
+              {(segments ?? []).filter(s => wordEmojisBySegmentId[s.id]?.length).map((seg, si) => (
                 <div key={seg.id}>
                   <p style={{ color: S.muted, fontSize: 10, fontFamily: 'monospace', marginBottom: 5 }}>
                     Vidéo {si + 1}
                   </p>
-                  <div style={{ display: 'flex', flexDirection: 'column', gap: 5 }}>
-                    {contextEmojisBySegmentId[seg.id].map((ce, idx) => (
-                      <div key={idx} style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '7px 10px', background: S.surface, borderRadius: 8, border: `1px solid ${S.border}` }}>
+                  <div style={{ display: 'flex', flexWrap: 'wrap', gap: 5 }}>
+                    {wordEmojisBySegmentId[seg.id].map((we, idx) => (
+                      <div key={idx} style={{ display: 'flex', alignItems: 'center', gap: 5, padding: '5px 8px', background: S.surface, borderRadius: 8, border: `1px solid ${S.border}` }}>
                         <input
-                          value={ce.emoji}
+                          value={we.emoji}
                           onChange={e => {
                             const val = [...e.target.value].slice(-2).join('')
-                            setContextEmojisBySegmentId(prev => ({
+                            setWordEmojisBySegmentId(prev => ({
                               ...prev,
                               [seg.id]: prev[seg.id].map((x, i) => i === idx ? { ...x, emoji: val } : x),
                             }))
                           }}
-                          style={{ width: 40, padding: '3px 5px', borderRadius: 7, textAlign: 'center', background: 'rgba(255,255,255,0.06)', border: `1px solid ${S.border}`, color: S.text, fontSize: 18, fontFamily: 'inherit', outline: 'none' }}
+                          style={{ width: 30, padding: '2px 3px', borderRadius: 5, textAlign: 'center', background: 'rgba(255,255,255,0.06)', border: `1px solid ${S.border}`, color: S.text, fontSize: 16, fontFamily: 'inherit', outline: 'none' }}
                         />
-                        <span style={{ color: S.dim, fontSize: 11, fontFamily: 'monospace', flex: 1 }}>
-                          {ce.startInSeconds.toFixed(1)}s → {ce.endInSeconds.toFixed(1)}s
-                        </span>
+                        <span style={{ color: S.text, fontSize: 11 }}>{we.word}</span>
                         <button
-                          onClick={() => setContextEmojisBySegmentId(prev => ({
+                          onClick={() => setWordEmojisBySegmentId(prev => ({
                             ...prev,
                             [seg.id]: prev[seg.id].filter((_, i) => i !== idx),
                           }))}
-                          style={{ padding: '3px 7px', borderRadius: 5, background: 'rgba(239,68,68,0.1)', border: '1px solid rgba(239,68,68,0.3)', color: '#fca5a5', fontSize: 10, cursor: 'pointer' }}
+                          style={{ padding: '2px 6px', borderRadius: 4, background: 'rgba(239,68,68,0.1)', border: '1px solid rgba(239,68,68,0.3)', color: '#fca5a5', fontSize: 10, cursor: 'pointer' }}
                         >✕</button>
                       </div>
                     ))}
@@ -3004,13 +3002,13 @@ export function ProcessView({ recordings, themeName, sessionId, themeSlug, monta
                 </div>
               ))}
               <button
-                onClick={() => setContextEmojisBySegmentId({})}
+                onClick={() => setWordEmojisBySegmentId({})}
                 style={{ padding: '7px', borderRadius: 8, fontSize: 11, cursor: 'pointer', background: 'rgba(239,68,68,0.08)', border: '1px dashed rgba(239,68,68,0.3)', color: '#fca5a5' }}
               >Effacer tout</button>
             </div>
           ) : (
             <p style={{ color: S.dim, fontSize: 11, textAlign: 'center', padding: '12px 0' }}>
-              Lance l'analyse Gemini ci-dessus pour générer automatiquement les emojis contextuels.
+              Lance l'analyse Gemini ci-dessus pour générer automatiquement les emojis sur les mots clés.
             </p>
           )}
         </Card>

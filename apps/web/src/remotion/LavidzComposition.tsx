@@ -24,8 +24,8 @@ export interface CompositionSegment {
   questionDurationFrames?: number
   /** When present, only these frame ranges of the original video are shown (non-destructive cuts). */
   visibleRanges?: { startFrame: number; endFrame: number }[]
-  /** Per-segment context emojis (timestamps relative to this clip's start = 0) */
-  contextEmojis?: { startInSeconds: number; endInSeconds: number; emoji: string }[]
+  /** Per-segment word-level emojis: shown when the matching word is active in subtitles */
+  wordEmojis?: { word: string; emoji: string }[]
 }
 
 interface Props {
@@ -132,15 +132,6 @@ export function LavidzComposition({
             start: Math.max(0, w.start - accumulatedSec),
             end: Math.min(rangeSec, w.end - accumulatedSec),
           }))
-        // Re-offset context emojis for this specific range (same logic as wordTimestamps)
-        const rangeEmojis = seg.contextEmojis
-          ?.filter(e => e.endInSeconds > accumulatedSec - 0.05 && e.startInSeconds < accumulatedSec + rangeSec + 0.05)
-          .map(e => ({
-            emoji: e.emoji,
-            startInSeconds: Math.max(0, e.startInSeconds - accumulatedSec),
-            endInSeconds: Math.min(rangeSec, e.endInSeconds - accumulatedSec),
-          }))
-          .filter(e => e.endInSeconds > e.startInSeconds)
         sequences.push(
           <Sequence key={`r-${seg.id}-${r}`} from={clipOffset} durationInFrames={rangeDur}>
             <RecordingClip
@@ -149,7 +140,7 @@ export function LavidzComposition({
               wordTimestamps={rangeWts}
               durationInFrames={rangeDur}
               startFromFrame={range.startFrame}
-              subtitleSettings={rangeEmojis?.length ? { ...subtitleSettings, contextEmojis: rangeEmojis } : subtitleSettings}
+              subtitleSettings={seg.wordEmojis?.length ? { ...subtitleSettings, wordEmojis: seg.wordEmojis } : subtitleSettings}
               motionSettings={motionSettings}
             />
           </Sequence>,
@@ -166,7 +157,7 @@ export function LavidzComposition({
             transcript={seg.transcript}
             wordTimestamps={seg.wordTimestamps}
             durationInFrames={seg.videoDurationFrames}
-            subtitleSettings={seg.contextEmojis ? { ...subtitleSettings, contextEmojis: seg.contextEmojis } : subtitleSettings}
+            subtitleSettings={seg.wordEmojis?.length ? { ...subtitleSettings, wordEmojis: seg.wordEmojis } : subtitleSettings}
             motionSettings={motionSettings}
           />
         </Sequence>,

@@ -9,8 +9,8 @@ export interface SubtitleSettings {
   position: number   // vertical % from top, 0–100
   wordsPerLine: number // 1–5 words shown at once
   offsetMs: number   // subtitle delay in ms, can be negative to advance
-  /** Context-aware emoji moments: emoji shown above subtitles during a time range based on thematic context */
-  contextEmojis?: { startInSeconds: number; endInSeconds: number; emoji: string }[]
+  /** Word-level emoji: emoji shown when a specific important word is active in subtitles */
+  wordEmojis?: { word: string; emoji: string }[]
   /** Use Google Noto Animated Emoji (GIF) instead of static emoji — default true */
   animatedEmojis?: boolean
 }

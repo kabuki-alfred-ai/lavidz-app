@@ -263,9 +263,6 @@ function EmojiPop({
       alignItems: 'center',
       justifyContent: 'center',
     }}>
-      {/* Particle burst on entry */}
-      {framesIntoActiveWord < 16 && <EmojiBurst />}
-
       {/* eslint-disable-next-line @next/next/no-img-element */}
       <img
         src={gifUrl}
@@ -855,36 +852,30 @@ export function RecordingClip({
     : style === 'fire'     ? FireSubtitle
     : ClassicSubtitle
 
-  // Context emoji overlay: find the emoji whose time range covers the current playhead
-  const currentTimeSec = frame / fps
-  const contextEmojis = settings.contextEmojis ?? []
+  // Word-level emoji: match the currently active subtitle word against wordEmojis list
+  const wordEmojis = settings.wordEmojis ?? []
   const animatedEmojis = settings.animatedEmojis !== false
 
-  // Find active context emoji + its index (for dynamic positioning)
-  const activeContextEmojiIndex = contextEmojis.findIndex(
-    e => currentTimeSec >= e.startInSeconds && currentTimeSec < e.endInSeconds,
-  )
-  const activeContextEmoji = activeContextEmojiIndex >= 0 ? contextEmojis[activeContextEmojiIndex] : null
-
-  // Track entry frame for the current emoji (resets when emoji changes)
-  const prevEmojiRef = useRef<string | null>(null)
-  const emojiEntryFrameRef = useRef(0)
-  if (activeContextEmoji?.emoji !== prevEmojiRef.current) {
-    prevEmojiRef.current = activeContextEmoji?.emoji ?? null
-    emojiEntryFrameRef.current = frame
-  }
-  const framesIntoEmoji = activeContextEmoji ? Math.max(0, frame - emojiEntryFrameRef.current) : 0
+  const normalizedActiveWord = words[activeIndex]
+    ?.toLowerCase().replace(/[.,!?;:'"«»]/g, '').trim() ?? ''
+  const activeWordEmojiIdx = normalizedActiveWord && wordEmojis.length
+    ? wordEmojis.findIndex(we => {
+        const norm = we.word.toLowerCase().replace(/[.,!?;:'"«»]/g, '').trim()
+        return norm === normalizedActiveWord || normalizedActiveWord.includes(norm) || norm.includes(normalizedActiveWord)
+      })
+    : -1
+  const activeWordEmoji = activeWordEmojiIdx >= 0 ? wordEmojis[activeWordEmojiIdx] : null
 
   const subtitlesNode = settings.enabled && hasWords && (
     <>
-      {/* Context-aware animated emoji — only shown when animatedEmojis is ON */}
-      {activeContextEmoji && animatedEmojis && (
+      {/* Word-level animated emoji — only shown when animatedEmojis is ON and active word matches */}
+      {activeWordEmoji && animatedEmojis && (
         <EmojiPop
-          emoji={activeContextEmoji.emoji}
-          framesIntoActiveWord={framesIntoEmoji}
+          emoji={activeWordEmoji.emoji}
+          framesIntoActiveWord={framesIntoActiveWord}
           fps={fps}
           subtitlePositionPct={position}
-          emojiIndex={activeContextEmojiIndex}
+          emojiIndex={activeWordEmojiIdx}
         />
       )}
       <div

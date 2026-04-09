@@ -11,7 +11,7 @@ const ColdOpenSchema = z.object({
   hook_phrase: z
     .string()
     .describe(
-      'La phrase la plus percutante de la transcription (entre 3 et 5 secondes de temps de parole estimé). Doit être une citation exacte du texte.',
+      'Le moment le plus choquant/intriguant de la transcription. Citation EXACTE, 2 à 6 mots MAX (1-2 secondes de parole). Chiffre inattendu, aveu fort, contradiction ou cliffhanger.',
     ),
   visual_inlays: z
     .array(
@@ -33,16 +33,16 @@ const ColdOpenSchema = z.object({
     )
     .max(5)
     .describe('3 à 5 mots-clés forts avec une catégorie visuelle'),
-  context_emojis: z
+  word_emojis: z
     .array(
       z.object({
-        start_seconds: z.number().describe('Timestamp de début en secondes (depuis le début de la transcription)'),
-        end_seconds: z.number().describe('Timestamp de fin en secondes'),
-        emoji: z.string().describe('Un seul emoji unicode ultra-expressif qui représente le thème ou l\'émotion de ce moment'),
+        exact_word: z.string().describe('Un mot important exactement tel qu\'il apparaît dans la transcription (un seul mot)'),
+        emoji: z.string().describe('Un seul emoji unicode qui représente ce mot ou son concept clé'),
       }),
     )
+    .min(3)
     .max(8)
-    .describe('5 à 8 moments clés de la transcription avec un emoji contextuel. L\'emoji doit représenter le THÈME ou l\'ÉMOTION dominante de ce passage (pas un mot précis) : émotion forte 😱🥹💀, concept business 💰🚀💎, énergie 🔥⚡💥, introspection 🧠👀, succès 🏆✅, etc. Chaque moment dure en général 3 à 8 secondes.'),
+    .describe('3 à 8 mots importants de la transcription avec un emoji associé. Choisir des mots à fort impact émotionnel ou conceptuel : chiffres clés, verbes d\'action forts, concepts business, émotions. L\'emoji doit amplifier le sens du mot.'),
 })
 
 /**
@@ -153,21 +153,22 @@ export async function POST(req: Request) {
   // Keep only the words that fall within the actual clip duration
   const clippedWords = words.filter(w => w.start < clipDuration)
 
-  const prompt = `Tu es un monteur vidéo expert pour les réseaux sociaux (LinkedIn, TikTok, YouTube Shorts).
+  const prompt = `Tu es un monteur vidéo viral expert (MrBeast, Alex Hormozi, Léo Prieur, Tibo InShape). Tu maîtrises les codes des hooks courts qui stoppent le scroll.
 
 Analyse cette transcription et :
 
-1. ACCROCHE (hook_phrase) : Extraie la phrase la plus percutante, surprenante ou intrigante qui donnerait envie de regarder la vidéo. Elle doit durer entre 3 et 5 secondes de parole. Ce doit être une citation EXACTE du texte.
+1. ACCROCHE (hook_phrase) : Extraie LE moment le plus choquant, surprenant ou intriguant. RÈGLES ABSOLUES :
+- Durée : 1 à 2 secondes de parole MAX (2 à 6 mots en général)
+- Ce doit être une citation EXACTE du texte, pas une reformulation
+- Préfère : un chiffre inattendu ("j'ai perdu 200 000€"), une contradiction ("j'ai tout quitté"), un aveu fort ("j'avais tort"), une promesse ("la méthode qui change tout"), un cliffhanger ("ce que personne ne dit")
+- Évite : les phrases explicatives, les introductions, les questions rhétoriques banales
+- L'objectif : que le spectateur soit OBLIGÉ de continuer pour comprendre
 
 2. INCRUSTATIONS VISUELLES (visual_inlays) : Identifie 3 à 5 mots-clés forts et associe-leur une catégorie visuelle parmi : alert (problème, danger), money (argent, business, CA), growth (croissance, évolution), idea (idée, innovation), fire (intensité, énergie), heart (passion, émotion), target (objectif, cible), star (succès, excellence).
 
 Les mots-clés doivent être des mots EXACTS présents dans la transcription.
 
-3. EMOJIS CONTEXTUELS (context_emojis) : Identifie des moments clés dans la transcription et associe à chacun un emoji qui représente le THÈME ou l'ÉMOTION dominante de ce passage. CONTRAINTE ABSOLUE : tous les timestamps doivent être compris entre 0.0 et ${clipDuration.toFixed(1)} secondes (durée réelle du clip). Utilise UNIQUEMENT les timestamps des mots fournis ci-dessous pour déterminer start_seconds et end_seconds. L'emoji doit capturer l'essence émotionnelle ou thématique du passage, pas un mot précis : 😱 (surprise/choc), 🔥 (intensité/passion), 💰 (argent/opportunité), 🚀 (ambition/croissance), 🧠 (réflexion/insight), 💎 (valeur/excellence), 🥹 (émotion/touché), ⚡ (énergie/urgence), 🏆 (succès/victoire), 💀 (échec/danger évité).
-
-DURÉE DU CLIP : ${clipDuration.toFixed(1)} secondes
-TIMESTAMPS DES MOTS (utilise ces valeurs exactes) :
-${clippedWords.map(w => `${w.start.toFixed(2)}s "${w.word}"`).join(' | ')}
+3. EMOJIS PAR MOT (word_emojis) : Identifie 3 à 8 mots à fort impact dans la transcription et associe à chacun un emoji qui AMPLIFIE LE SENS de ce mot spécifique. Règles : utiliser des mots EXACTS de la transcription (un seul mot), choisir des mots émotionnellement forts ou conceptuellement importants (chiffres, verbes d'action, concepts business, émotions). L'emoji doit illustrer directement le mot : "million" → 💰, "croissance" → 📈, "peur" → 😰, "lancé" → 🚀, "échoué" → 💀, "incroyable" → 🤯.
 
 TRANSCRIPTION :
 ${transcript}`
@@ -205,17 +206,12 @@ ${transcript}`
       })
       .filter(Boolean)
 
-    // Build contextEmojis — clamp to [0, clipDuration] and discard out-of-range
-    const contextEmojis = (object.context_emojis ?? [])
-      .filter(e => e.emoji && e.end_seconds > e.start_seconds && e.start_seconds < clipDuration)
-      .map(e => ({
-        startInSeconds: Math.max(0, Math.min(e.start_seconds, clipDuration)),
-        endInSeconds:   Math.max(0, Math.min(e.end_seconds,   clipDuration)),
-        emoji: e.emoji,
-      }))
-      .filter(e => e.endInSeconds > e.startInSeconds)
+    // Build wordEmojis — filter out entries with empty words or emojis
+    const wordEmojis = (object.word_emojis ?? [])
+      .filter(e => e.exact_word && e.emoji)
+      .map(e => ({ word: e.exact_word, emoji: e.emoji }))
 
-    return Response.json({ coldOpen, inlays, contextEmojis })
+    return Response.json({ coldOpen, inlays, wordEmojis })
   } catch (err: any) {
     console.error('[cold-open] Gemini error:', err)
     return new Response(`Gemini erreur : ${err?.message ?? 'inconnue'}`, { status: 500 })
