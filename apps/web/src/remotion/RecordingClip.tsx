@@ -213,9 +213,10 @@ function EmojiPop({
   subtitlePositionPct: number
   emojiIndex: number
 }) {
-  const SIZE = 80 // px — balanced size at 1080p
+  // Container and image size — Noto GIFs have variable internal padding,
+  // so we render at 120px and use objectFit:contain to fill uniformly.
+  const SIZE = 120
   const [imgError, setImgError] = useState(false)
-  // If the Noto GIF fails to load, hide the emoji entirely (no static fallback)
   if (imgError) return null
 
   const pos = EMOJI_POSITIONS[emojiIndex % EMOJI_POSITIONS.length]
@@ -267,7 +268,7 @@ function EmojiPop({
         src={gifUrl}
         width={SIZE}
         height={SIZE}
-        style={{ display: 'block', imageRendering: 'auto' }}
+        style={{ display: 'block', width: SIZE, height: SIZE, objectFit: 'contain' }}
         onError={() => setImgError(true)}
       />
     </div>
