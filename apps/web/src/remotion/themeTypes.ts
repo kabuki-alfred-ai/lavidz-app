@@ -49,6 +49,12 @@ export interface ColdOpenSettings {
   fontSize?: number               // px, default 72
   textPosition?: 'bottom' | 'center' | 'top'  // default 'bottom'
   videoStyle?: 'bw' | 'desaturated' | 'color' | 'raw'  // default 'desaturated'
+  // Viral options (each toggle-gated in UI)
+  freezeFrame?: boolean           // pause video at startInSeconds
+  textAnimation?: 'pop' | 'slam' | 'typewriter'  // default 'pop'
+  highlightMode?: 'word' | 'all' | 'box'          // default 'word'
+  coldOpenSfx?: SfxTrack          // library sound at end (overrides swooshEnabled)
+  entrySfx?: SfxTrack             // library sound when text appears
 }
 
 export interface VisualInlay {

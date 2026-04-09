@@ -469,6 +469,16 @@ export function ProcessView({ recordings, themeName, sessionId, themeSlug, monta
   const [coldOpenFontSize, setColdOpenFontSize] = useState(72)
   const [coldOpenTextPosition, setColdOpenTextPosition] = useState<'bottom' | 'center' | 'top'>('bottom')
   const [coldOpenVideoStyle, setColdOpenVideoStyle] = useState<'bw' | 'desaturated' | 'color' | 'raw'>('desaturated')
+  // Cold Open viral options
+  const [coldOpenFreezeFrame, setColdOpenFreezeFrame] = useState(false)
+  const [coldOpenTextAnimEnabled, setColdOpenTextAnimEnabled] = useState(false)
+  const [coldOpenTextAnimation, setColdOpenTextAnimation] = useState<'pop' | 'slam' | 'typewriter'>('pop')
+  const [coldOpenHighlightModeEnabled, setColdOpenHighlightModeEnabled] = useState(false)
+  const [coldOpenHighlightMode, setColdOpenHighlightMode] = useState<'word' | 'all' | 'box'>('word')
+  const [coldOpenSfxEnabled, setColdOpenSfxEnabled] = useState(false)
+  const [coldOpenSfx, setColdOpenSfx] = useState<{ prompt: string; url: string; volume: number } | null>(null)
+  const [coldOpenEntrySfxEnabled, setColdOpenEntrySfxEnabled] = useState(false)
+  const [coldOpenEntrySfx, setColdOpenEntrySfx] = useState<{ prompt: string; url: string; volume: number } | null>(null)
   // Inlays style
   const [inlaysStyle, setInlaysStyle] = useState<'pill' | 'minimal' | 'bold'>('pill')
   const [inlaysDuration, setInlaysDuration] = useState(2)
@@ -623,6 +633,15 @@ export function ProcessView({ recordings, themeName, sessionId, themeSlug, monta
       if (typeof s.coldOpenFontSize === 'number') setColdOpenFontSize(s.coldOpenFontSize)
       if (s.coldOpenTextPosition) setColdOpenTextPosition(s.coldOpenTextPosition)
       if (s.coldOpenVideoStyle) setColdOpenVideoStyle(s.coldOpenVideoStyle)
+      if (typeof s.coldOpenFreezeFrame === 'boolean') setColdOpenFreezeFrame(s.coldOpenFreezeFrame)
+      if (typeof s.coldOpenTextAnimEnabled === 'boolean') setColdOpenTextAnimEnabled(s.coldOpenTextAnimEnabled)
+      if (s.coldOpenTextAnimation) setColdOpenTextAnimation(s.coldOpenTextAnimation)
+      if (typeof s.coldOpenHighlightModeEnabled === 'boolean') setColdOpenHighlightModeEnabled(s.coldOpenHighlightModeEnabled)
+      if (s.coldOpenHighlightMode) setColdOpenHighlightMode(s.coldOpenHighlightMode)
+      if (typeof s.coldOpenSfxEnabled === 'boolean') setColdOpenSfxEnabled(s.coldOpenSfxEnabled)
+      if (s.coldOpenSfx) setColdOpenSfx(s.coldOpenSfx)
+      if (typeof s.coldOpenEntrySfxEnabled === 'boolean') setColdOpenEntrySfxEnabled(s.coldOpenEntrySfxEnabled)
+      if (s.coldOpenEntrySfx) setColdOpenEntrySfx(s.coldOpenEntrySfx)
       if (s.inlaysStyle) setInlaysStyle(s.inlaysStyle)
       if (typeof s.inlaysDuration === 'number') setInlaysDuration(s.inlaysDuration)
       if (typeof s.inlaysPopVolume === 'number') setInlaysPopVolume(s.inlaysPopVolume)
@@ -662,6 +681,9 @@ export function ProcessView({ recordings, themeName, sessionId, themeSlug, monta
     sourceWordTimestampsMap: sourceWordTimestampsRef.current,
     coldOpenEnabled, coldOpenData, inlaysEnabled, inlaysData, swooshEnabled, popSoundEnabled,
     coldOpenTextColor, coldOpenHighlightColor, coldOpenFontFamily, coldOpenFontSize, coldOpenTextPosition, coldOpenVideoStyle,
+    coldOpenFreezeFrame, coldOpenTextAnimEnabled, coldOpenTextAnimation,
+    coldOpenHighlightModeEnabled, coldOpenHighlightMode,
+    coldOpenSfxEnabled, coldOpenSfx, coldOpenEntrySfxEnabled, coldOpenEntrySfx,
     inlaysStyle, inlaysDuration, inlaysPopVolume,
   }), [
     selectedVoiceId, voiceEnabled, format, subtitleSettings, theme, intro, outro,
@@ -671,6 +693,9 @@ export function ProcessView({ recordings, themeName, sessionId, themeSlug, monta
     localTranscripts, wordTimestampsMap, clipEdits,
     coldOpenEnabled, coldOpenData, inlaysEnabled, inlaysData, swooshEnabled, popSoundEnabled,
     coldOpenTextColor, coldOpenHighlightColor, coldOpenFontFamily, coldOpenFontSize, coldOpenTextPosition, coldOpenVideoStyle,
+    coldOpenFreezeFrame, coldOpenTextAnimEnabled, coldOpenTextAnimation,
+    coldOpenHighlightModeEnabled, coldOpenHighlightMode,
+    coldOpenSfxEnabled, coldOpenSfx, coldOpenEntrySfxEnabled, coldOpenEntrySfx,
     inlaysStyle, inlaysDuration, inlaysPopVolume,
   ])
   const settingsForSaveRef = useRef(settingsForSave)
@@ -1087,7 +1112,6 @@ export function ProcessView({ recordings, themeName, sessionId, themeSlug, monta
       if (!firstRes.ok) { setColdOpenError(await firstRes.text()); return }
       const firstData = await firstRes.json()
       if (firstData.coldOpen) { setColdOpenData(firstData.coldOpen); setColdOpenEnabled(true) }
-      if (firstData.inlays?.length) { setInlaysData(firstData.inlays) }
 
       // All segments → context emojis (parallel, per-segment timestamps)
       const emojiResults = await Promise.all(
@@ -1230,6 +1254,12 @@ export function ProcessView({ recordings, themeName, sessionId, themeSlug, monta
         fontSize: coldOpenFontSize,
         textPosition: coldOpenTextPosition,
         videoStyle: coldOpenVideoStyle,
+        // Viral options (only injected when the toggle is ON)
+        freezeFrame: coldOpenFreezeFrame || undefined,
+        textAnimation: coldOpenTextAnimEnabled ? coldOpenTextAnimation : undefined,
+        highlightMode: coldOpenHighlightModeEnabled ? coldOpenHighlightMode : undefined,
+        coldOpenSfx: coldOpenSfxEnabled && coldOpenSfx ? coldOpenSfx : undefined,
+        entrySfx: coldOpenEntrySfxEnabled && coldOpenEntrySfx ? coldOpenEntrySfx : undefined,
       }
     }
     if (inlaysEnabled && inlaysData.length > 0) {
@@ -1245,6 +1275,9 @@ export function ProcessView({ recordings, themeName, sessionId, themeSlug, monta
     return ms
   }, [motionSettings, coldOpenEnabled, coldOpenData, inlaysEnabled, inlaysData, swooshEnabled, popSoundEnabled,
       coldOpenTextColor, coldOpenHighlightColor, coldOpenFontFamily, coldOpenFontSize, coldOpenTextPosition, coldOpenVideoStyle,
+      coldOpenFreezeFrame, coldOpenTextAnimEnabled, coldOpenTextAnimation,
+      coldOpenHighlightModeEnabled, coldOpenHighlightMode,
+      coldOpenSfxEnabled, coldOpenSfx, coldOpenEntrySfxEnabled, coldOpenEntrySfx,
       inlaysStyle, inlaysDuration, inlaysPopVolume])
 
   const coldOpenFrames = coldOpenEnabled && coldOpenData
@@ -1560,6 +1593,156 @@ export function ProcessView({ recordings, themeName, sessionId, themeSlug, monta
                           onChange={e => setColdOpenFontSize(parseInt(e.target.value))}
                           style={{ width: '100%', marginTop: 4, accentColor: '#f97316' }}
                         />
+                      </div>
+
+                      {/* ── Options virales ── */}
+                      <div style={{ borderTop: `1px solid ${S.border}`, paddingTop: 12 }}>
+                        <Label>Options virales</Label>
+
+                        {/* Presets one-click */}
+                        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 5, marginTop: 6, marginBottom: 12 }}>
+                          {([
+                            { label: 'Hormozi', anim: 'slam' as const, highlight: 'box' as const, video: 'bw' as const, freeze: true, entrySnd: true },
+                            { label: 'Viral',   anim: 'pop'  as const, highlight: 'all' as const, video: 'desaturated' as const, freeze: false, entrySnd: false },
+                            { label: 'Typo',    anim: 'typewriter' as const, highlight: 'word' as const, video: 'desaturated' as const, freeze: false, entrySnd: false },
+                          ]).map(p => (
+                            <button key={p.label}
+                              onClick={() => {
+                                setColdOpenTextAnimEnabled(true); setColdOpenTextAnimation(p.anim)
+                                setColdOpenHighlightModeEnabled(true); setColdOpenHighlightMode(p.highlight)
+                                setColdOpenVideoStyle(p.video)
+                                setColdOpenFreezeFrame(p.freeze)
+                                setColdOpenEntrySfxEnabled(p.entrySnd)
+                              }}
+                              style={{ padding: '7px 4px', borderRadius: 8, fontSize: 11, fontWeight: 700, cursor: 'pointer', background: 'rgba(249,115,22,0.1)', border: '1px solid rgba(249,115,22,0.4)', color: '#fdba74' }}
+                            >{p.label}</button>
+                          ))}
+                        </div>
+
+                        {/* Freeze frame */}
+                        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 10 }}>
+                          <div>
+                            <p style={{ color: S.text, fontSize: 12, fontWeight: 600 }}>Freeze frame</p>
+                            <p style={{ color: S.dim, fontSize: 10 }}>Fige la vidéo sur le moment du hook</p>
+                          </div>
+                          <Toggle value={coldOpenFreezeFrame} onChange={setColdOpenFreezeFrame} />
+                        </div>
+
+                        {/* Animation texte */}
+                        <div style={{ marginBottom: 10 }}>
+                          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: coldOpenTextAnimEnabled ? 8 : 0 }}>
+                            <p style={{ color: S.text, fontSize: 12, fontWeight: 600 }}>Animation texte</p>
+                            <Toggle value={coldOpenTextAnimEnabled} onChange={setColdOpenTextAnimEnabled} />
+                          </div>
+                          {coldOpenTextAnimEnabled && (
+                            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 5 }}>
+                              {(['pop', 'slam', 'typewriter'] as const).map(a => (
+                                <button key={a}
+                                  onClick={() => setColdOpenTextAnimation(a)}
+                                  style={{ padding: '6px 4px', borderRadius: 7, fontSize: 11, cursor: 'pointer', background: coldOpenTextAnimation === a ? 'rgba(249,115,22,0.2)' : 'rgba(255,255,255,0.04)', border: `1px solid ${coldOpenTextAnimation === a ? 'rgba(249,115,22,0.7)' : S.border}`, color: coldOpenTextAnimation === a ? '#fdba74' : S.muted }}
+                                >{{ pop: 'Pop', slam: 'Slam', typewriter: 'Typo' }[a]}</button>
+                              ))}
+                            </div>
+                          )}
+                        </div>
+
+                        {/* Highlight mode */}
+                        <div style={{ marginBottom: 10 }}>
+                          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: coldOpenHighlightModeEnabled ? 8 : 0 }}>
+                            <p style={{ color: S.text, fontSize: 12, fontWeight: 600 }}>Mode highlight</p>
+                            <Toggle value={coldOpenHighlightModeEnabled} onChange={setColdOpenHighlightModeEnabled} />
+                          </div>
+                          {coldOpenHighlightModeEnabled && (
+                            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 5 }}>
+                              {(['word', 'all', 'box'] as const).map(m => (
+                                <button key={m}
+                                  onClick={() => setColdOpenHighlightMode(m)}
+                                  style={{ padding: '6px 4px', borderRadius: 7, fontSize: 11, cursor: 'pointer', background: coldOpenHighlightMode === m ? 'rgba(249,115,22,0.2)' : 'rgba(255,255,255,0.04)', border: `1px solid ${coldOpenHighlightMode === m ? 'rgba(249,115,22,0.7)' : S.border}`, color: coldOpenHighlightMode === m ? '#fdba74' : S.muted }}
+                                >{{ word: 'Mot', all: 'Tout', box: 'Boîte' }[m]}</button>
+                              ))}
+                            </div>
+                          )}
+                        </div>
+
+                        {/* Son de fin (library) */}
+                        <div style={{ marginBottom: 10 }}>
+                          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: coldOpenSfxEnabled ? 8 : 0 }}>
+                            <div>
+                              <p style={{ color: S.text, fontSize: 12, fontWeight: 600 }}>Son de fin</p>
+                              <p style={{ color: S.dim, fontSize: 10 }}>Remplace le swoosh</p>
+                            </div>
+                            <Toggle value={coldOpenSfxEnabled} onChange={v => { setColdOpenSfxEnabled(v); if (!v) setColdOpenSfx(null) }} />
+                          </div>
+                          {coldOpenSfxEnabled && (() => {
+                            const sfxSounds = soundLibrary.filter(s => s.tag === 'TRANSITION')
+                            return sfxSounds.length === 0 ? (
+                              <p style={{ color: S.dim, fontSize: 11, fontFamily: 'monospace' }}>Aucun son "Transition" dans la bibliothèque.</p>
+                            ) : (
+                              <div style={{ display: 'flex', flexDirection: 'column', gap: 5 }}>
+                                {sfxSounds.map(s => {
+                                  const isActive = coldOpenSfx?.prompt === s.id
+                                  return (
+                                    <div key={s.id} style={{ display: 'flex', alignItems: 'center', gap: 5 }}>
+                                      <button onClick={() => setColdOpenSfx(isActive ? null : { prompt: s.id, url: `/api/admin/sounds/${s.id}/audio`, volume: 0.8 })}
+                                        style={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '7px 10px', borderRadius: 8, background: isActive ? 'rgba(255,255,255,0.1)' : S.surface, border: `1px solid ${isActive ? 'rgba(255,255,255,0.3)' : S.border}` }}>
+                                        <span style={{ color: isActive ? S.text : S.muted, fontSize: 12 }}>{s.name}</span>
+                                        {isActive && <span style={{ fontSize: 10, color: S.dim, fontFamily: 'monospace' }}>actif</span>}
+                                      </button>
+                                      <button onClick={() => { if (soundPreviewAudioRef.current) { soundPreviewAudioRef.current.pause(); soundPreviewAudioRef.current = null } const a = new Audio(s.signedUrl); soundPreviewAudioRef.current = a; a.onended = () => { soundPreviewAudioRef.current = null }; a.play() }}
+                                        style={{ padding: '7px 9px', borderRadius: 8, background: S.surface, border: `1px solid ${S.border}`, color: S.muted, display: 'flex', alignItems: 'center' }}>
+                                        <Play size={11} />
+                                      </button>
+                                    </div>
+                                  )
+                                })}
+                                {coldOpenSfx && (
+                                  <SliderRow label="Volume" value={Math.round((coldOpenSfx.volume ?? 0.8) * 100)} min={0} max={100} step={5} format={v => `${v}%`}
+                                    onChange={v => setColdOpenSfx(p => p ? { ...p, volume: v / 100 } : p)} />
+                                )}
+                              </div>
+                            )
+                          })()}
+                        </div>
+
+                        {/* Son d'entrée (library) */}
+                        <div style={{ marginBottom: 10 }}>
+                          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: coldOpenEntrySfxEnabled ? 8 : 0 }}>
+                            <div>
+                              <p style={{ color: S.text, fontSize: 12, fontWeight: 600 }}>Son d'entrée</p>
+                              <p style={{ color: S.dim, fontSize: 10 }}>Joue quand le texte apparaît</p>
+                            </div>
+                            <Toggle value={coldOpenEntrySfxEnabled} onChange={v => { setColdOpenEntrySfxEnabled(v); if (!v) setColdOpenEntrySfx(null) }} />
+                          </div>
+                          {coldOpenEntrySfxEnabled && (() => {
+                            const sfxSounds = soundLibrary.filter(s => s.tag === 'TRANSITION')
+                            return sfxSounds.length === 0 ? (
+                              <p style={{ color: S.dim, fontSize: 11, fontFamily: 'monospace' }}>Aucun son "Transition" dans la bibliothèque.</p>
+                            ) : (
+                              <div style={{ display: 'flex', flexDirection: 'column', gap: 5 }}>
+                                {sfxSounds.map(s => {
+                                  const isActive = coldOpenEntrySfx?.prompt === s.id
+                                  return (
+                                    <div key={s.id} style={{ display: 'flex', alignItems: 'center', gap: 5 }}>
+                                      <button onClick={() => setColdOpenEntrySfx(isActive ? null : { prompt: s.id, url: `/api/admin/sounds/${s.id}/audio`, volume: 0.7 })}
+                                        style={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '7px 10px', borderRadius: 8, background: isActive ? 'rgba(255,255,255,0.1)' : S.surface, border: `1px solid ${isActive ? 'rgba(255,255,255,0.3)' : S.border}` }}>
+                                        <span style={{ color: isActive ? S.text : S.muted, fontSize: 12 }}>{s.name}</span>
+                                        {isActive && <span style={{ fontSize: 10, color: S.dim, fontFamily: 'monospace' }}>actif</span>}
+                                      </button>
+                                      <button onClick={() => { if (soundPreviewAudioRef.current) { soundPreviewAudioRef.current.pause(); soundPreviewAudioRef.current = null } const a = new Audio(s.signedUrl); soundPreviewAudioRef.current = a; a.onended = () => { soundPreviewAudioRef.current = null }; a.play() }}
+                                        style={{ padding: '7px 9px', borderRadius: 8, background: S.surface, border: `1px solid ${S.border}`, color: S.muted, display: 'flex', alignItems: 'center' }}>
+                                        <Play size={11} />
+                                      </button>
+                                    </div>
+                                  )
+                                })}
+                                {coldOpenEntrySfx && (
+                                  <SliderRow label="Volume" value={Math.round((coldOpenEntrySfx.volume ?? 0.7) * 100)} min={0} max={100} step={5} format={v => `${v}%`}
+                                    onChange={v => setColdOpenEntrySfx(p => p ? { ...p, volume: v / 100 } : p)} />
+                                )}
+                              </div>
+                            )
+                          })()}
+                        </div>
                       </div>
 
                       {/* Swoosh toggle */}

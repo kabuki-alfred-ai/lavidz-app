@@ -13,26 +13,6 @@ const ColdOpenSchema = z.object({
     .describe(
       'Le moment le plus choquant/intriguant de la transcription. Citation EXACTE, 2 à 6 mots MAX (1-2 secondes de parole). Chiffre inattendu, aveu fort, contradiction ou cliffhanger.',
     ),
-  visual_inlays: z
-    .array(
-      z.object({
-        exact_word: z
-          .string()
-          .describe('Un mot-clé fort exactement tel qu\'il apparaît dans la transcription'),
-        category: z.enum([
-          'alert',
-          'money',
-          'growth',
-          'idea',
-          'fire',
-          'heart',
-          'target',
-          'star',
-        ]),
-      }),
-    )
-    .max(5)
-    .describe('3 à 5 mots-clés forts avec une catégorie visuelle'),
   word_emojis: z
     .array(
       z.object({
@@ -106,26 +86,6 @@ function matchPhrase(
   return null
 }
 
-/**
- * Find the first occurrence of a word in the word timestamps.
- */
-function matchWord(target: string, words: Word[]): number | null {
-  const norm = target
-    .toLowerCase()
-    .replace(/[.,!?;:]/g, '')
-    .trim()
-  for (const w of words) {
-    const wNorm = w.word
-      .toLowerCase()
-      .replace(/[.,!?;:]/g, '')
-      .trim()
-    if (wNorm === norm || wNorm.includes(norm) || norm.includes(wNorm)) {
-      return w.start
-    }
-  }
-  return null
-}
-
 export async function POST(req: Request) {
   const { transcript, wordTimestamps, segmentId, videoDurationSeconds } = await req.json()
 
@@ -150,9 +110,6 @@ export async function POST(req: Request) {
     ? videoDurationSeconds
     : (words.length ? words[words.length - 1].end : 60)
 
-  // Keep only the words that fall within the actual clip duration
-  const clippedWords = words.filter(w => w.start < clipDuration)
-
   const prompt = `Tu es un monteur vidéo viral expert (MrBeast, Alex Hormozi, Léo Prieur, Tibo InShape). Tu maîtrises les codes des hooks courts qui stoppent le scroll.
 
 Analyse cette transcription et :
@@ -164,11 +121,9 @@ Analyse cette transcription et :
 - Évite : les phrases explicatives, les introductions, les questions rhétoriques banales
 - L'objectif : que le spectateur soit OBLIGÉ de continuer pour comprendre
 
-2. INCRUSTATIONS VISUELLES (visual_inlays) : Identifie 3 à 5 mots-clés forts et associe-leur une catégorie visuelle parmi : alert (problème, danger), money (argent, business, CA), growth (croissance, évolution), idea (idée, innovation), fire (intensité, énergie), heart (passion, émotion), target (objectif, cible), star (succès, excellence).
+2. EMOJIS PAR MOT (word_emojis) : Identifie 3 à 8 mots à fort impact dans la transcription et associe à chacun un emoji qui AMPLIFIE LE SENS de ce mot spécifique. Règles : utiliser des mots EXACTS de la transcription (un seul mot), choisir des mots émotionnellement forts ou conceptuellement importants (chiffres, verbes d'action, concepts business, émotions). L'emoji doit illustrer directement le mot : "million" → 💰, "croissance" → 📈, "peur" → 😰, "lancé" → 🚀, "échoué" → 💀, "incroyable" → 🤯.
 
-Les mots-clés doivent être des mots EXACTS présents dans la transcription.
-
-3. EMOJIS PAR MOT (word_emojis) : Identifie 3 à 8 mots à fort impact dans la transcription et associe à chacun un emoji qui AMPLIFIE LE SENS de ce mot spécifique. Règles : utiliser des mots EXACTS de la transcription (un seul mot), choisir des mots émotionnellement forts ou conceptuellement importants (chiffres, verbes d'action, concepts business, émotions). L'emoji doit illustrer directement le mot : "million" → 💰, "croissance" → 📈, "peur" → 😰, "lancé" → 🚀, "échoué" → 💀, "incroyable" → 🤯.
+DURÉE DU CLIP : ${clipDuration.toFixed(1)} secondes
 
 TRANSCRIPTION :
 ${transcript}`
@@ -193,25 +148,12 @@ ${transcript}`
         }
       : null
 
-    // Time-match each visual inlay
-    const inlays = object.visual_inlays
-      .map(inlay => {
-        const time = matchWord(inlay.exact_word, words)
-        if (time === null) return null
-        return {
-          exactWord: inlay.exact_word,
-          category: inlay.category,
-          timeInSeconds: time,
-        }
-      })
-      .filter(Boolean)
-
     // Build wordEmojis — filter out entries with empty words or emojis
     const wordEmojis = (object.word_emojis ?? [])
       .filter(e => e.exact_word && e.emoji)
       .map(e => ({ word: e.exact_word, emoji: e.emoji }))
 
-    return Response.json({ coldOpen, inlays, wordEmojis })
+    return Response.json({ coldOpen, wordEmojis })
   } catch (err: any) {
     console.error('[cold-open] Gemini error:', err)
     return new Response(`Gemini erreur : ${err?.message ?? 'inconnue'}`, { status: 500 })
