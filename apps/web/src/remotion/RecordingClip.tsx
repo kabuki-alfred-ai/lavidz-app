@@ -856,6 +856,12 @@ export function RecordingClip({
   const wordEmojis = settings.wordEmojis ?? []
   const animatedEmojis = settings.animatedEmojis !== false
 
+  // Minimum frames an emoji stays visible (prevents micro-flash artefacts)
+  const MIN_EMOJI_FRAMES = Math.round(fps * 0.8) // ~0.8s
+
+  // Sticky emoji: persists for MIN_EMOJI_FRAMES after the matching word ends
+  const stickyEmojiRef = useRef<{ emoji: string; idx: number; startFrame: number; untilFrame: number } | null>(null)
+
   const normalizedActiveWord = words[activeIndex]
     ?.toLowerCase().replace(/[.,!?;:'"«»]/g, '').trim() ?? ''
   const activeWordEmojiIdx = normalizedActiveWord && wordEmojis.length
@@ -866,16 +872,30 @@ export function RecordingClip({
     : -1
   const activeWordEmoji = activeWordEmojiIdx >= 0 ? wordEmojis[activeWordEmojiIdx] : null
 
+  // Update sticky when a new match is found
+  if (activeWordEmoji) {
+    const newUntil = frame + MIN_EMOJI_FRAMES
+    if (!stickyEmojiRef.current || stickyEmojiRef.current.emoji !== activeWordEmoji.emoji) {
+      stickyEmojiRef.current = { emoji: activeWordEmoji.emoji, idx: activeWordEmojiIdx, startFrame: frame, untilFrame: newUntil }
+    } else {
+      stickyEmojiRef.current.untilFrame = Math.max(stickyEmojiRef.current.untilFrame, newUntil)
+    }
+  }
+
+  const sticky = stickyEmojiRef.current
+  const displayEmoji = sticky && frame <= sticky.untilFrame ? sticky : null
+  const framesIntoDisplay = displayEmoji ? Math.max(0, frame - displayEmoji.startFrame) : 0
+
   const subtitlesNode = settings.enabled && hasWords && (
     <>
-      {/* Word-level animated emoji — only shown when animatedEmojis is ON and active word matches */}
-      {activeWordEmoji && animatedEmojis && (
+      {/* Word-level animated emoji — sticky for MIN_EMOJI_FRAMES to avoid micro-flashes */}
+      {displayEmoji && animatedEmojis && (
         <EmojiPop
-          emoji={activeWordEmoji.emoji}
-          framesIntoActiveWord={framesIntoActiveWord}
+          emoji={displayEmoji.emoji}
+          framesIntoActiveWord={framesIntoDisplay}
           fps={fps}
           subtitlePositionPct={position}
-          emojiIndex={activeWordEmojiIdx}
+          emojiIndex={displayEmoji.idx}
         />
       )}
       <div

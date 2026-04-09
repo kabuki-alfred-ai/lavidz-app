@@ -461,7 +461,7 @@ export function ProcessView({ recordings, themeName, sessionId, themeSlug, monta
   const [coldOpenError, setColdOpenError] = useState('')
   const [wordEmojisBySegmentId, setWordEmojisBySegmentId] = useState<Record<string, { word: string; emoji: string }[]>>({})
   const [swooshEnabled, setSwooshEnabled] = useState(true)
-  const [popSoundEnabled, setPopSoundEnabled] = useState(true)
+  const [popSoundEnabled, setPopSoundEnabled] = useState(false)
   // Cold Open style
   const [coldOpenTextColor, setColdOpenTextColor] = useState('#FFFFFF')
   const [coldOpenHighlightColor, setColdOpenHighlightColor] = useState('#FFD60A')
@@ -623,10 +623,10 @@ export function ProcessView({ recordings, themeName, sessionId, themeSlug, monta
       if (s.clipEdits?.length) restoreClipEdits(s.clipEdits)
       if (typeof s.coldOpenEnabled === 'boolean') setColdOpenEnabled(s.coldOpenEnabled)
       if (s.coldOpenData) setColdOpenData(s.coldOpenData)
-      if (typeof s.inlaysEnabled === 'boolean') setInlaysEnabled(s.inlaysEnabled)
-      if (s.inlaysData?.length) setInlaysData(s.inlaysData)
+      // Inlays forcément désactivés (feature supprimée de l'UI)
+      setInlaysEnabled(false)
       if (typeof s.swooshEnabled === 'boolean') setSwooshEnabled(s.swooshEnabled)
-      if (typeof s.popSoundEnabled === 'boolean') setPopSoundEnabled(s.popSoundEnabled)
+      if (typeof s.popSoundEnabled === 'boolean') setPopSoundEnabled(false) // force off
       if (s.coldOpenTextColor) setColdOpenTextColor(s.coldOpenTextColor)
       if (s.coldOpenHighlightColor) setColdOpenHighlightColor(s.coldOpenHighlightColor)
       if (s.coldOpenFontFamily) setColdOpenFontFamily(s.coldOpenFontFamily)
@@ -1093,6 +1093,8 @@ export function ProcessView({ recordings, themeName, sessionId, themeSlug, monta
     }
     setColdOpenLoading(true)
     setColdOpenError('')
+    // Ensure inlays (and their pop sound) don't interfere
+    setInlaysEnabled(false)
     try {
       // Use effectiveSegments (post-cut, remapped timestamps) not raw segments
       const segsWithTranscript = (effectiveSegments ?? segments ?? []).filter(s => s.transcript)
