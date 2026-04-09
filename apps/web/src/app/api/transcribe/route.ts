@@ -77,7 +77,7 @@ export async function POST(req: Request) {
 
   const id = crypto.randomUUID()
   const inputPath = path.join('/tmp', `tr-input-${id}`)
-  const audioPath = path.join('/tmp', `tr-audio-${id}.mp3`)
+  const audioPath = path.join('/tmp', `tr-audio-${id}.flac`)
 
   try {
     // Download video
@@ -85,10 +85,12 @@ export async function POST(req: Request) {
     if (!videoRes.ok) throw new Error(`Téléchargement vidéo échoué (${videoRes.status})`)
     fs.writeFileSync(inputPath, Buffer.from(await videoRes.arrayBuffer()))
 
-    // Extract audio: mono, 16kHz — optimal for Whisper
+    // Extract audio: mono 16kHz FLAC (lossless) + highpass + loudnorm — optimal for Whisper
     const ffResult = spawnSync(ffmpeg, [
       '-i', inputPath,
-      '-vn', '-ar', '16000', '-ac', '1', '-b:a', '128k',
+      '-vn', '-ar', '16000', '-ac', '1',
+      '-af', 'highpass=f=200,loudnorm',
+      '-c:a', 'flac',
       '-y', audioPath,
     ], { timeout: 60_000 })
 
@@ -97,7 +99,7 @@ export async function POST(req: Request) {
 
     const audioBuffer = fs.readFileSync(audioPath)
     const formData = new FormData()
-    formData.append('file', new Blob([audioBuffer], { type: 'audio/mpeg' }), 'audio.mp3')
+    formData.append('file', new Blob([audioBuffer], { type: 'audio/flac' }), 'audio.flac')
     formData.append('model', model)
     formData.append('language', 'fr')
     formData.append('response_format', 'verbose_json')
