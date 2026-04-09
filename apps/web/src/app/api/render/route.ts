@@ -177,8 +177,22 @@ async function runRender(jobId: string, body: any) {
       outroSfx:      audioSettings.outroSfx      ? { ...audioSettings.outroSfx,      url: await resolveSoundUrl(audioSettings.outroSfx.url) }      : undefined,
     } : audioSettings
 
+    // Resolve cold open SFX URLs (motionSettings.coldOpen) — same logic as audioSettings
+    let resolvedMotionSettings = motionSettings
+    if (motionSettings?.coldOpen) {
+      const co = motionSettings.coldOpen
+      resolvedMotionSettings = {
+        ...motionSettings,
+        coldOpen: {
+          ...co,
+          coldOpenSfx: co.coldOpenSfx ? { ...co.coldOpenSfx, url: await resolveSoundUrl(co.coldOpenSfx.url) ?? co.coldOpenSfx.url } : undefined,
+          entrySfx:    co.entrySfx    ? { ...co.entrySfx,    url: await resolveSoundUrl(co.entrySfx.url)    ?? co.entrySfx.url    } : undefined,
+        },
+      }
+    }
+
     const totalFrames = calcTotalFrames(serverSegments, questionCardFrames, intro, outro, fps)
-    const inputProps = { segments: serverSegments, questionCardFrames, subtitleSettings, theme, intro, outro, fps, motionSettings, audioSettings: resolvedAudioSettings }
+    const inputProps = { segments: serverSegments, questionCardFrames, subtitleSettings, theme, intro, outro, fps, motionSettings: resolvedMotionSettings, audioSettings: resolvedAudioSettings }
 
     const composition = await selectComposition({ serveUrl: cachedBundle, id: 'LavidzComposition', inputProps })
     const comp = { ...composition, width: width ?? composition.width, height: height ?? composition.height, durationInFrames: totalFrames, fps }

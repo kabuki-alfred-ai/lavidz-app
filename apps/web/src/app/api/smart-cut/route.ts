@@ -13,7 +13,8 @@ type Sentence = { index: number; text: string; start: number; end: number }
  * A sentence ends when: punctuation .!? is found, or after MAX_WORDS words without punctuation.
  */
 function buildSentences(words: Word[]): Sentence[] {
-  const MAX_WORDS = 25
+  // Only split on real sentence-ending punctuation — never mid-sentence on word count.
+  // This prevents Gemini from receiving half-sentences as independent units.
   const sentences: Sentence[] = []
   let buf: Word[] = []
 
@@ -30,7 +31,7 @@ function buildSentences(words: Word[]): Sentence[] {
 
   for (const w of words) {
     buf.push(w)
-    if (w.word.match(/[.!?]$/) || buf.length >= MAX_WORDS) flush()
+    if (w.word.match(/[.!?]$/)) flush()
   }
   flush()
   return sentences
@@ -39,6 +40,10 @@ function buildSentences(words: Word[]): Sentence[] {
 /**
  * Merge consecutive kept sentence indices into contiguous time segments.
  */
+const HEAD_PAD = 0.25 // seconds of audio before first word onset to avoid clipping
+const TAIL_PAD = 0.15 // seconds after last word end
+const MERGE_GAP = 1.2 // merge consecutive kept sentences if gap < this
+
 function sentencesToSegments(
   kept: number[],
   sentences: Sentence[],
@@ -48,12 +53,13 @@ function sentencesToSegments(
 
   for (const s of sentences) {
     if (!keptSet.has(s.index)) continue
+    const paddedStart = Math.max(0, s.start - HEAD_PAD)
+    const paddedEnd = s.end + TAIL_PAD
     const last = result[result.length - 1]
-    if (last && s.start - last.end < 0.5) {
-      // Merge with previous segment if close enough
-      last.end = s.end
+    if (last && paddedStart - last.end < MERGE_GAP) {
+      last.end = paddedEnd
     } else {
-      result.push({ start: s.start, end: s.end })
+      result.push({ start: paddedStart, end: paddedEnd })
     }
   }
 
@@ -101,11 +107,14 @@ ${formattedList}
 
 Renvoie la liste des numéros de phrases à CONSERVER pour obtenir une réponse dynamique et percutante.
 
-RÈGLES :
-- Supprime les hésitations, répétitions, redondances et phrases inachevées
-- Garde les idées fortes, les formulations percutantes et la narration cohérente
+RÈGLES ABSOLUES :
+- Ne jamais couper au milieu d'une idée ou d'un raisonnement — si tu gardes une phrase qui introduit une idée, garde aussi la phrase qui la conclut
+- Si deux phrases consécutives sont liées (la 2e répond ou complète la 1re), gardes-les toutes les deux
+- Supprime uniquement : hésitations isolées ("euh", "donc euh"), vraies répétitions mot pour mot, apartés hors-sujet
+- Garde les idées fortes, exemples concrets, chiffres, formulations percutantes
+- La narration doit rester fluide et cohérente — pas de transition abrupte
 - Ne retourne QUE des numéros de phrases existants (entre 1 et ${sentences.length})
-- Si la réponse est déjà bonne, retourne tous les numéros`
+- En cas de doute, conserve la phrase`
 
   try {
     const model = google(process.env.AI_MODEL ?? 'gemini-2.0-flash')
