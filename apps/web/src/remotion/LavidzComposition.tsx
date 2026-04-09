@@ -76,6 +76,11 @@ export function LavidzComposition({
             fontSize={coldOpen.fontSize}
             textPosition={coldOpen.textPosition}
             videoStyle={coldOpen.videoStyle}
+            freezeFrame={coldOpen.freezeFrame}
+            textAnimation={coldOpen.textAnimation}
+            highlightMode={coldOpen.highlightMode}
+            coldOpenSfx={coldOpen.coldOpenSfx}
+            entrySfx={coldOpen.entrySfx}
           />
         </Sequence>,
       )
