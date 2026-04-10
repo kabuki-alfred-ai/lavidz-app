@@ -2852,37 +2852,90 @@ export function ProcessView({ recordings, themeName, sessionId, themeSlug, monta
             <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: motionSettings.lowerThird !== undefined ? 16 : 0 }}>
               <div>
                 <p style={{ color: S.text, fontWeight: 600, fontSize: 14 }}>Lower Third</p>
-                <p style={{ color: S.muted, fontSize: 11, marginTop: 2 }}>Name tag en bas à gauche</p>
+                <p style={{ color: S.muted, fontSize: 11, marginTop: 2 }}>Bandeau nom / titre</p>
               </div>
               <Toggle
                 value={motionSettings.lowerThird !== undefined}
-                onChange={v => setMotionSettings(p => ({ ...p, lowerThird: v ? { name: '', title: '' } : undefined }))}
+                onChange={v => setMotionSettings(p => ({ ...p, lowerThird: v ? { name: '', title: '', style: 'bar', position: 'bottom-left', persistent: true } : undefined }))}
               />
             </div>
-            {motionSettings.lowerThird !== undefined && (
-              <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
-                <div>
-                  <Label>Nom</Label>
-                  <input
-                    type="text"
-                    placeholder="Marie Dupont"
-                    value={motionSettings.lowerThird.name}
-                    onChange={e => setMotionSettings(p => ({ ...p, lowerThird: { ...p.lowerThird!, name: e.target.value } }))}
-                    style={{ width: '100%', background: 'rgba(255,255,255,0.06)', border: `1px solid ${S.border}`, borderRadius: 10, padding: '10px 14px', color: S.text, fontSize: 14, outline: 'none' }}
-                  />
+            {motionSettings.lowerThird !== undefined && (() => {
+              const lt = motionSettings.lowerThird!
+              const upd = (patch: Partial<typeof lt>) => setMotionSettings(p => ({ ...p, lowerThird: { ...p.lowerThird!, ...patch } }))
+              return (
+                <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+                  {/* Nom + Titre */}
+                  <div>
+                    <Label>Nom</Label>
+                    <input type="text" placeholder="Marie Dupont" value={lt.name}
+                      onChange={e => upd({ name: e.target.value })}
+                      style={{ width: '100%', background: 'rgba(255,255,255,0.06)', border: `1px solid ${S.border}`, borderRadius: 10, padding: '10px 14px', color: S.text, fontSize: 14, outline: 'none' }} />
+                  </div>
+                  <div>
+                    <Label>Titre (optionnel)</Label>
+                    <input type="text" placeholder="Co-fondatrice · Lavidz" value={lt.title ?? ''}
+                      onChange={e => upd({ title: e.target.value || undefined })}
+                      style={{ width: '100%', background: 'rgba(255,255,255,0.06)', border: `1px solid ${S.border}`, borderRadius: 10, padding: '10px 14px', color: S.text, fontSize: 14, outline: 'none' }} />
+                  </div>
+
+                  {/* Style */}
+                  <div>
+                    <Label>Style — B2B</Label>
+                    <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap', marginBottom: 6 }}>
+                      {([['corporate','Corporate'], ['executive','Executive'], ['broadcast','Broadcast'], ['clean','Clean'], ['editorial','Editorial']] as const).map(([s, label]) => (
+                        <button key={s} onClick={() => upd({ style: s })} style={{ padding: '5px 12px', borderRadius: 7, fontSize: 11, cursor: 'pointer', background: lt.style === s ? 'rgba(59,130,246,0.2)' : 'rgba(255,255,255,0.04)', border: `1px solid ${lt.style === s ? 'rgba(59,130,246,0.7)' : S.border}`, color: lt.style === s ? '#93c5fd' : S.muted }}>{label}</button>
+                      ))}
+                    </div>
+                    <Label>Style — Viral</Label>
+                    <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
+                      {(['bar', 'pill', 'minimal', 'bold', 'neon'] as const).map(s => (
+                        <button key={s} onClick={() => upd({ style: s })} style={{ padding: '5px 12px', borderRadius: 7, fontSize: 11, cursor: 'pointer', background: lt.style === s ? 'rgba(249,115,22,0.2)' : 'rgba(255,255,255,0.04)', border: `1px solid ${lt.style === s ? 'rgba(249,115,22,0.7)' : S.border}`, color: lt.style === s ? '#fdba74' : S.muted, textTransform: 'capitalize' }}>{s}</button>
+                      ))}
+                    </div>
+                  </div>
+
+                  {/* Position */}
+                  <div>
+                    <Label>Position</Label>
+                    <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
+                      {([['bottom-left','↙ Bas gauche'], ['bottom-center','↓ Bas centre'], ['bottom-right','↘ Bas droite'], ['top-left','↖ Haut gauche'], ['top-right','↗ Haut droite']] as const).map(([pos, label]) => (
+                        <button key={pos} onClick={() => upd({ position: pos })} style={{ padding: '5px 10px', borderRadius: 7, fontSize: 11, cursor: 'pointer', background: lt.position === pos ? 'rgba(249,115,22,0.2)' : 'rgba(255,255,255,0.04)', border: `1px solid ${lt.position === pos ? 'rgba(249,115,22,0.7)' : S.border}`, color: lt.position === pos ? '#fdba74' : S.muted }}>{label}</button>
+                      ))}
+                    </div>
+                  </div>
+
+                  {/* Couleurs */}
+                  <div style={{ display: 'flex', gap: 12 }}>
+                    <div style={{ flex: 1 }}>
+                      <Label>Couleur nom</Label>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                        <input type="color" value={lt.nameColor ?? '#FFFFFF'} onChange={e => upd({ nameColor: e.target.value })} style={{ width: 32, height: 32, borderRadius: 6, border: 'none', cursor: 'pointer', background: 'none' }} />
+                        <span style={{ color: S.muted, fontSize: 11, fontFamily: 'monospace' }}>{lt.nameColor ?? '#FFFFFF'}</span>
+                      </div>
+                    </div>
+                    <div style={{ flex: 1 }}>
+                      <Label>Accent / fond</Label>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                        <input type="color" value={lt.accentColor ?? '#FFFFFF'} onChange={e => upd({ accentColor: e.target.value })} style={{ width: 32, height: 32, borderRadius: 6, border: 'none', cursor: 'pointer', background: 'none' }} />
+                        <span style={{ color: S.muted, fontSize: 11, fontFamily: 'monospace' }}>{lt.accentColor ?? '#FFFFFF'}</span>
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Taille + Persistance */}
+                  <div style={{ display: 'flex', gap: 12, alignItems: 'center' }}>
+                    <div style={{ flex: 1 }}>
+                      <Label>Taille ({lt.fontSize ?? 22}px)</Label>
+                      <input type="range" min={14} max={48} value={lt.fontSize ?? 22} onChange={e => upd({ fontSize: Number(e.target.value) })} style={{ width: '100%' }} />
+                    </div>
+                    <div>
+                      <Label>Toujours visible</Label>
+                      <Toggle value={lt.persistent !== false} onChange={v => upd({ persistent: v })} />
+                    </div>
+                  </div>
                 </div>
-                <div>
-                  <Label>Titre (optionnel)</Label>
-                  <input
-                    type="text"
-                    placeholder="Co-fondatrice · Lavidz"
-                    value={motionSettings.lowerThird?.title ?? ''}
-                    onChange={e => setMotionSettings(p => ({ ...p, lowerThird: { ...p.lowerThird!, title: e.target.value || undefined } }))}
-                    style={{ width: '100%', background: 'rgba(255,255,255,0.06)', border: `1px solid ${S.border}`, borderRadius: 10, padding: '10px 14px', color: S.text, fontSize: 14, outline: 'none' }}
-                  />
-                </div>
-              </div>
-            )}
+              )
+            })()}
           </div>
         </Card>
       </Section>

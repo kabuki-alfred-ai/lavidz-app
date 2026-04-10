@@ -881,37 +881,140 @@ export function RecordingClip({
 
   // ─── Lower third ────────────────────────────────────────────────────────────
   const lowerThird = motionSettings?.lowerThird
-  const ltSpring = lowerThird ? spring({ frame, fps, config: { damping: 20, stiffness: 80 } }) : 0
+  const ltEntry = lowerThird ? spring({ frame, fps, config: { damping: 20, stiffness: 80 } }) : 0
+  // Persistent: stay fully visible; non-persistent: fade out at 3s
   const ltOpacity = lowerThird
-    ? interpolate(frame, [fps * 3, fps * 3.5], [1, 0], { extrapolateLeft: 'clamp', extrapolateRight: 'clamp' })
+    ? lowerThird.persistent
+      ? interpolate(ltEntry, [0, 1], [0, 1])
+      : interpolate(frame, [0, fps * 0.3, fps * 3, fps * 3.5], [0, 1, 1, 0], { extrapolateLeft: 'clamp', extrapolateRight: 'clamp' })
     : 0
-  const ltTranslateX = interpolate(ltSpring, [0, 1], [-220, 0])
+  const ltTranslateX = interpolate(ltEntry, [0, 1], [-220, 0])
+
+  const ltStyle     = lowerThird?.style    ?? 'bar'
+  const ltPos       = lowerThird?.position ?? 'bottom-left'
+  const ltNameColor = lowerThird?.nameColor  ?? '#FFFFFF'
+  const ltTitleColor = lowerThird?.titleColor ?? 'rgba(255,255,255,0.75)'
+  const ltAccent    = lowerThird?.accentColor ?? '#FFFFFF'
+  const ltBg        = lowerThird?.bgColor ?? 'rgba(0,0,0,0.55)'
+  const ltFontSize  = lowerThird?.fontSize ?? 22
+
+  const ltPositionStyle: React.CSSProperties =
+    ltPos === 'bottom-left'   ? { bottom: 80, left: 40 }
+    : ltPos === 'bottom-center' ? { bottom: 80, left: '50%', transform: `translateX(calc(-50% + ${ltTranslateX}px))` }
+    : ltPos === 'bottom-right'  ? { bottom: 80, right: 40 }
+    : ltPos === 'top-left'      ? { top: 80,    left: 40 }
+    :                             { top: 80,    right: 40 }
+
+  // For non-center positions use translateX, center uses combined transform above
+  const ltTransform = ltPos === 'bottom-center'
+    ? undefined
+    : `translateX(${ltTranslateX}px)`
 
   const lowerThirdNode = lowerThird && (
-    <div
-      style={{
-        position: 'absolute',
-        bottom: 80,
-        left: 40,
-        zIndex: 3,
-        opacity: ltOpacity,
-        transform: `translateX(${ltTranslateX}px)`,
-        display: 'flex',
-        alignItems: 'stretch',
-        gap: 0,
-      }}
-    >
-      <div style={{ width: 4, background: '#fff', borderRadius: 2, marginRight: 12, flexShrink: 0 }} />
-      <div>
-        <p style={{ color: '#fff', fontWeight: 800, fontSize: 22, lineHeight: 1.2, margin: 0, textShadow: '0 2px 8px rgba(0,0,0,0.7)' }}>
-          {lowerThird.name}
-        </p>
-        {lowerThird.title && (
-          <p style={{ color: 'rgba(255,255,255,0.75)', fontWeight: 400, fontSize: 14, margin: 0, marginTop: 3, textShadow: '0 1px 4px rgba(0,0,0,0.5)' }}>
-            {lowerThird.title}
-          </p>
-        )}
-      </div>
+    <div style={{
+      position: 'absolute',
+      zIndex: 3,
+      opacity: ltOpacity,
+      transform: ltTransform,
+      ...ltPositionStyle,
+      display: 'flex',
+      alignItems: 'stretch',
+    }}>
+      {/* BAR style */}
+      {ltStyle === 'bar' && <>
+        <div style={{ width: 4, background: ltAccent, borderRadius: 2, marginRight: 12, flexShrink: 0 }} />
+        <div>
+          <p style={{ color: ltNameColor, fontWeight: 800, fontSize: ltFontSize, lineHeight: 1.2, margin: 0, textShadow: '0 2px 8px rgba(0,0,0,0.7)' }}>{lowerThird.name}</p>
+          {lowerThird.title && <p style={{ color: ltTitleColor, fontWeight: 400, fontSize: ltFontSize * 0.64, margin: 0, marginTop: 3, textShadow: '0 1px 4px rgba(0,0,0,0.5)' }}>{lowerThird.title}</p>}
+        </div>
+      </>}
+
+      {/* PILL style */}
+      {ltStyle === 'pill' && (
+        <div style={{ background: ltBg, borderRadius: 40, padding: `${ltFontSize * 0.45}px ${ltFontSize * 0.9}px`, backdropFilter: 'blur(8px)', border: `1.5px solid ${ltAccent}33` }}>
+          <p style={{ color: ltNameColor, fontWeight: 800, fontSize: ltFontSize, lineHeight: 1.2, margin: 0 }}>{lowerThird.name}</p>
+          {lowerThird.title && <p style={{ color: ltTitleColor, fontWeight: 400, fontSize: ltFontSize * 0.64, margin: 0, marginTop: 2 }}>{lowerThird.title}</p>}
+        </div>
+      )}
+
+      {/* MINIMAL style */}
+      {ltStyle === 'minimal' && (
+        <div style={{ borderBottom: `2px solid ${ltAccent}`, paddingBottom: 6 }}>
+          <p style={{ color: ltNameColor, fontWeight: 600, fontSize: ltFontSize, lineHeight: 1.2, margin: 0, letterSpacing: 1 }}>{lowerThird.name}</p>
+          {lowerThird.title && <p style={{ color: ltTitleColor, fontWeight: 300, fontSize: ltFontSize * 0.64, margin: 0, marginTop: 2, letterSpacing: 2, textTransform: 'uppercase' }}>{lowerThird.title}</p>}
+        </div>
+      )}
+
+      {/* BOLD style */}
+      {ltStyle === 'bold' && (
+        <div style={{ background: ltAccent, padding: `${ltFontSize * 0.3}px ${ltFontSize * 0.7}px` }}>
+          <p style={{ color: ltBg, fontWeight: 900, fontSize: ltFontSize, lineHeight: 1.2, margin: 0, textTransform: 'uppercase' }}>{lowerThird.name}</p>
+          {lowerThird.title && <p style={{ color: ltBg, fontWeight: 400, fontSize: ltFontSize * 0.6, margin: 0, marginTop: 2, opacity: 0.75, textTransform: 'uppercase', letterSpacing: 1 }}>{lowerThird.title}</p>}
+        </div>
+      )}
+
+      {/* NEON style */}
+      {ltStyle === 'neon' && (
+        <div style={{ borderLeft: `3px solid ${ltAccent}`, paddingLeft: 12 }}>
+          <p style={{ color: ltAccent, fontWeight: 800, fontSize: ltFontSize, lineHeight: 1.2, margin: 0, textShadow: `0 0 12px ${ltAccent}CC, 0 0 30px ${ltAccent}66` }}>{lowerThird.name}</p>
+          {lowerThird.title && <p style={{ color: ltTitleColor, fontWeight: 400, fontSize: ltFontSize * 0.64, margin: 0, marginTop: 3, textShadow: `0 0 8px ${ltAccent}55` }}>{lowerThird.title}</p>}
+        </div>
+      )}
+
+      {/* CORPORATE style — semi-transparent dark panel, accent top border */}
+      {ltStyle === 'corporate' && (
+        <div style={{ background: 'rgba(0,0,0,0.72)', backdropFilter: 'blur(12px)', borderTop: `3px solid ${ltAccent}`, padding: `${ltFontSize * 0.5}px ${ltFontSize * 0.9}px`, minWidth: 200 }}>
+          <p style={{ color: ltNameColor, fontWeight: 700, fontSize: ltFontSize, lineHeight: 1.2, margin: 0, letterSpacing: 0.5 }}>{lowerThird.name}</p>
+          {lowerThird.title && <p style={{ color: ltTitleColor, fontWeight: 400, fontSize: ltFontSize * 0.6, margin: 0, marginTop: 4, letterSpacing: 1, textTransform: 'uppercase', opacity: 0.85 }}>{lowerThird.title}</p>}
+        </div>
+      )}
+
+      {/* EXECUTIVE style — dark bg, gold accent line, serif feel */}
+      {ltStyle === 'executive' && (
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 0 }}>
+          <div style={{ height: 2, background: `linear-gradient(90deg, ${ltAccent}, transparent)`, marginBottom: 8, width: '100%' }} />
+          <p style={{ color: ltNameColor, fontWeight: 300, fontSize: ltFontSize, lineHeight: 1.2, margin: 0, letterSpacing: 3, textTransform: 'uppercase' }}>{lowerThird.name}</p>
+          {lowerThird.title && (
+            <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginTop: 5 }}>
+              <div style={{ width: 20, height: 1, background: ltAccent, opacity: 0.8 }} />
+              <p style={{ color: ltTitleColor, fontWeight: 400, fontSize: ltFontSize * 0.58, margin: 0, letterSpacing: 2, textTransform: 'uppercase', opacity: 0.8 }}>{lowerThird.title}</p>
+            </div>
+          )}
+        </div>
+      )}
+
+      {/* BROADCAST style — solid color band, classic TV news */}
+      {ltStyle === 'broadcast' && (
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 0, minWidth: 220 }}>
+          <div style={{ background: ltAccent, padding: `${ltFontSize * 0.3}px ${ltFontSize * 0.7}px` }}>
+            <p style={{ color: ltBg || '#000000', fontWeight: 800, fontSize: ltFontSize, lineHeight: 1.2, margin: 0 }}>{lowerThird.name}</p>
+          </div>
+          {lowerThird.title && (
+            <div style={{ background: 'rgba(0,0,0,0.85)', padding: `${ltFontSize * 0.2}px ${ltFontSize * 0.7}px` }}>
+              <p style={{ color: ltTitleColor, fontWeight: 400, fontSize: ltFontSize * 0.6, margin: 0, letterSpacing: 1 }}>{lowerThird.title}</p>
+            </div>
+          )}
+        </div>
+      )}
+
+      {/* CLEAN style — white bg card, minimal shadow, LinkedIn/corporate deck feel */}
+      {ltStyle === 'clean' && (
+        <div style={{ background: '#FFFFFF', borderRadius: 6, padding: `${ltFontSize * 0.45}px ${ltFontSize * 0.8}px`, boxShadow: '0 4px 24px rgba(0,0,0,0.35)', borderLeft: `4px solid ${ltAccent}` }}>
+          <p style={{ color: '#111111', fontWeight: 700, fontSize: ltFontSize, lineHeight: 1.2, margin: 0 }}>{lowerThird.name}</p>
+          {lowerThird.title && <p style={{ color: '#555555', fontWeight: 400, fontSize: ltFontSize * 0.62, margin: 0, marginTop: 3 }}>{lowerThird.title}</p>}
+        </div>
+      )}
+
+      {/* EDITORIAL style — magazine/press kit, large name, hairline rule */}
+      {ltStyle === 'editorial' && (
+        <div style={{ borderBottom: `1px solid ${ltAccent}66`, paddingBottom: 8 }}>
+          <div style={{ display: 'flex', alignItems: 'baseline', gap: 10 }}>
+            <p style={{ color: ltNameColor, fontWeight: 900, fontSize: ltFontSize * 1.1, lineHeight: 1, margin: 0, textTransform: 'uppercase', letterSpacing: 1 }}>{lowerThird.name}</p>
+            {lowerThird.title && <div style={{ width: 1, height: ltFontSize * 0.8, background: ltAccent, opacity: 0.5 }} />}
+            {lowerThird.title && <p style={{ color: ltTitleColor, fontWeight: 300, fontSize: ltFontSize * 0.6, margin: 0, letterSpacing: 2, textTransform: 'uppercase' }}>{lowerThird.title}</p>}
+          </div>
+        </div>
+      )}
     </div>
   )
 

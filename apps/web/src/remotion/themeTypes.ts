@@ -8,9 +8,26 @@ export type TransitionStyle = 'none' | 'zoom-punch' | 'slide-up' | 'flash' | 'wi
 
 export type QuestionCardStyle = 'default' | 'flash-word' | 'brut' | 'split-color' | 'typewriter' | 'cinematic' | 'pop-art' | 'word-slam' | 'kinetic' | 'neon-pulse'
 
+export type LowerThirdStyle =
+  // Viral / social
+  'bar' | 'pill' | 'minimal' | 'bold' | 'neon' |
+  // B2B / professional
+  'corporate' | 'executive' | 'broadcast' | 'clean' | 'editorial'
+export type LowerThirdPosition = 'bottom-left' | 'bottom-center' | 'bottom-right' | 'top-left' | 'top-right'
+
 export interface LowerThirdSettings {
   name: string
   title?: string
+  // Customisation
+  style?: LowerThirdStyle        // default 'bar'
+  position?: LowerThirdPosition  // default 'bottom-left'
+  nameColor?: string             // default '#FFFFFF'
+  titleColor?: string            // default 'rgba(255,255,255,0.75)'
+  accentColor?: string           // default '#FFFFFF' (bar/pill accent)
+  bgColor?: string               // default transparent (pill/bold use this)
+  fontSize?: number              // px for name, default 22
+  // Persistence
+  persistent?: boolean           // if true: stays visible for entire clip duration
 }
 
 export interface SfxTrack {
