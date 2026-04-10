@@ -76,7 +76,10 @@ function getWordWindow(
   if (wordTimestamps && wordTimestamps.length > 0) {
     // Use wordTimestamps as the single source of truth for both words and timing.
     const words = wordTimestamps.map(w => w.word)
-    const currentTimeSec = frame / fps
+    // Whisper timestamps mark word onset slightly early — shift back by 80ms so
+    // subtitles appear in sync with the audible word rather than ahead of it.
+    const SUBTITLE_DELAY_SEC = 0.08
+    const currentTimeSec = Math.max(0, frame / fps - SUBTITLE_DELAY_SEC)
     const SILENCE_THRESHOLD_SEC = 0.15 // hide subtitles during pauses longer than this
 
     // Before first word: blank
