@@ -1,3 +1,4 @@
+import os from 'os'
 import { bundle } from '@remotion/bundler'
 import { renderMedia, selectComposition } from '@remotion/renderer'
 import path from 'path'
@@ -220,9 +221,9 @@ async function runRender(jobId: string, body: any) {
     const outputPath = path.join('/tmp', `render-${jobId}.mp4`)
 
     // Timeout: fail the render if it takes more than 8 minutes
-    const RENDER_TIMEOUT_MS = 8 * 60 * 1000
+    const RENDER_TIMEOUT_MS = 25 * 60 * 1000 // 25 min — covers long compositions
     const renderTimeout = new Promise<never>((_, reject) =>
-      setTimeout(() => reject(new Error('Render timeout after 8 minutes')), RENDER_TIMEOUT_MS)
+      setTimeout(() => reject(new Error('Render timeout after 25 minutes')), RENDER_TIMEOUT_MS)
     )
 
     await Promise.race([
@@ -232,6 +233,7 @@ async function runRender(jobId: string, body: any) {
         codec: 'h264',
         outputLocation: outputPath,
         inputProps,
+        concurrency: Math.max(1, Math.floor((os.cpus().length ?? 2) * 0.75)),
         onProgress: ({ progress }) => {
           setProgress(15 + Math.round(progress * 83))
         },
