@@ -3267,31 +3267,65 @@ export function ProcessView({ recordings, themeName, sessionId, themeSlug, monta
   const fmt = FORMATS[format]
   const stepPreview = (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 20 }}>
-      {/* Export */}
+      {/* Export CTA */}
       {ready && segments && (
-        <ServerRenderer
-          ref={serverRendererRef}
-          segments={effectiveSegments!}
-          originalVideoUrls={effectiveVideoUrlsRef.current.length > 0 ? effectiveVideoUrlsRef.current : recordings.map(r => r.videoUrl)}
-          voiceId={selectedVoiceId}
-          themeName={themeName}
-          theme={theme}
-          intro={intro}
-          outro={outro}
-          subtitleSettings={subtitleSettings}
-          questionCardFrames={questionCardFrames}
-          fps={FPS}
-          width={fmt.width}
-          height={fmt.height}
-          sessionId={sessionId}
-          motionSettings={effectiveMotionSettings}
-          audioSettings={audioSettings}
-          onRenderComplete={(url) => {
-            if (renderOutputUrlRef.current) URL.revokeObjectURL(renderOutputUrlRef.current)
-            renderOutputUrlRef.current = url
-            setRenderOutputUrl(url)
-          }}
-        />
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+          <div style={{ background: 'rgba(255,255,255,0.03)', border: `1px solid ${S.border}`, borderRadius: 12, padding: 20 }}>
+            <p style={{ color: S.text, fontWeight: 700, fontSize: 15, margin: '0 0 4px' }}>Prêt à exporter</p>
+            <p style={{ color: S.muted, fontSize: 12, margin: '0 0 16px' }}>
+              {fmt.width}×{fmt.height} · {FPS}fps · H264
+            </p>
+            <button
+              onClick={() => serverRendererRef.current?.render()}
+              disabled={!!serverRendererRef.current?.rendering}
+              style={{
+                width: '100%', padding: '14px 0', borderRadius: 10, fontSize: 15, fontWeight: 800,
+                background: serverRendererRef.current?.rendering ? 'rgba(255,255,255,0.1)' : '#ffffff',
+                border: 'none', color: serverRendererRef.current?.rendering ? S.muted : '#0a0a0a',
+                cursor: serverRendererRef.current?.rendering ? 'not-allowed' : 'pointer',
+                display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8,
+                transition: 'opacity 0.15s',
+              }}>
+              {serverRendererRef.current?.rendering ? (
+                <><Loader2 size={16} className="animate-spin" /> Rendu en cours…</>
+              ) : renderOutputUrl ? (
+                '↻ Ré-exporter'
+              ) : (
+                '▶ Lancer l\'export'
+              )}
+            </button>
+          </div>
+          <ServerRenderer
+            ref={serverRendererRef}
+            segments={effectiveSegments!}
+            originalVideoUrls={effectiveVideoUrlsRef.current.length > 0 ? effectiveVideoUrlsRef.current : recordings.map(r => r.videoUrl)}
+            voiceId={selectedVoiceId}
+            themeName={themeName}
+            theme={theme}
+            intro={intro}
+            outro={outro}
+            subtitleSettings={subtitleSettings}
+            questionCardFrames={questionCardFrames}
+            fps={FPS}
+            width={fmt.width}
+            height={fmt.height}
+            sessionId={sessionId}
+            motionSettings={effectiveMotionSettings}
+            audioSettings={audioSettings}
+            onRenderComplete={(url) => {
+              if (renderOutputUrlRef.current) URL.revokeObjectURL(renderOutputUrlRef.current)
+              renderOutputUrlRef.current = url
+              setRenderOutputUrl(url)
+            }}
+          />
+        </div>
+      )}
+
+      {!ready && (
+        <div style={{ background: 'rgba(245,158,11,0.08)', border: `1px solid rgba(245,158,11,0.3)`, borderRadius: 12, padding: 20 }}>
+          <p style={{ color: '#f59e0b', fontWeight: 600, fontSize: 13, margin: '0 0 4px' }}>Vidéos en cours de préparation</p>
+          <p style={{ color: S.muted, fontSize: 12, margin: 0 }}>Revenez sur cet onglet une fois la préparation terminée.</p>
+        </div>
       )}
 
       {/* Back to results */}
@@ -3470,19 +3504,17 @@ export function ProcessView({ recordings, themeName, sessionId, themeSlug, monta
           {saveStatus === 'saved' && <span style={{ fontSize: 10, fontFamily: 'monospace', color: 'rgba(52,211,153,0.6)' }}>Sauvegardé ✓</span>}
           {saveStatus === 'error' && <span style={{ fontSize: 10, fontFamily: 'monospace', color: S.error }}>Erreur</span>}
           {!ready && saveStatus === 'idle' && <div style={{ width: 5, height: 5, borderRadius: '50%', background: '#f59e0b', animation: 'pulse 1.5s ease infinite' }} />}
-          {ready && segments && (
+          {ready && segments && currentPhase !== 2 && (
             <button
-              onClick={() => serverRendererRef.current?.render()}
-              disabled={!!serverRendererRef.current?.rendering}
+              onClick={() => { setCurrentPhase(2) }}
               style={{
                 display: 'flex', alignItems: 'center', gap: 6,
                 padding: '6px 14px', borderRadius: 8, fontSize: 12, fontWeight: 700,
                 background: '#ffffff', border: 'none', color: '#0a0a0a',
-                cursor: serverRendererRef.current?.rendering ? 'not-allowed' : 'pointer',
-                opacity: serverRendererRef.current?.rendering ? 0.5 : 1,
+                cursor: 'pointer',
                 transition: 'opacity 0.15s',
               }}>
-              {serverRendererRef.current?.rendering ? 'Rendu…' : renderOutputUrl ? 'Ré-exporter' : 'Exporter'}
+              Exporter →
             </button>
           )}
         </div>

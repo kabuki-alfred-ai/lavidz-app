@@ -106,11 +106,18 @@ export function RecordingSession({ theme, initialSessionId, mode = 'default' }: 
       const audio = new Audio(url)
       questionAudioRef.current = audio
       setIsAudioPlaying(true)
-      audio.play()
+      audio.onerror = () => {
+        URL.revokeObjectURL(url)
+        setIsAudioPlaying(false)
+      }
       audio.onended = () => {
         URL.revokeObjectURL(url)
         setIsAudioPlaying(false)
       }
+      audio.play().catch(() => {
+        URL.revokeObjectURL(url)
+        setIsAudioPlaying(false)
+      })
     } catch {}
   }
 
