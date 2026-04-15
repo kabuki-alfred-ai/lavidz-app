@@ -61,6 +61,7 @@ export function RecordingSession({ theme, initialSessionId, mode = 'default' }: 
   const [showMaxDurationWarning, setShowMaxDurationWarning] = useState(false)
   const [videoQuality, setVideoQuality] = useState<VideoQuality>('1080p')
   const [openPicker, setOpenPicker] = useState<'video' | 'audio' | null>(null)
+  const [ttsVolume, setTtsVolume] = useState(1)
   const [feedbackOverall, setFeedbackOverall] = useState(0)
   const [feedbackQuestion, setFeedbackQuestion] = useState(0)
   const [feedbackComment, setFeedbackComment] = useState('')
@@ -87,37 +88,98 @@ export function RecordingSession({ theme, initialSessionId, mode = 'default' }: 
   const canvasStreamRef = useRef<MediaStream | null>(null)
   const canvasRafRef = useRef<number | null>(null)
   const facingModeRef = useRef<'user' | 'environment'>('user')
+  const ttsAudioContextRef = useRef<AudioContext | null>(null)
+  const ttsGainNodeRef = useRef<GainNode | null>(null)
+  const ttsVolumeRef = useRef(1)
 
   const QUESTION_VOICE_ID = 'KSyQzmsYhFbuOhqj1Xxv'
+
+  // Keep ttsVolumeRef in sync so gain updates work from non-render contexts
+  useEffect(() => {
+    ttsVolumeRef.current = ttsVolume
+    if (ttsGainNodeRef.current) ttsGainNodeRef.current.gain.value = ttsVolume
+  }, [ttsVolume])
+
+  // Ensure the TTS AudioContext exists (must be called from a user gesture the first time)
+  const ensureTtsAudioContext = () => {
+    if (ttsAudioContextRef.current && ttsAudioContextRef.current.state !== 'closed') {
+      if (ttsAudioContextRef.current.state === 'suspended') ttsAudioContextRef.current.resume()
+      return
+    }
+    const ctx = new AudioContext()
+    const gain = ctx.createGain()
+    gain.gain.value = ttsVolumeRef.current
+    gain.connect(ctx.destination)
+    ttsAudioContextRef.current = ctx
+    ttsGainNodeRef.current = gain
+  }
+
+  // Release mic audio tracks so iOS routes TTS to the loudspeaker instead of earpiece
+  const releaseMicTracks = () => {
+    streamRef.current?.getAudioTracks().forEach(t => { t.stop(); streamRef.current?.removeTrack(t) })
+  }
+
+  // Re-acquire mic audio tracks after TTS finishes so recording can use them
+  const reacquireMicTracks = async () => {
+    if (!streamRef.current) return
+    try {
+      const constraint: MediaTrackConstraints = selectedAudioId
+        ? { deviceId: { exact: selectedAudioId } }
+        : true as unknown as MediaTrackConstraints
+      const newStream = await navigator.mediaDevices.getUserMedia({ audio: constraint, video: false })
+      const newTrack = newStream.getAudioTracks()[0]
+      if (newTrack && streamRef.current) {
+        // Remove any existing audio tracks first (safety)
+        streamRef.current.getAudioTracks().forEach(t => { t.stop(); streamRef.current?.removeTrack(t) })
+        streamRef.current.addTrack(newTrack)
+      }
+    } catch {}
+  }
 
   const announceQuestion = async (text: string) => {
     try {
       questionAudioRef.current?.pause()
       questionAudioRef.current = null
       setIsAudioPlaying(false)
+
+      // Stop mic tracks so iOS routes audio to the loudspeaker
+      releaseMicTracks()
+
       const res = await fetch('/api/tts', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ text, voiceId: QUESTION_VOICE_ID }),
       })
-      if (!res.ok) return
+      if (!res.ok) { reacquireMicTracks(); return }
       const blob = await res.blob()
       const url = URL.createObjectURL(blob)
       const audio = new Audio(url)
+      audio.crossOrigin = 'anonymous'
       questionAudioRef.current = audio
+
+      const cleanup = () => {
+        URL.revokeObjectURL(url)
+        setIsAudioPlaying(false)
+        reacquireMicTracks()
+      }
+      audio.onerror = cleanup
+      audio.onended = cleanup
+
+      // Route through Web Audio API GainNode for iOS volume control
+      try {
+        const ctx = ttsAudioContextRef.current
+        const gain = ttsGainNodeRef.current
+        if (ctx && gain && ctx.state !== 'closed') {
+          if (ctx.state === 'suspended') await ctx.resume()
+          const source = ctx.createMediaElementSource(audio)
+          source.connect(gain)
+        }
+      } catch {
+        // Fallback: play without gain control (desktop browsers handle volume natively)
+      }
+
       setIsAudioPlaying(true)
-      audio.onerror = () => {
-        URL.revokeObjectURL(url)
-        setIsAudioPlaying(false)
-      }
-      audio.onended = () => {
-        URL.revokeObjectURL(url)
-        setIsAudioPlaying(false)
-      }
-      audio.play().catch(() => {
-        URL.revokeObjectURL(url)
-        setIsAudioPlaying(false)
-      })
+      audio.play().catch(cleanup)
     } catch {}
   }
 
@@ -169,6 +231,7 @@ export function RecordingSession({ theme, initialSessionId, mode = 'default' }: 
       if (canvasRafRef.current) cancelAnimationFrame(canvasRafRef.current)
       if (confirmTimerRef.current) clearTimeout(confirmTimerRef.current)
       questionAudioRef.current?.pause()
+      ttsAudioContextRef.current?.close()
       stopMicMeter()
     }
   }, [stopMicMeter])
@@ -443,6 +506,13 @@ export function RecordingSession({ theme, initialSessionId, mode = 'default' }: 
     } catch {}
   }, [])
 
+  // Re-detect devices when a peripheral is plugged/unplugged (e.g. DJI mic on iOS)
+  useEffect(() => {
+    const handler = () => detectDevices()
+    navigator.mediaDevices.addEventListener('devicechange', handler)
+    return () => navigator.mediaDevices.removeEventListener('devicechange', handler)
+  }, [detectDevices])
+
   const flipCamera = useCallback(async () => {
     if (flipping) return
     setFlipping(true)
@@ -528,6 +598,8 @@ export function RecordingSession({ theme, initialSessionId, mode = 'default' }: 
     if (starting) return
     setStarting(true)
     setCheckError('')
+    // Create TTS AudioContext on user gesture (required by iOS Safari)
+    try { ensureTtsAudioContext() } catch {}
     try {
       const preset = VIDEO_PRESETS[videoQuality]
       const audioConstraint: MediaTrackConstraints = selectedAudioId
@@ -600,9 +672,11 @@ export function RecordingSession({ theme, initialSessionId, mode = 'default' }: 
   const formatTime = (s: number) =>
     `${String(Math.floor(s / 60)).padStart(2, '0')}:${String(s % 60).padStart(2, '0')}`
 
-  const startRecordingNow = () => {
+  const startRecordingNow = async () => {
     questionAudioRef.current?.pause()
     setIsAudioPlaying(false)
+    // Re-acquire mic tracks before recording (they were released for speaker TTS)
+    await reacquireMicTracks()
     beginCountdown()
   }
 
@@ -1232,15 +1306,13 @@ export function RecordingSession({ theme, initialSessionId, mode = 'default' }: 
                   )}
                 </div>
                 <span className="flex-1 min-w-0 text-xs text-white/70 truncate text-left">{currentAudioLabel.replace(/\(.*\)/, '').trim()}</span>
-                {audioDevices.length > 1 && (
-                  <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="rgba(255,255,255,0.4)" strokeWidth="2.5" strokeLinecap="round">
-                    <path d="M6 9l6 6 6-6"/>
-                  </svg>
-                )}
+                <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="rgba(255,255,255,0.4)" strokeWidth="2.5" strokeLinecap="round">
+                  <path d="M6 9l6 6 6-6"/>
+                </svg>
               </button>
 
               {/* Mic picker dropdown */}
-              {openPicker === 'audio' && audioDevices.length > 1 && (
+              {openPicker === 'audio' && audioDevices.length > 0 && (
                 <div
                   className="absolute bottom-full mb-2 left-0 right-0 rounded-xl overflow-hidden z-20"
                   style={{ background: 'rgba(20,20,20,0.95)', backdropFilter: 'blur(16px)', border: '1px solid rgba(255,255,255,0.12)' }}
@@ -1435,6 +1507,28 @@ export function RecordingSession({ theme, initialSessionId, mode = 'default' }: 
               <p className="text-white/40 text-xs font-mono">Prêt à répondre</p>
             )}
           </div>
+
+          {/* Volume slider — pointer-events-auto since parent is pointer-events-none */}
+          <div className="flex items-center gap-3 pointer-events-auto w-full max-w-[220px]">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="rgba(255,255,255,0.5)" strokeWidth="2" strokeLinecap="round" className="shrink-0">
+              <polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5"/>
+              {ttsVolume > 0 && <path d="M15.54 8.46a5 5 0 0 1 0 7.07"/>}
+              {ttsVolume > 0.5 && <path d="M19.07 4.93a10 10 0 0 1 0 14.14"/>}
+            </svg>
+            <input
+              type="range"
+              min={0}
+              max={1}
+              step={0.05}
+              value={ttsVolume}
+              onChange={e => setTtsVolume(parseFloat(e.target.value))}
+              className="flex-1 h-1 appearance-none rounded-full outline-none"
+              style={{
+                background: `linear-gradient(to right, ${accent} ${ttsVolume * 100}%, rgba(255,255,255,0.15) ${ttsVolume * 100}%)`,
+                accentColor: accent,
+              }}
+            />
+          </div>
         </div>
       )}
 
@@ -1572,8 +1666,7 @@ export function RecordingSession({ theme, initialSessionId, mode = 'default' }: 
             <button
               key={isAudioPlaying ? 'loading' : 'ready'}
               onClick={startRecordingNow}
-              disabled={isAudioPlaying}
-              className="px-8 py-4 rounded-2xl font-semibold text-sm active:scale-95 disabled:opacity-30 disabled:cursor-not-allowed"
+              className="px-8 py-4 rounded-2xl font-semibold text-sm active:scale-95"
               style={{
                 background: 'rgba(255,255,255,0.1)',
                 color: 'rgba(255,255,255,0.85)',
@@ -1583,7 +1676,7 @@ export function RecordingSession({ theme, initialSessionId, mode = 'default' }: 
                   : 'readyPop 0.5s cubic-bezier(0.34,1.56,0.64,1) forwards, readyPulse 2s ease-in-out 0.5s infinite',
               }}
             >
-              {isAudioPlaying ? 'Lecture en cours...' : 'Je suis prêt →'}
+              Je suis prêt →
             </button>
           </>
         )}
