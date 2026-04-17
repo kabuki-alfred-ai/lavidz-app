@@ -47,12 +47,12 @@ export default function RegisterPage() {
             <span className="font-sans font-black text-lg tracking-tighter text-foreground uppercase">LAVIDZ</span>
           </div>
           <div className="border border-border p-8">
-            <p className="text-xs font-mono uppercase tracking-widest text-muted-foreground mb-3">Demande envoyée</p>
+            <p className="text-xs text-muted-foreground mb-3">Demande envoyée</p>
             <h2 className="font-sans font-extrabold text-xl tracking-tight mb-3">Votre organisation est en cours de validation</h2>
             <p className="text-xs text-muted-foreground mb-6">
               L&apos;équipe Lavidz examinera votre demande et activera votre compte. Vous pourrez ensuite vous connecter.
             </p>
-            <Link href="/auth/login" className="text-xs font-mono text-muted-foreground underline underline-offset-2">
+            <Link href="/auth/login" className="text-xs text-muted-foreground underline underline-offset-2">
               Retour à la connexion
             </Link>
           </div>
@@ -102,7 +102,7 @@ export default function RegisterPage() {
             <Input id="confirm" type="password" value={form.confirm} onChange={set('confirm')} required />
           </div>
 
-          {error && <p className="text-xs text-destructive font-mono">{error}</p>}
+          {error && <p className="text-xs text-destructive">{error}</p>}
 
           <Button type="submit" disabled={loading}>
             {loading && <Loader2 size={12} className="animate-spin" />}

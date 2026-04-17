@@ -21,6 +21,7 @@ type ProfileUpdateData = {
   topicsExplored?: string[]
   communicationStyle?: string | null
   linkedinUrl?: string | null
+  websiteUrl?: string | null
 }
 
 @Injectable()

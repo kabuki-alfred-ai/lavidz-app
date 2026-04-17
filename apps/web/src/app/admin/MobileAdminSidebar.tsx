@@ -19,7 +19,11 @@ interface Props {
 
 export function MobileAdminSidebar({ userRole, userName, userInitial, avatarSrc, activeOrgId }: Props) {
   const [open, setOpen] = useState(false)
+  const [mounted, setMounted] = useState(false)
   const pathname = usePathname()
+
+  // Only render portal after client mount to avoid hydration mismatch
+  useEffect(() => { setMounted(true) }, [])
 
   // Close on route change
   useEffect(() => { setOpen(false) }, [pathname])
@@ -35,7 +39,7 @@ export function MobileAdminSidebar({ userRole, userName, userInitial, avatarSrc,
       {/* Overlay */}
       <div
         className={cn(
-          "fixed inset-0 bg-black/60 z-40 transition-opacity duration-300 md:hidden",
+          "fixed inset-0 bg-black/40 backdrop-blur-sm z-40 transition-opacity duration-300 md:hidden",
           open ? "opacity-100 pointer-events-auto" : "opacity-0 pointer-events-none"
         )}
         onClick={() => setOpen(false)}
@@ -44,26 +48,26 @@ export function MobileAdminSidebar({ userRole, userName, userInitial, avatarSrc,
       {/* Drawer */}
       <aside
         className={cn(
-          "fixed top-0 left-0 h-full w-[240px] z-50 flex flex-col border-r border-border transition-transform duration-300 md:hidden dark",
+          "fixed top-0 left-0 h-full w-[280px] z-50 flex flex-col transition-transform duration-300 md:hidden dark rounded-r-2xl shadow-2xl",
           open ? "translate-x-0" : "-translate-x-full"
         )}
         style={{ backgroundColor: '#0a0a0a' }}
       >
         {/* Logo + close */}
-        <div className="h-14 flex items-center justify-between px-6 border-b border-border mb-4">
-          <Link href="/admin" className="flex items-center gap-1.5 group">
-            <div className="relative w-6 h-6 flex items-center justify-center">
-              <span className="block w-3 h-3 bg-primary animate-logo-morph shadow-[0_0_10px_rgba(var(--primary),0.2)]" />
+        <div className="h-16 flex items-center justify-between px-6">
+          <Link href="/admin" className="flex items-center gap-2 group">
+            <div className="relative w-7 h-7 flex items-center justify-center">
+              <span className="block w-3.5 h-3.5 bg-primary rounded-md shadow-sm" />
             </div>
-            <span className="font-sans font-black text-lg tracking-tighter text-foreground uppercase">
-              LAVIDZ
+            <span className="font-semibold text-lg tracking-tight text-foreground">
+              Lavidz
             </span>
           </Link>
           <button
             onClick={() => setOpen(false)}
-            className="w-7 h-7 flex items-center justify-center rounded-sm border border-border hover:bg-surface transition-colors"
+            className="w-8 h-8 flex items-center justify-center rounded-lg hover:bg-surface-raised transition-colors"
           >
-            <X size={14} className="text-muted-foreground" />
+            <X size={16} className="text-muted-foreground" />
           </button>
         </div>
 
@@ -71,9 +75,9 @@ export function MobileAdminSidebar({ userRole, userName, userInitial, avatarSrc,
         <AdminSidebarNav userRole={userRole} activeOrgId={activeOrgId} />
 
         {/* Footer */}
-        <div className="p-4 mx-4 mb-4 border border-border/60 bg-surface/40 rounded-sm flex flex-col gap-3">
-          <Link href="/admin/profile" className="min-w-0 flex items-center gap-3 px-1 hover:bg-surface-raised cursor-pointer rounded p-1 transition-colors group">
-            <div className="w-8 h-8 rounded-sm overflow-hidden bg-surface-raised flex items-center justify-center font-mono text-xs font-bold text-primary border border-border group-hover:border-primary/50 transition-colors shrink-0">
+        <div className="p-3 mx-3 mb-3 bg-surface/30 rounded-xl flex flex-col gap-3">
+          <Link href="/admin/profile" className="min-w-0 flex items-center gap-3 px-2 py-1.5 hover:bg-surface-raised cursor-pointer rounded-lg transition-colors group">
+            <div className="w-8 h-8 rounded-full overflow-hidden bg-surface-raised flex items-center justify-center text-xs font-semibold text-primary shrink-0">
               {avatarSrc ? (
                 // eslint-disable-next-line @next/next/no-img-element
                 <img src="/api/admin/profile/avatar" alt="" className="w-full h-full object-cover" />
@@ -82,11 +86,11 @@ export function MobileAdminSidebar({ userRole, userName, userInitial, avatarSrc,
               )}
             </div>
             <div className="min-w-0">
-              <p className="text-[10px] font-mono font-bold text-foreground truncate max-w-[120px] group-hover:text-primary transition-colors">
+              <p className="text-sm font-medium text-foreground truncate max-w-[140px] group-hover:text-primary transition-colors">
                 {userName}
               </p>
-              <div className="flex items-center gap-1.5 text-[9px] font-mono text-muted-foreground uppercase tracking-wider">
-                <span className="w-1 h-1 rounded-full bg-emerald-500 animate-pulse" />
+              <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
+                <span className="w-1.5 h-1.5 rounded-full bg-emerald-500" />
                 {userRole}
               </div>
             </div>
@@ -102,14 +106,14 @@ export function MobileAdminSidebar({ userRole, userName, userInitial, avatarSrc,
       {/* Hamburger button — mobile only */}
       <button
         onClick={() => setOpen(true)}
-        className="md:hidden flex items-center justify-center w-8 h-8 rounded-sm border border-border hover:bg-surface-raised transition-colors"
+        className="md:hidden flex items-center justify-center w-9 h-9 rounded-lg hover:bg-surface-raised transition-colors"
         aria-label="Menu"
       >
-        <Menu size={16} className="text-muted-foreground" />
+        <Menu size={18} className="text-muted-foreground" />
       </button>
 
       {/* Drawer + overlay rendered in body via portal to escape stacking context */}
-      {typeof document !== 'undefined' && createPortal(drawer, document.body)}
+      {mounted && createPortal(drawer, document.body)}
     </>
   )
 }

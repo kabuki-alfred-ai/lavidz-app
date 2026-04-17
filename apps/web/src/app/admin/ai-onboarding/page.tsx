@@ -181,7 +181,7 @@ export default function AiOnboardingPage() {
     <div className="max-w-2xl mx-auto flex flex-col h-[calc(100vh-10rem)]">
       {/* Header */}
       <div className="shrink-0 mb-6">
-        <div className="flex items-center gap-2 text-[10px] font-mono text-muted-foreground uppercase tracking-widest mb-3">
+        <div className="flex items-center gap-2 text-xs text-muted-foreground mb-3">
           <span>IA</span>
           <ChevronRight size={10} />
           <span className="text-foreground">Mon profil</span>
@@ -198,11 +198,11 @@ export default function AiOnboardingPage() {
             />
           </div>
           {saved ? (
-            <span className="text-[10px] font-mono text-emerald-500 flex items-center gap-1 shrink-0">
+            <span className="text-xs text-emerald-500 flex items-center gap-1 shrink-0">
               <CheckCircle2 size={10} /> Profil sauvegardé
             </span>
           ) : (
-            <span className="text-[10px] font-mono text-muted-foreground shrink-0">
+            <span className="text-xs text-muted-foreground shrink-0">
               {userCount}/6 réponses
             </span>
           )}
@@ -213,10 +213,10 @@ export default function AiOnboardingPage() {
       <div className="flex-1 overflow-y-auto space-y-4 pb-4">
         {messages.length === 0 && (
           <div className="flex gap-3">
-            <div className="shrink-0 w-7 h-7 rounded-sm flex items-center justify-center border bg-primary/10 border-primary/20 text-primary">
+            <div className="shrink-0 w-7 h-7 rounded-lg flex items-center justify-center border bg-primary/10 border-primary/20 text-primary">
               <Bot size={13} />
             </div>
-            <div className="max-w-[80%] px-4 py-3 rounded-sm text-sm leading-relaxed border bg-surface/60 border-border/60 text-muted-foreground italic">
+            <div className="max-w-[80%] px-4 py-3 rounded-lg text-sm leading-relaxed border bg-surface/60 border-border/60 text-muted-foreground italic">
               Dites bonjour pour démarrer — l&apos;IA va vous poser des questions pour apprendre à vous connaître.
             </div>
           </div>
@@ -224,14 +224,14 @@ export default function AiOnboardingPage() {
 
         {messages.map((msg, i) => (
           <div key={i} className={`flex gap-3 ${msg.role === 'user' ? 'flex-row-reverse' : ''}`}>
-            <div className={`shrink-0 w-7 h-7 rounded-sm flex items-center justify-center border ${
+            <div className={`shrink-0 w-7 h-7 rounded-lg flex items-center justify-center border ${
               msg.role === 'assistant'
                 ? 'bg-primary/10 border-primary/20 text-primary'
                 : 'bg-surface-raised border-border text-foreground'
             }`}>
               {msg.role === 'assistant' ? <Bot size={13} /> : <User size={13} />}
             </div>
-            <div className={`max-w-[80%] px-4 py-3 rounded-sm text-sm leading-relaxed border whitespace-pre-wrap ${
+            <div className={`max-w-[80%] px-4 py-3 rounded-lg text-sm leading-relaxed border whitespace-pre-wrap ${
               msg.role === 'assistant'
                 ? 'bg-surface/60 border-border/60 text-foreground'
                 : 'bg-primary/10 border-primary/20 text-foreground'
@@ -247,22 +247,22 @@ export default function AiOnboardingPage() {
         {/* LinkedIn import status badge */}
         {linkedinStep === 'loading' && (
           <div className="flex justify-center">
-            <span className="flex items-center gap-2 text-[10px] font-mono text-[#0A66C2]/70 border border-[#0A66C2]/20 bg-[#0A66C2]/5 rounded-full px-3 py-1">
+            <span className="flex items-center gap-2 text-xs text-[#0A66C2]/70 border border-[#0A66C2]/20 bg-[#0A66C2]/5 rounded-full px-3 py-1">
               <Loader2 size={10} className="animate-spin" /> Import LinkedIn en cours…
             </span>
           </div>
         )}
         {linkedinStep === 'done' && (
           <div className="flex justify-center">
-            <span className="flex items-center gap-2 text-[10px] font-mono text-emerald-500 border border-emerald-500/20 bg-emerald-500/5 rounded-full px-3 py-1">
+            <span className="flex items-center gap-2 text-xs text-emerald-500 border border-emerald-500/20 bg-emerald-500/5 rounded-full px-3 py-1">
               <CheckCircle2 size={10} /> LinkedIn importé dans votre profil IA
             </span>
           </div>
         )}
 
         {error && (
-          <div className="border border-red-500/30 bg-red-500/5 rounded-sm p-3">
-            <p className="text-xs font-mono text-red-400">{error}</p>
+          <div className="border border-red-500/30 bg-red-500/5 rounded-lg p-3">
+            <p className="text-xs text-red-400">{error}</p>
           </div>
         )}
 
@@ -272,10 +272,10 @@ export default function AiOnboardingPage() {
       {/* LinkedIn step — shown after profile is saved (post-conversation) */}
       {saved && linkedinStep !== 'done' && (
         <div className="shrink-0 mt-2 mb-3">
-          <div className="border border-[#0A66C2]/30 bg-[#0A66C2]/5 rounded-sm p-4 space-y-3">
+          <div className="border border-[#0A66C2]/30 bg-[#0A66C2]/5 rounded-lg p-4 space-y-3">
             <div className="flex items-center gap-2">
               <Linkedin size={14} className="text-[#0A66C2]" />
-              <span className="text-[11px] font-mono uppercase tracking-widest text-[#0A66C2]">
+              <span className="text-xs text-[#0A66C2]">
                 Étape bonus — LinkedIn
               </span>
             </div>
@@ -291,21 +291,21 @@ export default function AiOnboardingPage() {
                 onKeyDown={handleLinkedinKeyDown}
                 placeholder="https://www.linkedin.com/in/votre-profil"
                 disabled={linkedinStep === 'loading'}
-                className="flex-1 bg-surface/40 border border-border rounded-sm px-3 py-2 text-sm font-mono focus:outline-none focus:border-[#0A66C2]/60 transition-colors disabled:opacity-50"
+                className="flex-1 bg-surface/40 border border-border rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-[#0A66C2]/60 transition-colors disabled:opacity-50"
               />
               <button
                 onClick={submitLinkedinUrl}
                 disabled={linkedinStep === 'loading' || !linkedinUrl.trim()}
-                className="px-3 py-2 bg-[#0A66C2] text-white rounded-sm hover:bg-[#0A66C2]/90 disabled:opacity-40 disabled:cursor-not-allowed transition-colors shrink-0 text-xs font-mono"
+                className="px-3 py-2 bg-[#0A66C2] text-white rounded-lg hover:bg-[#0A66C2]/90 disabled:opacity-40 disabled:cursor-not-allowed transition-colors shrink-0 text-xs"
               >
                 {linkedinStep === 'loading' ? <Loader2 size={13} className="animate-spin" /> : 'Importer'}
               </button>
             </div>
-            {linkedinError && <p className="text-xs font-mono text-red-400">{linkedinError}</p>}
+            {linkedinError && <p className="text-xs text-red-400">{linkedinError}</p>}
             <div className="flex items-center justify-end">
               <Link
                 href="/admin/ai-profile"
-                className="text-[10px] font-mono text-muted-foreground hover:text-foreground transition-colors"
+                className="text-xs text-muted-foreground hover:text-foreground transition-colors"
               >
                 Plus tard →
               </Link>
@@ -315,14 +315,14 @@ export default function AiOnboardingPage() {
       )}
 
       {saved && linkedinStep === 'done' && (
-        <div className="shrink-0 mb-3 flex items-center justify-between border border-emerald-500/20 bg-emerald-500/5 rounded-sm px-4 py-3">
+        <div className="shrink-0 mb-3 flex items-center justify-between border border-emerald-500/20 bg-emerald-500/5 rounded-lg px-4 py-3">
           <span className="text-sm text-emerald-400 flex items-center gap-2">
             <CheckCircle2 size={14} />
             Profil LinkedIn importé dans votre profil IA
           </span>
           <Link
             href="/admin/ai-profile"
-            className="text-[10px] font-mono uppercase tracking-widest text-primary flex items-center gap-1 hover:underline"
+            className="text-xs text-primary flex items-center gap-1 hover:underline"
           >
             Voir le profil <ArrowRight size={10} />
           </Link>
@@ -335,7 +335,7 @@ export default function AiOnboardingPage() {
           <button
             onClick={() => saveProfile(messages)}
             disabled={saving}
-            className="w-full text-[10px] font-mono uppercase tracking-widest text-muted-foreground border border-border/60 rounded-sm py-2 hover:border-primary/40 hover:text-primary transition-colors disabled:opacity-40 flex items-center justify-center gap-2"
+            className="w-full text-xs text-muted-foreground border border-border/60 rounded-lg py-2 hover:border-primary/40 hover:text-primary transition-colors disabled:opacity-40 flex items-center justify-center gap-2"
           >
             {saving ? <><Loader2 size={10} className="animate-spin" /> Sauvegarde…</> : 'Sauvegarder le profil maintenant'}
           </button>
@@ -350,7 +350,7 @@ export default function AiOnboardingPage() {
             <div className="space-y-2">
               <div className="flex items-center gap-2 mb-1">
                 <Linkedin size={12} className="text-[#0A66C2]" />
-                <span className="text-[10px] font-mono uppercase tracking-widest text-[#0A66C2]">
+                <span className="text-xs text-[#0A66C2]">
                   URL LinkedIn
                 </span>
               </div>
@@ -363,7 +363,7 @@ export default function AiOnboardingPage() {
                     onChange={(e) => { setLinkedinUrl(e.target.value); setLinkedinError(null) }}
                     onKeyDown={handleLinkedinKeyDown}
                     placeholder="https://www.linkedin.com/in/votre-profil"
-                    className={`w-full bg-surface/40 border rounded-sm pl-3 pr-3 py-2 text-sm font-mono focus:outline-none transition-colors ${
+                    className={`w-full bg-surface/40 border rounded-lg pl-3 pr-3 py-2 text-sm focus:outline-none transition-colors ${
                       linkedinError
                         ? 'border-red-500/50 focus:border-red-500/70'
                         : 'border-[#0A66C2]/30 focus:border-[#0A66C2]/60'
@@ -373,18 +373,18 @@ export default function AiOnboardingPage() {
                 <button
                   onClick={submitLinkedinUrl}
                   disabled={!linkedinUrl.trim()}
-                  className="px-4 py-2 bg-[#0A66C2] text-white rounded-sm hover:bg-[#0A66C2]/90 disabled:opacity-40 disabled:cursor-not-allowed transition-colors shrink-0 flex items-center gap-1.5 text-xs font-mono"
+                  className="px-4 py-2 bg-[#0A66C2] text-white rounded-lg hover:bg-[#0A66C2]/90 disabled:opacity-40 disabled:cursor-not-allowed transition-colors shrink-0 flex items-center gap-1.5 text-xs"
                 >
                   <Linkedin size={12} />
                   Envoyer
                 </button>
               </div>
               {linkedinError && (
-                <p className="text-[11px] font-mono text-red-400">{linkedinError}</p>
+                <p className="text-xs text-red-400">{linkedinError}</p>
               )}
               <button
                 onClick={skipLinkedin}
-                className="text-[10px] font-mono text-muted-foreground hover:text-foreground transition-colors"
+                className="text-xs text-muted-foreground hover:text-foreground transition-colors"
               >
                 Passer cette étape →
               </button>
@@ -402,12 +402,12 @@ export default function AiOnboardingPage() {
                 onKeyDown={handleKeyDown}
                 placeholder="Votre réponse…"
                 disabled={streaming}
-                className="flex-1 bg-surface/40 border border-border rounded-sm px-3 py-2 text-sm font-mono focus:outline-none focus:border-primary/60 transition-colors disabled:opacity-50"
+                className="flex-1 bg-surface/40 border border-border rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-primary/60 transition-colors disabled:opacity-50"
               />
               <button
                 type="submit"
                 disabled={streaming || !input.trim()}
-                className="px-4 py-2 bg-primary text-primary-foreground rounded-sm hover:bg-primary/90 disabled:opacity-40 disabled:cursor-not-allowed transition-colors shrink-0"
+                className="px-4 py-2 bg-primary text-primary-foreground rounded-lg hover:bg-primary/90 disabled:opacity-40 disabled:cursor-not-allowed transition-colors shrink-0"
               >
                 {streaming ? <Loader2 size={13} className="animate-spin" /> : <Send size={13} />}
               </button>

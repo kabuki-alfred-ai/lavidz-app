@@ -11,6 +11,8 @@ interface SessionWithTheme {
   status: string
   recipientName?: string
   theme: ThemeDto
+  contentFormat?: string | null
+  teleprompterScript?: string | null
 }
 
 export default async function ShareableSessionPage({ params }: Props) {
@@ -50,6 +52,8 @@ export default async function ShareableSessionPage({ params }: Props) {
       theme={session.theme}
       initialSessionId={session.id}
       mode="shared"
+      contentFormat={session.contentFormat as any}
+      teleprompterScript={session.teleprompterScript}
     />
   )
 }

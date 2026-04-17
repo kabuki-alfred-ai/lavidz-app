@@ -119,14 +119,14 @@ export function SoundsClient({ initialSounds }: Props) {
         <div>
           <div className="flex items-center gap-2 mb-2">
             <span className="w-8 h-[1px] bg-primary/40" />
-            <p className="text-[10px] font-mono uppercase tracking-[0.3em] text-primary/60">
+            <p className="text-xs text-primary/60">
               Assets
             </p>
           </div>
-          <h1 className="text-3xl font-black uppercase tracking-tighter text-foreground">
+          <h1 className="text-3xl font-semibold tracking-tight text-foreground">
             Bibliothèque Sonore
           </h1>
-          <p className="text-[11px] font-mono text-muted-foreground mt-2 uppercase tracking-widest leading-relaxed">
+          <p className="text-xs text-muted-foreground mt-2 leading-relaxed">
             Sons pour transitions, intro & outro du montage
           </p>
         </div>
@@ -137,7 +137,7 @@ export function SoundsClient({ initialSounds }: Props) {
         <CardContent className="p-0">
           <form onSubmit={handleSubmit} className="p-8 space-y-6">
             <div className="flex items-center gap-3 mb-2">
-              <div className="w-7 h-7 rounded-sm bg-primary/5 border border-primary/10 flex items-center justify-center">
+              <div className="w-7 h-7 rounded-lg bg-primary/5 border border-primary/10 flex items-center justify-center">
                 <Plus size={13} className="text-primary" />
               </div>
               <h2 className="font-inter font-bold text-base text-foreground">
@@ -147,7 +147,7 @@ export function SoundsClient({ initialSounds }: Props) {
 
             <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
               <div className="space-y-2">
-                <Label className="text-[10px] font-mono uppercase tracking-widest text-muted-foreground/80">
+                <Label className="text-xs text-muted-foreground/80">
                   Nom
                 </Label>
                 <Input
@@ -155,18 +155,18 @@ export function SoundsClient({ initialSounds }: Props) {
                   onChange={(e) => setName(e.target.value)}
                   placeholder="ex: Swoosh doux"
                   required
-                  className="h-9 bg-surface/40 font-mono text-xs"
+                  className="h-9 bg-surface/40 text-xs"
                 />
               </div>
 
               <div className="space-y-2">
-                <Label className="text-[10px] font-mono uppercase tracking-widest text-muted-foreground/80">
+                <Label className="text-xs text-muted-foreground/80">
                   Tag
                 </Label>
                 <select
                   value={tag}
                   onChange={(e) => setTag(e.target.value as SoundTag)}
-                  className="flex h-9 w-full border border-input bg-surface/40 px-3 py-1 text-xs font-mono text-foreground focus:outline-none focus:border-primary transition-colors appearance-none"
+                  className="flex h-9 w-full rounded-lg border border-input bg-surface/40 px-3 py-1 text-xs text-foreground focus:outline-none focus:border-primary transition-colors appearance-none"
                 >
                   <option value="BACKGROUND">Background Sound</option>
                   <option value="TRANSITION">Transition</option>
@@ -176,7 +176,7 @@ export function SoundsClient({ initialSounds }: Props) {
               </div>
 
               <div className="space-y-2">
-                <Label className="text-[10px] font-mono uppercase tracking-widest text-muted-foreground/80">
+                <Label className="text-xs text-muted-foreground/80">
                   Fichier audio
                 </Label>
                 <div className="relative">
@@ -192,7 +192,7 @@ export function SoundsClient({ initialSounds }: Props) {
                   <label
                     htmlFor="sound-file"
                     className={cn(
-                      'flex h-9 w-full items-center gap-2 border border-input bg-surface/40 px-3 cursor-pointer text-xs font-mono transition-colors hover:border-primary/40',
+                      'flex h-9 w-full items-center gap-2 rounded-lg border border-input bg-surface/40 px-3 cursor-pointer text-xs transition-colors hover:border-primary/40',
                       file ? 'text-foreground' : 'text-muted-foreground/70',
                     )}
                   >
@@ -206,7 +206,7 @@ export function SoundsClient({ initialSounds }: Props) {
             </div>
 
             {uploadError && (
-              <p className="text-[11px] font-mono text-destructive bg-destructive/5 px-3 py-2 border border-destructive/20">
+              <p className="text-xs text-destructive bg-destructive/5 px-3 py-2 rounded-lg border border-destructive/20">
                 {uploadError}
               </p>
             )}
@@ -214,7 +214,7 @@ export function SoundsClient({ initialSounds }: Props) {
             <Button
               type="submit"
               disabled={uploading || !file}
-              className="h-10 px-8 rounded-none font-mono text-[10px] uppercase tracking-[0.2em] shadow-lg"
+              className="h-10 px-8 text-xs shadow-lg"
             >
               {uploading ? (
                 <Loader2 size={13} className="animate-spin mr-2" />
@@ -234,31 +234,31 @@ export function SoundsClient({ initialSounds }: Props) {
             <div className="flex items-center gap-3">
               <span
                 className={cn(
-                  'text-[9px] font-mono uppercase tracking-[0.2em] px-2 py-1 border rounded-none',
+                  'text-xs px-2 py-1 border',
                   TAG_COLORS[t],
                 )}
               >
                 {TAG_LABELS[t]}
               </span>
-              <span className="text-[10px] font-mono text-muted-foreground/60">
+              <span className="text-xs text-muted-foreground/60">
                 {items.length} son{items.length !== 1 ? 's' : ''}
               </span>
             </div>
 
             {items.length === 0 ? (
-              <div className="border border-dashed border-border/40 py-8 text-center">
+              <div className="rounded-xl border border-dashed border-border/30 py-8 text-center">
                 <Music size={20} className="mx-auto text-muted-foreground/15 mb-2" />
-                <p className="text-[10px] font-mono text-muted-foreground/60 uppercase tracking-widest">
+                <p className="text-xs text-muted-foreground/60">
                   Aucun son {TAG_LABELS[t].toLowerCase()}
                 </p>
               </div>
             ) : (
-              <div className="border border-border/60 bg-surface/30 rounded-sm overflow-hidden backdrop-blur-sm">
+              <div className="border border-border/60 bg-surface/30 rounded-lg overflow-hidden backdrop-blur-sm">
                 <div className="grid grid-cols-[1fr_80px_80px] border-b border-border/40 bg-surface/50 px-6 py-3">
                   {['Nom', 'Écoute', 'Action'].map((h) => (
                     <div
                       key={h}
-                      className="text-[9px] font-mono uppercase tracking-[0.2em] text-muted-foreground/70"
+                      className="text-xs text-muted-foreground/70"
                     >
                       {h}
                     </div>
@@ -271,7 +271,7 @@ export function SoundsClient({ initialSounds }: Props) {
                       className="grid grid-cols-[1fr_80px_80px] items-center px-6 py-4 hover:bg-primary/[0.02] transition-colors group"
                     >
                       <div className="flex items-center gap-3 min-w-0">
-                        <div className="w-6 h-6 rounded-sm bg-primary/5 border border-primary/10 flex items-center justify-center shrink-0">
+                        <div className="w-6 h-6 rounded-lg bg-primary/5 border border-primary/10 flex items-center justify-center shrink-0">
                           <Music size={11} className="text-primary/40" />
                         </div>
                         <span className="font-inter font-bold text-[13px] text-foreground truncate group-hover:text-primary transition-colors">
@@ -283,7 +283,7 @@ export function SoundsClient({ initialSounds }: Props) {
                         <button
                           onClick={() => handlePlay(sound)}
                           disabled={!sound.signedUrl}
-                          className="w-8 h-8 flex items-center justify-center border border-border/40 hover:border-primary/40 hover:bg-primary/5 text-muted-foreground hover:text-primary transition-all rounded-none disabled:opacity-30"
+                          className="w-8 h-8 flex items-center justify-center border border-border/40 hover:border-primary/40 hover:bg-primary/5 text-muted-foreground hover:text-primary transition-all disabled:opacity-30"
                           title={playingId === sound.id ? 'Pause' : 'Écouter'}
                         >
                           {playingId === sound.id ? (
@@ -298,7 +298,7 @@ export function SoundsClient({ initialSounds }: Props) {
                         <button
                           onClick={() => handleDelete(sound.id)}
                           disabled={deletingId === sound.id}
-                          className="w-8 h-8 flex items-center justify-center border border-border/40 hover:border-destructive/40 hover:bg-destructive/5 text-muted-foreground/70 hover:text-destructive transition-all rounded-none disabled:opacity-30"
+                          className="w-8 h-8 flex items-center justify-center border border-border/40 hover:border-destructive/40 hover:bg-destructive/5 text-muted-foreground/70 hover:text-destructive transition-all disabled:opacity-30"
                           title="Supprimer"
                         >
                           {deletingId === sound.id ? (

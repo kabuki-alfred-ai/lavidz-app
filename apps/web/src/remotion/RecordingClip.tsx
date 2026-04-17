@@ -208,7 +208,7 @@ function EmojiPop({
       top: `${subtitlePositionPct}%`,
       transform: `translate(calc(-50% + ${pos.dx}px), calc(-50% + ${pos.dy + idle}px)) scale(${entryScale}) rotate(${entryRotate}deg)`,
       transformOrigin: 'center center',
-      zIndex: 3,
+      zIndex: 13,
       pointerEvents: 'none',
       lineHeight: 1,
     }}>
@@ -859,7 +859,7 @@ export function RecordingClip({
           display: 'flex',
           justifyContent: 'center',
           padding: '0 40px',
-          zIndex: 2,
+          zIndex: 12,
         }}
       >
         <StyleComponent words={words} activeIndex={activeIndex} size={size} wordPopScale={wordPopScale} />
@@ -874,7 +874,7 @@ export function RecordingClip({
         position: 'absolute',
         top: 0,
         left: 0,
-        zIndex: 4,
+        zIndex: 14,
         height: 3,
         background: '#fff',
         width: `${Math.min((frame / durationInFrames) * 100, 100)}%`,
@@ -916,7 +916,7 @@ export function RecordingClip({
   const lowerThirdNode = lowerThird && (
     <div style={{
       position: 'absolute',
-      zIndex: 3,
+      zIndex: 13,
       opacity: ltOpacity,
       transform: ltTransform,
       ...ltPositionStyle,

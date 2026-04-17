@@ -5,10 +5,11 @@ import { QuestionnaireService } from './services/questionnaire.service'
 import { MemoryService } from './services/memory.service'
 import { EnrichmentService } from './services/enrichment.service'
 import { LinkedinService } from './services/linkedin.service'
+import { CalendarService } from './services/calendar.service'
 
 @Module({
   controllers: [AiController],
-  providers: [ProfileService, QuestionnaireService, MemoryService, EnrichmentService, LinkedinService],
-  exports: [ProfileService, QuestionnaireService, MemoryService, EnrichmentService, LinkedinService],
+  providers: [ProfileService, QuestionnaireService, MemoryService, EnrichmentService, LinkedinService, CalendarService],
+  exports: [ProfileService, QuestionnaireService, MemoryService, EnrichmentService, LinkedinService, CalendarService],
 })
 export class AiModule {}

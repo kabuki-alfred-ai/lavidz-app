@@ -57,52 +57,52 @@ export function OrgSwitcher({ activeOrgId }: OrgSwitcherProps) {
     <div ref={ref} className="relative flex items-center">
       {activeOrg ? (
         <div className="flex items-center gap-1.5">
-          <div className="flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-amber-500/10 border border-amber-500/30 text-amber-400">
-            <Building2 size={10} />
-            <span className="text-[9px] font-mono font-bold uppercase tracking-wider max-w-[100px] truncate">
+          <div className="flex items-center gap-2 px-3 py-1.5 rounded-full bg-amber-500/10 text-amber-600">
+            <Building2 size={14} />
+            <span className="text-xs font-medium max-w-[100px] truncate">
               {activeOrg.name}
             </span>
           </div>
           <button
             onClick={() => switchOrg(null)}
             disabled={loading}
-            className="w-5 h-5 flex items-center justify-center rounded-full hover:bg-surface-raised text-muted-foreground hover:text-foreground transition-colors"
+            className="w-6 h-6 flex items-center justify-center rounded-full hover:bg-surface-raised text-muted-foreground hover:text-foreground transition-colors"
             title="Quitter le contexte org"
           >
-            <X size={10} />
+            <X size={12} />
           </button>
         </div>
       ) : (
         <button
           onClick={() => setOpen(v => !v)}
           disabled={loading}
-          className="flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-surface-raised border border-border text-muted-foreground hover:text-foreground hover:border-border/80 transition-colors"
+          className="flex items-center gap-2 px-3 py-1.5 rounded-full bg-surface-raised text-muted-foreground hover:text-foreground transition-colors"
         >
-          <Building2 size={10} />
-          <span className="text-[9px] font-mono uppercase tracking-wider">Changer org</span>
-          <ChevronDown size={10} className={`transition-transform ${open ? 'rotate-180' : ''}`} />
+          <Building2 size={14} />
+          <span className="text-xs font-medium">Changer org</span>
+          <ChevronDown size={14} className={`transition-transform ${open ? 'rotate-180' : ''}`} />
         </button>
       )}
 
       {open && (
-        <div className="absolute top-full right-0 mt-1.5 w-52 bg-background border border-border rounded-sm shadow-xl z-50 overflow-hidden">
-          <div className="p-2 border-b border-border">
-            <p className="text-[9px] font-mono font-bold uppercase tracking-widest text-muted-foreground px-1">
-              Sélectionner une organisation
+        <div className="absolute top-full right-0 mt-2 w-56 bg-background rounded-xl shadow-lg z-50 overflow-hidden border border-border/40">
+          <div className="px-4 py-3">
+            <p className="text-xs font-medium text-muted-foreground">
+              Selectionner une organisation
             </p>
           </div>
           <div className="max-h-60 overflow-y-auto">
             {orgs.length === 0 && (
-              <p className="text-[10px] font-mono text-muted-foreground px-3 py-2">Aucune organisation</p>
+              <p className="text-sm text-muted-foreground px-4 py-3">Aucune organisation</p>
             )}
             {orgs.map(org => (
               <button
                 key={org.id}
                 onClick={() => switchOrg(org.id)}
-                className="w-full flex items-center gap-2 px-3 py-2 text-left hover:bg-surface-raised transition-colors group"
+                className="w-full flex items-center gap-3 px-4 py-2.5 text-left hover:bg-surface-raised transition-colors group"
               >
-                <div className={`w-1.5 h-1.5 rounded-full shrink-0 ${org.status === 'ACTIVE' ? 'bg-emerald-500' : 'bg-amber-500'}`} />
-                <span className="text-[11px] font-mono text-foreground group-hover:text-primary transition-colors truncate">
+                <div className={`w-2 h-2 rounded-full shrink-0 ${org.status === 'ACTIVE' ? 'bg-emerald-500' : 'bg-amber-500'}`} />
+                <span className="text-sm text-foreground group-hover:text-primary transition-colors truncate">
                   {org.name}
                 </span>
               </button>

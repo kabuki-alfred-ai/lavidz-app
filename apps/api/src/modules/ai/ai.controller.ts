@@ -1,12 +1,13 @@
 import { RecursiveCharacterTextSplitter } from '@langchain/textsplitters'
 import { Controller, Get, Put, Post, Body, Headers, Query, UseGuards, BadRequestException } from '@nestjs/common'
-import { Prisma } from '@lavidz/database'
+import { Prisma, prisma } from '@lavidz/database'
 import type { EntrepreneurProfile } from '@lavidz/database'
 import { AdminGuard } from '../../guards/admin.guard'
 import { ProfileService } from './services/profile.service'
 import { QuestionnaireService } from './services/questionnaire.service'
 import { MemoryService, type SearchResult } from './services/memory.service'
 import { LinkedinService, type LinkedinPreview } from './services/linkedin.service'
+import { CalendarService } from './services/calendar.service'
 
 type IngestDocumentBody = {
   content: string
@@ -38,6 +39,8 @@ type GenerateQuestionsBody = {
   targetAudience: 'self' | 'client'
   recipientEmail?: string
   recipientName?: string
+  format?: string
+  platform?: string
 }
 
 type CreateSessionBody = {
@@ -55,6 +58,7 @@ type UpdateProfileBody = {
   topicsExplored?: string[]
   communicationStyle?: string | null
   linkedinUrl?: string | null
+  websiteUrl?: string | null
 }
 
 type LinkedinIngestBody = {
@@ -70,6 +74,7 @@ export class AiController {
     private readonly questionnaireService: QuestionnaireService,
     private readonly memoryService: MemoryService,
     private readonly linkedinService: LinkedinService,
+    private readonly calendarService: CalendarService,
   ) {}
 
   @Get('profile')
@@ -98,7 +103,7 @@ export class AiController {
     session: object
     shareLink: string
   }> {
-    const { goal, organizationId, targetAudience, recipientEmail, recipientName } = body
+    const { goal, organizationId, targetAudience, recipientEmail, recipientName, format, platform } = body
 
     if (!goal || !organizationId) {
       throw new BadRequestException('goal et organizationId sont requis')
@@ -110,6 +115,7 @@ export class AiController {
       profile,
       goal,
       [],
+      { format, platform },
     )
 
     const { theme, session, shareLink } = await this.questionnaireService.createThemeAndSession(
@@ -122,6 +128,7 @@ export class AiController {
         name: recipientName,
         targetSelf: targetAudience === 'self',
       },
+      { format, platform },
     )
 
     return { questions, themeTitle, themeDescription, theme, session, shareLink }
@@ -236,5 +243,95 @@ export class AiController {
   async getLinkedinPreview(@Query('url') url: string): Promise<LinkedinPreview> {
     if (!url) throw new BadRequestException('url requis')
     return this.linkedinService.getPreview(url)
+  }
+
+  @Post('website/ingest')
+  async ingestWebsite(
+    @Body() body: { organizationId: string; websiteUrl: string },
+  ): Promise<{ saved: number }> {
+    const { organizationId, websiteUrl } = body
+    if (!organizationId) throw new BadRequestException('organizationId requis')
+    if (!websiteUrl) throw new BadRequestException('websiteUrl requis')
+
+    const tavilyKey = process.env.TAVILY_API_KEY ?? ''
+    if (!tavilyKey) throw new BadRequestException('TAVILY_API_KEY non configuree')
+
+    const profile = await this.profileService.getOrCreate(organizationId)
+
+    // Use Tavily extract to crawl the website
+    const extractRes = await fetch('https://api.tavily.com/extract', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${tavilyKey}`,
+      },
+      body: JSON.stringify({ urls: [websiteUrl] }),
+    })
+
+    let contentToIndex = ''
+
+    if (extractRes.ok) {
+      const extractData = await extractRes.json() as { results?: { raw_content?: string; url: string }[] }
+      const results = extractData.results ?? []
+      contentToIndex = results.map((r) => r.raw_content ?? '').join('\n\n')
+    }
+
+    // Fallback: also do a deep search about the site
+    const searchRes = await fetch('https://api.tavily.com/search', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${tavilyKey}`,
+      },
+      body: JSON.stringify({
+        query: `site:${websiteUrl} informations entreprise services produits`,
+        search_depth: 'advanced',
+        include_answer: true,
+        max_results: 10,
+        include_raw_content: true,
+      }),
+    })
+
+    if (searchRes.ok) {
+      const searchData = await searchRes.json() as { answer?: string; results?: { content?: string }[] }
+      if (searchData.answer) contentToIndex += `\n\n${searchData.answer}`
+      for (const r of searchData.results ?? []) {
+        if (r.content) contentToIndex += `\n\n${r.content}`
+      }
+    }
+
+    if (!contentToIndex.trim()) {
+      throw new BadRequestException('Aucun contenu recupere depuis ce site')
+    }
+
+    // Chunk and index
+    const chunks = await chunkText(contentToIndex)
+    const docTags = ['website', new URL(websiteUrl).hostname]
+
+    await this.memoryService.saveManyDocs({
+      profileId: profile.id,
+      items: chunks.map((chunk) => ({ content: chunk, tags: docTags })),
+    })
+
+    // Update profile with website info
+    await this.profileService.update(organizationId, { websiteUrl })
+    await prisma.entrepreneurProfile.update({
+      where: { organizationId },
+      data: { websiteIngestedAt: new Date() },
+    })
+
+    return { saved: chunks.length }
+  }
+
+  @Post('generate-calendar')
+  async generateCalendar(
+    @Headers('x-organization-id') organizationId: string,
+    @Body() body: { platforms?: string[]; weeksCount?: number; videosPerWeek?: number },
+  ): Promise<{ generated: number; entries: any[] }> {
+    if (!organizationId) throw new BadRequestException('Header x-organization-id requis')
+    const platforms = body.platforms?.length ? body.platforms : ['linkedin']
+    const weeksCount = Math.min(body.weeksCount ?? 4, 8)
+    const videosPerWeek = Math.min(body.videosPerWeek ?? 3, 7)
+    return this.calendarService.generateCalendar(organizationId, platforms, weeksCount, videosPerWeek)
   }
 }

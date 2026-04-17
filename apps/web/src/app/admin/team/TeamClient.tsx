@@ -112,19 +112,19 @@ export function TeamClient({ admins: initialAdmins, invitations: initialInvitati
       <div>
         <div className="flex items-center gap-2 mb-2">
           <span className="w-8 h-[1px] bg-primary/40" />
-          <p className="text-[10px] font-mono uppercase tracking-[0.3em] text-primary/60">Gestion</p>
+          <p className="text-xs text-primary/60">Gestion</p>
         </div>
-        <h1 className="text-3xl font-black uppercase tracking-tighter text-foreground">Équipe</h1>
-        <p className="text-[11px] font-mono text-muted-foreground mt-2 uppercase tracking-widest">
+        <h1 className="text-3xl font-semibold tracking-tight text-foreground">Équipe</h1>
+        <p className="text-xs text-muted-foreground mt-2">
           Superadmins et invitations
         </p>
       </div>
 
       {/* Invite form */}
-      <div className="border border-border/60 bg-surface/30 rounded-sm p-6 space-y-4">
+      <div className="border border-border/60 bg-surface/30 rounded-lg p-6 space-y-4">
         <div className="flex items-center gap-2 mb-4">
           <ShieldCheck size={14} className="text-primary" />
-          <h2 className="text-sm font-mono font-bold uppercase tracking-widest">Inviter un superadmin</h2>
+          <h2 className="text-sm font-bold">Inviter un superadmin</h2>
         </div>
         <form onSubmit={handleInvite} className="flex gap-3">
           <div className="flex-1">
@@ -136,35 +136,35 @@ export function TeamClient({ admins: initialAdmins, invitations: initialInvitati
               onChange={e => setEmail(e.target.value)}
               placeholder="email@exemple.com"
               required
-              className="font-mono text-sm"
+              className="text-sm"
             />
           </div>
-          <Button type="submit" disabled={loading} size="sm" className="h-10 px-6 rounded-none font-mono text-[10px] uppercase tracking-[0.2em]">
+          <Button type="submit" disabled={loading} size="sm" className="h-10 px-6 text-xs">
             {loading ? <Loader2 size={12} className="animate-spin" /> : <Send size={12} />}
             {loading ? 'Envoi...' : 'Inviter'}
           </Button>
         </form>
-        {error && <p className="text-xs text-destructive font-mono">{error}</p>}
-        {success && <p className="text-xs text-emerald-600 font-mono font-bold">{success}</p>}
-        <p className="text-[10px] font-mono text-muted-foreground mt-2 leading-relaxed">
+        {error && <p className="text-xs text-destructive">{error}</p>}
+        {success && <p className="text-xs text-emerald-600 font-bold">{success}</p>}
+        <p className="text-xs text-muted-foreground mt-2 leading-relaxed">
           Un email avec un lien d&apos;inscription sécurisé sera envoyé. Le lien est valable 7 jours et ne peut être utilisé qu&apos;une seule fois avec l&apos;adresse email indiquée.
         </p>
       </div>
 
       {/* Superadmins list */}
       <div className="space-y-3">
-        <h2 className="text-[10px] font-mono uppercase tracking-[0.2em] text-muted-foreground/80">
+        <h2 className="text-xs text-muted-foreground/80">
           Superadmins actifs — {admins.length}
         </h2>
-        <div className="border border-border/60 bg-surface/30 rounded-sm overflow-hidden">
+        <div className="border border-border/60 bg-surface/30 rounded-lg overflow-hidden">
           {admins.length === 0 ? (
-            <p className="text-xs font-mono text-muted-foreground p-6">Aucun superadmin.</p>
+            <p className="text-xs text-muted-foreground p-6">Aucun superadmin.</p>
           ) : (
             <div className="divide-y divide-border/40">
               {admins.map(admin => (
                 <div key={admin.id} className="flex items-center justify-between px-6 py-4">
                   <div className="flex items-center gap-3">
-                    <div className="w-8 h-8 bg-surface-raised border border-border flex items-center justify-center font-mono text-xs font-bold text-primary overflow-hidden">
+                    <div className="w-8 h-8 bg-surface-raised border border-border flex items-center justify-center text-xs font-medium text-primary overflow-hidden">
                       {admin.avatarUrl ? (
                         <img src={admin.avatarUrl} alt="" className="w-full h-full object-cover" />
                       ) : (
@@ -174,17 +174,17 @@ export function TeamClient({ admins: initialAdmins, invitations: initialInvitati
                     <div>
                       <p className="text-sm font-bold text-foreground">
                         {admin.firstName ? `${admin.firstName} ${admin.lastName ?? ''}`.trim() : admin.email.split('@')[0]}
-                        {admin.id === currentUserId && <span className="ml-2 text-[9px] font-mono text-muted-foreground">(vous)</span>}
+                        {admin.id === currentUserId && <span className="ml-2 text-xs text-muted-foreground">(vous)</span>}
                       </p>
-                      <p className="text-[10px] font-mono text-muted-foreground tracking-tight">{admin.email}</p>
+                      <p className="text-xs text-muted-foreground tracking-tight">{admin.email}</p>
                     </div>
                   </div>
                   <div className="flex items-center gap-3">
-                    <Badge variant="active" className="text-[9px]">
+                    <Badge variant="active" className="text-xs">
                       <ShieldCheck size={9} className="mr-1" />
                       Superadmin
                     </Badge>
-                    <span className="text-[9px] font-mono text-muted-foreground">
+                    <span className="text-xs text-muted-foreground">
                       {new Date(admin.createdAt).toLocaleDateString('fr-FR')}
                     </span>
                   </div>
@@ -198,18 +198,18 @@ export function TeamClient({ admins: initialAdmins, invitations: initialInvitati
       {/* Invitations list */}
       {invitations.length > 0 && (
         <div className="space-y-3">
-          <h2 className="text-[10px] font-mono uppercase tracking-[0.2em] text-muted-foreground/80">
+          <h2 className="text-xs text-muted-foreground/80">
             Invitations — {invitations.length}
           </h2>
-          <div className="border border-border/60 bg-surface/30 rounded-sm overflow-hidden">
+          <div className="border border-border/60 bg-surface/30 rounded-lg overflow-hidden">
             <div className="divide-y divide-border/40">
               {invitations.map(inv => (
                 <div key={inv.id} className="flex items-center justify-between px-6 py-4 gap-4">
                   <div className="flex items-center gap-3 min-w-0">
                     <StatusIcon status={inv.status} />
                     <div className="min-w-0">
-                      <p className="text-sm font-mono text-foreground truncate">{inv.email}</p>
-                      <p className="text-[9px] font-mono text-muted-foreground">
+                      <p className="text-sm text-foreground truncate">{inv.email}</p>
+                      <p className="text-xs text-muted-foreground">
                         Invité le {new Date(inv.createdAt).toLocaleDateString('fr-FR')}
                         {inv.invitedBy && ` par ${inv.invitedBy.firstName ?? inv.invitedBy.email}`}
                         {inv.status === 'PENDING' && ` · expire le ${new Date(inv.expiresAt).toLocaleDateString('fr-FR')}`}
@@ -217,14 +217,14 @@ export function TeamClient({ admins: initialAdmins, invitations: initialInvitati
                     </div>
                   </div>
                   <div className="flex items-center gap-3 shrink-0">
-                    <Badge variant={statusVariant(inv.status)} className="text-[9px]">
+                    <Badge variant={statusVariant(inv.status)} className="text-xs">
                       {statusLabel(inv.status)}
                     </Badge>
                     {inv.status !== 'ACCEPTED' && (
                       <button
                         onClick={() => handleResend(inv.email)}
                         disabled={resendingId === inv.email}
-                        className="p-1.5 rounded-sm hover:bg-surface-raised text-muted-foreground hover:text-foreground transition-all border border-transparent hover:border-border disabled:opacity-40"
+                        className="p-1.5 rounded-lg hover:bg-surface-raised text-muted-foreground hover:text-foreground transition-all border border-transparent hover:border-border disabled:opacity-40"
                         title="Renvoyer l'invitation"
                       >
                         {resendingId === inv.email

@@ -11,7 +11,7 @@ export default async function RegisterSuperadminPage({ searchParams }: Props) {
     return (
       <div className="min-h-screen bg-background grid-bg flex items-center justify-center px-6">
         <div className="w-full max-w-sm text-center border border-border p-8">
-          <p className="text-xs font-mono uppercase tracking-widest text-muted-foreground mb-3">Lien invalide</p>
+          <p className="text-xs text-muted-foreground mb-3">Lien invalide</p>
           <p className="text-sm text-muted-foreground">Ce lien d&apos;invitation est manquant ou invalide.</p>
         </div>
       </div>
@@ -43,7 +43,7 @@ export default async function RegisterSuperadminPage({ searchParams }: Props) {
             <span className="w-2 h-2 bg-primary" />
             <span className="font-sans font-extrabold text-sm tracking-widest uppercase text-muted-foreground">Lavidz</span>
           </div>
-          <p className="text-xs font-mono uppercase tracking-widest text-destructive mb-3">Invitation invalide</p>
+          <p className="text-xs text-destructive mb-3">Invitation invalide</p>
           <p className="text-sm text-muted-foreground">{tokenError ?? 'Ce lien est expiré ou a déjà été utilisé.'}</p>
         </div>
       </div>

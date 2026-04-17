@@ -11,7 +11,7 @@ const ColdOpenSchema = z.object({
   hook_phrase: z
     .string()
     .describe(
-      'Le moment le plus choquant/intriguant de la transcription. Citation EXACTE, 2 à 6 mots MAX (1-2 secondes de parole). Chiffre inattendu, aveu fort, contradiction ou cliffhanger.',
+      'Le moment le plus choquant/intriguant de la transcription. Citation EXACTE de 8 à 20 mots (3 à 5 secondes de parole). Doit former une phrase complete ou une idee percutante qui donne envie d\'en savoir plus.',
     ),
   word_emojis: z
     .array(
@@ -115,11 +115,12 @@ export async function POST(req: Request) {
 Analyse cette transcription et :
 
 1. ACCROCHE (hook_phrase) : Extraie LE moment le plus choquant, surprenant ou intriguant. RÈGLES ABSOLUES :
-- Durée : 1 à 2 secondes de parole MAX (2 à 6 mots en général)
+- Durée : 3 à 5 secondes de parole (8 à 20 mots)
 - Ce doit être une citation EXACTE du texte, pas une reformulation
-- Préfère : un chiffre inattendu ("j'ai perdu 200 000€"), une contradiction ("j'ai tout quitté"), un aveu fort ("j'avais tort"), une promesse ("la méthode qui change tout"), un cliffhanger ("ce que personne ne dit")
-- Évite : les phrases explicatives, les introductions, les questions rhétoriques banales
-- L'objectif : que le spectateur soit OBLIGÉ de continuer pour comprendre
+- La phrase doit être COMPLETE — une idee entiere qui intrigue, pas un fragment coupe
+- Préfère : un chiffre inattendu ("j'ai perdu 200 000 euros en trois mois et voila ce que j'ai appris"), une contradiction ("tout le monde dit qu'il faut un CV mais c'est completement faux"), un aveu fort ("j'avais tout faux et ca m'a coute cher"), une promesse ("la methode que j'utilise et qui change tout")
+- Évite : les phrases trop courtes (moins de 3 secondes), les introductions ("bonjour aujourd'hui"), les questions rhétoriques banales
+- L'objectif : que le spectateur soit OBLIGÉ de continuer pour comprendre le contexte
 
 2. EMOJIS PAR MOT (word_emojis) : Identifie 3 à 8 mots à fort impact dans la transcription et associe à chacun un emoji qui AMPLIFIE LE SENS de ce mot spécifique. Règles : utiliser des mots EXACTS de la transcription (un seul mot), choisir des mots émotionnellement forts ou conceptuellement importants (chiffres, verbes d'action, concepts business, émotions). L'emoji doit illustrer directement le mot : "million" → 💰, "croissance" → 📈, "peur" → 😰, "lancé" → 🚀, "échoué" → 💀, "incroyable" → 🤯.
 
@@ -129,7 +130,7 @@ TRANSCRIPTION :
 ${transcript}`
 
   try {
-    const model = google(process.env.AI_MODEL ?? 'gemini-2.0-flash')
+    const model = google(process.env.AI_MODEL ?? 'gemini-3.1-flash-lite-preview')
     const { object } = await generateObject({
       model,
       schema: ColdOpenSchema,
@@ -139,14 +140,32 @@ ${transcript}`
     // Time-match the hook phrase
     const phraseMatch = matchPhrase(object.hook_phrase, words)
 
-    const coldOpen = phraseMatch
-      ? {
-          hookPhrase: object.hook_phrase,
-          startInSeconds: phraseMatch.start,
-          endInSeconds: phraseMatch.end,
-          segmentId: segmentId ?? '',
-        }
-      : null
+    let coldOpen = null
+    if (phraseMatch) {
+      const hookDuration = phraseMatch.end - phraseMatch.start
+      const MIN_HOOK_DURATION = 3.0 // minimum 3 seconds for a usable hook
+
+      let start = phraseMatch.start
+      let end = phraseMatch.end
+
+      // If hook is too short, extend it with padding
+      if (hookDuration < MIN_HOOK_DURATION) {
+        const padding = (MIN_HOOK_DURATION - hookDuration) / 2
+        start = Math.max(0, start - padding)
+        end = Math.min(clipDuration, end + padding)
+      }
+
+      // Add small breathing room (0.3s before, 0.2s after)
+      start = Math.max(0, start - 0.3)
+      end = Math.min(clipDuration, end + 0.2)
+
+      coldOpen = {
+        hookPhrase: object.hook_phrase,
+        startInSeconds: start,
+        endInSeconds: end,
+        segmentId: segmentId ?? '',
+      }
+    }
 
     // Build wordEmojis — filter out entries with empty words or emojis
     const wordEmojis = (object.word_emojis ?? [])

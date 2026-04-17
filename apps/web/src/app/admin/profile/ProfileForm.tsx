@@ -129,7 +129,7 @@ export function ProfileForm({ initialEmail, initialFirstName, initialLastName, h
                     onError={() => setAvatarPreview(null)}
                   />
                 ) : (
-                  <span className="font-mono text-2xl font-bold text-primary">
+                  <span className="text-2xl font-bold text-primary">
                     {initials}
                   </span>
                 )}
@@ -152,7 +152,7 @@ export function ProfileForm({ initialEmail, initialFirstName, initialLastName, h
 
             <div className="flex flex-col gap-2 min-w-0">
               <p className="font-inter font-bold text-sm text-foreground">{displayName}</p>
-              <p className="text-[10px] font-mono text-muted-foreground/60 uppercase tracking-widest">
+              <p className="text-xs text-muted-foreground/60">
                 {email}
               </p>
               {avatarFile ? (
@@ -162,7 +162,7 @@ export function ProfileForm({ initialEmail, initialFirstName, initialLastName, h
                     size="sm"
                     onClick={handleAvatarUpload}
                     disabled={uploadingAvatar}
-                    className="h-8 px-4 rounded-none font-mono text-[10px] uppercase tracking-widest"
+                    className="h-8 px-4 text-xs"
                   >
                     {uploadingAvatar && <Loader2 size={12} className="animate-spin mr-1.5" />}
                     {uploadingAvatar ? 'Upload…' : 'Enregistrer la photo'}
@@ -183,7 +183,7 @@ export function ProfileForm({ initialEmail, initialFirstName, initialLastName, h
                 <button
                   type="button"
                   onClick={() => fileInputRef.current?.click()}
-                  className="text-[10px] font-mono text-primary/60 hover:text-primary transition-colors uppercase tracking-widest text-left mt-1"
+                  className="text-xs text-primary/60 hover:text-primary transition-colors text-left mt-1"
                 >
                   Changer la photo →
                 </button>
@@ -279,12 +279,12 @@ export function ProfileForm({ initialEmail, initialFirstName, initialLastName, h
       </Card>
 
       {error && (
-        <div className="p-3 text-sm text-red-500 bg-red-500/10 border border-red-500/20 rounded-md font-mono">
+        <div className="p-3 text-sm text-red-500 bg-red-500/10 border border-red-500/20 rounded-md">
           {error}
         </div>
       )}
       {success && (
-        <div className="p-3 text-sm text-emerald-500 bg-emerald-500/10 border border-emerald-500/20 rounded-md font-mono">
+        <div className="p-3 text-sm text-emerald-500 bg-emerald-500/10 border border-emerald-500/20 rounded-md">
           {success}
         </div>
       )}

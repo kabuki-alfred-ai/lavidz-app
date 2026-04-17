@@ -4,9 +4,9 @@ import { prisma } from '@lavidz/database'
 import { LogoutButton } from './LogoutButton'
 import { AdminSidebarNav } from './AdminSidebarNav'
 import { MobileAdminSidebar } from './MobileAdminSidebar'
-import { AiDrawer } from './AiDrawer'
+
 import { OrgSwitcher } from './OrgSwitcher'
-import { ChevronRight, Home } from 'lucide-react'
+import { ClientNav } from '../(client)/ClientNav'
 
 export default async function AdminLayout({ children }: { children: React.ReactNode }) {
   const user = await getSessionUser()
@@ -14,58 +14,94 @@ export default async function AdminLayout({ children }: { children: React.ReactN
     ? await prisma.user.findUnique({ where: { id: user.userId }, select: { avatarKey: true } })
     : null
 
+  const displayName = user
+    ? (user.firstName ? `${user.firstName} ${user.lastName || ''}`.trim() : user.email.split('@')[0])
+    : ''
+
+  // ─── ADMIN: unified client-style layout ────────────────────────────
+  if (user?.role === 'ADMIN') {
+    return (
+      <div className="flex h-screen bg-background">
+        {/* Sidebar — desktop */}
+        <aside className="hidden md:flex w-[240px] shrink-0 flex-col bg-surface/50">
+          <div className="h-16 flex items-center px-6">
+            <Link href="/home" className="flex items-center gap-2">
+              <div className="relative w-7 h-7 flex items-center justify-center">
+                <span className="block w-3.5 h-3.5 bg-primary rounded-md shadow-sm" />
+              </div>
+              <span className="font-semibold text-lg tracking-tight text-foreground">Lavidz</span>
+            </Link>
+          </div>
+
+          <ClientNav variant="sidebar" userRole="ADMIN" />
+
+          <div className="p-3 mx-3 mb-3 bg-background rounded-xl flex flex-col gap-3">
+            <Link href="/profile" className="min-w-0 flex items-center gap-3 px-2 py-1.5 hover:bg-surface-raised cursor-pointer rounded-lg transition-colors group">
+              <div className="w-8 h-8 rounded-full overflow-hidden bg-surface-raised flex items-center justify-center text-xs font-semibold text-primary shrink-0">
+                {dbUser?.avatarKey ? (
+                  // eslint-disable-next-line @next/next/no-img-element
+                  <img src="/api/admin/profile/avatar" alt="" className="w-full h-full object-cover" />
+                ) : (
+                  displayName[0]?.toUpperCase()
+                )}
+              </div>
+              <span className="text-sm font-medium text-foreground truncate max-w-[140px] group-hover:text-primary transition-colors">
+                {displayName}
+              </span>
+            </Link>
+            <LogoutButton />
+          </div>
+        </aside>
+
+        {/* Main */}
+        <div className="flex-1 flex flex-col overflow-hidden">
+          <main className="flex-1 overflow-y-auto p-4 md:p-8 lg:p-12 pb-20 md:pb-12">
+            {children}
+          </main>
+        </div>
+
+        {/* Bottom nav — mobile */}
+        <div className="md:hidden fixed bottom-0 inset-x-0 bg-background/95 backdrop-blur-lg z-40">
+          <ClientNav variant="bottom" userRole="ADMIN" />
+        </div>
+
+      </div>
+    )
+  }
+
+  // ─── SUPERADMIN: full admin layout (unchanged) ─────────────────────
   return (
     <div className="flex h-screen bg-background overflow-hidden selection:bg-primary/30">
       {/* Sidebar — desktop only */}
-      <aside className="hidden md:flex w-[240px] shrink-0 border-r border-border flex-col relative z-20 overflow-hidden" 
-        style={{
-          background: 'linear-gradient(315deg, hsl(var(--primary) / 0.08), hsl(var(--primary) / 0.02) 40%, rgba(255,255,255,0.01) 100%)',
-          backdropFilter: 'blur(12px)',
-        }}
-      >
-        {/* Visible noise overlay */}
-        <div 
-          className="absolute inset-0 opacity-[0.08] pointer-events-none mix-blend-overlay" 
-          style={{ backgroundImage: 'url("data:image/svg+xml,%3Csvg viewBox=%220 0 400 400%22 xmlns=%22http://www.w3.org/2000/svg%22%3E%3Cfilter id=%22n%22%3E%3CfeTurbulence type=%22fractalNoise%22 baseFrequency=%222.5%22 numOctaves=%224%22 stitchTiles=%22stitch%22/%3E%3C/filter%3E%3Crect width=%22100%25%22 height=%22100%25%22 filter=%22url(%23n)%22/%3E%3C/svg%3E")' }} 
-        />
-
-        {/* Logo */}
-        <div className="h-14 flex items-center px-6 border-b border-border mb-4 relative z-10">
-          <Link href="/admin" className="flex items-center gap-1.5 group">
-            <div className="relative w-6 h-6 flex items-center justify-center">
-              <span className="block w-3 h-3 bg-primary animate-logo-morph shadow-[0_0_10px_rgba(var(--primary),0.2)]" />
+      <aside className="hidden md:flex w-[260px] shrink-0 flex-col bg-surface/50 overflow-hidden">
+        <div className="h-16 flex items-center px-6">
+          <Link href="/admin" className="flex items-center gap-2 group">
+            <div className="relative w-7 h-7 flex items-center justify-center">
+              <span className="block w-3.5 h-3.5 bg-primary rounded-md shadow-sm" />
             </div>
-            <span className="font-sans font-black text-lg tracking-tighter text-foreground uppercase">
-              LAVIDZ
-            </span>
+            <span className="font-semibold text-lg tracking-tight text-foreground">Lavidz</span>
           </Link>
         </div>
 
-        {/* Nav */}
         <AdminSidebarNav userRole={user?.role} activeOrgId={user?.activeOrgId} />
 
-        {/* Footer — user info + logout */}
-        <div className="p-4 mx-4 mb-4 border border-border/60 bg-surface/40 rounded-sm flex flex-col gap-3 relative z-10">
+        <div className="p-3 mx-3 mb-3 bg-background rounded-xl flex flex-col gap-3">
           {user && (
-            <Link href="/admin/profile" className="min-w-0 flex items-center gap-3 px-1 hover:bg-surface-raised cursor-pointer rounded p-1 transition-colors group">
-              <div className="w-8 h-8 rounded-sm overflow-hidden bg-surface-raised flex items-center justify-center font-mono text-xs font-bold text-primary border border-border group-hover:border-primary/50 transition-colors shrink-0">
+            <Link href="/admin/profile" className="min-w-0 flex items-center gap-3 px-2 py-1.5 hover:bg-surface-raised cursor-pointer rounded-lg transition-colors group">
+              <div className="w-8 h-8 rounded-full overflow-hidden bg-surface-raised flex items-center justify-center text-xs font-semibold text-primary shrink-0">
                 {dbUser?.avatarKey ? (
                   // eslint-disable-next-line @next/next/no-img-element
-                  <img
-                    src="/api/admin/profile/avatar"
-                    alt=""
-                    className="w-full h-full object-cover"
-                  />
+                  <img src="/api/admin/profile/avatar" alt="" className="w-full h-full object-cover" />
                 ) : (
                   user.email[0].toUpperCase()
                 )}
               </div>
               <div className="min-w-0">
-                <p className="text-[10px] font-mono font-bold text-foreground truncate max-w-[120px] group-hover:text-primary transition-colors">
-                  {user.firstName ? `${user.firstName} ${user.lastName || ''}`.trim() : user.email.split('@')[0]}
+                <p className="text-sm font-medium text-foreground truncate max-w-[140px] group-hover:text-primary transition-colors">
+                  {displayName}
                 </p>
-                <div className="flex items-center gap-1.5 text-[9px] font-mono text-muted-foreground uppercase tracking-wider">
-                  <span className="w-1 h-1 rounded-full bg-emerald-500 animate-pulse" />
+                <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
+                  <span className="w-1.5 h-1.5 rounded-full bg-emerald-500" />
                   {user.role}
                 </div>
               </div>
@@ -77,27 +113,17 @@ export default async function AdminLayout({ children }: { children: React.ReactN
 
       {/* Main */}
       <div className="flex-1 flex flex-col overflow-hidden relative">
-        {/* Background glow effects */}
-        <div className="absolute -top-[10%] -right-[10%] w-[40%] h-[40%] bg-primary/5 blur-[120px] rounded-full pointer-events-none" />
-        <div className="absolute -bottom-[10%] -left-[10%] w-[30%] h-[30%] bg-primary/5 blur-[100px] rounded-full pointer-events-none" />
-
-        {/* Topbar */}
-        <header className="h-14 border-b border-border flex items-center justify-between px-4 md:px-8 bg-background/60 backdrop-blur-md z-10 shrink-0">
+        <header className="h-16 flex items-center justify-between px-4 md:px-8 bg-background z-10 shrink-0">
           <div className="flex items-center gap-3">
-            {/* Mobile hamburger */}
             <MobileAdminSidebar
               userRole={user?.role}
-              userName={user ? (user.firstName ? `${user.firstName} ${user.lastName || ''}`.trim() : user.email.split('@')[0]) : ''}
+              userName={displayName}
               userInitial={user ? user.email[0].toUpperCase() : ''}
               avatarSrc={dbUser?.avatarKey}
               activeOrgId={user?.activeOrgId}
             />
-            <div className="flex items-center gap-3 text-[10px] font-mono text-muted-foreground uppercase tracking-widest leading-none">
-              <Home size={10} className="text-muted-foreground/80 hidden md:block" />
-              <ChevronRight size={10} className="text-muted-foreground/60 hidden md:block" />
-              <span className="text-foreground/80 font-medium">Panel</span>
-              <ChevronRight size={10} className="text-muted-foreground/60" />
-              <span className="text-foreground font-bold">Admin</span>
+            <div className="flex items-center gap-2 text-sm text-muted-foreground leading-none">
+              <span className="text-foreground font-medium">Admin</span>
             </div>
           </div>
 
@@ -105,24 +131,21 @@ export default async function AdminLayout({ children }: { children: React.ReactN
             {user?.role === 'SUPERADMIN' && (
               <OrgSwitcher activeOrgId={user.activeOrgId} />
             )}
-            <div className="px-2.5 py-1 rounded-full bg-surface-raised border border-border flex items-center gap-2">
+            <div className="px-3 py-1.5 rounded-full bg-emerald-500/10 flex items-center gap-2">
               <span className="relative flex h-1.5 w-1.5">
                 <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
                 <span className="relative inline-flex rounded-full h-1.5 w-1.5 bg-emerald-500"></span>
               </span>
-              <span className="text-[9px] font-mono text-muted-foreground font-medium uppercase tracking-wider">Live</span>
+              <span className="text-xs text-emerald-600 font-medium">Live</span>
             </div>
           </div>
         </header>
 
-        {/* Content */}
-        <main className="flex-1 overflow-auto p-4 md:p-8 lg:p-12 relative animate-in fade-in duration-700">
+        <main className="flex-1 overflow-auto p-4 md:p-8 lg:p-12 relative">
           {children}
         </main>
       </div>
 
-      {/* AI floating drawer — all authenticated users */}
-      {user && <AiDrawer activeOrgId={user.activeOrgId ?? null} />}
     </div>
   )
 }

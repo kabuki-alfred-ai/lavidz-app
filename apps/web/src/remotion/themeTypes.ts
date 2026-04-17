@@ -90,6 +90,27 @@ export interface InlaySettings {
   style?: 'pill' | 'minimal' | 'bold'  // default 'pill'
 }
 
+export interface BRollItem {
+  id: string
+  /** Timestamp in seconds where the B-roll starts in the final composition */
+  timestampSeconds: number
+  /** Duration of the B-roll overlay in seconds */
+  durationSeconds: number
+  /** URL of the B-roll video (Pexels or uploaded) */
+  videoUrl: string
+  /** Thumbnail for UI display */
+  thumbnailUrl: string
+  /** Pexels video ID for attribution */
+  pexelsId?: string
+  /** Search query that found this B-roll */
+  searchQuery: string
+}
+
+export interface BRollSettings {
+  enabled: boolean
+  items: BRollItem[]
+}
+
 export interface MotionSettings {
   transitionStyle: TransitionStyle
   wordPop: boolean
@@ -104,6 +125,7 @@ export interface MotionSettings {
   questionCardColors?: string[]
   coldOpen?: ColdOpenSettings
   inlays?: InlaySettings
+  bRolls?: BRollSettings
 }
 
 export const DEFAULT_MOTION_SETTINGS: MotionSettings = {

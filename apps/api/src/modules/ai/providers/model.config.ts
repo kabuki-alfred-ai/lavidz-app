@@ -4,7 +4,7 @@ import { openai } from '@ai-sdk/openai'
 import type { LanguageModel, EmbeddingModel } from 'ai'
 
 export const AI_LANGUAGE_MODELS: Record<string, LanguageModel> = {
-  'gemini-flash':  google('gemini-2.0-flash'),
+  'gemini-flash':  google('gemini-3.1-flash-lite-preview'),
   'gemini-pro':    google('gemini-2.5-pro'),
   'claude-sonnet': anthropic('claude-sonnet-4-6'),
   'claude-haiku':  anthropic('claude-haiku-4-5-20251001'),

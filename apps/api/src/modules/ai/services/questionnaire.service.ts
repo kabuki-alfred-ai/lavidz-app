@@ -46,20 +46,28 @@ export class QuestionnaireService {
     profile: EntrepreneurProfile,
     goal: string,
     _memories: string[],
+    options?: { format?: string; platform?: string },
   ): Promise<GeneratedQuestionsResult> {
-    const searchResults = await this.memoryService.search({
-      profileId: profile.id,
-      query: goal,
-      k: 5,
-    })
-
-    const memories = searchResults.map((m) => m.content)
+    let memories: string[] = []
+    try {
+      const searchResults = await this.memoryService.search({
+        profileId: profile.id,
+        query: goal,
+        k: 5,
+      })
+      memories = searchResults.map((m) => m.content)
+    } catch {
+      // No memories yet — first-time user
+    }
 
     const prompt = buildGenerateQuestionsPrompt({
       businessContext: profile.businessContext as object,
       topicsExplored: profile.topicsExplored,
       goal,
       memories,
+      format: options?.format,
+      platform: options?.platform,
+      communicationStyle: profile.communicationStyle,
     })
 
     const { object } = await generateObject({
@@ -80,6 +88,11 @@ export class QuestionnaireService {
       email?: string
       name?: string
       targetSelf: boolean
+    },
+    contentOptions?: {
+      format?: string
+      platform?: string
+      teleprompterScript?: string
     },
   ): Promise<{ theme: Theme; session: Session; shareLink: string }> {
     const slug = `${themeTitle
@@ -110,6 +123,9 @@ export class QuestionnaireService {
         themeId: theme.id,
         recipientEmail: recipientInfo.targetSelf ? null : (recipientInfo.email ?? null),
         recipientName: recipientInfo.targetSelf ? null : (recipientInfo.name ?? null),
+        contentFormat: contentOptions?.format as any ?? null,
+        targetPlatforms: contentOptions?.platform ? [contentOptions.platform] : [],
+        teleprompterScript: contentOptions?.teleprompterScript ?? null,
       },
     })
 

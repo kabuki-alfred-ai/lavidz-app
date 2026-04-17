@@ -153,12 +153,12 @@ export default function Home() {
       <div className="fixed inset-0 z-0 pointer-events-none">
         <div className="absolute top-[-20%] left-[-10%] w-[60%] h-[60%] bg-primary/10 blur-[150px] rounded-full mix-blend-screen animate-[pulse_12s_infinite]" />
         <div className="absolute top-[40%] right-[-10%] w-[50%] h-[50%] bg-blue-500/10 blur-[150px] rounded-full mix-blend-screen" />
-        <div className="absolute inset-0 bg-transparent opacity-[0.12]" style={{ backgroundImage: 'url("data:image/svg+xml,%3Csvg viewBox=%220 0 400 400%22 xmlns=%22http://www.w3.org/2000/svg%22%3E%3Cfilter id=%22n%22%3E%3CfeTurbulence type=%22fractalNoise%22 baseFrequency=%222.5%22 numOctaves=%224%22 stitchTiles=%22stitch%22/%3E%3C/filter%3E%3Crect width=%22100%25%22 height=%22100%25%22 filter=%22url(%23n)%22/%3E%3C/svg%3E")', mixBlendMode: 'overlay' }} />
+        <div className="absolute inset-0 bg-transparent hidden" style={{ backgroundImage: 'url("data:image/svg+xml,%3Csvg viewBox=%220 0 400 400%22 xmlns=%22http://www.w3.org/2000/svg%22%3E%3Cfilter id=%22n%22%3E%3CfeTurbulence type=%22fractalNoise%22 baseFrequency=%222.5%22 numOctaves=%224%22 stitchTiles=%22stitch%22/%3E%3C/filter%3E%3Crect width=%22100%25%22 height=%22100%25%22 filter=%22url(%23n)%22/%3E%3C/svg%3E")', mixBlendMode: 'overlay' }} />
       </div>
 
       <header className={cn(
         "fixed top-0 inset-x-0 z-[100] transition-all duration-300 border-b bg-background/60 backdrop-blur-md",
-        scrolled ? "border-border/40 py-3" : "border-transparent py-5"
+        scrolled ? "border-border/20 py-3" : "border-transparent py-5"
       )}>
         <nav className="flex items-center justify-between px-6 max-w-7xl mx-auto">
           <Link href="/" className="flex items-center gap-1.5 group">
@@ -166,7 +166,7 @@ export default function Home() {
               <div className="absolute inset-x-0 bottom-0 top-1/2 bg-primary/20 blur-md rounded-full group-hover:bg-primary/30 transition-colors" />
               <span className="block w-3 h-3 bg-primary animate-logo-morph shadow-[0_0_15px_rgba(var(--primary),0.3)]" />
             </div>
-            <span className="font-sans font-black text-lg tracking-tighter text-foreground uppercase">Lavidz</span>
+            <span className="font-semibold text-lg tracking-tight text-foreground">Lavidz</span>
           </Link>
 
           <div className="flex items-center gap-4">
@@ -177,13 +177,13 @@ export default function Home() {
               <Button
                 onClick={handleJoinBeta}
                 size="sm"
-                className="h-9 px-5 font-mono text-[9px] uppercase tracking-[0.15em] bg-primary hover:bg-primary/90 text-white rounded-none hidden sm:flex"
+                className="h-9 px-5 text-xs uppercase tracking-[0.15em] bg-primary hover:bg-primary/90 text-white hidden sm:flex"
               >
                 Inscrivez-vous
               </Button>
             </div>
 
-            <Badge variant="outline" className="font-mono text-[9px] uppercase tracking-widest py-1 px-3 border-primary/30 bg-primary/5 text-primary animate-pulse whitespace-nowrap">
+            <Badge variant="outline" className="text-xs py-1 px-3 border-primary/30 bg-primary/5 text-primary animate-pulse whitespace-nowrap">
               Lancement bientôt
             </Badge>
           </div>
@@ -199,35 +199,35 @@ export default function Home() {
           <div className="flex-1 space-y-8 animate-in fade-in slide-in-from-bottom-8 duration-1000 fill-mode-both">
             <div className="flex items-center gap-3">
               <span className="w-8 h-[1px] bg-primary/60" />
-              <p className="text-[10px] font-mono uppercase tracking-[0.3em] text-primary/80 font-bold flex items-center gap-2">
+              <p className="text-xs text-primary/80 font-bold flex items-center gap-2">
                 <Mic size={12} /> Personal Branding LinkedIn
               </p>
             </div>
 
-            <h1 className="text-4xl sm:text-5xl lg:text-6xl xl:text-[4.2rem] font-inter font-extrabold leading-[1.1]">
+            <h1 className="text-4xl sm:text-5xl lg:text-6xl xl:text-[4.2rem] font-bold leading-[1.1]">
               Vous avez l'expertise.<br />
               <span className="text-transparent bg-clip-text bg-gradient-to-r from-primary via-orange-400 to-yellow-500">
                 LinkedIn ne le sait pas encore.
               </span>
             </h1>
 
-            <p className="text-lg lg:text-xl text-muted-foreground font-inter max-w-xl leading-relaxed border-l-2 border-primary/40 pl-5">
+            <p className="text-lg lg:text-xl text-muted-foreground max-w-xl leading-relaxed border-l-2 border-primary/40 pl-5">
               On vous pose les bonnes questions face caméra. Vous répondez naturellement.{' '}
               <strong className="text-foreground">On s'occupe du montage. Vous recevez une vidéo LinkedIn prête à poster.</strong>
             </p>
 
             <div className="pt-4 flex flex-col sm:flex-row gap-3">
-              <button onClick={handleJoinBeta} className="group flex items-center justify-center gap-2 h-14 px-8 font-mono text-[10px] uppercase tracking-[0.2em] bg-primary hover:bg-primary/90 text-white shadow-lg transition-all">
+              <button onClick={handleJoinBeta} className="group flex items-center justify-center gap-2 rounded-xl h-14 px-8 text-sm font-medium bg-primary hover:bg-primary/90 text-white shadow-lg transition-all">
                 Rejoindre la liste d'attente <ArrowRight size={14} className="group-hover:translate-x-1 transition-transform" />
               </button>
-              <button onClick={handleStartDemo} className="flex items-center justify-center gap-2 h-14 px-8 font-mono text-[10px] uppercase tracking-[0.2em] border border-border text-muted-foreground hover:border-primary/40 hover:text-foreground transition-all">
+              <button onClick={handleStartDemo} className="flex items-center justify-center gap-2 rounded-xl h-14 px-8 text-sm border border-border/40 text-muted-foreground hover:border-primary/40 hover:text-foreground transition-all">
                 <Play size={13} /> Voir la démo
               </button>
             </div>
 
             <div className="flex items-center gap-3 pt-2">
               <Shield size={14} className="text-muted-foreground/60" />
-              <p className="text-[10px] font-mono text-muted-foreground/60 uppercase tracking-widest">
+              <p className="text-xs text-muted-foreground/60">
                 1 vidéo offerte · Aucune CB requise · Sans engagement
               </p>
             </div>
@@ -251,7 +251,7 @@ export default function Home() {
               className={cn(
                 "relative dark bg-zinc-950 overflow-hidden shrink-0 z-10 group/phone",
                 isPhoneActive
-                  ? "w-full h-full rounded-none border-0 shadow-none lg:w-[320px] lg:h-[650px] lg:border-[8px] lg:border-zinc-900 lg:rounded-[3rem] lg:shadow-[20px_40px_80px_-15px_rgba(0,0,0,0.8)]"
+                  ? "w-full h-full border-0 shadow-none lg:w-[320px] lg:h-[650px] lg:border-[8px] lg:border-zinc-900 lg:rounded-[3rem] lg:shadow-[20px_40px_80px_-15px_rgba(0,0,0,0.8)]"
                   : "w-[300px] sm:w-[320px] h-[600px] sm:h-[650px] border-[8px] border-zinc-900 rounded-[3rem] shadow-[20px_40px_80px_-15px_rgba(0,0,0,0.6)]"
               )}
               style={isPhoneActive ? { animation: 'phoneFocusIn 0.45s cubic-bezier(0.34,1.56,0.64,1) forwards' } : undefined}
@@ -291,7 +291,7 @@ export default function Home() {
                       <div className="relative z-20 flex-1 flex flex-col items-center justify-center gap-6 px-8 text-center" style={{ animation: 'fadeSlideIn 0.5s ease forwards' }}>
                         <div className="w-16 h-16 rounded-2xl flex items-center justify-center bg-primary/10 border border-primary/20"><Check size={28} className="text-primary" /></div>
                         <div><h3 className="text-2xl font-black text-foreground mb-2">Vous êtes sur la liste.</h3><p className="text-xs text-muted-foreground leading-relaxed">On vous envoie l'accès dès que c'est prêt.</p></div>
-                        <button onClick={() => { setPhoneMode('demo'); setQuizSuccess(false) }} className="text-[10px] font-mono text-muted-foreground/50 uppercase tracking-widest hover:text-white transition-colors">Voir la démo</button>
+                        <button onClick={() => { setPhoneMode('demo'); setQuizSuccess(false) }} className="text-xs text-muted-foreground/50 hover:text-white transition-colors">Voir la démo</button>
                       </div>
                     ) : (
                       <>
@@ -301,14 +301,14 @@ export default function Home() {
                               <div key={i} className="h-1 rounded-full transition-all duration-300" style={{ width: i < quizStep ? 16 : i === quizStep && quizStep < 3 ? 24 : 12, background: i < quizStep ? 'rgba(255,77,28,0.5)' : i === quizStep && quizStep < 3 ? '#FF4D1C' : 'rgba(255,255,255,0.1)' }} />
                             ))}
                           </div>
-                          <button onClick={() => { setPhoneMode('demo') }} className="text-[9px] font-mono text-muted-foreground/40 uppercase tracking-widest hover:text-foreground transition-colors">Démo →</button>
+                          <button onClick={() => { setPhoneMode('demo') }} className="text-xs text-muted-foreground/40 hover:text-foreground transition-colors">Démo →</button>
                         </div>
 
                         {quizStep === 0 && (
                           <div className="relative z-20 flex-1 flex flex-col justify-between px-5 pt-6 pb-10" style={{ animation: 'fadeSlideIn 0.35s ease forwards' }}>
                             <div>
-                              <p className="text-[9px] font-mono text-primary/60 uppercase tracking-widest mb-3 font-bold">Question 1 / 3</p>
-                              <p className="text-base font-inter font-bold text-foreground leading-snug">Pour qui allez-vous créer ces vidéos ?</p>
+                              <p className="text-xs text-primary/60 mb-3 font-bold">Question 1 / 3</p>
+                              <p className="text-base font-semibold text-foreground leading-snug">Pour qui allez-vous créer ces vidéos ?</p>
                             </div>
                             <div className="flex flex-col gap-2.5 mt-6">
                               {[
@@ -320,7 +320,7 @@ export default function Home() {
                                   className="w-full text-left px-4 py-3 rounded-xl border border-white/5 bg-white/[0.03] hover:border-primary/40 hover:bg-primary/[0.08] transition-all duration-150 active:scale-[0.97]"
                                 >
                                   <p className="text-sm font-bold text-foreground">{opt.label}</p>
-                                  <p className="text-[10px] text-muted-foreground mt-0.5">{opt.sub}</p>
+                                  <p className="text-xs text-muted-foreground mt-0.5">{opt.sub}</p>
                                 </button>
                               ))}
                             </div>
@@ -330,8 +330,8 @@ export default function Home() {
                         {quizStep === 1 && (
                           <div className="relative z-20 flex-1 flex flex-col justify-between px-5 pt-6 pb-10" style={{ animation: 'fadeSlideIn 0.35s ease forwards' }}>
                             <div>
-                              <p className="text-[9px] font-mono text-primary/60 uppercase tracking-widest mb-3 font-bold">Question 2 / 3</p>
-                              <p className="text-base font-inter font-bold text-foreground leading-snug">Comment gérez-vous vos montages aujourd'hui ?</p>
+                              <p className="text-xs text-primary/60 mb-3 font-bold">Question 2 / 3</p>
+                              <p className="text-base font-semibold text-foreground leading-snug">Comment gérez-vous vos montages aujourd'hui ?</p>
                             </div>
                             <div className="flex flex-col gap-2 mt-5">
                               {[
@@ -343,7 +343,7 @@ export default function Home() {
                                 <button key={opt.val} onClick={() => handleAnswer('comWay', opt.val)}
                                   className="w-full text-left px-4 py-3 rounded-xl border border-white/5 bg-white/[0.03] hover:border-primary/40 hover:bg-primary/[0.08] transition-all duration-150 active:scale-[0.97]"
                                 >
-                                  <p className="text-xs font-bold text-foreground leading-snug">{opt.label}</p>
+                                  <p className="text-xs font-medium text-foreground leading-snug">{opt.label}</p>
                                 </button>
                               ))}
                             </div>
@@ -353,8 +353,8 @@ export default function Home() {
                         {quizStep === 2 && (
                           <div className="relative z-20 flex-1 flex flex-col justify-between px-5 pt-6 pb-10" style={{ animation: 'fadeSlideIn 0.35s ease forwards' }}>
                             <div>
-                              <p className="text-[9px] font-mono text-primary/60 uppercase tracking-widest mb-3 font-bold">Question 3 / 3</p>
-                              <p className="text-base font-inter font-bold text-foreground leading-snug">Fréquence de publication souhaitée ?</p>
+                              <p className="text-xs text-primary/60 mb-3 font-bold">Question 3 / 3</p>
+                              <p className="text-base font-semibold text-foreground leading-snug">Fréquence de publication souhaitée ?</p>
                             </div>
                             <div className="flex flex-col gap-2 mt-5">
                               {[
@@ -366,7 +366,7 @@ export default function Home() {
                                 <button key={opt.val} onClick={() => handleAnswer('frequency', opt.val)}
                                   className="w-full text-left px-4 py-3 rounded-xl border border-white/5 bg-white/[0.03] hover:border-primary/40 hover:bg-primary/[0.08] transition-all duration-150 active:scale-[0.97]"
                                 >
-                                  <p className="text-xs font-bold text-foreground leading-snug">{opt.label}</p>
+                                  <p className="text-xs font-medium text-foreground leading-snug">{opt.label}</p>
                                 </button>
                               ))}
                             </div>
@@ -376,9 +376,9 @@ export default function Home() {
                         {quizStep === 3 && (
                           <div className="relative z-20 flex-1 flex flex-col justify-between px-5 pt-6 pb-10" style={{ animation: 'fadeSlideIn 0.35s ease forwards' }}>
                             <div>
-                              <p className="text-[9px] font-mono text-primary/60 uppercase tracking-widest mb-3 font-bold">Dernière étape</p>
-                              <p className="text-base font-inter font-bold text-foreground leading-snug">Où vous envoyer votre vidéo offerte ?</p>
-                              <p className="text-[11px] text-muted-foreground mt-2">1 vidéo LinkedIn montée offerte, sans CB.</p>
+                              <p className="text-xs text-primary/60 mb-3 font-bold">Dernière étape</p>
+                              <p className="text-base font-semibold text-foreground leading-snug">Où vous envoyer votre vidéo offerte ?</p>
+                              <p className="text-xs text-muted-foreground mt-2">1 vidéo LinkedIn montée offerte, sans CB.</p>
                             </div>
                             <form onSubmit={handleQuizSubmit} className="flex flex-col gap-3 mt-6">
                               <input
@@ -387,7 +387,7 @@ export default function Home() {
                                 placeholder="votre@email.com"
                                 className="w-full px-4 py-3.5 rounded-xl text-sm text-foreground bg-white/[0.05] border border-white/10 placeholder:text-muted-foreground/40 outline-none focus:ring-1 focus:ring-primary/50 transition-all"
                               />
-                              {quizError && <p className="text-[10px] font-mono text-destructive">{quizError}</p>}
+                              {quizError && <p className="text-xs text-destructive">{quizError}</p>}
                               <button type="submit" disabled={quizSubmitting}
                                 className="w-full py-4 rounded-2xl font-bold text-sm flex items-center justify-center gap-2 bg-primary text-white transition-all active:scale-95 disabled:opacity-60 shadow-lg shadow-primary/20"
                               >
@@ -413,7 +413,7 @@ export default function Home() {
                           <div className="relative w-5 h-5 flex items-center justify-center">
                             <span className="block w-2.5 h-2.5 bg-primary animate-logo-morph shadow-[0_0_10px_rgba(var(--primary),0.2)]" />
                           </div>
-                          <span className="font-sans font-black text-lg tracking-tighter text-foreground uppercase">Lavidz</span>
+                          <span className="font-semibold text-lg tracking-tight text-foreground">Lavidz</span>
                         </div>
                       </div>
                       <div>
@@ -432,8 +432,8 @@ export default function Home() {
                       <div className="w-[150%] h-[150%] absolute top-[-25%] left-[-25%] bg-[radial-gradient(circle_at_center,_hsl(var(--primary)_/_0.1)_0%,_transparent_60%)] animate-[spin_20s_linear_infinite]" />
                     </div>
                     <div className="relative z-20 pt-14 px-6 w-full" style={{ animation: 'fadeSlideIn 0.4s ease forwards' }}>
-                      <p className="text-[10px] font-mono text-primary/60 uppercase tracking-widest font-bold mb-3 flex items-center gap-2"><MessageSquare size={12} /> La question</p>
-                      <p className="text-lg font-inter font-bold text-foreground leading-snug">« {DEMO_QUESTION} »</p>
+                      <p className="text-xs text-primary/60 font-bold mb-3 flex items-center gap-2"><MessageSquare size={12} /> La question</p>
+                      <p className="text-lg font-semibold text-foreground leading-snug">« {DEMO_QUESTION} »</p>
                     </div>
                     <div className="relative z-20 pb-10 flex flex-col items-center gap-4">
                       <div className="flex items-end justify-center gap-[3px] h-8 px-6 opacity-40">
@@ -442,34 +442,34 @@ export default function Home() {
                       <div onClick={handleDemoStart} className="w-16 h-16 rounded-full border-[3px] border-white/10 p-1 flex items-center justify-center cursor-pointer hover:scale-105 transition-all duration-300">
                         <div className="w-full h-full bg-primary rounded-full flex items-center justify-center shadow-[0_0_25px_rgba(255,77,28,0.5)]"><Play size={20} className="text-white ml-1" /></div>
                       </div>
-                      <p className="text-[10px] font-mono uppercase tracking-widest font-bold text-muted-foreground/40">Lancer la démo</p>
+                      <p className="text-xs font-medium text-muted-foreground/40">Lancer la démo</p>
                     </div>
                   </div>
                 )}
 
                 {phoneMode === 'demo' && demoPhase === 'loading' && (
-                  <div className="flex-1 flex flex-col items-center justify-center z-20 gap-4"><Loader2 size={32} className="text-primary animate-spin" /><p className="text-xs font-mono text-muted-foreground/50 uppercase tracking-widest">Préparation...</p></div>
+                  <div className="flex-1 flex flex-col items-center justify-center z-20 gap-4"><Loader2 size={32} className="text-primary animate-spin" /><p className="text-xs text-muted-foreground/50">Préparation...</p></div>
                 )}
 
                 {phoneMode === 'demo' && (demoPhase === 'speaking' || demoPhase === 'recording') && (
                   <div className="flex-1 flex flex-col z-20 relative">
                     {demoPhase === 'recording' && (
                       <div className="absolute top-12 inset-x-5 flex items-center justify-between z-30" style={{ animation: 'fadeSlideIn 0.4s ease forwards' }}>
-                        <div className="flex items-center gap-2 bg-red-500/20 backdrop-blur-md border border-red-500/40 rounded-full px-3 py-1.5"><span className="w-2 h-2 rounded-full bg-red-500 animate-pulse" /><span className="text-[10px] font-mono text-red-500 font-bold uppercase tracking-widest">REC {formatTime(recTimer)}</span></div>
-                        <div className="bg-black/40 backdrop-blur-md border border-white/10 rounded-full px-3 py-1.5"><span className="text-[10px] font-mono text-white/50 uppercase tracking-widest font-bold">1/1</span></div>
+                        <div className="flex items-center gap-2 bg-red-500/20 backdrop-blur-md border border-red-500/40 rounded-full px-3 py-1.5"><span className="w-2 h-2 rounded-full bg-red-500 animate-pulse" /><span className="text-xs text-red-500 font-bold">REC {formatTime(recTimer)}</span></div>
+                        <div className="bg-black/40 backdrop-blur-md border border-white/10 rounded-full px-3 py-1.5"><span className="text-xs text-white/50 font-bold">1/1</span></div>
                       </div>
                     )}
                     <div className={cn("absolute inset-x-5 z-20 transition-all duration-700 ease-[cubic-bezier(0.34,1.56,0.64,1)]", demoPhase === 'speaking' ? "top-1/2 -translate-y-1/2" : "top-24 translate-y-0")}>
                       <div className={cn("bg-black/60 backdrop-blur-xl border border-white/10 rounded-2xl shadow-2xl transition-all duration-500", demoPhase === 'speaking' ? 'p-5' : 'p-3')}>
-                        <p className={cn("font-mono uppercase tracking-widest font-bold flex items-center gap-2 transition-all duration-500", demoPhase === 'speaking' ? "text-[10px] text-primary mb-2" : "text-[9px] text-white/40 mb-1")}>
+                        <p className={cn("font-bold flex items-center gap-2 transition-all duration-500", demoPhase === 'speaking' ? "text-xs text-primary mb-2" : "text-xs text-white/40 mb-1")}>
                           {demoPhase === 'speaking' ? <><Volume2 size={12} className="animate-pulse" /> Écoute</> : <>Question</>}
                         </p>
-                        <p className={cn("font-inter font-bold leading-snug transition-all duration-500", demoPhase === 'speaking' ? "text-base text-white" : "text-sm text-white/90")}>« {DEMO_QUESTION} »</p>
+                        <p className={cn("font-semibold leading-snug transition-all duration-500", demoPhase === 'speaking' ? "text-base text-white" : "text-sm text-white/90")}>« {DEMO_QUESTION} »</p>
                       </div>
                     </div>
                     <div className="mt-auto pb-10 pt-4 flex flex-col items-center gap-3">
-                      {demoPhase === 'speaking' && (<><div className="flex items-end justify-center gap-[3px] h-10 px-6">{waveHeights.map((h, i) => (<div key={i} className="flex-1 max-w-[4px] rounded-full bg-primary transition-all duration-100" style={{ height: `${h}%` }} />))}</div><p className="text-[10px] font-mono text-primary/70 uppercase tracking-widest">IA en train de parler...</p></>)}
-                      {demoPhase === 'recording' && (<><div className="flex items-end justify-center gap-[3px] h-8 px-6">{Array(24).fill(0).map((_, i) => (<div key={i} className="flex-1 max-w-[4px] rounded-full bg-red-500/60 transition-all duration-150" style={{ height: `${Math.random() * 50 + 15}%` }} />))}</div><p className="text-[10px] font-mono text-white/40 uppercase tracking-widest mb-3">Répondez face caméra</p><div onClick={handleStopRecording} className="w-14 h-14 rounded-full border-[3px] border-red-500/40 p-1 flex items-center justify-center cursor-pointer hover:scale-95 transition-all duration-300"><div className="w-full h-full bg-red-500 rounded-full flex items-center justify-center"><div className="w-5 h-5 bg-white rounded-sm" /></div></div></>)}
+                      {demoPhase === 'speaking' && (<><div className="flex items-end justify-center gap-[3px] h-10 px-6">{waveHeights.map((h, i) => (<div key={i} className="flex-1 max-w-[4px] rounded-full bg-primary transition-all duration-100" style={{ height: `${h}%` }} />))}</div><p className="text-xs text-primary/70">IA en train de parler...</p></>)}
+                      {demoPhase === 'recording' && (<><div className="flex items-end justify-center gap-[3px] h-8 px-6">{Array(24).fill(0).map((_, i) => (<div key={i} className="flex-1 max-w-[4px] rounded-full bg-red-500/60 transition-all duration-150" style={{ height: `${Math.random() * 50 + 15}%` }} />))}</div><p className="text-xs text-white/40 mb-3">Répondez face caméra</p><div onClick={handleStopRecording} className="w-14 h-14 rounded-full border-[3px] border-red-500/40 p-1 flex items-center justify-center cursor-pointer hover:scale-95 transition-all duration-300"><div className="w-full h-full bg-red-500 rounded-full flex items-center justify-center"><div className="w-5 h-5 bg-white rounded-lg" /></div></div></>)}
                     </div>
                   </div>
                 )}
@@ -482,14 +482,14 @@ export default function Home() {
                   </div>
                 )}
 
-                {phoneMode === 'demo' && demoPhase === 'sending' && (<div className="flex-1 flex flex-col items-center justify-center z-20 gap-4"><Loader2 size={28} className="text-primary animate-spin" /><p className="text-sm font-mono text-muted-foreground uppercase tracking-widest">Envoi...</p></div>)}
+                {phoneMode === 'demo' && demoPhase === 'sending' && (<div className="flex-1 flex flex-col items-center justify-center z-20 gap-4"><Loader2 size={28} className="text-primary animate-spin" /><p className="text-sm text-muted-foreground">Envoi...</p></div>)}
 
                 {phoneMode === 'demo' && demoPhase === 'sent' && (
                   <div className="flex-1 flex flex-col items-center justify-center z-20 gap-6 px-8" style={{ animation: 'fadeSlideIn 0.5s ease forwards' }}>
                     <div className="w-16 h-16 rounded-2xl flex items-center justify-center bg-primary/10 border border-primary/20"><Video size={28} className="text-primary" /></div>
                     <div className="text-center"><h3 className="text-2xl font-black text-foreground mb-2">Montage en cours</h3><p className="text-xs text-muted-foreground">La vidéo sera envoyée par email.</p></div>
                     <div className="flex items-center gap-2 mt-2"><div className="w-2 h-2 rounded-full bg-primary animate-pulse" /><div className="w-2 h-2 rounded-full bg-primary/60 animate-pulse" style={{ animationDelay: '0.2s' }} /><div className="w-2 h-2 rounded-full bg-primary/30 animate-pulse" style={{ animationDelay: '0.4s' }} /></div>
-                    <button onClick={handleReset} className="text-[10px] font-mono text-muted-foreground/30 uppercase tracking-widest mt-6 hover:text-white transition-colors">Relancer la démo</button>
+                    <button onClick={handleReset} className="text-xs text-muted-foreground/30 mt-6 hover:text-white transition-colors">Relancer la démo</button>
                   </div>
                 )}
               </div>
@@ -504,21 +504,21 @@ export default function Home() {
 
         {/* Powered by Kabuki */}
         <div className="mt-20 flex flex-col items-center gap-4 animate-in fade-in slide-in-from-bottom-4 duration-1000 delay-500 fill-mode-both">
-          <p className="text-[10px] font-mono uppercase tracking-[0.2em] text-muted-foreground">Powered by</p>
+          <p className="text-xs text-muted-foreground">Powered by</p>
           <Link href="https://kabuki.team" target="_blank" className="group/logo flex items-center gap-3 grayscale hover:grayscale-0 transition-all duration-500 opacity-60 hover:opacity-100">
             <svg viewBox="0 0 32 32" aria-hidden="true" className="h-8 w-8"><rect clipPath="url(#hc)" className="h-8 transition-all duration-300 fill-primary w-0 group-hover/logo:w-8" /><use href="#hp" className="stroke-foreground" fill="none" strokeWidth="1.5" /><defs><path id="hp" d="M3.25 26v.75H7c1.305 0 2.384-.21 3.346-.627.96-.415 1.763-1.02 2.536-1.752.695-.657 1.39-1.443 2.152-2.306l.233-.263c.864-.975 1.843-2.068 3.071-3.266 1.209-1.18 2.881-1.786 4.621-1.786h5.791V5.25H25c-1.305 0-2.384.21-3.346.627-.96.415-1.763 1.02-2.536 1.751-.695.658-1.39 1.444-2.152 2.307l-.233.263c-.864.975-1.843 2.068-3.071 3.266-1.209 1.18-2.881 1.786-4.621 1.786H3.25V26Z" /><clipPath id="hc"><use href="#hp" /></clipPath></defs></svg>
-            <span className="font-inter font-bold text-xl tracking-tight text-foreground">Kabuki</span>
+            <span className="font-semibold text-xl tracking-tight text-foreground">Kabuki</span>
           </Link>
         </div>
       </main>
 
       {/* ═══════════ PROBLEM — AGITATION ═══════════ */}
-      <section className="relative z-10 border-t border-border bg-surface-raised flex flex-col">
+      <section className="relative z-10 bg-surface-raised flex flex-col">
         <div className="absolute top-0 left-1/2 -translate-x-1/2 w-1/2 h-[1px] bg-gradient-to-r from-transparent via-primary/50 to-transparent shadow-[0_0_20px_theme(colors.primary.DEFAULT)]" />
         <div className="max-w-5xl mx-auto px-6 py-24 lg:py-32">
           <div className="text-center mb-16">
-            <p className="text-[10px] font-mono uppercase tracking-[0.3em] text-primary/80 mb-4">Le problème</p>
-            <h2 className="text-3xl sm:text-4xl lg:text-5xl font-inter font-extrabold leading-snug text-foreground">
+            <p className="text-xs text-primary/80 mb-4">Le problème</p>
+            <h2 className="text-3xl sm:text-4xl lg:text-5xl font-bold leading-snug text-foreground">
               Vous êtes expert dans votre domaine.<br /><span className="text-muted-foreground/60">Mais personne ne vous voit sur LinkedIn.</span>
             </h2>
           </div>
@@ -529,35 +529,35 @@ export default function Home() {
               { emoji: '⏳', title: '"Je n\'ai pas le temps"', desc: 'Scripter, tourner, monter, sous-titrer. Pour UN post. Les consultants qui cartonnent sur LinkedIn n\'ont pas plus de temps que vous. Ils ont un système.' },
               { emoji: '👻', title: 'Profil fantôme', desc: 'Votre profil est beau. Votre offre est claire. Mais 0 vidéo = 0 confiance. 75% des décideurs LinkedIn veulent voir un visage avant de signer.' },
             ].map((item, i) => (
-              <div key={i} className="p-8 bg-background border border-border/60 hover:border-primary/20 transition-all duration-500 group relative overflow-hidden">
+              <div key={i} className="p-8 rounded-2xl bg-background hover:bg-surface-raised transition-all duration-500 group relative overflow-hidden">
                 <div className="absolute top-0 right-0 w-32 h-32 bg-primary/5 blur-3xl opacity-0 group-hover:opacity-100 transition-opacity" />
                 <span className="text-3xl mb-6 block">{item.emoji}</span>
-                <h3 className="text-lg font-inter font-bold text-foreground mb-3">{item.title}</h3>
-                <p className="text-sm text-muted-foreground font-inter leading-relaxed">{item.desc}</p>
+                <h3 className="text-lg font-semibold text-foreground mb-3">{item.title}</h3>
+                <p className="text-sm text-muted-foreground leading-relaxed">{item.desc}</p>
               </div>
             ))}
           </div>
 
           <div className="text-center mt-16 space-y-3">
-            <p className="text-xl sm:text-2xl font-inter font-bold text-foreground leading-relaxed">
+            <p className="text-xl sm:text-2xl font-semibold text-foreground leading-relaxed">
               Le contenu texte est mort pour la Gen Z et les Millennials.{' '}
               <span className="text-transparent bg-clip-text bg-gradient-to-r from-primary to-orange-400">Ils représentent 71% des décideurs B2B.</span>
             </p>
-            <p className="text-sm text-muted-foreground/60 font-mono uppercase tracking-widest">Source : LinkedIn B2B Marketing 2026</p>
+            <p className="text-sm text-muted-foreground/60">Source : LinkedIn B2B Marketing 2026</p>
           </div>
         </div>
       </section>
 
       {/* ═══════════ HOW IT WORKS ═══════════ */}
-      <section className="relative z-10 border-t border-border bg-background">
+      <section className="relative z-10 bg-background">
         <div className="absolute top-0 left-1/2 -translate-x-1/2 w-1/3 h-[1px] bg-gradient-to-r from-transparent via-emerald-500/50 to-transparent shadow-[0_0_20px_theme(colors.emerald.500)]" />
         <div className="max-w-5xl mx-auto px-6 py-24 lg:py-32">
           <div className="text-center mb-20">
-            <p className="text-[10px] font-mono uppercase tracking-[0.3em] text-emerald-500/80 mb-4">Votre système LinkedIn</p>
-            <h2 className="text-3xl sm:text-4xl lg:text-5xl font-inter font-extrabold leading-snug text-foreground">
+            <p className="text-xs text-emerald-500/80 mb-4">Votre système LinkedIn</p>
+            <h2 className="text-3xl sm:text-4xl lg:text-5xl font-bold leading-snug text-foreground">
               Répondez. <span className="text-emerald-400">On s'occupe du reste.</span>
             </h2>
-            <p className="text-lg text-muted-foreground font-inter mt-6 max-w-2xl mx-auto">Pas de script. Pas de vidéaste. Pas de monteur. Juste vous, votre expertise, et une vidéo prête à publier.</p>
+            <p className="text-lg text-muted-foreground mt-6 max-w-2xl mx-auto">Pas de script. Pas de vidéaste. Pas de monteur. Juste vous, votre expertise, et une vidéo prête à publier.</p>
           </div>
           <div className="grid grid-cols-1 md:grid-cols-3 gap-0">
             {[
@@ -565,14 +565,14 @@ export default function Home() {
               { step: '02', icon: Brain, title: 'Répondez face caméra', desc: 'Chaque question vous est posée à voix haute. Vous répondez naturellement, comme dans une conversation. Pas de script, pas de stress.', color: 'text-blue-400' },
               { step: '03', icon: Sparkles, title: 'Recevez votre vidéo', desc: 'Vos réponses sont assemblées, montées et sous-titrées automatiquement. Une vidéo LinkedIn native, prête à publier. Vous n\'avez rien à faire.', color: 'text-emerald-400' },
             ].map((item, i) => (
-              <div key={i} className={cn("p-8 lg:p-10 border border-border/40 relative group hover:bg-surface/40 transition-all duration-500", i === 1 && "md:border-x-0")}>
+              <div key={i} className={cn("p-8 lg:p-10 rounded-2xl bg-surface/30 relative group hover:bg-surface/50 transition-all duration-500", i === 1 && "md:border-x-0")}>
                 <div className="flex items-center gap-3 mb-6">
-                  <span className={cn("text-[10px] font-mono font-black uppercase tracking-widest", item.color)}>{item.step}</span>
+                  <span className={cn("text-xs font-black", item.color)}>{item.step}</span>
                   <div className="flex-1 h-[1px] bg-border/40" />
                   <item.icon size={18} className={cn(item.color, "opacity-60 group-hover:opacity-100 transition-opacity")} />
                 </div>
-                <h3 className="text-xl font-inter font-bold text-foreground mb-4">{item.title}</h3>
-                <p className="text-sm text-muted-foreground font-inter leading-relaxed">{item.desc}</p>
+                <h3 className="text-xl font-semibold text-foreground mb-4">{item.title}</h3>
+                <p className="text-sm text-muted-foreground leading-relaxed">{item.desc}</p>
               </div>
             ))}
           </div>
@@ -580,15 +580,15 @@ export default function Home() {
       </section>
 
       {/* ═══════════ POUR QUI ═══════════ */}
-      <section className="relative z-10 border-t border-border bg-surface-raised">
+      <section className="relative z-10 bg-surface-raised">
         <div className="absolute top-0 left-1/2 -translate-x-1/2 w-1/2 h-[1px] bg-gradient-to-r from-transparent via-primary/50 to-transparent shadow-[0_0_20px_theme(colors.primary.DEFAULT)]" />
         <div className="max-w-6xl mx-auto px-6 py-24 lg:py-32">
           <div className="text-center mb-20">
-            <p className="text-[10px] font-mono uppercase tracking-[0.3em] text-primary/60 mb-4">Fait pour vous</p>
-            <h2 className="text-3xl sm:text-4xl lg:text-5xl font-inter font-extrabold leading-snug text-foreground">
+            <p className="text-xs text-primary/60 mb-4">Fait pour vous</p>
+            <h2 className="text-3xl sm:text-4xl lg:text-5xl font-bold leading-snug text-foreground">
               Si vous vendez votre expertise,<br /><span className="text-primary">LinkedIn est votre vitrine.</span>
             </h2>
-            <p className="text-lg text-muted-foreground font-inter mt-6 max-w-2xl mx-auto">Lavidz transforme n'importe quel expert en créateur LinkedIn régulier. Sans effort. Sans équipe.</p>
+            <p className="text-lg text-muted-foreground mt-6 max-w-2xl mx-auto">Lavidz transforme n'importe quel expert en créateur LinkedIn régulier. Sans effort. Sans équipe.</p>
           </div>
 
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
@@ -601,12 +601,12 @@ export default function Home() {
       </section>
 
       {/* ═══════════ LINKEDIN STATS ═══════════ */}
-      <section className="relative z-10 border-t border-border/40">
+      <section className="relative z-10">
         <div className="absolute top-0 left-1/2 -translate-x-1/2 w-full h-[1px] bg-gradient-to-r from-transparent via-primary/50 to-transparent" />
         <div className="max-w-5xl mx-auto px-6 py-24 lg:py-32">
           <div className="text-center mb-16">
-            <p className="text-[10px] font-mono uppercase tracking-[0.3em] text-primary/60 mb-4">Pourquoi maintenant</p>
-            <h2 className="text-3xl sm:text-4xl lg:text-5xl font-inter font-extrabold leading-snug text-foreground">
+            <p className="text-xs text-primary/60 mb-4">Pourquoi maintenant</p>
+            <h2 className="text-3xl sm:text-4xl lg:text-5xl font-bold leading-snug text-foreground">
               LinkedIn pousse la vidéo.<br /><span className="text-muted-foreground/60">Ceux qui bougent maintenant raflent tout.</span>
             </h2>
           </div>
@@ -617,10 +617,10 @@ export default function Home() {
               { value: '75%', label: 'se fient à leur réseau, pas aux pubs', src: 'LinkedIn' },
               { value: 'x1.6', label: 'plus de leads avec une vidéo vue', src: 'LinkedIn Ads 2026' },
             ].map((s, i) => (
-              <div key={i} className="p-6 bg-background border border-border hover:border-primary/20 transition-all group text-center">
-                <p className="text-4xl font-inter font-black text-foreground group-hover:text-primary transition-colors">{s.value}</p>
-                <p className="text-xs text-muted-foreground font-inter mt-3 leading-relaxed">{s.label}</p>
-                <p className="text-[9px] font-mono text-muted-foreground/60 uppercase tracking-widest mt-2">— {s.src}</p>
+              <div key={i} className="p-6 rounded-2xl bg-background hover:bg-surface-raised transition-all group text-center">
+                <p className="text-4xl font-bold text-foreground group-hover:text-primary transition-colors">{s.value}</p>
+                <p className="text-xs text-muted-foreground mt-3 leading-relaxed">{s.label}</p>
+                <p className="text-xs text-muted-foreground/60 mt-2">— {s.src}</p>
               </div>
             ))}
           </div>
@@ -628,64 +628,64 @@ export default function Home() {
       </section>
 
       {/* ═══════════ FAQ ═══════════ */}
-      <section className="relative z-10 border-t border-border bg-surface-raised">
+      <section className="relative z-10 bg-surface-raised">
         <div className="absolute top-0 left-1/2 -translate-x-1/2 w-1/3 h-[1px] bg-gradient-to-r from-transparent via-primary/50 to-transparent" />
         <div className="max-w-3xl mx-auto px-6 py-24 lg:py-32">
           <div className="text-center mb-16">
-            <p className="text-[10px] font-mono uppercase tracking-[0.3em] text-primary/60 mb-4">FAQ</p>
-            <h2 className="text-3xl sm:text-4xl font-inter font-extrabold text-foreground">Questions fréquentes</h2>
+            <p className="text-xs text-primary/60 mb-4">FAQ</p>
+            <h2 className="text-3xl sm:text-4xl font-bold text-foreground">Questions fréquentes</h2>
           </div>
           <FaqList />
         </div>
       </section>
 
       {/* ═══════════ FINAL CTA ═══════════ */}
-      <section className="relative z-10 border-t border-border/40 bg-surface/30">
+      <section className="relative z-10 bg-surface/30">
         <div className="absolute top-0 left-1/2 -translate-x-1/2 w-full h-[1px] bg-gradient-to-r from-transparent via-primary/50 to-transparent" />
         <div className="absolute inset-0 pointer-events-none"><div className="absolute top-[20%] left-[20%] w-[50%] h-[50%] bg-primary/5 blur-[120px] rounded-full" /></div>
         <div className="max-w-3xl mx-auto px-6 py-24 lg:py-32 text-center relative z-10 space-y-8">
-          <h2 className="text-3xl sm:text-4xl lg:text-5xl font-inter font-extrabold leading-snug text-foreground">
+          <h2 className="text-3xl sm:text-4xl lg:text-5xl font-bold leading-snug text-foreground">
             Répondez à quelques questions.<br />
             <span className="text-transparent bg-clip-text bg-gradient-to-r from-primary via-orange-400 to-yellow-500">Recevez votre vidéo LinkedIn.</span>
           </h2>
-          <p className="text-muted-foreground font-inter text-lg">Rejoignez la liste et recevez votre <strong className="text-foreground">première vidéo LinkedIn offerte.</strong></p>
+          <p className="text-muted-foreground text-lg">Rejoignez la liste et recevez votre <strong className="text-foreground">première vidéo LinkedIn offerte.</strong></p>
           <div className="flex flex-col sm:flex-row justify-center gap-3">
-            <button onClick={handleJoinBeta} className="group flex items-center justify-center gap-2 h-14 px-10 font-mono text-[10px] uppercase tracking-[0.2em] bg-primary hover:bg-primary/90 text-white shadow-lg transition-all">
+            <button onClick={handleJoinBeta} className="group flex items-center justify-center gap-2 rounded-xl h-14 px-10 text-sm font-medium bg-primary hover:bg-primary/90 text-white shadow-lg transition-all">
               Rejoindre la liste d'attente <ArrowRight size={14} className="group-hover:translate-x-1 transition-transform" />
             </button>
-            <button onClick={handleStartDemo} className="flex items-center justify-center gap-2 h-14 px-8 font-mono text-[10px] uppercase tracking-[0.2em] border border-border text-muted-foreground hover:border-primary/40 hover:text-foreground transition-all">
+            <button onClick={handleStartDemo} className="flex items-center justify-center gap-2 rounded-xl h-14 px-8 text-sm border border-border/40 text-muted-foreground hover:border-primary/40 hover:text-foreground transition-all">
               <Play size={13} /> Voir la démo
             </button>
           </div>
-          <p className="text-[10px] font-mono text-muted-foreground/60 uppercase tracking-widest">Pas de spam · Juste l'accès quand c'est prêt</p>
+          <p className="text-xs text-muted-foreground/60">Pas de spam · Juste l'accès quand c'est prêt</p>
         </div>
       </section>
 
       {/* Footer */}
-      <footer className="border-t border-border/40 py-12 px-6 bg-background relative z-10">
+      <footer className="py-12 px-6 bg-background relative z-10">
         <div className="max-w-7xl mx-auto flex flex-col md:flex-row items-center justify-between gap-6">
           <div className="flex flex-col items-start gap-4">
             <div className="flex items-center gap-1.5 group cursor-pointer">
               <div className="relative w-5 h-5 flex items-center justify-center">
                 <span className="block w-2.5 h-2.5 bg-primary animate-logo-morph shadow-[0_0_10px_rgba(var(--primary),0.2)]" />
               </div>
-              <span className="font-sans font-black text-lg tracking-tighter text-foreground uppercase text-lg">Lavidz</span>
+              <span className="font-semibold text-lg tracking-tight text-foreground text-lg">Lavidz</span>
             </div>
             <div className="flex items-center gap-3 opacity-60">
-              <span className="text-[9px] font-mono uppercase tracking-widest text-muted-foreground/60">Un produit</span>
+              <span className="text-xs text-muted-foreground/60">Un produit</span>
               <Link href="https://kabuki.team" target="_blank" className="flex items-center gap-2 group/lf grayscale hover:grayscale-0 transition-all duration-500 hover:opacity-100">
                 <svg viewBox="0 0 32 32" className="h-5 w-5"><rect clipPath="url(#fc)" className="h-5 transition-all duration-300 fill-primary w-0 group-hover/lf:w-5" /><use href="#fp" className="stroke-foreground" fill="none" strokeWidth="1.5" /><defs><path id="fp" d="M3.25 26v.75H7c1.305 0 2.384-.21 3.346-.627.96-.415 1.763-1.02 2.536-1.752.695-.657 1.39-1.443 2.152-2.306l.233-.263c.864-.975 1.843-2.068 3.071-3.266 1.209-1.18 2.881-1.786 4.621-1.786h5.791V5.25H25c-1.305 0-2.384.21-3.346.627-.96.415-1.763 1.02-2.536 1.751-.695.658-1.39 1.444-2.152 2.307l-.233.263c-.864.975-1.843 2.068-3.071 3.266-1.209 1.18-2.881 1.786-4.621 1.786H3.25V26Z" /><clipPath id="fc"><use href="#fp" /></clipPath></defs></svg>
-                <span className="font-inter font-bold text-sm text-foreground">Kabuki</span>
+                <span className="font-semibold text-sm text-foreground">Kabuki</span>
               </Link>
             </div>
           </div>
-          <p className="text-xs font-mono text-muted-foreground/60">© {new Date().getFullYear()} Lavidz. Tous droits réservés.</p>
+          <p className="text-xs text-muted-foreground/60">© {new Date().getFullYear()} Lavidz. Tous droits réservés.</p>
           <Link href="https://www.linkedin.com/in/julien-software-engineer/" target="_blank" className="group/build flex items-center gap-3">
-            <div className="flex items-center gap-1.5 py-1.5 px-3 bg-surface-raised border border-border group-hover/build:border-primary/50 group-hover/build:bg-surface-raised/80 transition-all rounded-none">
+            <div className="flex items-center gap-1.5 py-1.5 px-3 bg-surface-raised border border-border group-hover/build:border-primary/50 group-hover/build:bg-surface-raised/80 transition-all">
               <span className="relative flex h-1.5 w-1.5"><span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-primary opacity-75" /><span className="relative inline-flex rounded-full h-1.5 w-1.5 bg-primary" /></span>
-              <span className="text-[9px] font-mono text-muted-foreground uppercase tracking-widest group-hover/build:text-foreground">Build in public</span>
+              <span className="text-xs text-muted-foreground group-hover/build:text-foreground">Build in public</span>
             </div>
-            <span className="text-[10px] font-mono uppercase tracking-[0.2em] text-muted-foreground group-hover/build:text-foreground transition-colors">LinkedIn</span>
+            <span className="text-xs text-muted-foreground group-hover/build:text-foreground transition-colors">LinkedIn</span>
           </Link>
         </div>
       </footer>
@@ -735,7 +735,7 @@ function FaqList() {
             <span className={cn("text-primary/60 text-lg leading-none transition-transform duration-300 shrink-0", open === i && "rotate-45")}>+</span>
           </button>
           {open === i && (
-            <p className="pb-5 text-sm text-muted-foreground font-inter leading-relaxed" style={{ animation: 'fadeSlideIn 0.25s ease forwards' }}>
+            <p className="pb-5 text-sm text-muted-foreground leading-relaxed" style={{ animation: 'fadeSlideIn 0.25s ease forwards' }}>
               {item.a}
             </p>
           )}
@@ -755,17 +755,17 @@ function UseCard({ icon: Icon, color, title, sub, desc, badges, stat, statLabel 
   }
   const c = colors[color]
   return (
-    <div className={`p-8 lg:p-10 bg-background border border-border/60 ${c.border} transition-all duration-500 group relative overflow-hidden`}>
+    <div className={`p-8 lg:p-10 bg-background rounded-2xl ${c.border} transition-all duration-500 group relative overflow-hidden`}>
       <div className={`absolute top-0 right-0 w-48 h-48 ${c.bg} blur-3xl group-hover:opacity-100 opacity-50 transition-opacity`} />
       <div className="flex items-center gap-4 mb-6 relative z-10">
-        <div className={`w-10 h-10 ${c.bg} border border-current/20 flex items-center justify-center group-hover:scale-110 transition-transform ${c.text}`}><Icon size={18} /></div>
-        <div><h3 className="text-lg font-inter font-bold text-foreground">{title}</h3><p className="text-[10px] font-mono text-muted-foreground uppercase tracking-widest">{sub}</p></div>
+        <div className={`w-10 h-10 rounded-xl ${c.bg} flex items-center justify-center group-hover:scale-110 transition-transform ${c.text}`}><Icon size={18} /></div>
+        <div><h3 className="text-lg font-semibold text-foreground">{title}</h3><p className="text-xs text-muted-foreground">{sub}</p></div>
       </div>
-      <p className="text-sm text-muted-foreground font-inter leading-relaxed relative z-10 mb-6">{desc}</p>
-      <div className="flex flex-wrap gap-2 relative z-10 mb-6">{badges.map(b => <Badge key={b} variant="outline" className={`font-mono text-[9px] ${c.badge} uppercase tracking-widest px-2.5 py-1 rounded-none`}>{b}</Badge>)}</div>
+      <p className="text-sm text-muted-foreground leading-relaxed relative z-10 mb-6">{desc}</p>
+      <div className="flex flex-wrap gap-2 relative z-10 mb-6">{badges.map(b => <Badge key={b} variant="outline" className={`text-xs ${c.badge} px-2.5 py-1`}>{b}</Badge>)}</div>
       <div className="relative z-10 border-t border-border/40 pt-4 flex items-baseline gap-3">
-        <span className={`text-2xl font-inter font-black ${c.text}`}>{stat}</span>
-        <span className="text-[10px] font-mono text-muted-foreground uppercase tracking-widest">{statLabel}</span>
+        <span className={`text-2xl font-bold ${c.text}`}>{stat}</span>
+        <span className="text-xs text-muted-foreground">{statLabel}</span>
       </div>
     </div>
   )

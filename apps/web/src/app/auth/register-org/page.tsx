@@ -28,7 +28,7 @@ export default async function RegisterOrgPage({ searchParams }: PageProps) {
             <span className="font-sans font-black text-lg tracking-tighter text-foreground uppercase">LAVIDZ</span>
           </div>
           <div className="border border-border p-8">
-            <p className="text-xs font-mono uppercase tracking-widest text-destructive mb-3">Lien invalide</p>
+            <p className="text-xs text-destructive mb-3">Lien invalide</p>
             <h2 className="font-sans font-extrabold text-xl tracking-tight mb-3">Invitation introuvable</h2>
             <p className="text-xs text-muted-foreground mb-6">{message}</p>
           </div>

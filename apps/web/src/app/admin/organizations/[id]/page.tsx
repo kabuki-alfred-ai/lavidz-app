@@ -48,28 +48,28 @@ export default async function OrganizationDetailsPage({ params }: { params: Prom
           <div className="flex items-center gap-4 mb-4">
             <Link
               href="/admin/organizations"
-              className="flex items-center justify-center w-8 h-8 rounded-sm bg-surface disabled text-muted-foreground border border-border hover:border-primary/40 hover:text-primary hover:bg-surface-raised transition-all"
+              className="flex items-center justify-center w-8 h-8 rounded-lg bg-surface disabled text-muted-foreground border border-border hover:border-primary/40 hover:text-primary hover:bg-surface-raised transition-all"
             >
               <ChevronLeft size={16} />
             </Link>
             <div className="flex items-center gap-2">
               <span className="w-8 h-[1px] bg-primary/40" />
-              <p className="text-[10px] font-mono uppercase tracking-[0.3em] text-primary/60">
+              <p className="text-xs text-primary/60">
                 Fiche Organisation
               </p>
             </div>
           </div>
-          <h1 className="text-3xl font-black uppercase tracking-tighter text-foreground">
+          <h1 className="text-3xl font-semibold tracking-tight text-foreground">
             {org.name}
           </h1>
           <div className="flex items-center gap-6 mt-4">
             <Badge variant={org.status === 'ACTIVE' ? 'active' : org.status === 'PENDING' ? 'default' : 'inactive'}>
               {org.status === 'ACTIVE' ? 'Actif' : org.status === 'PENDING' ? 'En attente' : 'Suspendu'}
             </Badge>
-            <code className="text-[12px] font-mono text-muted-foreground/60 bg-surface px-2 py-0.5 rounded-sm border border-border/40">
+            <code className="text-[12px] text-muted-foreground/60 bg-surface px-2 py-0.5 rounded-lg border border-border/40">
               {org.slug}
             </code>
-            <p className="text-[10px] font-mono text-muted-foreground/40 flex items-center gap-1.5 uppercase tracking-widest">
+            <p className="text-xs text-muted-foreground/40 flex items-center gap-1.5">
               <Clock size={12} /> {formatDate(org.createdAt)}
             </p>
           </div>

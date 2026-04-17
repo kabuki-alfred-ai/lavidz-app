@@ -39,7 +39,7 @@ export default async function SessionResultPage({ params, searchParams }: Props)
         <p className="text-white font-bold text-xl">
           Merci pour vos réponses&nbsp;!
         </p>
-        <p className="text-white/50 text-sm font-mono leading-relaxed">
+        <p className="text-white/50 text-sm leading-relaxed">
           Vos enregistrements ont bien été envoyés à <span style={{ color: accent }}>{brandName}</span>.
           {' '}Vous recevrez bientôt votre vidéo.
         </p>
@@ -47,7 +47,7 @@ export default async function SessionResultPage({ params, searchParams }: Props)
 
       {/* Session ID for support */}
       {sessionId && (
-        <p className="text-white/20 text-xs font-mono mt-4">
+        <p className="text-white/20 text-xs mt-4">
           Ref : {sessionId}
         </p>
       )}

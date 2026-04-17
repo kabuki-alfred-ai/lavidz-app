@@ -52,7 +52,7 @@ export function FeedbacksClient({ feedbacks, stats }: Props) {
   return (
     <div className="space-y-8">
       <div>
-        <h1 className="text-3xl font-black uppercase tracking-tighter text-foreground">Feedbacks</h1>
+        <h1 className="text-3xl font-semibold tracking-tight text-foreground">Feedbacks</h1>
         <p className="text-sm text-muted-foreground mt-1">Retours des participants après chaque session</p>
       </div>
 
@@ -76,7 +76,7 @@ export function FeedbacksClient({ feedbacks, stats }: Props) {
                 {/* Header */}
                 <div className="flex items-center justify-between">
                   <div className="flex items-center gap-3">
-                    <div className="w-8 h-8 rounded-full bg-primary/10 flex items-center justify-center text-xs font-bold text-primary uppercase">
+                    <div className="w-8 h-8 rounded-full bg-primary/10 flex items-center justify-center text-xs font-medium text-primary uppercase">
                       {(fb.session?.recipientName ?? fb.session?.recipientEmail ?? '?')[0]}
                     </div>
                     <div>
@@ -93,11 +93,11 @@ export function FeedbacksClient({ feedbacks, stats }: Props) {
                 {/* Ratings */}
                 <div className="flex gap-6">
                   <div>
-                    <p className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wider mb-1">Global</p>
+                    <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-1">Global</p>
                     <Stars value={fb.overallRating} />
                   </div>
                   <div>
-                    <p className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wider mb-1">Questions</p>
+                    <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-1">Questions</p>
                     <Stars value={fb.questionRating} />
                   </div>
                 </div>

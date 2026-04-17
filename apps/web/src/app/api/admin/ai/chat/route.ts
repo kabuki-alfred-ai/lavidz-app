@@ -1,10 +1,11 @@
 export const runtime = 'nodejs'
 
-import { streamText } from 'ai'
+import { streamText, tool, stepCountIs } from 'ai'
 import { google } from '@ai-sdk/google'
+import { z } from 'zod/v4'
 import { getFreshUser } from '@/lib/get-fresh-user'
 
-const MODEL_ID = process.env.AI_MODEL ?? 'gemini-2.0-flash'
+const MODEL_ID = process.env.AI_MODEL ?? 'gemini-3.1-flash-lite-preview'
 const API = process.env.API_URL ?? 'http://localhost:3001'
 const ADMIN_SECRET = process.env.ADMIN_SECRET ?? ''
 
@@ -73,8 +74,19 @@ function buildSystemPrompt(
   userName?: string,
   ragMemories?: string[],
   linkedinUrl?: string | null,
+  hasWebSearch?: boolean,
 ): string {
   const parts: string[] = [BASE_SYSTEM]
+
+  if (hasWebSearch) {
+    parts.push(`\n\n**RECHERCHE WEB**
+Tu as accès à un outil de recherche web (webSearch). Utilise-le quand c'est pertinent :
+- Quand l'entrepreneur te pose une question factuelle que tu ne peux pas vérifier de mémoire
+- Pour chercher des tendances de marché, actualités de son secteur, ou idées de contenu
+- Pour trouver des infos sur un sujet spécifique lié à son business
+- Ne l'utilise PAS systématiquement — seulement quand la recherche apporte une vraie valeur
+- Intègre les résultats naturellement dans ta réponse, sans lister les sources de façon robotique`)
+  }
 
   if (userName) {
     parts.push(`\n\n---\n**IDENTITÉ :** Tu parles avec ${userName}. Utilise son prénom naturellement dans la conversation.`)
@@ -174,10 +186,50 @@ export async function POST(req: Request) {
     // Non-blocking
   }
 
+  const tavilyKey = process.env.TAVILY_API_KEY ?? ''
+
   const result = streamText({
     model: google(MODEL_ID),
-    system: buildSystemPrompt(summary, topicsExplored, userName, ragMemories, linkedinUrl),
+    system: buildSystemPrompt(summary, topicsExplored, userName, ragMemories, linkedinUrl, !!tavilyKey),
     messages,
+    tools: tavilyKey ? {
+      webSearch: tool({
+        description: "Recherche sur le web pour trouver des informations actuelles et pertinentes. Utilise cet outil quand l'entrepreneur te pose une question factuelle, demande des tendances de marché, veut des idées de contenu basées sur l'actualité, ou quand tu as besoin d'informations à jour pour mieux le conseiller.",
+        inputSchema: z.object({
+          query: z.string().describe("La requête de recherche, en français ou anglais selon ce qui donnera les meilleurs résultats"),
+        }),
+        execute: async ({ query }: { query: string }) => {
+          const res = await fetch('https://api.tavily.com/search', {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+              'Authorization': `Bearer ${tavilyKey}`,
+            },
+            body: JSON.stringify({
+              query,
+              search_depth: 'basic',
+              include_answer: true,
+              max_results: 5,
+            }),
+          })
+          if (!res.ok) {
+            const errText = await res.text().catch(() => '')
+            console.error('[ai/chat] Tavily search failed', res.status, errText)
+            return { error: `Search failed: ${res.status}` }
+          }
+          const data = await res.json()
+          return {
+            answer: data.answer,
+            results: data.results?.map((r: { title: string; url: string; content: string }) => ({
+              title: r.title,
+              url: r.url,
+              content: r.content,
+            })) ?? [],
+          }
+        },
+      }),
+    } : undefined,
+    stopWhen: tavilyKey ? stepCountIs(3) : stepCountIs(1),
   })
 
   return result.toTextStreamResponse()

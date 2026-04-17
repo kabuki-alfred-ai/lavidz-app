@@ -1,9 +1,13 @@
 'use client'
 
-import { useState, useRef, useEffect, useCallback } from 'react'
+import { useState, useRef, useEffect, useCallback, useMemo } from 'react'
 import { useRouter } from 'next/navigation'
 import { SwitchCamera } from 'lucide-react'
 import type { ThemeDto } from '@lavidz/types'
+import { FORMAT_CONFIGS, type ContentFormat, type RecordingMode } from '@lavidz/types'
+import TeleprompterOverlay from './TeleprompterOverlay'
+import FreeformGuide from './FreeformGuide'
+import PreRecordingCheck from './PreRecordingCheck'
 
 type Phase = 'intro' | 'check' | 'reading' | 'countdown' | 'recording' | 'review' | 'uploading' | 'done'
 
@@ -26,9 +30,11 @@ interface Props {
   theme: ThemeDto
   initialSessionId?: string
   mode?: 'default' | 'shared'
+  contentFormat?: ContentFormat | null
+  teleprompterScript?: string | null
 }
 
-export function RecordingSession({ theme, initialSessionId, mode = 'default' }: Props) {
+export function RecordingSession({ theme, initialSessionId, mode = 'default', contentFormat, teleprompterScript }: Props) {
   const router = useRouter()
   const [phase, setPhase] = useState<Phase>('intro')
   const [questionIndex, setQuestionIndex] = useState(0)
@@ -67,6 +73,14 @@ export function RecordingSession({ theme, initialSessionId, mode = 'default' }: 
   const [feedbackComment, setFeedbackComment] = useState('')
   const [feedbackSent, setFeedbackSent] = useState(false)
   const [feedbackSending, setFeedbackSending] = useState(false)
+  const [qualityCheckReady, setQualityCheckReady] = useState(false)
+
+  const formatConfig = useMemo(() => contentFormat ? FORMAT_CONFIGS[contentFormat] : null, [contentFormat])
+  const recordingMode: RecordingMode = formatConfig?.recordingMode ?? 'questions'
+  const isTeleprompter = recordingMode === 'teleprompter'
+  const isFreeform = recordingMode === 'freeform'
+  const isQuestionBox = recordingMode === 'questions'
+
   const introAnnouncedRef = useRef(false)
   const audioContextRef = useRef<AudioContext | null>(null)
   const micRafRef = useRef<number | null>(null)
@@ -263,6 +277,13 @@ export function RecordingSession({ theme, initialSessionId, mode = 'default' }: 
   }, [])
 
   const beginReading = (question: typeof currentQuestion) => {
+    // Teleprompter and freeform modes skip TTS reading — go straight to a brief reading phase then countdown
+    if (isTeleprompter || isFreeform) {
+      setPhase('reading')
+      // Auto-advance to countdown after a short pause (2s to let user get ready)
+      setTimeout(() => beginCountdown(), 2000)
+      return
+    }
     setPhase('reading')
     if (question?.text) announceQuestion(question.text)
   }
@@ -762,11 +783,14 @@ export function RecordingSession({ theme, initialSessionId, mode = 'default' }: 
             </div>
 
             <p className="text-base text-white/60 leading-relaxed">
-              Vous allez répondre à{' '}
-              <span className="text-white font-semibold">
-                {questions.length} question{questions.length > 1 ? 's' : ''}
-              </span>{' '}
-              face caméra. Chaque réponse sera enregistrée en vidéo.
+              {isTeleprompter
+                ? 'Vous allez lire un script face caméra. Le texte défilera à l\'écran pendant l\'enregistrement.'
+                : isFreeform
+                  ? questions.length > 0
+                    ? <>Vous allez enregistrer <span className="text-white font-semibold">{questions.length} segment{questions.length > 1 ? 's' : ''}</span> face caméra. Parlez librement sur chaque thème.</>
+                    : 'Vous allez enregistrer une vidéo libre face caméra.'
+                  : <>Vous allez répondre à{' '}<span className="text-white font-semibold">{questions.length} question{questions.length > 1 ? 's' : ''}</span>{' '}face caméra. Chaque réponse sera enregistrée en vidéo.</>
+              }
             </p>
           </div>
 
@@ -822,7 +846,7 @@ export function RecordingSession({ theme, initialSessionId, mode = 'default' }: 
               className="w-full py-4 rounded-2xl font-bold text-base tracking-wide transition-all active:scale-95"
               style={{ background: accent, color: '#fff' }}
             >
-              Voir les questions →
+              {isTeleprompter ? 'Voir le script →' : isFreeform ? 'Voir les thèmes →' : 'Voir les questions →'}
             </button>
           </div>
         </div>
@@ -851,24 +875,80 @@ export function RecordingSession({ theme, initialSessionId, mode = 'default' }: 
 
           {/* Header */}
           <div className="flex flex-col gap-1 z-10 mt-4 mb-6">
-            <h2 className="text-2xl font-black text-white">Vos questions</h2>
-            <p className="text-sm text-white/40">Prenez le temps de lire avant de commencer</p>
+            <h2 className="text-2xl font-black text-white">
+              {isTeleprompter ? 'Vos points clés' : isFreeform ? 'Vos thèmes' : 'Vos questions'}
+            </h2>
+            <p className="text-sm text-white/40">
+              {isTeleprompter
+                ? 'Ces notes vous guideront pendant l\'enregistrement — parlez avec vos propres mots'
+                : isFreeform
+                  ? 'Parlez librement sur chaque thème'
+                  : 'Prenez le temps de lire avant de commencer'}
+            </p>
           </div>
 
-          {/* Questions list */}
+          {/* Content list */}
           <div className="relative flex-1 min-h-0 z-10">
             <div className="flex flex-col gap-14 overflow-y-auto h-full pt-8 pb-24">
-              {questions.map((q, i) => (
-                <div key={q.id} className="flex items-start gap-4">
-                  <span
-                    className="text-xs font-mono font-bold shrink-0 mt-1 tabular-nums"
-                    style={{ color: accent }}
-                  >
-                    {String(i + 1).padStart(2, '0')}
-                  </span>
-                  <p className="text-xl font-semibold text-white leading-snug tracking-tight">{q.text}</p>
-                </div>
-              ))}
+              {isTeleprompter && teleprompterScript ? (
+                (() => {
+                  // Parse the script into sections for preview
+                  const blocks = teleprompterScript.split(/\n\n+/)
+                  let currentLabel = ''
+                  const parsed: { label: string; bullets: string[] }[] = []
+                  for (const block of blocks) {
+                    const trimmed = block.trim()
+                    if (!trimmed) continue
+                    const headerMatch = trimmed.match(/^\[(.+?)(?:\s*[—–-]\s*(.+?))?\]$/)
+                    if (headerMatch) {
+                      currentLabel = headerMatch[1].trim()
+                      continue
+                    }
+                    const bullets = trimmed.split('\n')
+                      .map(l => l.replace(/^[•\-\*]\s*/, '').replace(/^[""]|[""]$/g, '').trim())
+                      .filter(Boolean)
+                    if (bullets.length) {
+                      parsed.push({ label: currentLabel, bullets })
+                      currentLabel = ''
+                    }
+                  }
+                  return parsed.map((section, si) => (
+                    <div key={si}>
+                      {section.label && (
+                        <span
+                          className="inline-block text-[10px] font-bold uppercase tracking-wider px-2.5 py-1 rounded-full mb-3"
+                          style={{ background: accent + '25', color: accent }}
+                        >
+                          {section.label}
+                        </span>
+                      )}
+                      <div className="flex flex-col gap-4">
+                        {section.bullets.map((bullet, bi) => (
+                          <div key={bi} className="flex items-start gap-3">
+                            <span
+                              className="mt-2 w-2 h-2 rounded-full shrink-0"
+                              style={{ background: accent }}
+                            />
+                            <p className="text-lg font-semibold text-white leading-snug">{bullet}</p>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  ))
+                })()
+              ) : (
+                questions.map((q, i) => (
+                  <div key={q.id} className="flex items-start gap-4">
+                    <span
+                      className="text-xs font-mono font-bold shrink-0 mt-1 tabular-nums"
+                      style={{ color: accent }}
+                    >
+                      {String(i + 1).padStart(2, '0')}
+                    </span>
+                    <p className="text-xl font-semibold text-white leading-snug tracking-tight">{q.text}</p>
+                  </div>
+                ))
+              )}
             </div>
             {/* Bottom fade */}
             <div className="absolute bottom-0 inset-x-0 h-20 pointer-events-none" style={{ background: 'linear-gradient(to bottom, transparent, #0a0a0a)' }} />
@@ -966,7 +1046,14 @@ export function RecordingSession({ theme, initialSessionId, mode = 'default' }: 
             className="w-full py-4 rounded-2xl font-bold text-base tracking-wide transition-all active:scale-95"
             style={{ background: accent, color: '#fff' }}
           >
-            {theme.introduction ? 'Écouter l\'introduction →' : 'Voir les questions →'}
+            {theme.introduction
+              ? 'Écouter l\'introduction →'
+              : isTeleprompter
+                ? 'Voir le script →'
+                : isFreeform
+                  ? 'Voir les thèmes →'
+                  : 'Voir les questions →'
+            }
           </button>
         </div>
       </div>
@@ -1268,6 +1355,18 @@ export function RecordingSession({ theme, initialSessionId, mode = 'default' }: 
             )
           })()}
 
+          {/* Pre-recording quality check — audio, lighting, framing */}
+          {streamRef.current && !qualityCheckReady && (
+            <PreRecordingCheck
+              stream={streamRef.current}
+              videoRef={checkVideoRef}
+              onReady={() => setQualityCheckReady(true)}
+              accentColor={accent}
+              micLevel={micLevel}
+              micDetected={micDetected}
+            />
+          )}
+
           {/* No camera overlay */}
           {!streamRef.current && (
             <div className="absolute inset-0 flex flex-col items-center justify-center gap-3" style={{ background: 'rgba(0,0,0,0.7)' }}>
@@ -1457,13 +1556,51 @@ export function RecordingSession({ theme, initialSessionId, mode = 'default' }: 
         </>
       )}
 
-      {/* Reading: dark overlay */}
-      {isReading && (
+      {/* Pre-recording quality check — now shown in check phase instead */}
+
+      {/* Teleprompter overlay — shown during reading, countdown, and recording */}
+      {isTeleprompter && teleprompterScript && (isReading || isCountdown || isRecording) && (
+        <TeleprompterOverlay
+          script={teleprompterScript}
+          isRecording={isRecording}
+          elapsed={elapsed}
+          accentColor={accent}
+          promptMode={formatConfig?.promptMode}
+        />
+      )}
+
+      {/* Freeform guide — shown during recording */}
+      {isFreeform && contentFormat && (isRecording || isReading) && (
+        <FreeformGuide
+          format={contentFormat}
+          topic={currentQuestion?.text}
+          isRecording={isRecording}
+          elapsed={elapsed}
+          accentColor={accent}
+        />
+      )}
+
+      {/* Reading: dark overlay (question-box mode only) */}
+      {isReading && isQuestionBox && (
         <div className="absolute inset-0" style={{ background: 'rgba(0,0,0,0.72)', zIndex: 2 }} />
       )}
 
-      {/* Reading: question centered over camera */}
-      {isReading && (
+      {/* Reading: non-question-box modes — lighter overlay with "Prepare-toi" */}
+      {isReading && !isQuestionBox && (
+        <div className="absolute inset-0 flex items-center justify-center" style={{ background: 'rgba(0,0,0,0.5)', zIndex: 2 }}>
+          <div className="text-center">
+            <p className="text-white/60 text-sm uppercase tracking-wider mb-2">
+              {formatConfig?.icon} {formatConfig?.label}
+            </p>
+            <p className="text-white text-2xl font-bold" style={{ animation: 'fadeSlideIn 0.5s ease forwards' }}>
+              Prepare-toi...
+            </p>
+          </div>
+        </div>
+      )}
+
+      {/* Reading: question centered over camera (question-box mode only) */}
+      {isReading && isQuestionBox && (
         <div
           className="absolute inset-0 flex flex-col items-center justify-center px-8 gap-5 pointer-events-none"
           style={{ zIndex: 3 }}
@@ -1533,7 +1670,10 @@ export function RecordingSession({ theme, initialSessionId, mode = 'default' }: 
       )}
 
       {/* Top: progress + question card (slides in after reading, stays during countdown/recording) */}
-      {!isReading && (
+      {/* For question-box and storytelling: show progress dots + question card */}
+      {/* For teleprompter: hide (teleprompter overlay handles display) */}
+      {/* For freeform: show minimal format indicator */}
+      {!isReading && !isTeleprompter && (
         <div className="absolute inset-x-0 top-0 px-5 flex flex-col gap-4" style={{ paddingTop: 'max(3rem, env(safe-area-inset-top))', zIndex: 10 }}>
           {/* Progress dots */}
           <div className="flex items-center gap-2">
@@ -1558,23 +1698,55 @@ export function RecordingSession({ theme, initialSessionId, mode = 'default' }: 
           </div>
 
           {/* Question card — animates in from below when reading ends */}
-          <div
-            className="rounded-2xl px-4 py-4"
-            style={{ background: 'rgba(0,0,0,0.45)', backdropFilter: 'blur(16px)', border: '1px solid rgba(255,255,255,0.08)', animation: 'fadeSlideIn 0.4s ease forwards' }}
-          >
-            <p className="text-[10px] font-mono uppercase tracking-widest mb-2" style={{ color: accent }}>
-              Question {String(questionIndex + 1).padStart(2, '0')}
-            </p>
-            <p
-              key={questionIndex}
-              className="text-white font-bold text-base leading-snug"
+          {isQuestionBox ? (
+            <div
+              className="rounded-2xl px-4 py-4"
+              style={{ background: 'rgba(0,0,0,0.45)', backdropFilter: 'blur(16px)', border: '1px solid rgba(255,255,255,0.08)', animation: 'fadeSlideIn 0.4s ease forwards' }}
             >
-              {currentQuestion?.text}
-            </p>
-            {currentQuestion?.hint && (
-              <p className="text-white/40 text-xs mt-2 leading-relaxed">{currentQuestion.hint}</p>
-            )}
-          </div>
+              <p className="text-[10px] font-mono uppercase tracking-widest mb-2" style={{ color: accent }}>
+                Question {String(questionIndex + 1).padStart(2, '0')}
+              </p>
+              <p
+                key={questionIndex}
+                className="text-white font-bold text-base leading-snug"
+              >
+                {currentQuestion?.text}
+              </p>
+              {currentQuestion?.hint && (
+                <p className="text-white/40 text-xs mt-2 leading-relaxed">{currentQuestion.hint}</p>
+              )}
+            </div>
+          ) : isFreeform ? (
+            <div
+              className="rounded-2xl px-4 py-3"
+              style={{ background: 'rgba(0,0,0,0.45)', backdropFilter: 'blur(16px)', border: '1px solid rgba(255,255,255,0.08)' }}
+            >
+              <p className="text-[10px] font-mono uppercase tracking-widest mb-1" style={{ color: accent }}>
+                {formatConfig?.icon} {formatConfig?.label}
+              </p>
+              {currentQuestion?.text && (
+                <p className="text-white font-bold text-sm leading-snug">{currentQuestion.text}</p>
+              )}
+            </div>
+          ) : (
+            <div
+              className="rounded-2xl px-4 py-4"
+              style={{ background: 'rgba(0,0,0,0.45)', backdropFilter: 'blur(16px)', border: '1px solid rgba(255,255,255,0.08)', animation: 'fadeSlideIn 0.4s ease forwards' }}
+            >
+              <p className="text-[10px] font-mono uppercase tracking-widest mb-2" style={{ color: accent }}>
+                Question {String(questionIndex + 1).padStart(2, '0')}
+              </p>
+              <p
+                key={questionIndex}
+                className="text-white font-bold text-base leading-snug"
+              >
+                {currentQuestion?.text}
+              </p>
+              {currentQuestion?.hint && (
+                <p className="text-white/40 text-xs mt-2 leading-relaxed">{currentQuestion.hint}</p>
+              )}
+            </div>
+          )}
         </div>
       )}
 

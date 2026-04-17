@@ -233,11 +233,11 @@ export function MontageClient({ themes, initialSessions }: Props) {
       <div>
         <div className="flex items-center gap-2 mb-2">
           <span className="w-8 h-[1px] bg-primary/40" />
-          <p className="text-[10px] font-mono uppercase tracking-[0.3em] text-primary/60">
+          <p className="text-xs text-primary/60">
             Workflow
           </p>
         </div>
-        <h1 className="text-3xl font-black uppercase tracking-tighter text-foreground">
+        <h1 className="text-3xl font-semibold tracking-tight text-foreground">
           Espace Montage
         </h1>
       </div>
@@ -256,7 +256,7 @@ export function MontageClient({ themes, initialSessions }: Props) {
                     value={themeId}
                     onChange={e => setThemeId(e.target.value)}
                     required
-                    className="flex h-9 w-full border border-input bg-surface/40 px-3 py-1 text-xs font-mono text-foreground focus:outline-none focus:border-primary transition-colors appearance-none"
+                    className="flex h-9 w-full rounded-lg border border-input bg-surface/40 px-3 py-1 text-xs text-foreground focus:outline-none focus:border-primary transition-colors appearance-none"
                   >
                     {themes.map(t => <option key={t.id} value={t.id} className="bg-background">{t.name}</option>)}
                   </select>
@@ -290,20 +290,20 @@ export function MontageClient({ themes, initialSessions }: Props) {
               </div>
 
               {createError && (
-                <p className="text-[11px] font-mono text-destructive bg-destructive/5 px-3 py-2 border border-destructive/20">{createError}</p>
+                <p className="text-xs text-destructive bg-destructive/5 px-3 py-2 rounded-lg border border-destructive/20">{createError}</p>
               )}
 
               <div className="flex items-center gap-4">
                 <Button
                   type="submit"
                   disabled={creating || themes.length === 0}
-                  className="h-10 px-8 rounded-none font-mono text-[10px] uppercase tracking-[0.2em] group shadow-lg"
+                  className="h-10 px-8 text-xs group shadow-lg"
                 >
                   {creating ? <Loader2 size={14} className="animate-spin mr-2" /> : <LinkIcon size={14} className="mr-2 group-hover:rotate-45 transition-transform" />}
                   {creating ? 'Création...' : 'Générer le lien'}
                 </Button>
                 {themes.length === 0 && (
-                  <p className="text-[10px] font-mono text-muted-foreground/40 uppercase tracking-widest italic leading-none">
+                  <p className="text-xs text-muted-foreground/40 italic leading-none">
                     Créez d'abord un thème dans la bibliothèque
                   </p>
                 )}
@@ -314,25 +314,25 @@ export function MontageClient({ themes, initialSessions }: Props) {
             {shareUrl && (
               <div className="border-t border-border/40 p-6 bg-primary/[0.03] animate-in slide-in-from-top-4 duration-500 space-y-4">
                 <div className="flex items-center justify-between">
-                  <p className="text-[10px] font-mono uppercase tracking-[0.2em] text-primary font-bold">
+                  <p className="text-xs text-primary font-bold">
                     Lien prêt — à envoyer au destinataire
                   </p>
                   {inviteSuccess && (
-                    <span className="text-[10px] font-mono uppercase tracking-widest text-emerald-400 flex items-center gap-1.5">
+                    <span className="text-xs text-emerald-400 flex items-center gap-1.5">
                       <Check size={11} /> Email envoyé
                     </span>
                   )}
                 </div>
 
                 <div className="flex items-center gap-3">
-                  <div className="flex-1 bg-background/60 border border-primary/20 p-3 rounded-none overflow-hidden flex items-center gap-3 min-w-0">
+                  <div className="flex-1 bg-background/60 rounded-lg border border-primary/20 p-3 overflow-hidden flex items-center gap-3 min-w-0">
                     <LinkIcon size={12} className="text-primary/40 shrink-0" />
-                    <code className="text-xs font-mono text-foreground truncate select-all">{shareUrl}</code>
+                    <code className="text-xs text-foreground truncate select-all">{shareUrl}</code>
                   </div>
                   <Button
                     variant={copied ? 'default' : 'outline'}
                     onClick={handleCopy}
-                    className="h-11 px-5 rounded-none font-mono text-[10px] uppercase tracking-widest border border-primary/20 shrink-0"
+                    className="h-11 px-5 text-xs rounded-lg border border-primary/20 shrink-0"
                   >
                     {copied ? <Check size={14} className="mr-2" /> : <Copy size={14} className="mr-2" />}
                     {copied ? 'Copié' : 'Copier'}
@@ -340,7 +340,7 @@ export function MontageClient({ themes, initialSessions }: Props) {
                   <Button
                     onClick={handleInvite}
                     disabled={inviting || inviteSuccess}
-                    className="h-11 px-5 rounded-none font-mono text-[10px] uppercase tracking-widest shrink-0 bg-emerald-600 hover:bg-emerald-500 text-white disabled:opacity-50"
+                    className="h-11 px-5 text-xs shrink-0 bg-emerald-600 hover:bg-emerald-500 text-white disabled:opacity-50"
                   >
                     {inviting
                       ? <Loader2 size={14} className="animate-spin mr-2" />
@@ -353,7 +353,7 @@ export function MontageClient({ themes, initialSessions }: Props) {
                 </div>
 
                 {inviteError && (
-                  <p className="text-[11px] font-mono text-destructive bg-destructive/5 px-3 py-2 border border-destructive/20">
+                  <p className="text-xs text-destructive bg-destructive/5 px-3 py-2 rounded-lg border border-destructive/20">
                     {inviteError}
                   </p>
                 )}
@@ -368,7 +368,7 @@ export function MontageClient({ themes, initialSessions }: Props) {
         <div className="flex items-center justify-between px-1">
           <SectionHeader icon={Clock} label="En attente de montage" />
           {pendingGroups.length > 0 && (
-            <Badge variant="secondary" className="font-mono text-[10px] bg-primary/5 text-primary border-primary/20">
+            <Badge variant="secondary" className="text-xs bg-primary/5 text-primary border-primary/20">
               {sessions.filter(s => s.status !== 'DONE').length} à traiter
             </Badge>
           )}
@@ -397,7 +397,7 @@ export function MontageClient({ themes, initialSessions }: Props) {
         )}
 
         {deliverError && (
-          <p className="text-[11px] font-mono text-destructive px-3 py-2 border border-destructive/20 bg-destructive/5 mt-4">{deliverError}</p>
+          <p className="text-xs text-destructive px-3 py-2 rounded-lg bg-destructive/5 mt-4">{deliverError}</p>
         )}
       </section>
 
@@ -406,7 +406,7 @@ export function MontageClient({ themes, initialSessions }: Props) {
         <div className="flex items-center justify-between px-1">
           <SectionHeader icon={History} label="Historique des livraisons" />
           {historyGroups.length > 0 && (
-            <Badge variant="outline" className="font-mono text-[10px] opacity-40">
+            <Badge variant="outline" className="text-xs opacity-40">
               {historyGroups.length} livrées
             </Badge>
           )}
@@ -415,11 +415,11 @@ export function MontageClient({ themes, initialSessions }: Props) {
         {historyGroups.length === 0 ? (
           <EmptyState icon={Video} label="Aucune vidéo livrée pour l'instant." />
         ) : (
-          <div className="border border-border/60 bg-surface/30 rounded-sm overflow-hidden backdrop-blur-sm shadow-sm">
+          <div className="border border-border/60 bg-surface/30 rounded-lg overflow-hidden backdrop-blur-sm shadow-sm">
             {/* Table header */}
             <div className="grid grid-cols-[1.5fr_1fr_80px_1fr_100px_100px] border-b border-border/40 bg-surface/50 px-6 py-4">
               {['Destinataire', 'Thème', 'Version', 'Date de livraison', 'Rushs', 'Montage'].map(h => (
-                <div key={h} className="text-[9px] font-mono uppercase tracking-[0.2em] text-muted-foreground/50">{h}</div>
+                <div key={h} className="text-xs text-muted-foreground/50">{h}</div>
               ))}
             </div>
 
@@ -451,7 +451,7 @@ export function MontageClient({ themes, initialSessions }: Props) {
 function VersionBadge({ version, total }: { version: number; total: number }) {
   if (total <= 1) return null
   return (
-    <span className="inline-flex items-center px-1.5 py-0.5 text-[8px] font-mono font-bold uppercase tracking-widest border rounded-none bg-primary/10 border-primary/30 text-primary leading-none">
+    <span className="inline-flex items-center px-1.5 py-0.5 text-[8px] font-bold border bg-primary/10 border-primary/30 text-primary leading-none">
       v{version}
     </span>
   )
@@ -490,11 +490,11 @@ function SessionGroupBlock({
               {group.recipientName ?? group.recipientEmail}
             </span>
             {group.recipientName && (
-              <span className="text-[10px] font-mono text-muted-foreground/40 uppercase tracking-tighter">{group.recipientEmail}</span>
+              <span className="text-xs text-muted-foreground/40 uppercase tracking-tighter">{group.recipientEmail}</span>
             )}
           </div>
           <div className="flex-1 h-[1px] bg-border/40" />
-          <span className="text-[9px] font-mono text-muted-foreground/40 uppercase tracking-widest">{group.sessions.length} versions</span>
+          <span className="text-xs text-muted-foreground/40">{group.sessions.length} versions</span>
         </div>
       )}
       <div className={cn("space-y-3", isMulti && "pl-4 border-l border-primary/20")}>
@@ -522,7 +522,7 @@ function SessionGroupBlock({
 function SectionHeader({ icon: Icon, label }: { icon: any, label: string }) {
   return (
     <div className="flex items-center gap-3">
-      <div className="w-8 h-8 rounded-sm bg-primary/5 border border-primary/10 flex items-center justify-center">
+      <div className="w-8 h-8 rounded-lg bg-primary/5 border border-primary/10 flex items-center justify-center">
         <Icon size={14} className="text-primary" />
       </div>
       <h2 className="font-inter font-bold text-xl text-foreground tracking-tight">{label}</h2>
@@ -586,23 +586,23 @@ function SessionCard({
                   {session.recipientName || session.recipientEmail}
                 </p>
                 {session.recipientName && (
-                  <p className="text-[10px] font-mono text-muted-foreground/60 truncate mt-0.5 uppercase tracking-tighter">
+                  <p className="text-xs text-muted-foreground/60 truncate mt-0.5 uppercase tracking-tighter">
                     {session.recipientEmail}
                   </p>
                 )}
               </div>
 
               <div className="flex flex-wrap items-center gap-3 mt-2 lg:mt-0 lg:ml-auto">
-                <Badge variant="outline" className="font-mono text-[9px] bg-surface/50 truncate max-w-[150px]">
+                <Badge variant="outline" className="text-xs bg-surface/50 truncate max-w-[150px]">
                   <Layers className="w-3 h-3 mr-1.5 opacity-40 text-primary" />
                   {session.theme?.name}
                 </Badge>
                 <VersionBadge version={session.version} total={totalVersions} />
-                <div className="flex items-center gap-1.5 text-[10px] font-mono text-muted-foreground/40 leading-none">
+                <div className="flex items-center gap-1.5 text-xs text-muted-foreground/40 leading-none">
                   <Clock size={11} className="opacity-40" />
                   {formatDate(session.submittedAt)}
                 </div>
-                <Badge variant={statusInfo.variant} className="text-[9px] px-2 py-0.5">
+                <Badge variant={statusInfo.variant} className="text-xs px-2 py-0.5">
                   {statusInfo.label}
                 </Badge>
               </div>
@@ -616,7 +616,7 @@ function SessionCard({
               size="sm"
               onClick={() => onToggleRaws(session.id)}
               className={cn(
-                "h-9 px-4 rounded-none font-mono text-[9px] uppercase tracking-widest transition-all",
+                "h-9 px-4 text-xs transition-all",
                 isExpanded && "bg-primary/10 border-primary/40 text-primary"
               )}
             >
@@ -634,14 +634,14 @@ function SessionCard({
                 variant="outline"
                 onClick={() => onDeliver(session.id)}
                 disabled={delivering === session.id}
-                className="h-9 px-4 rounded-none border-emerald-500/20 hover:border-emerald-500/40 hover:bg-emerald-500/10 text-emerald-400 font-mono text-[9px] uppercase tracking-widest"
+                className="h-9 px-4 border-emerald-500/20 hover:border-emerald-500/40 hover:bg-emerald-500/10 text-emerald-400 text-xs"
               >
                 {delivering === session.id ? <Loader2 size={12} className="animate-spin" /> : (deliverSuccess === session.id ? <Check size={12} className="mr-2" /> : <Send size={12} className="mr-2" />)}
                 {delivering === session.id ? 'Livraison' : deliverSuccess === session.id ? 'Envoyé' : 'Livrer'}
               </Button>
             )}
 
-            <Button asChild size="sm" className="h-9 px-5 rounded-none font-mono text-[9px] uppercase tracking-widest shadow-lg">
+            <Button asChild size="sm" className="h-9 px-5 text-xs shadow-lg">
               <Link href={`/process/${session.id}`}>
                 <Scissors size={12} className="mr-2" />
                 Démarrer
@@ -653,7 +653,7 @@ function SessionCard({
                 <Button
                   variant="outline"
                   size="sm"
-                  className="h-9 px-3 rounded-none border-destructive/20 hover:border-destructive/40 hover:bg-destructive/10 text-destructive/60 hover:text-destructive font-mono text-[9px] uppercase tracking-widest"
+                  className="h-9 px-3 border-destructive/20 hover:border-destructive/40 hover:bg-destructive/10 text-destructive/60 hover:text-destructive text-xs"
                 >
                   <Trash2 size={12} />
                 </Button>
@@ -712,17 +712,17 @@ function HistoryRow({
       <div className="grid grid-cols-[1.5fr_1fr_80px_1fr_100px_100px] items-center px-6 py-5 hover:bg-primary/[0.02] transition-colors group">
         <div className="min-w-0 pr-4">
           <p className="font-inter font-bold text-[13px] text-foreground group-hover:text-primary transition-colors truncate">{session.recipientName ?? '—'}</p>
-          <p className="text-[10px] font-mono text-muted-foreground/60 truncate uppercase tracking-tighter">{session.recipientEmail}</p>
+          <p className="text-xs text-muted-foreground/60 truncate uppercase tracking-tighter">{session.recipientEmail}</p>
         </div>
-        <div className="text-[11px] font-mono text-muted-foreground/70 uppercase">
+        <div className="text-xs text-muted-foreground/70 uppercase">
           {session.theme?.name}
         </div>
         <div>
-          <span className="inline-flex items-center px-1.5 py-0.5 text-[8px] font-mono font-bold uppercase tracking-widest border rounded-none bg-primary/10 border-primary/20 text-primary leading-none">
+          <span className="inline-flex items-center px-1.5 py-0.5 text-[8px] font-bold border bg-primary/10 border-primary/20 text-primary leading-none">
             v{session.version}
           </span>
         </div>
-        <div className="text-[10px] font-mono text-muted-foreground/40 flex items-center gap-2">
+        <div className="text-xs text-muted-foreground/40 flex items-center gap-2">
           <Clock size={11} className="text-primary/40" />
           {formatDate(session.deliveredAt ?? session.submittedAt)}
         </div>
@@ -730,7 +730,7 @@ function HistoryRow({
           <button
             onClick={() => onToggleRaws(session.id)}
             className={cn(
-              "text-[9px] font-mono uppercase tracking-widest transition-all px-2 py-1 border rounded-none flex items-center gap-2",
+              "text-xs transition-all px-2 py-1 border flex items-center gap-2",
               isExpanded ? "text-primary border-primary/30 bg-primary/5" : "text-muted-foreground/40 border-border/40 hover:border-primary/20 hover:text-primary"
             )}
           >
@@ -745,7 +745,7 @@ function HistoryRow({
         <div className="flex items-center gap-2">
           <Link
             href={`/process/${session.id}`}
-            className="text-[9px] font-mono uppercase tracking-widest transition-all px-2 py-1 border rounded-none flex items-center gap-2 text-muted-foreground/40 border-border/40 hover:border-primary/20 hover:text-primary"
+            className="text-xs transition-all px-2 py-1 border flex items-center gap-2 text-muted-foreground/40 border-border/40 hover:border-primary/20 hover:text-primary"
           >
             <Scissors size={10} />
             Rush
@@ -754,7 +754,7 @@ function HistoryRow({
             <Link
               href={`/video/${session.id}`}
               target="_blank"
-              className="text-[9px] font-mono uppercase tracking-widest transition-all px-2 py-1 border rounded-none flex items-center gap-2 text-muted-foreground/40 border-border/40 hover:border-primary/20 hover:text-primary"
+              className="text-xs transition-all px-2 py-1 border flex items-center gap-2 text-muted-foreground/40 border-border/40 hover:border-primary/20 hover:text-primary"
             >
               <Play size={10} />
               Vidéo
@@ -824,7 +824,7 @@ function RawsPanel({
     )}>
       <div className="flex items-center gap-3">
         <div className="w-6 h-[1px] bg-primary/20" />
-        <p className="text-[10px] font-mono uppercase tracking-[0.2em] text-primary/40 leading-none">
+        <p className="text-xs text-primary/40 leading-none">
           Séquences capturées — {session.recipientName || session.recipientEmail}
         </p>
       </div>
@@ -832,17 +832,17 @@ function RawsPanel({
       {loadingRaws === session.id ? (
         <div className="flex items-center gap-3 py-8">
            <Loader2 size={14} className="animate-spin text-primary/40" />
-           <span className="text-[10px] font-mono uppercase tracking-widest text-muted-foreground/40">Synchronisation des vidéos...</span>
+           <span className="text-xs text-muted-foreground/40">Synchronisation des vidéos...</span>
         </div>
       ) : recs.length === 0 ? (
-        <p className="text-xs font-mono text-muted-foreground/40 p-8 text-center border border-dashed border-border/40 rounded-sm">Aucune vidéo brute disponible.</p>
+        <p className="text-xs text-muted-foreground/40 p-8 text-center border border-dashed border-border/40 rounded-lg">Aucune vidéo brute disponible.</p>
       ) : (
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
           {recs.map((rec, idx) => {
             const isWebm = rec.rawVideoKey?.endsWith('.webm')
             const dur = durations[rec.id]
             return (
-              <Card key={rec.id} className="border-border/60 bg-background/50 overflow-hidden group/video hover:border-primary/40 transition-all rounded-none">
+              <Card key={rec.id} className="border-border/60 bg-background/50 overflow-hidden group/video hover:border-primary/40 transition-all">
                 <div className="relative bg-black aspect-[9/16] overflow-hidden">
                   <video
                     src={rec.signedUrl}
@@ -853,11 +853,11 @@ function RawsPanel({
                     onLoadedMetadata={e => handleDuration(rec.id, (e.target as HTMLVideoElement).duration)}
                   />
                   <div className="absolute top-2 left-2 flex items-center gap-1">
-                    <span className="px-1.5 py-0.5 bg-black/60 backdrop-blur-md border border-white/10 text-[9px] font-mono text-white/50 uppercase">
+                    <span className="px-1.5 py-0.5 bg-black/60 backdrop-blur-md rounded-md border border-white/10 text-xs text-white/50 uppercase">
                       #{idx + 1}
                     </span>
                     <span className={cn(
-                      "px-1.5 py-0.5 backdrop-blur-md border text-[9px] font-mono uppercase",
+                      "px-1.5 py-0.5 backdrop-blur-md border text-xs uppercase",
                       isWebm
                         ? "bg-orange-500/20 border-orange-500/40 text-orange-300"
                         : "bg-black/60 border-white/10 text-white/50"
@@ -866,20 +866,20 @@ function RawsPanel({
                     </span>
                   </div>
                   {dur && (
-                    <div className="absolute bottom-2 right-2 px-1.5 py-0.5 bg-black/60 backdrop-blur-md border border-white/10 text-[9px] font-mono text-white/50">
+                    <div className="absolute bottom-2 right-2 px-1.5 py-0.5 bg-black/60 backdrop-blur-md rounded-md border border-white/10 text-xs text-white/50">
                       {formatDur(dur)}
                     </div>
                   )}
                 </div>
                 <CardContent className="p-4 space-y-3">
-                  <p className="text-[11px] font-bold text-foreground line-clamp-2 leading-relaxed h-[34px]">
+                  <p className="text-xs font-medium text-foreground line-clamp-2 leading-relaxed h-[34px]">
                     {rec.questionText}
                   </p>
                   {isWebm && (
                     <Button
                       variant="outline"
                       size="sm"
-                      className="w-full h-8 rounded-none border-orange-500/30 hover:border-orange-500/60 font-mono text-[9px] uppercase tracking-widest text-orange-400 hover:text-orange-300 transition-all"
+                      className="w-full h-8 border-orange-500/30 hover:border-orange-500/60 text-xs text-orange-400 hover:text-orange-300 transition-all"
                       disabled={converting === rec.id}
                       onClick={() => handleConvert(rec)}
                     >
@@ -892,7 +892,7 @@ function RawsPanel({
                   <Button
                     variant="outline"
                     size="sm"
-                    className="w-full h-8 rounded-none border-border/40 hover:border-primary/40 group/btn transition-all font-mono text-[9px] uppercase tracking-widest text-muted-foreground hover:text-primary"
+                    className="w-full h-8 border-border/40 hover:border-primary/40 group/btn transition-all text-xs text-muted-foreground hover:text-primary"
                     onClick={() => onDownload(rec.signedUrl, `raw-${session.id}-q${idx + 1}.${isWebm ? 'webm' : 'mp4'}`)}
                   >
                     <Download size={12} className="mr-2 text-muted-foreground group-hover/btn:text-primary transition-colors" />
@@ -935,9 +935,9 @@ function Layers(props: any) {
 
 function EmptyState({ icon: Icon, label }: { icon: any, label: string }) {
   return (
-    <div className="border border-border/40 border-dashed p-16 text-center rounded-sm bg-surface/10">
+    <div className="border border-dashed border-border/30 p-16 text-center rounded-lg bg-surface/10">
       {Icon && <Icon size={32} className="mx-auto text-muted-foreground/20 mb-4" />}
-      <p className="text-[11px] font-mono text-muted-foreground/40 uppercase tracking-widest">
+      <p className="text-xs text-muted-foreground/40">
         {label}
       </p>
     </div>

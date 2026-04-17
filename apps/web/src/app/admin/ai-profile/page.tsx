@@ -112,14 +112,14 @@ function StatCard({ icon: Icon, label, value, sub }: {
   icon: React.ElementType; label: string; value: string | number; sub?: string
 }) {
   return (
-    <div className="border border-border/60 bg-surface/30 rounded-sm p-5 flex flex-col gap-3">
+    <div className="border border-border/60 bg-surface/30 rounded-lg p-5 flex flex-col gap-3">
       <div className="flex items-center gap-2 text-muted-foreground">
         <Icon size={13} />
-        <span className="text-[10px] font-mono uppercase tracking-[0.2em]">{label}</span>
+        <span className="text-xs">{label}</span>
       </div>
       <div>
-        <p className="text-2xl font-black tracking-tighter text-foreground">{value}</p>
-        {sub && <p className="text-[10px] font-mono text-muted-foreground/60 mt-0.5">{sub}</p>}
+        <p className="text-2xl font-semibold tracking-tight text-foreground">{value}</p>
+        {sub && <p className="text-xs text-muted-foreground/60 mt-0.5">{sub}</p>}
       </div>
     </div>
   )
@@ -131,14 +131,14 @@ function KnowledgeCard({ icon: Icon, label, value, accent = false }: {
   icon: React.ElementType; label: string; value: string; accent?: boolean
 }) {
   return (
-    <div className={`border rounded-sm p-4 space-y-2 ${
+    <div className={`border rounded-lg p-4 space-y-2 ${
       accent
         ? 'border-primary/20 bg-primary/3'
         : 'border-border/60 bg-surface/30'
     }`}>
       <div className="flex items-center gap-2">
         <Icon size={12} className={accent ? 'text-primary/70' : 'text-muted-foreground/60'} />
-        <span className="text-[10px] font-mono uppercase tracking-[0.18em] text-muted-foreground/60">
+        <span className="text-xs uppercase tracking-[0.18em] text-muted-foreground/60">
           {label}
         </span>
       </div>
@@ -154,12 +154,12 @@ function ConversationCollapsible({ summary }: { summary: string }) {
   const lines = summary.split('\n\n').filter(Boolean)
 
   return (
-    <div className="border border-border/40 rounded-sm overflow-hidden">
+    <div className="border border-border/40 rounded-lg overflow-hidden">
       <button
         onClick={() => setOpen((v) => !v)}
         className="w-full flex items-center justify-between px-4 py-3 text-left hover:bg-surface/40 transition-colors"
       >
-        <span className="text-[11px] font-mono uppercase tracking-widest text-muted-foreground/60">
+        <span className="text-xs text-muted-foreground/60">
           Voir la conversation complète ({lines.length} échanges)
         </span>
         {open ? <ChevronUp size={13} className="text-muted-foreground/40" /> : <ChevronDown size={13} className="text-muted-foreground/40" />}
@@ -173,11 +173,11 @@ function ConversationCollapsible({ summary }: { summary: string }) {
             const [prefix, ...rest] = line.split(': ')
             return (
               <div key={i} className={`flex gap-2 ${isE ? 'flex-row-reverse' : ''}`}>
-                <div className={`shrink-0 w-5 h-5 rounded-sm border flex items-center justify-center text-[8px] font-mono font-bold ${isE ? 'bg-primary/10 border-primary/20 text-primary' : 'bg-surface-raised border-border text-muted-foreground'}`}>
+                <div className={`shrink-0 w-5 h-5 rounded-lg border flex items-center justify-center text-[8px] font-bold ${isE ? 'bg-primary/10 border-primary/20 text-primary' : 'bg-surface-raised border-border text-muted-foreground'}`}>
                   {isE ? 'E' : 'IA'}
                 </div>
-                <div className={`max-w-[80%] px-3 py-2 rounded-sm text-xs leading-relaxed border ${isE ? 'bg-primary/5 border-primary/15' : 'bg-surface/60 border-border/60 text-muted-foreground'}`}>
-                  <span className="text-[8px] font-mono uppercase tracking-wider text-muted-foreground/40 block mb-0.5">{prefix}</span>
+                <div className={`max-w-[80%] px-3 py-2 rounded-lg text-xs leading-relaxed border ${isE ? 'bg-primary/5 border-primary/15' : 'bg-surface/60 border-border/60 text-muted-foreground'}`}>
+                  <span className="text-[8px] uppercase tracking-wider text-muted-foreground/40 block mb-0.5">{prefix}</span>
                   {rest.join(': ')}
                 </div>
               </div>
@@ -193,8 +193,8 @@ function ConversationCollapsible({ summary }: { summary: string }) {
 
 function EmptyProfile({ hasConversation }: { hasConversation: boolean }) {
   return (
-    <div className="border border-border/40 border-dashed rounded-sm p-16 text-center space-y-4">
-      <div className="w-14 h-14 mx-auto rounded-sm bg-surface/40 border border-border/60 flex items-center justify-center">
+    <div className="border border-dashed border-border/30 rounded-lg p-16 text-center space-y-4">
+      <div className="w-14 h-14 mx-auto rounded-lg bg-surface/40 border border-border/60 flex items-center justify-center">
         <Brain size={24} className="text-muted-foreground/30" />
       </div>
       {hasConversation ? (
@@ -209,7 +209,7 @@ function EmptyProfile({ hasConversation }: { hasConversation: boolean }) {
           <p className="font-inter font-black text-foreground">Profil non configuré</p>
           <p className="text-xs text-muted-foreground max-w-xs mx-auto">
             Cliquez sur{' '}
-            <span className="inline-flex items-center gap-1 text-primary font-mono">
+            <span className="inline-flex items-center gap-1 text-primary">
               <Sparkles size={11} /> ✦
             </span>{' '}
             en bas à droite pour démarrer une conversation avec l&apos;assistant IA.
@@ -281,7 +281,7 @@ function DocumentUpload({ onSuccess }: { onSuccess: () => void }) {
           setDragOver(false)
           handleFiles(e.dataTransfer.files)
         }}
-        className={`relative border-2 border-dashed rounded-sm p-10 flex flex-col items-center gap-4 transition-all cursor-pointer ${
+        className={`relative border-2 border-dashed rounded-lg p-10 flex flex-col items-center gap-4 transition-all cursor-pointer ${
           dragOver
             ? 'border-primary/60 bg-primary/5'
             : state.status === 'done'
@@ -301,12 +301,12 @@ function DocumentUpload({ onSuccess }: { onSuccess: () => void }) {
 
         {state.status === 'idle' && (
           <>
-            <div className="w-12 h-12 rounded-sm bg-surface/60 border border-border/60 flex items-center justify-center">
+            <div className="w-12 h-12 rounded-lg bg-surface/60 border border-border/60 flex items-center justify-center">
               <FileText size={20} className="text-muted-foreground/40" />
             </div>
             <div className="text-center">
               <p className="text-sm font-medium text-foreground">Déposez un fichier ou cliquez</p>
-              <p className="text-[11px] font-mono text-muted-foreground/50 mt-1 uppercase tracking-widest">
+              <p className="text-xs text-muted-foreground/50 mt-1">
                 .txt · .md · .pdf — max 10 Mo
               </p>
             </div>
@@ -318,7 +318,7 @@ function DocumentUpload({ onSuccess }: { onSuccess: () => void }) {
             <Loader2 size={24} className="animate-spin text-primary/60" />
             <div className="text-center">
               <p className="text-sm font-medium text-foreground">{state.filename}</p>
-              <p className="text-[11px] font-mono text-muted-foreground/50 mt-1 uppercase tracking-widest">
+              <p className="text-xs text-muted-foreground/50 mt-1">
                 Analyse et indexation en cours…
               </p>
             </div>
@@ -330,13 +330,13 @@ function DocumentUpload({ onSuccess }: { onSuccess: () => void }) {
             <CheckCircle2 size={24} className="text-emerald-500" />
             <div className="text-center">
               <p className="text-sm font-medium text-foreground">{state.filename}</p>
-              <p className="text-[11px] font-mono text-emerald-500/80 mt-1 uppercase tracking-widest">
+              <p className="text-xs text-emerald-500/80 mt-1">
                 {state.saved} fragment{state.saved > 1 ? 's' : ''} indexé{state.saved > 1 ? 's' : ''} dans la mémoire IA
               </p>
             </div>
             <button
               onClick={(e) => { e.stopPropagation(); setState({ status: 'idle' }) }}
-              className="flex items-center gap-1.5 px-3 py-1.5 border border-border/60 rounded-sm text-[10px] font-mono uppercase tracking-widest text-muted-foreground hover:text-foreground transition-colors"
+              className="flex items-center gap-1.5 px-3 py-1.5 border border-border/60 rounded-lg text-xs text-muted-foreground hover:text-foreground transition-colors"
             >
               <Upload size={10} /> Ajouter un autre
             </button>
@@ -394,15 +394,15 @@ function DocumentGroupCard({ group, index }: { group: DocumentGroup; index: numb
   const displayTags = (mem: Memory) => mem.tags.filter((t) => t !== 'document' && t !== group.name)
 
   return (
-    <div className="border border-border/50 bg-surface/20 rounded-sm overflow-hidden">
+    <div className="border border-border/50 bg-surface/20 rounded-lg overflow-hidden">
       <button
         onClick={() => setOpen((v) => !v)}
         className="w-full flex items-center gap-3 px-4 py-3 text-left hover:bg-surface/40 transition-colors"
         aria-expanded={open}
       >
         <FileText size={13} className="text-primary/50 shrink-0" />
-        <span className="flex-1 text-[11px] font-mono text-foreground truncate">{group.name}</span>
-        <span className="shrink-0 text-[9px] font-mono font-bold uppercase tracking-wider px-2 py-0.5 rounded-full border border-border/60 bg-surface/40 text-muted-foreground/60">
+        <span className="flex-1 text-xs text-foreground truncate">{group.name}</span>
+        <span className="shrink-0 text-xs font-medium uppercase tracking-wider px-2 py-0.5 rounded-full border border-border/60 bg-surface/40 text-muted-foreground/60">
           {group.chunks.length} chunk{group.chunks.length > 1 ? 's' : ''}
         </span>
         {open
@@ -419,19 +419,19 @@ function DocumentGroupCard({ group, index }: { group: DocumentGroup; index: numb
           {group.chunks.map((mem, i) => (
             <div
               key={mem.id}
-              className="border border-border/40 bg-surface/30 rounded-sm px-3 py-2.5 space-y-2"
+              className="border border-border/40 bg-surface/30 rounded-lg px-3 py-2.5 space-y-2"
               style={{ animation: `fadeUp 0.3s ease ${i * 30}ms forwards`, opacity: 0 }}
             >
               <p className="text-xs text-foreground leading-relaxed">{mem.content}</p>
               <div className="flex items-center justify-between gap-2">
                 <div className="flex flex-wrap gap-1">
                   {displayTags(mem).map((tag) => (
-                    <span key={tag} className={`text-[9px] font-mono font-bold uppercase tracking-wider px-1.5 py-0.5 rounded-full border ${tagColor(tag)}`}>
+                    <span key={tag} className={`text-xs font-medium uppercase tracking-wider px-1.5 py-0.5 rounded-full border ${tagColor(tag)}`}>
                       {tag}
                     </span>
                   ))}
                 </div>
-                <span className="shrink-0 text-[9px] font-mono text-muted-foreground/40">
+                <span className="shrink-0 text-xs text-muted-foreground/40">
                   {formatRelative(mem.createdAt)}
                 </span>
               </div>
@@ -460,20 +460,20 @@ function SessionGroupCard({ group, index }: { group: SessionGroup; index: number
   const firstDate = group.chunks.reduce<string>((acc, m) => acc < m.createdAt ? acc : m.createdAt, group.chunks[0]?.createdAt ?? '')
 
   return (
-    <div className="border border-border/50 bg-surface/20 rounded-sm overflow-hidden">
+    <div className="border border-border/50 bg-surface/20 rounded-lg overflow-hidden">
       <button
         onClick={() => setOpen((v) => !v)}
         className="w-full flex items-center gap-3 px-4 py-3 text-left hover:bg-surface/40 transition-colors"
         aria-expanded={open}
       >
         <Video size={13} className="text-primary/50 shrink-0" />
-        <span className="flex-1 text-[11px] font-mono text-foreground">
+        <span className="flex-1 text-xs text-foreground">
           Session #{index + 1}
         </span>
-        <span className="shrink-0 text-[9px] font-mono text-muted-foreground/40">
+        <span className="shrink-0 text-xs text-muted-foreground/40">
           {formatDate(firstDate)}
         </span>
-        <span className="shrink-0 text-[9px] font-mono font-bold uppercase tracking-wider px-2 py-0.5 rounded-full border border-border/60 bg-surface/40 text-muted-foreground/60">
+        <span className="shrink-0 text-xs font-medium uppercase tracking-wider px-2 py-0.5 rounded-full border border-border/60 bg-surface/40 text-muted-foreground/60">
           {group.chunks.length} mém.
         </span>
         {open
@@ -490,19 +490,19 @@ function SessionGroupCard({ group, index }: { group: SessionGroup; index: number
           {group.chunks.map((mem, i) => (
             <div
               key={mem.id}
-              className="border border-border/40 bg-surface/30 rounded-sm px-3 py-2.5 space-y-2"
+              className="border border-border/40 bg-surface/30 rounded-lg px-3 py-2.5 space-y-2"
               style={{ animation: `fadeUp 0.3s ease ${i * 30}ms forwards`, opacity: 0 }}
             >
               <p className="text-xs text-foreground leading-relaxed">{mem.content}</p>
               <div className="flex items-center justify-between gap-2">
                 <div className="flex flex-wrap gap-1">
                   {mem.tags.map((tag) => (
-                    <span key={tag} className={`text-[9px] font-mono font-bold uppercase tracking-wider px-1.5 py-0.5 rounded-full border ${tagColor(tag)}`}>
+                    <span key={tag} className={`text-xs font-medium uppercase tracking-wider px-1.5 py-0.5 rounded-full border ${tagColor(tag)}`}>
                       {tag}
                     </span>
                   ))}
                 </div>
-                <span className="shrink-0 text-[9px] font-mono text-muted-foreground/40">
+                <span className="shrink-0 text-xs text-muted-foreground/40">
                   {formatRelative(mem.createdAt)}
                 </span>
               </div>
@@ -532,19 +532,19 @@ function ChatGroup({ memories: mems }: { memories: Memory[] }) {
       {mems.map((mem, i) => (
         <div
           key={mem.id}
-          className="border border-border/50 bg-surface/20 rounded-sm p-3 space-y-2 hover:border-border/80 hover:bg-surface/40 transition-all"
+          className="border border-border/50 bg-surface/20 rounded-lg p-3 space-y-2 hover:border-border/80 hover:bg-surface/40 transition-all"
           style={{ animation: `fadeUp 0.4s ease ${i * 40}ms forwards`, opacity: 0 }}
         >
           <p className="text-xs text-foreground leading-relaxed">{mem.content}</p>
           <div className="flex items-center justify-between gap-2">
             <div className="flex flex-wrap gap-1">
               {mem.tags.map((tag) => (
-                <span key={tag} className={`text-[9px] font-mono font-bold uppercase tracking-wider px-1.5 py-0.5 rounded-full border ${tagColor(tag)}`}>
+                <span key={tag} className={`text-xs font-medium uppercase tracking-wider px-1.5 py-0.5 rounded-full border ${tagColor(tag)}`}>
                   {tag}
                 </span>
               ))}
             </div>
-            <span className="shrink-0 text-[9px] font-mono text-muted-foreground/40">
+            <span className="shrink-0 text-xs text-muted-foreground/40">
               {formatRelative(mem.createdAt)}
             </span>
           </div>
@@ -568,11 +568,11 @@ function MemorySubSection({
   return (
     <div className="space-y-2">
       <div className="flex items-center gap-2">
-        <span className="text-[9px] font-mono font-bold uppercase tracking-[0.2em] text-muted-foreground/50">
+        <span className="text-xs font-medium text-muted-foreground/50">
           {label}
         </span>
-        <span className="text-[9px] font-mono text-muted-foreground/40">·</span>
-        <span className="text-[9px] font-mono text-muted-foreground/40">{count}</span>
+        <span className="text-xs text-muted-foreground/40">·</span>
+        <span className="text-xs text-muted-foreground/40">{count}</span>
         <span className="flex-1 h-[1px] bg-border/30 ml-1" />
       </div>
       {children}
@@ -683,13 +683,13 @@ function LinkedinSection({ profile, onUpdated }: LinkedinSectionProps) {
         <Linkedin size={14} className="text-[#0A66C2]/70 shrink-0" />
         <h2 className="font-inter font-black text-lg tracking-tight">LinkedIn</h2>
         {hasExistingData && (
-          <span className="text-[9px] font-mono font-bold uppercase tracking-wider px-2 py-0.5 rounded-full border border-[#0A66C2]/20 bg-[#0A66C2]/5 text-[#0A66C2]/70">
+          <span className="text-xs font-medium uppercase tracking-wider px-2 py-0.5 rounded-full border border-[#0A66C2]/20 bg-[#0A66C2]/5 text-[#0A66C2]/70">
             Synchronisé
           </span>
         )}
       </div>
 
-      <div className="border border-[#0A66C2]/20 bg-[#0A66C2]/3 rounded-sm p-5 space-y-5">
+      <div className="border border-[#0A66C2]/20 bg-[#0A66C2]/3 rounded-lg p-5 space-y-5">
 
         {/* ── URL + preview ── */}
         <div className="flex items-start gap-4">
@@ -713,7 +713,7 @@ function LinkedinSection({ profile, onUpdated }: LinkedinSectionProps) {
                 <p className="text-sm font-bold text-foreground">{preview.name}</p>
                 {preview.headline && <p className="text-xs text-muted-foreground leading-snug">{preview.headline}</p>}
                 {preview.company && (
-                  <div className="flex items-center gap-1.5 text-[11px] font-mono text-muted-foreground/60 mt-0.5">
+                  <div className="flex items-center gap-1.5 text-xs text-muted-foreground/60 mt-0.5">
                     <Building2 size={9} />
                     <span>{preview.company}</span>
                   </div>
@@ -726,19 +726,19 @@ function LinkedinSection({ profile, onUpdated }: LinkedinSectionProps) {
                 value={url}
                 onChange={(e) => { setUrl(e.target.value); setError(null) }}
                 placeholder="https://www.linkedin.com/in/votre-profil"
-                className="flex-1 bg-surface/40 border border-border rounded-sm px-3 py-1.5 text-xs font-mono focus:outline-none focus:border-[#0A66C2]/60 transition-colors"
+                className="flex-1 bg-surface/40 border border-border rounded-lg px-3 py-1.5 text-xs focus:outline-none focus:border-[#0A66C2]/60 transition-colors"
               />
               <button
                 onClick={saveUrl}
                 disabled={saving || !url.trim() || url === profile.linkedinUrl}
-                className="px-3 py-1.5 bg-surface/60 border border-border/60 rounded-sm text-[10px] font-mono text-muted-foreground hover:text-foreground hover:border-border transition-colors disabled:opacity-40 shrink-0"
+                className="px-3 py-1.5 bg-surface/60 border border-border/60 rounded-lg text-xs text-muted-foreground hover:text-foreground hover:border-border transition-colors disabled:opacity-40 shrink-0"
               >
                 {saving ? <Loader2 size={11} className="animate-spin" /> : 'Enregistrer'}
               </button>
             </div>
-            {error && <p className="text-[11px] font-mono text-red-400">{error}</p>}
+            {error && <p className="text-xs text-red-400">{error}</p>}
             {url && (
-              <a href={url} target="_blank" rel="noopener noreferrer" className="inline-flex items-center gap-1 text-[10px] font-mono text-[#0A66C2]/60 hover:text-[#0A66C2] transition-colors">
+              <a href={url} target="_blank" rel="noopener noreferrer" className="inline-flex items-center gap-1 text-xs text-[#0A66C2]/60 hover:text-[#0A66C2] transition-colors">
                 Voir le profil <ExternalLink size={8} />
               </a>
             )}
@@ -749,44 +749,44 @@ function LinkedinSection({ profile, onUpdated }: LinkedinSectionProps) {
         {memsLoading && (
           <div className="flex items-center gap-2 text-xs text-muted-foreground">
             <Loader2 size={11} className="animate-spin" />
-            <span className="font-mono">Chargement des données…</span>
+            <span>Chargement des donnees...</span>
           </div>
         )}
 
         {!memsLoading && linkedinMems.length > 0 && (
           <div className="space-y-3">
             <div className="flex items-center gap-2">
-              <span className="text-[9px] font-mono font-bold uppercase tracking-[0.2em] text-[#0A66C2]/50">Données importées</span>
+              <span className="text-xs font-medium text-[#0A66C2]/50">Données importées</span>
               <span className="flex-1 h-[1px] bg-[#0A66C2]/10" />
-              <span className="text-[9px] font-mono text-muted-foreground/40">
+              <span className="text-xs text-muted-foreground/40">
                 {linkedinMems.length} fragment{linkedinMems.length > 1 ? 's' : ''} · {postMems.length} post{postMems.length > 1 ? 's' : ''} · {commentMems.length} commentaire{commentMems.length > 1 ? 's' : ''}
               </span>
             </div>
 
             {/* Profil */}
             {factMem && (
-              <div className="border border-[#0A66C2]/15 bg-surface/30 rounded-sm p-3 space-y-1">
-                <p className="text-[9px] font-mono uppercase tracking-widest text-[#0A66C2]/50">Profil</p>
+              <div className="border border-[#0A66C2]/15 bg-surface/30 rounded-lg p-3 space-y-1">
+                <p className="text-xs text-[#0A66C2]/50">Profil</p>
                 <p className="text-xs text-foreground leading-relaxed whitespace-pre-wrap">{factMem.content}</p>
               </div>
             )}
 
             {/* Entreprise */}
             {companyMem && (
-              <div className="border border-border/40 bg-surface/20 rounded-sm p-3 space-y-1">
-                <p className="text-[9px] font-mono uppercase tracking-widest text-muted-foreground/50 flex items-center gap-1.5"><Building2 size={8} /> Entreprise</p>
+              <div className="border border-border/40 bg-surface/20 rounded-lg p-3 space-y-1">
+                <p className="text-xs text-muted-foreground/50 flex items-center gap-1.5"><Building2 size={8} /> Entreprise</p>
                 <p className="text-xs text-foreground leading-relaxed whitespace-pre-wrap">{companyMem.content}</p>
               </div>
             )}
 
             {/* Posts */}
             {postMems.length > 0 && (
-              <div className="border border-border/40 bg-surface/20 rounded-sm overflow-hidden">
+              <div className="border border-border/40 bg-surface/20 rounded-lg overflow-hidden">
                 <button
                   onClick={() => setPostsOpen((v) => !v)}
                   className="w-full flex items-center justify-between px-3 py-2.5 text-left hover:bg-surface/40 transition-colors"
                 >
-                  <span className="text-[9px] font-mono uppercase tracking-widest text-muted-foreground/50">
+                  <span className="text-xs text-muted-foreground/50">
                     Posts récents · {postMems.length}
                   </span>
                   {postsOpen ? <ChevronUp size={11} className="text-muted-foreground/40" /> : <ChevronDown size={11} className="text-muted-foreground/40" />}
@@ -796,7 +796,7 @@ function LinkedinSection({ profile, onUpdated }: LinkedinSectionProps) {
                     {postMems.map((m) => (
                       <div key={m.id} className="px-3 py-2.5">
                         <p className="text-xs text-foreground/80 leading-relaxed">{m.content.replace(/^Post LinkedIn de .+?:\n/, '')}</p>
-                        <p className="text-[9px] font-mono text-muted-foreground/40 mt-1">{formatRelative(m.createdAt)}</p>
+                        <p className="text-xs text-muted-foreground/40 mt-1">{formatRelative(m.createdAt)}</p>
                       </div>
                     ))}
                   </div>
@@ -808,29 +808,29 @@ function LinkedinSection({ profile, onUpdated }: LinkedinSectionProps) {
 
         {/* ── Actions ── */}
         <div className="flex items-center justify-between gap-3 pt-1 border-t border-[#0A66C2]/10">
-          <p className="text-[10px] font-mono text-muted-foreground/40">
+          <p className="text-xs text-muted-foreground/40">
             {hasExistingData ? `Importé le ${formatDate(profile.linkedinIngestedAt!)}` : 'Aucune donnée importée'}
           </p>
           <div className="flex items-center gap-2">
             {ingestDone && (
-              <span className="flex items-center gap-1 text-[10px] font-mono text-emerald-500">
+              <span className="flex items-center gap-1 text-xs text-emerald-500">
                 <CheckCircle2 size={10} /> Importé
               </span>
             )}
             {hasExistingData && !confirmRefresh && (
-              <button onClick={() => setConfirmRefresh(true)} className="flex items-center gap-1.5 px-3 py-1.5 border border-[#0A66C2]/20 rounded-sm text-[10px] font-mono text-[#0A66C2]/60 hover:text-[#0A66C2] hover:border-[#0A66C2]/40 transition-colors">
+              <button onClick={() => setConfirmRefresh(true)} className="flex items-center gap-1.5 px-3 py-1.5 border border-[#0A66C2]/20 rounded-lg text-xs text-[#0A66C2]/60 hover:text-[#0A66C2] hover:border-[#0A66C2]/40 transition-colors">
                 <RefreshCw size={10} /> Rafraîchir
               </button>
             )}
             {confirmRefresh && (
               <div className="flex items-center gap-2">
-                <span className="text-[10px] font-mono text-amber-400/80">Écraser les données ?</span>
-                <button onClick={() => setConfirmRefresh(false)} className="px-2 py-1 border border-border/60 rounded-sm text-[9px] font-mono text-muted-foreground hover:text-foreground transition-colors">Annuler</button>
-                <button onClick={ingest} disabled={ingesting} className="px-2 py-1 bg-amber-500/10 border border-amber-500/30 rounded-sm text-[9px] font-mono text-amber-400 hover:bg-amber-500/20 transition-colors">Confirmer</button>
+                <span className="text-xs text-amber-400/80">Écraser les données ?</span>
+                <button onClick={() => setConfirmRefresh(false)} className="px-2 py-1 border border-border/60 rounded-lg text-xs text-muted-foreground hover:text-foreground transition-colors">Annuler</button>
+                <button onClick={ingest} disabled={ingesting} className="px-2 py-1 bg-amber-500/10 border border-amber-500/30 rounded-lg text-xs text-amber-400 hover:bg-amber-500/20 transition-colors">Confirmer</button>
               </div>
             )}
             {!hasExistingData && (
-              <button onClick={ingest} disabled={ingesting || !url.trim()} className="flex items-center gap-1.5 px-3 py-1.5 bg-[#0A66C2] text-white rounded-sm text-[10px] font-mono hover:bg-[#0A66C2]/90 disabled:opacity-40 disabled:cursor-not-allowed transition-colors">
+              <button onClick={ingest} disabled={ingesting || !url.trim()} className="flex items-center gap-1.5 px-3 py-1.5 bg-[#0A66C2] text-white rounded-lg text-xs hover:bg-[#0A66C2]/90 disabled:opacity-40 disabled:cursor-not-allowed transition-colors">
                 {ingesting ? <Loader2 size={10} className="animate-spin" /> : <Linkedin size={10} />}
                 {ingesting ? 'Import…' : 'Importer dans l\'IA'}
               </button>
@@ -898,7 +898,7 @@ export default function AiProfilePage() {
       <div className="flex items-center justify-center p-20">
         <div className="flex flex-col items-center gap-3 text-muted-foreground">
           <Loader2 size={22} className="animate-spin text-primary/40" />
-          <span className="text-[10px] font-mono uppercase tracking-[0.2em]">Chargement…</span>
+          <span className="text-xs">Chargement…</span>
         </div>
       </div>
     )
@@ -906,9 +906,9 @@ export default function AiProfilePage() {
 
   if (error) {
     return (
-      <div className="border border-red-500/20 bg-red-500/5 rounded-sm p-6 flex items-center gap-3">
+      <div className="border border-red-500/20 bg-red-500/5 rounded-lg p-6 flex items-center gap-3">
         <AlertCircle size={16} className="text-red-400 shrink-0" />
-        <p className="text-sm font-mono text-red-400">{error}</p>
+        <p className="text-sm text-red-400">{error}</p>
       </div>
     )
   }
@@ -934,7 +934,7 @@ export default function AiProfilePage() {
       {/* ── Reset confirmation modal ── */}
       {showResetConfirm && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm">
-          <div className="bg-background border border-border rounded-sm p-8 max-w-sm w-full mx-4 space-y-6 shadow-2xl">
+          <div className="bg-background border border-border rounded-lg p-8 max-w-sm w-full mx-4 space-y-6 shadow-2xl">
             <div className="space-y-2">
               <div className="flex items-center gap-2">
                 <Trash2 size={16} className="text-red-400" />
@@ -943,20 +943,20 @@ export default function AiProfilePage() {
               <p className="text-sm text-muted-foreground leading-relaxed">
                 Cette action supprime <strong className="text-foreground">toutes les mémoires</strong> et réinitialise le profil complet. L&apos;IA repartira de zéro.
               </p>
-              <p className="text-[10px] font-mono text-red-400/80 uppercase tracking-wider">Action irréversible</p>
+              <p className="text-xs text-red-400/80 uppercase tracking-wider">Action irréversible</p>
             </div>
             <div className="flex gap-3">
               <button
                 onClick={() => setShowResetConfirm(false)}
                 disabled={resetting}
-                className="flex-1 px-4 py-2.5 border border-border/60 rounded-sm text-[11px] font-mono uppercase tracking-widest text-muted-foreground hover:text-foreground hover:border-border transition-colors disabled:opacity-40"
+                className="flex-1 px-4 py-2.5 border border-border/60 rounded-lg text-xs text-muted-foreground hover:text-foreground hover:border-border transition-colors disabled:opacity-40"
               >
                 Annuler
               </button>
               <button
                 onClick={resetProfile}
                 disabled={resetting}
-                className="flex-1 flex items-center justify-center gap-2 px-4 py-2.5 bg-red-500/10 border border-red-500/30 rounded-sm text-[11px] font-mono uppercase tracking-widest text-red-400 hover:bg-red-500/20 hover:border-red-500/50 transition-colors disabled:opacity-40"
+                className="flex-1 flex items-center justify-center gap-2 px-4 py-2.5 bg-red-500/10 border border-red-500/30 rounded-lg text-xs text-red-400 hover:bg-red-500/20 hover:border-red-500/50 transition-colors disabled:opacity-40"
               >
                 {resetting ? <Loader2 size={11} className="animate-spin" /> : <Trash2 size={11} />}
                 {resetting ? 'Réinitialisation…' : 'Réinitialiser'}
@@ -972,16 +972,16 @@ export default function AiProfilePage() {
           <div>
             <div className="flex items-center gap-2 mb-3">
               <span className="w-8 h-[1px] bg-primary/40" />
-              <div className="flex items-center gap-2 text-[10px] font-mono uppercase tracking-[0.3em] text-primary/60">
+              <div className="flex items-center gap-2 text-xs text-primary/60">
                 <span>IA</span>
                 <ChevronRight size={10} className="text-primary/30" />
                 <span>Profil</span>
               </div>
             </div>
-            <h1 className="text-3xl font-black uppercase tracking-tighter text-foreground">
+            <h1 className="text-3xl font-semibold tracking-tight text-foreground">
               Profil IA
             </h1>
-            <p className="text-[11px] font-mono text-muted-foreground/60 mt-2 uppercase tracking-widest">
+            <p className="text-xs text-muted-foreground/60 mt-2">
               Ce que l&apos;IA connait de vous
             </p>
           </div>
@@ -989,14 +989,14 @@ export default function AiProfilePage() {
             <button
               onClick={() => load(true)}
               disabled={refreshing}
-              className="flex items-center gap-1.5 px-3 py-1.5 border border-border/60 rounded-sm text-[10px] font-mono uppercase tracking-widest text-muted-foreground hover:text-foreground hover:border-border transition-colors disabled:opacity-40"
+              className="flex items-center gap-1.5 px-3 py-1.5 border border-border/60 rounded-lg text-xs text-muted-foreground hover:text-foreground hover:border-border transition-colors disabled:opacity-40"
             >
               <RefreshCw size={10} className={refreshing ? 'animate-spin' : ''} />
               Actualiser
             </button>
             <button
               onClick={() => setShowResetConfirm(true)}
-              className="flex items-center gap-1.5 px-3 py-1.5 border border-red-500/20 rounded-sm text-[10px] font-mono uppercase tracking-widest text-red-400/60 hover:text-red-400 hover:border-red-500/40 transition-colors"
+              className="flex items-center gap-1.5 px-3 py-1.5 border border-red-500/20 rounded-lg text-xs text-red-400/60 hover:text-red-400 hover:border-red-500/40 transition-colors"
             >
               <Trash2 size={10} />
               Reset
@@ -1028,7 +1028,7 @@ export default function AiProfilePage() {
             <div className="flex items-center gap-3">
               <Brain size={14} className="text-primary/60 shrink-0" />
               <h2 className="font-inter font-black text-lg tracking-tight">Ce que l&apos;IA sait</h2>
-              <span className={`text-[9px] font-mono font-bold uppercase tracking-wider px-2.5 py-1 rounded-full border ${stadeColor(summary.stade)}`}>
+              <span className={`text-xs font-medium uppercase tracking-wider px-2.5 py-1 rounded-full border ${stadeColor(summary.stade)}`}>
                 {summary.stade}
               </span>
             </div>
@@ -1046,14 +1046,14 @@ export default function AiProfilePage() {
 
             {/* Points forts */}
             {summary.pointsForts.length > 0 && (
-              <div className="border border-border/60 bg-surface/30 rounded-sm p-4 space-y-3">
+              <div className="border border-border/60 bg-surface/30 rounded-lg p-4 space-y-3">
                 <div className="flex items-center gap-2">
                   <Tag size={12} className="text-muted-foreground/60" />
-                  <span className="text-[10px] font-mono uppercase tracking-[0.18em] text-muted-foreground/60">Points forts</span>
+                  <span className="text-xs uppercase tracking-[0.18em] text-muted-foreground/60">Points forts</span>
                 </div>
                 <div className="flex flex-wrap gap-2">
                   {summary.pointsForts.map((p) => (
-                    <span key={p} className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full border border-primary/20 bg-primary/5 text-[11px] font-mono text-primary">
+                    <span key={p} className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full border border-primary/20 bg-primary/5 text-xs text-primary">
                       <span className="w-1 h-1 rounded-full bg-primary/50" />
                       {p}
                     </span>
@@ -1064,14 +1064,14 @@ export default function AiProfilePage() {
 
             {/* Lacunes */}
             {summary.lacunes.length > 0 && (
-              <div className="border border-amber-500/20 bg-amber-500/3 rounded-sm p-4 space-y-3">
+              <div className="border border-amber-500/20 bg-amber-500/3 rounded-lg p-4 space-y-3">
                 <div className="flex items-center gap-2">
                   <HelpCircle size={12} className="text-amber-400/70" />
-                  <span className="text-[10px] font-mono uppercase tracking-[0.18em] text-amber-400/70">Informations manquantes</span>
+                  <span className="text-xs uppercase tracking-[0.18em] text-amber-400/70">Informations manquantes</span>
                 </div>
                 <div className="flex flex-wrap gap-2">
                   {summary.lacunes.map((l) => (
-                    <span key={l} className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full border border-amber-500/20 bg-amber-500/5 text-[11px] font-mono text-amber-400/80">
+                    <span key={l} className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full border border-amber-500/20 bg-amber-500/5 text-xs text-amber-400/80">
                       {l}
                     </span>
                   ))}
@@ -1087,13 +1087,13 @@ export default function AiProfilePage() {
             <div className="flex items-center gap-3">
               <LayoutGrid size={14} className="text-primary/60 shrink-0" />
               <h2 className="font-inter font-black text-lg tracking-tight">Thèmes filmés</h2>
-              <span className="text-[10px] font-mono text-muted-foreground/50 ml-auto">
+              <span className="text-xs text-muted-foreground/50 ml-auto">
                 {profile!.topicsExplored.length} thème{profile!.topicsExplored.length > 1 ? 's' : ''}
               </span>
             </div>
-            <div className="border border-border/60 bg-surface/30 rounded-sm p-5 flex flex-wrap gap-2">
+            <div className="border border-border/60 bg-surface/30 rounded-lg p-5 flex flex-wrap gap-2">
               {profile!.topicsExplored.map((topic) => (
-                <span key={topic} className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full border border-border/60 bg-surface/40 text-[11px] font-mono text-foreground hover:border-primary/40 hover:bg-primary/5 transition-colors">
+                <span key={topic} className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full border border-border/60 bg-surface/40 text-xs text-foreground hover:border-primary/40 hover:bg-primary/5 transition-colors">
                   <span className="w-1.5 h-1.5 rounded-full bg-primary/50" />
                   {topic}
                 </span>
@@ -1109,7 +1109,7 @@ export default function AiProfilePage() {
             <div className="flex items-center gap-3">
               <Database size={14} className="text-primary/60 shrink-0" />
               <h2 className="font-inter font-black text-lg tracking-tight">Mémoires IA</h2>
-              <span className="text-[10px] font-mono text-muted-foreground/50 ml-auto">
+              <span className="text-xs text-muted-foreground/50 ml-auto">
                 {memories!.total} mémoire{memories!.total > 1 ? 's' : ''}
                 {docGroups.length > 0 && (
                   <> · {docGroups.length} document{docGroups.length > 1 ? 's' : ''}</>
@@ -1166,14 +1166,14 @@ export default function AiProfilePage() {
         <DocumentUpload onSuccess={() => load(true)} />
 
         {/* ── CTA ── */}
-        <div className="border border-border/40 border-dashed rounded-sm p-6 flex items-center justify-between gap-4">
+        <div className="border border-dashed border-border/30 rounded-lg p-6 flex items-center justify-between gap-4">
           <div>
             <p className="text-sm font-inter font-bold">Enrichir via le chat</p>
-            <p className="text-[11px] font-mono text-muted-foreground/60 mt-0.5 uppercase tracking-widest">
+            <p className="text-xs text-muted-foreground/60 mt-0.5">
               Le résumé se met à jour automatiquement
             </p>
           </div>
-          <div className="flex items-center gap-2 text-[10px] font-mono text-muted-foreground">
+          <div className="flex items-center gap-2 text-xs text-muted-foreground">
             <Sparkles size={11} className="text-primary" />
             Ouvrez l&apos;assistant IA via ✦ en bas à droite
           </div>

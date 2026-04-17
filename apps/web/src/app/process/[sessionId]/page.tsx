@@ -67,6 +67,7 @@ export default async function ProcessPage({ params }: Props) {
       sessionId={sessionId}
       themeSlug={session.theme.slug}
       montageSettings={session.montageSettings ?? null}
+      contentFormat={session.contentFormat ?? null}
     />
   )
 }

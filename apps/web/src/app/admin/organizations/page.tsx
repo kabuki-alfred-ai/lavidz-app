@@ -56,15 +56,15 @@ function CreateOrgModal({ onClose, onCreated }: { onClose: () => void; onCreated
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm">
-      <div className="w-full max-w-md border border-border bg-background shadow-2xl rounded-sm animate-in fade-in zoom-in-95 duration-200">
+      <div className="w-full max-w-md border border-border bg-background shadow-2xl rounded-lg animate-in fade-in zoom-in-95 duration-200">
         <div className="flex items-center justify-between px-6 py-5 border-b border-border/60">
           <div>
-            <p className="text-[10px] font-mono uppercase tracking-[0.2em] text-primary/60 mb-1">Nouvelle organisation</p>
+            <p className="text-xs text-primary/60 mb-1">Nouvelle organisation</p>
             <h3 className="font-inter font-bold text-lg text-foreground tracking-tight">Créer une organisation</h3>
           </div>
           <button
             onClick={onClose}
-            className="w-8 h-8 flex items-center justify-center rounded-sm border border-border hover:border-primary/40 hover:text-primary transition-all text-muted-foreground"
+            className="w-8 h-8 flex items-center justify-center rounded-lg border border-border hover:border-primary/40 hover:text-primary transition-all text-muted-foreground"
           >
             <X size={14} />
           </button>
@@ -80,14 +80,14 @@ function CreateOrgModal({ onClose, onCreated }: { onClose: () => void; onCreated
               placeholder="Acme Corp"
               required
               autoFocus
-              className="font-mono text-sm"
+              className="text-sm"
             />
-            <p className="text-[10px] font-mono text-muted-foreground/50">
+            <p className="text-xs text-muted-foreground/50">
               Un slug sera généré automatiquement depuis le nom.
             </p>
           </div>
 
-          {error && <p className="text-xs text-destructive font-mono">{error}</p>}
+          {error && <p className="text-xs text-destructive">{error}</p>}
 
           <div className="flex gap-3 pt-2">
             <Button
@@ -95,7 +95,7 @@ function CreateOrgModal({ onClose, onCreated }: { onClose: () => void; onCreated
               variant="outline"
               size="sm"
               onClick={onClose}
-              className="flex-1 rounded-none text-[10px] font-mono uppercase tracking-widest"
+              className="flex-1 text-xs"
             >
               Annuler
             </Button>
@@ -103,7 +103,7 @@ function CreateOrgModal({ onClose, onCreated }: { onClose: () => void; onCreated
               type="submit"
               size="sm"
               disabled={loading || !name.trim()}
-              className="flex-1 rounded-none text-[10px] font-mono uppercase tracking-widest"
+              className="flex-1 text-xs"
             >
               {loading ? <Loader2 size={10} className="animate-spin mr-2" /> : <Plus size={10} className="mr-2" />}
               {loading ? 'Création...' : 'Créer'}
@@ -196,14 +196,14 @@ export default function OrganizationsPage() {
         <div>
           <div className="flex items-center gap-2 mb-2">
             <span className="w-8 h-[1px] bg-primary/40" />
-            <p className="text-[10px] font-mono uppercase tracking-[0.3em] text-primary/60">
+            <p className="text-xs text-primary/60">
               Superadmin
             </p>
           </div>
-          <h1 className="text-3xl font-black uppercase tracking-tighter text-foreground">
+          <h1 className="text-3xl font-semibold tracking-tight text-foreground">
             Organisations
           </h1>
-          <p className="text-[11px] font-mono text-muted-foreground/60 mt-2 uppercase tracking-widest leading-relaxed">
+          <p className="text-xs text-muted-foreground/60 mt-2 leading-relaxed">
             Gestion des accès et des structures partenaires
           </p>
         </div>
@@ -213,7 +213,7 @@ export default function OrganizationsPage() {
             <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground/40 group-focus-within:text-primary transition-colors" />
             <Input
               placeholder="Rechercher une org..."
-              className="pl-10 h-10 bg-surface/30 border-border/40 focus:border-primary/40 transition-all rounded-sm font-mono text-xs"
+              className="pl-10 h-10 bg-surface/30 border-border/40 focus:border-primary/40 transition-all rounded-lg text-xs"
               value={search}
               onChange={(e) => setSearch(e.target.value)}
             />
@@ -221,7 +221,7 @@ export default function OrganizationsPage() {
           <Button
             size="sm"
             onClick={() => setShowCreateModal(true)}
-            className="h-10 px-4 rounded-none font-mono text-[10px] uppercase tracking-[0.2em] shrink-0"
+            className="h-10 px-4 text-xs shrink-0"
           >
             <Plus size={12} className="mr-2" />
             Nouvelle org
@@ -231,25 +231,25 @@ export default function OrganizationsPage() {
 
       {/* Organisations list */}
       {loading ? (
-        <div className="flex flex-col items-center justify-center p-20 border border-border/40 border-dashed rounded-sm bg-surface/10">
+        <div className="flex flex-col items-center justify-center p-20 border border-dashed border-border/30 rounded-lg bg-surface/10">
           <Loader2 size={24} className="animate-spin text-primary/40 mb-4" />
-          <span className="text-[10px] font-mono uppercase tracking-[0.2em] text-muted-foreground/60">
+          <span className="text-xs text-muted-foreground/60">
             Initialisation de la liste...
           </span>
         </div>
       ) : filteredOrgs.length === 0 ? (
-        <div className="border border-border/40 border-dashed p-20 text-center rounded-sm bg-surface/10">
+        <div className="border border-dashed border-border/30 p-20 text-center rounded-lg bg-surface/10">
           <Building2 size={32} className="mx-auto text-muted-foreground/20 mb-4" />
           <p className="text-sm font-inter font-bold text-foreground">Aucune organisation trouvée</p>
-          <p className="text-[10px] font-mono text-muted-foreground/40 mt-1 uppercase tracking-widest">
+          <p className="text-xs text-muted-foreground/40 mt-1">
             {search ? 'Modifiez votre recherche' : 'Commencez par en créer une'}
           </p>
         </div>
       ) : (
-        <div className="border border-border/60 bg-surface/30 rounded-sm overflow-hidden backdrop-blur-sm shadow-sm animate-in fade-in duration-500">
+        <div className="border border-border/60 bg-surface/30 rounded-lg overflow-hidden backdrop-blur-sm shadow-sm animate-in fade-in duration-500">
           <div className="grid grid-cols-[1fr_140px_100px_100px_220px] border-b border-border/40 bg-surface/50 px-6 py-4">
             {['Organisation', 'Statut', 'Utilisateurs', 'Thèmes', 'Actions'].map(h => (
-              <div key={h} className="text-[9px] font-mono uppercase tracking-[0.2em] text-muted-foreground/50">{h}</div>
+              <div key={h} className="text-xs text-muted-foreground/50">{h}</div>
             ))}
           </div>
 
@@ -260,7 +260,7 @@ export default function OrganizationsPage() {
                   <Link href={`/admin/organizations/${org.id}`} className="font-inter font-bold text-[14px] text-foreground group-hover:text-primary transition-colors hover:underline underline-offset-4 decoration-primary/30">
                     {org.name}
                   </Link>
-                  <code className="text-[10px] font-mono text-muted-foreground/40 block mt-1 tracking-wider">{org.slug}</code>
+                  <code className="text-xs text-muted-foreground/40 block mt-1 tracking-wider">{org.slug}</code>
                 </div>
 
                 <div>
@@ -269,12 +269,12 @@ export default function OrganizationsPage() {
                   </Badge>
                 </div>
 
-                <div className="flex items-center gap-2 text-xs font-mono text-muted-foreground/60">
+                <div className="flex items-center gap-2 text-xs text-muted-foreground/60">
                   <Users size={12} className="opacity-40" />
                   {org._count.users}
                 </div>
 
-                <div className="flex items-center gap-2 text-xs font-mono text-muted-foreground/60">
+                <div className="flex items-center gap-2 text-xs text-muted-foreground/60">
                   <LayoutGrid size={12} className="opacity-40" />
                   {org._count.themes}
                 </div>
@@ -285,7 +285,7 @@ export default function OrganizationsPage() {
                       size="sm"
                       variant="outline"
                       disabled={updating === org.id}
-                      className="h-8 rounded-none border-emerald-500/20 hover:border-emerald-500/40 hover:bg-emerald-500/10 text-emerald-400 text-[10px] font-mono uppercase tracking-widest px-3"
+                      className="h-8 border-emerald-500/20 hover:border-emerald-500/40 hover:bg-emerald-500/10 text-emerald-400 text-xs px-3"
                       onClick={() => updateStatus(org.id, 'ACTIVE')}>
                       {updating === org.id ? <Loader2 size={10} className="animate-spin" /> : <><CheckCircle2 size={12} className="mr-2" /> Activer</>}
                     </Button>
@@ -295,7 +295,7 @@ export default function OrganizationsPage() {
                       size="sm"
                       variant="outline"
                       disabled={updating === org.id}
-                      className="h-8 rounded-none border-orange-500/20 hover:border-orange-500/40 hover:bg-orange-500/10 text-orange-400 text-[10px] font-mono uppercase tracking-widest px-3"
+                      className="h-8 border-orange-500/20 hover:border-orange-500/40 hover:bg-orange-500/10 text-orange-400 text-xs px-3"
                       onClick={() => updateStatus(org.id, 'SUSPENDED')}>
                       {updating === org.id ? <Loader2 size={10} className="animate-spin" /> : <><PauseCircle size={12} className="mr-2" /> Suspendre</>}
                     </Button>
@@ -305,7 +305,7 @@ export default function OrganizationsPage() {
                       size="sm"
                       variant="outline"
                       disabled={updating === org.id}
-                      className="h-8 rounded-none border-primary/20 hover:border-primary/40 hover:bg-primary/10 text-primary text-[10px] font-mono uppercase tracking-widest px-3"
+                      className="h-8 border-primary/20 hover:border-primary/40 hover:bg-primary/10 text-primary text-xs px-3"
                       onClick={() => updateStatus(org.id, 'PENDING')}>
                       {updating === org.id ? <Loader2 size={10} className="animate-spin" /> : <><RotateCcw size={12} className="mr-2" /> Reset</>}
                     </Button>
@@ -320,40 +320,40 @@ export default function OrganizationsPage() {
       {/* Unassigned users section */}
       <div className="space-y-6">
         <div className="flex items-center gap-3">
-          <div className="w-8 h-8 rounded-sm bg-orange-500/5 border border-orange-500/20 flex items-center justify-center">
+          <div className="w-8 h-8 rounded-lg bg-orange-500/5 border border-orange-500/20 flex items-center justify-center">
             <UserX size={14} className="text-orange-400" />
           </div>
           <div>
             <h2 className="font-inter font-bold text-xl text-foreground tracking-tight">
               Utilisateurs sans organisation
               {!loadingUnassigned && (
-                <span className="ml-2 text-sm font-mono text-muted-foreground/50">({unassignedUsers.length})</span>
+                <span className="ml-2 text-sm text-muted-foreground/50">({unassignedUsers.length})</span>
               )}
             </h2>
-            <p className="text-[10px] font-mono text-muted-foreground/40 uppercase tracking-widest mt-0.5">
+            <p className="text-xs text-muted-foreground/40 mt-0.5">
               Ces utilisateurs ne sont rattachés à aucune organisation
             </p>
           </div>
         </div>
 
         {loadingUnassigned ? (
-          <div className="flex items-center gap-3 p-8 border border-border/40 border-dashed rounded-sm bg-surface/10">
+          <div className="flex items-center gap-3 p-8 border border-dashed border-border/30 rounded-lg bg-surface/10">
             <Loader2 size={16} className="animate-spin text-primary/40" />
-            <span className="text-[10px] font-mono uppercase tracking-[0.2em] text-muted-foreground/60">Chargement...</span>
+            <span className="text-xs text-muted-foreground/60">Chargement...</span>
           </div>
         ) : unassignedUsers.length === 0 ? (
-          <div className="border border-border/40 border-dashed p-12 text-center rounded-sm bg-surface/10">
+          <div className="border border-dashed border-border/30 p-12 text-center rounded-lg bg-surface/10">
             <CheckCircle2 size={24} className="mx-auto text-emerald-500/30 mb-3" />
             <p className="text-sm font-inter font-bold text-foreground">Tous les utilisateurs ont une organisation</p>
-            <p className="text-[10px] font-mono text-muted-foreground/40 mt-1 uppercase tracking-widest">
+            <p className="text-xs text-muted-foreground/40 mt-1">
               Aucun utilisateur non assigné
             </p>
           </div>
         ) : (
-          <div className="border border-orange-500/20 bg-surface/30 rounded-sm overflow-hidden backdrop-blur-sm shadow-sm">
+          <div className="border border-orange-500/20 bg-surface/30 rounded-lg overflow-hidden backdrop-blur-sm shadow-sm">
             <div className="grid grid-cols-[1fr_120px_1fr_120px] border-b border-border/40 bg-orange-500/[0.03] px-6 py-4">
               {['Utilisateur', 'Rôle', 'Assigner à', 'Action'].map(h => (
-                <div key={h} className="text-[9px] font-mono uppercase tracking-[0.2em] text-muted-foreground/50">{h}</div>
+                <div key={h} className="text-xs text-muted-foreground/50">{h}</div>
               ))}
             </div>
 
@@ -362,20 +362,20 @@ export default function OrganizationsPage() {
                 <div key={u.id} className="grid grid-cols-[1fr_120px_1fr_120px] items-center px-6 py-5 hover:bg-orange-500/[0.02] transition-colors">
                   <div className="pr-4 min-w-0">
                     <div className="flex items-center gap-3">
-                      <div className="w-8 h-8 rounded-sm bg-surface-raised border border-border flex items-center justify-center font-mono font-bold text-xs text-primary shrink-0">
+                      <div className="w-8 h-8 rounded-lg bg-surface-raised border border-border flex items-center justify-center font-bold text-xs text-primary shrink-0">
                         {u.email[0].toUpperCase()}
                       </div>
                       <div className="min-w-0">
                         <p className="font-bold text-foreground text-sm truncate">
                           {[u.firstName, u.lastName].filter(Boolean).join(' ') || u.email}
                         </p>
-                        <p className="text-[10px] font-mono text-muted-foreground/50 truncate mt-0.5">{u.email}</p>
+                        <p className="text-xs text-muted-foreground/50 truncate mt-0.5">{u.email}</p>
                       </div>
                     </div>
                   </div>
 
                   <div>
-                    <Badge variant={u.role === 'SUPERADMIN' ? 'active' : 'default'} className="text-[9px] px-1.5 py-0">
+                    <Badge variant={u.role === 'SUPERADMIN' ? 'active' : 'default'} className="text-xs px-1.5 py-0">
                       {u.role === 'SUPERADMIN' ? 'SUPER' : u.role === 'ADMIN' ? 'ADMIN' : 'MEMBRE'}
                     </Badge>
                   </div>
@@ -384,7 +384,7 @@ export default function OrganizationsPage() {
                     <select
                       value={selectedOrg[u.id] ?? ''}
                       onChange={e => setSelectedOrg(prev => ({ ...prev, [u.id]: e.target.value }))}
-                      className="h-9 w-full rounded-sm border border-border bg-background px-3 text-xs font-mono text-foreground focus:outline-none focus:ring-1 focus:ring-primary/40 focus:border-primary/40 transition-all"
+                      className="h-9 w-full rounded-lg border border-border bg-background px-3 text-xs text-foreground focus:outline-none focus:ring-1 focus:ring-primary/40 focus:border-primary/40 transition-all"
                     >
                       <option value="">-- Choisir --</option>
                       {orgs.map(org => (
@@ -394,7 +394,7 @@ export default function OrganizationsPage() {
                       ))}
                     </select>
                     {assignError[u.id] && (
-                      <p className="text-[10px] text-destructive font-mono mt-1">{assignError[u.id]}</p>
+                      <p className="text-xs text-destructive mt-1">{assignError[u.id]}</p>
                     )}
                   </div>
 
@@ -404,7 +404,7 @@ export default function OrganizationsPage() {
                       variant="outline"
                       disabled={assigning === u.id || !selectedOrg[u.id]}
                       onClick={() => assignOrganization(u.id)}
-                      className="h-8 rounded-none border-primary/20 hover:border-primary/40 hover:bg-primary/10 text-primary text-[10px] font-mono uppercase tracking-widest px-3"
+                      className="h-8 border-primary/20 hover:border-primary/40 hover:bg-primary/10 text-primary text-xs px-3"
                     >
                       {assigning === u.id
                         ? <Loader2 size={10} className="animate-spin" />

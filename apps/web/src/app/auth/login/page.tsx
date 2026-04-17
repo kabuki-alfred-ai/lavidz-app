@@ -28,7 +28,9 @@ function LoginForm() {
     })
 
     if (res.ok) {
-      const from = searchParams.get('from') ?? '/admin'
+      const data = await res.json()
+      const defaultPath = data.role === 'SUPERADMIN' ? '/admin' : '/home'
+      const from = searchParams.get('from') ?? defaultPath
       router.push(from)
       router.refresh()
     } else {
@@ -74,7 +76,7 @@ function LoginForm() {
           />
         </div>
 
-        {error && <p className="text-xs text-destructive font-mono">{error}</p>}
+        {error && <p className="text-xs text-destructive">{error}</p>}
 
         <Button type="submit" disabled={loading || !email || !password}>
           {loading && <Loader2 size={12} className="animate-spin" />}

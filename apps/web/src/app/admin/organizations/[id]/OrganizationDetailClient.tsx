@@ -107,16 +107,16 @@ function TransferModal({ user, otherOrgs, onClose, onTransferred }: TransferModa
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm">
-      <div className="w-full max-w-md border border-border bg-background shadow-2xl rounded-sm animate-in fade-in zoom-in-95 duration-200">
+      <div className="w-full max-w-md border border-border bg-background shadow-2xl rounded-lg animate-in fade-in zoom-in-95 duration-200">
         <div className="flex items-center justify-between px-6 py-5 border-b border-border/60">
           <div>
-            <p className="text-[10px] font-mono uppercase tracking-[0.2em] text-primary/60 mb-1">Transférer l&apos;utilisateur</p>
+            <p className="text-xs text-primary/60 mb-1">Transférer l&apos;utilisateur</p>
             <h3 className="font-inter font-bold text-lg text-foreground tracking-tight">{displayName}</h3>
-            <p className="text-[10px] font-mono text-muted-foreground/50 mt-0.5">{user.email}</p>
+            <p className="text-xs text-muted-foreground/50 mt-0.5">{user.email}</p>
           </div>
           <button
             onClick={onClose}
-            className="w-8 h-8 flex items-center justify-center rounded-sm border border-border hover:border-primary/40 hover:text-primary transition-all text-muted-foreground"
+            className="w-8 h-8 flex items-center justify-center rounded-lg border border-border hover:border-primary/40 hover:text-primary transition-all text-muted-foreground"
           >
             <X size={14} />
           </button>
@@ -124,13 +124,13 @@ function TransferModal({ user, otherOrgs, onClose, onTransferred }: TransferModa
 
         <div className="px-6 py-6 space-y-4">
           <div className="flex flex-col gap-2">
-            <label className="text-[10px] font-mono uppercase tracking-widest text-muted-foreground/60">
+            <label className="text-xs text-muted-foreground/60">
               Organisation destination
             </label>
             <select
               value={selectedOrgId}
               onChange={e => setSelectedOrgId(e.target.value)}
-              className="h-10 w-full rounded-sm border border-border bg-background px-3 text-sm font-mono text-foreground focus:outline-none focus:ring-1 focus:ring-primary/40 focus:border-primary/40 transition-all"
+              className="h-10 w-full rounded-lg border border-border bg-background px-3 text-sm text-foreground focus:outline-none focus:ring-1 focus:ring-primary/40 focus:border-primary/40 transition-all"
             >
               <option value="">-- Choisir une organisation --</option>
               <option value="null">Retirer de toute organisation</option>
@@ -140,19 +140,19 @@ function TransferModal({ user, otherOrgs, onClose, onTransferred }: TransferModa
                 </option>
               ))}
             </select>
-            <p className="text-[10px] font-mono text-muted-foreground/40">
+            <p className="text-xs text-muted-foreground/40">
               Les thèmes et sessions de cet utilisateur restent dans l&apos;organisation source.
             </p>
           </div>
 
-          {error && <p className="text-xs text-destructive font-mono">{error}</p>}
+          {error && <p className="text-xs text-destructive">{error}</p>}
 
           <div className="flex gap-3 pt-2">
             <Button
               variant="outline"
               size="sm"
               onClick={onClose}
-              className="flex-1 rounded-none text-[10px] font-mono uppercase tracking-widest"
+              className="flex-1 text-xs"
             >
               Annuler
             </Button>
@@ -160,7 +160,7 @@ function TransferModal({ user, otherOrgs, onClose, onTransferred }: TransferModa
               size="sm"
               disabled={loading || !selectedOrgId}
               onClick={handleTransfer}
-              className="flex-1 rounded-none text-[10px] font-mono uppercase tracking-widest"
+              className="flex-1 text-xs"
             >
               {loading ? <Loader2 size={10} className="animate-spin mr-2" /> : <ArrowRightLeft size={10} className="mr-2" />}
               {loading ? 'Transfert...' : 'Confirmer'}
@@ -258,17 +258,17 @@ function InvitationsSection({ orgId }: { orgId: string }) {
   return (
     <div className="space-y-6">
       <div className="flex items-center gap-3 px-1">
-        <div className="w-8 h-8 rounded-sm bg-primary/5 border border-primary/10 flex items-center justify-center">
+        <div className="w-8 h-8 rounded-lg bg-primary/5 border border-primary/10 flex items-center justify-center">
           <UserPlus size={14} className="text-primary" />
         </div>
         <h2 className="font-inter font-bold text-xl text-foreground tracking-tight">Invitations</h2>
       </div>
 
       {/* Invite form */}
-      <div className="border border-border/60 bg-surface/30 rounded-sm p-5 space-y-4">
+      <div className="border border-border/60 bg-surface/30 rounded-lg p-5 space-y-4">
         <div className="flex items-center gap-2">
           <Mail size={12} className="text-primary" />
-          <p className="text-[10px] font-mono uppercase tracking-widest font-bold">Inviter un utilisateur</p>
+          <p className="text-xs font-medium">Inviter un utilisateur</p>
         </div>
         <form onSubmit={handleInvite} className="flex flex-col gap-3">
           <div>
@@ -280,14 +280,14 @@ function InvitationsSection({ orgId }: { orgId: string }) {
               onChange={e => setEmail(e.target.value)}
               placeholder="email@exemple.com"
               required
-              className="font-mono text-sm"
+              className="text-sm"
             />
           </div>
           <div className="flex gap-3">
             <select
               value={role}
               onChange={e => setRole(e.target.value as 'ADMIN' | 'USER')}
-              className="h-10 flex-1 rounded-sm border border-border bg-background px-3 text-xs font-mono text-foreground focus:outline-none focus:ring-1 focus:ring-primary/40 focus:border-primary/40 transition-all"
+              className="h-10 flex-1 rounded-lg border border-border bg-background px-3 text-xs text-foreground focus:outline-none focus:ring-1 focus:ring-primary/40 focus:border-primary/40 transition-all"
             >
               <option value="USER">Membre</option>
               <option value="ADMIN">Admin</option>
@@ -296,40 +296,40 @@ function InvitationsSection({ orgId }: { orgId: string }) {
               type="submit"
               disabled={sending || !email.trim()}
               size="sm"
-              className="h-10 px-5 rounded-none font-mono text-[10px] uppercase tracking-[0.2em]"
+              className="h-10 px-5 text-xs"
             >
               {sending ? <Loader2 size={12} className="animate-spin" /> : <Send size={12} />}
               {sending ? 'Envoi...' : 'Inviter'}
             </Button>
           </div>
         </form>
-        {error && <p className="text-xs text-destructive font-mono">{error}</p>}
-        {success && <p className="text-xs text-emerald-600 font-mono font-bold">{success}</p>}
-        <p className="text-[10px] font-mono text-muted-foreground/40 leading-relaxed">
+        {error && <p className="text-xs text-destructive">{error}</p>}
+        {success && <p className="text-xs text-emerald-600 font-bold">{success}</p>}
+        <p className="text-xs text-muted-foreground/40 leading-relaxed">
           Un email avec un lien d&apos;inscription sécurisé sera envoyé. Valable 7 jours.
         </p>
       </div>
 
       {/* Invitations list */}
       {loading ? (
-        <div className="flex items-center gap-3 p-6 border border-border/40 border-dashed rounded-sm bg-surface/10">
+        <div className="flex items-center gap-3 p-6 border border-dashed border-border/30 rounded-lg bg-surface/10">
           <Loader2 size={14} className="animate-spin text-primary/40" />
-          <span className="text-[10px] font-mono uppercase tracking-widest text-muted-foreground/60">Chargement...</span>
+          <span className="text-xs text-muted-foreground/60">Chargement...</span>
         </div>
       ) : invitations.length === 0 ? (
-        <div className="border border-border/40 border-dashed p-8 text-center rounded-sm bg-surface/10">
-          <p className="text-[10px] font-mono text-muted-foreground/40 uppercase tracking-widest">Aucune invitation envoyée</p>
+        <div className="border border-dashed border-border/30 p-8 text-center rounded-lg bg-surface/10">
+          <p className="text-xs text-muted-foreground/40">Aucune invitation envoyée</p>
         </div>
       ) : (
-        <div className="border border-border/60 bg-surface/30 rounded-sm overflow-hidden">
+        <div className="border border-border/60 bg-surface/30 rounded-lg overflow-hidden">
           <div className="divide-y divide-border/40">
             {invitations.map(inv => (
               <div key={inv.id} className="flex items-center justify-between px-5 py-4 gap-4">
                 <div className="flex items-center gap-3 min-w-0">
                   <StatusIcon status={inv.status} />
                   <div className="min-w-0">
-                    <p className="text-sm font-mono text-foreground truncate">{inv.email}</p>
-                    <p className="text-[9px] font-mono text-muted-foreground">
+                    <p className="text-sm text-foreground truncate">{inv.email}</p>
+                    <p className="text-xs text-muted-foreground">
                       {new Date(inv.createdAt).toLocaleDateString('fr-FR')}
                       {inv.invitedBy && ` · par ${inv.invitedBy.firstName ?? inv.invitedBy.email}`}
                       {inv.status === 'PENDING' && ` · expire le ${new Date(inv.expiresAt).toLocaleDateString('fr-FR')}`}
@@ -337,17 +337,17 @@ function InvitationsSection({ orgId }: { orgId: string }) {
                   </div>
                 </div>
                 <div className="flex items-center gap-2 shrink-0">
-                  <Badge variant="outline" className="text-[9px] px-1.5 py-0 font-mono border-border/40">
+                  <Badge variant="outline" className="text-xs px-1.5 py-0 border-border/40">
                     {inv.role === 'ADMIN' ? 'Admin' : 'Membre'}
                   </Badge>
-                  <Badge variant={statusVariant(inv.status)} className="text-[9px]">
+                  <Badge variant={statusVariant(inv.status)} className="text-xs">
                     {statusLabel(inv.status)}
                   </Badge>
                   {inv.status !== 'ACCEPTED' && (
                     <button
                       onClick={() => handleResend(inv)}
                       disabled={resendingId === inv.id}
-                      className="p-1.5 rounded-sm hover:bg-surface-raised text-muted-foreground hover:text-foreground transition-all border border-transparent hover:border-border disabled:opacity-40"
+                      className="p-1.5 rounded-lg hover:bg-surface-raised text-muted-foreground hover:text-foreground transition-all border border-transparent hover:border-border disabled:opacity-40"
                       title="Renvoyer l'invitation"
                     >
                       {resendingId === inv.id
@@ -392,7 +392,7 @@ export function OrganizationDetailClient({ org, otherOrgs }: Props) {
           <div className="space-y-6">
             <div className="flex items-center justify-between px-1">
               <div className="flex items-center gap-3">
-                <div className="w-8 h-8 rounded-sm bg-primary/5 border border-primary/10 flex items-center justify-center">
+                <div className="w-8 h-8 rounded-lg bg-primary/5 border border-primary/10 flex items-center justify-center">
                   <Users size={14} className="text-primary" />
                 </div>
                 <h2 className="font-inter font-bold text-xl text-foreground tracking-tight">
@@ -401,25 +401,25 @@ export function OrganizationDetailClient({ org, otherOrgs }: Props) {
               </div>
             </div>
 
-            <div className="border border-border/60 bg-surface/30 rounded-sm overflow-hidden backdrop-blur-sm shadow-sm">
+            <div className="border border-border/60 bg-surface/30 rounded-lg overflow-hidden backdrop-blur-sm shadow-sm">
               <div className="divide-y divide-border/40">
                 {users.map((u) => (
                   <div key={u.id} className="grid grid-cols-[1fr_80px_44px] items-center px-6 py-5 hover:bg-primary/[0.02] transition-colors group">
                     <div className="min-w-0 pr-4">
                       <div className="flex items-center gap-4 group">
-                        <div className="w-10 h-10 rounded-sm bg-surface-raised border border-border flex items-center justify-center font-mono font-bold text-primary group-hover:border-primary/50 transition-colors shrink-0">
+                        <div className="w-10 h-10 rounded-lg bg-surface-raised border border-border flex items-center justify-center font-bold text-primary group-hover:border-primary/50 transition-colors shrink-0">
                           {u.email[0].toUpperCase()}
                         </div>
                         <div>
                           <h4 className="font-bold text-foreground text-sm group-hover:text-primary transition-colors">
                             {[u.firstName, u.lastName].filter(Boolean).join(' ') || (u.role === 'SUPERADMIN' ? 'Admin Système' : 'Client')}
                           </h4>
-                          <p className="text-[10px] font-mono text-muted-foreground/60 truncate mt-0.5">{u.email}</p>
+                          <p className="text-xs text-muted-foreground/60 truncate mt-0.5">{u.email}</p>
                         </div>
                       </div>
                     </div>
                     <div>
-                      <Badge variant={u.role === 'SUPERADMIN' ? 'active' : u.role === 'ADMIN' ? 'secondary' : 'default'} className="text-[9px] px-1.5 py-0 justify-center">
+                      <Badge variant={u.role === 'SUPERADMIN' ? 'active' : u.role === 'ADMIN' ? 'secondary' : 'default'} className="text-xs px-1.5 py-0 justify-center">
                         {u.role === 'SUPERADMIN' ? 'SUPER' : u.role === 'ADMIN' ? 'ADMIN' : 'MEMBRE'}
                       </Badge>
                     </div>
@@ -427,7 +427,7 @@ export function OrganizationDetailClient({ org, otherOrgs }: Props) {
                       <button
                         title="Transférer vers une autre organisation"
                         onClick={() => setTransferTarget(u)}
-                        className="w-8 h-8 flex items-center justify-center rounded-sm border border-border/40 hover:border-primary/40 hover:bg-primary/5 hover:text-primary text-muted-foreground/40 transition-all"
+                        className="w-8 h-8 flex items-center justify-center rounded-lg border border-border/40 hover:border-primary/40 hover:bg-primary/5 hover:text-primary text-muted-foreground/40 transition-all"
                       >
                         <ArrowRightLeft size={12} />
                       </button>
@@ -435,7 +435,7 @@ export function OrganizationDetailClient({ org, otherOrgs }: Props) {
                   </div>
                 ))}
                 {users.length === 0 && (
-                  <div className="p-12 text-center text-[10px] font-mono text-muted-foreground/40 uppercase tracking-widest">
+                  <div className="p-12 text-center text-xs text-muted-foreground/40">
                     Aucun utilisateur lié
                   </div>
                 )}
@@ -447,7 +447,7 @@ export function OrganizationDetailClient({ org, otherOrgs }: Props) {
           <div className="space-y-6">
             <div className="flex items-center justify-between px-1">
               <div className="flex items-center gap-3">
-                <div className="w-8 h-8 rounded-sm bg-primary/5 border border-primary/10 flex items-center justify-center">
+                <div className="w-8 h-8 rounded-lg bg-primary/5 border border-primary/10 flex items-center justify-center">
                   <LayoutGrid size={14} className="text-primary" />
                 </div>
                 <h2 className="font-inter font-bold text-xl text-foreground tracking-tight">
@@ -456,7 +456,7 @@ export function OrganizationDetailClient({ org, otherOrgs }: Props) {
               </div>
             </div>
 
-            <div className="border border-border/60 bg-surface/30 rounded-sm overflow-hidden backdrop-blur-sm shadow-sm">
+            <div className="border border-border/60 bg-surface/30 rounded-lg overflow-hidden backdrop-blur-sm shadow-sm">
               <div className="divide-y divide-border/40">
                 {org.themes.map((t) => (
                   <div key={t.id} className="p-5 hover:bg-primary/[0.02] transition-colors group flex items-start justify-between gap-4">
@@ -465,18 +465,18 @@ export function OrganizationDetailClient({ org, otherOrgs }: Props) {
                         {t.name}
                       </p>
                       {t.description && (
-                        <p className="text-[10px] font-mono text-muted-foreground/50 mt-1 max-w-[280px] truncate uppercase tracking-widest leading-relaxed">
+                        <p className="text-xs text-muted-foreground/50 mt-1 max-w-[280px] truncate leading-relaxed">
                           {t.description}
                         </p>
                       )}
                     </div>
-                    <Badge variant="outline" className="shrink-0 text-[10px] font-mono border-border/60 uppercase tracking-widest text-muted-foreground group-hover:border-primary/20 group-hover:text-primary transition-colors">
+                    <Badge variant="outline" className="shrink-0 text-xs border-border/60 text-muted-foreground group-hover:border-primary/20 group-hover:text-primary transition-colors">
                       {t._count.sessions} sess.
                     </Badge>
                   </div>
                 ))}
                 {org.themes.length === 0 && (
-                  <div className="p-12 text-center text-[10px] font-mono text-muted-foreground/40 uppercase tracking-widest">
+                  <div className="p-12 text-center text-xs text-muted-foreground/40">
                     Aucun thème créé
                   </div>
                 )}

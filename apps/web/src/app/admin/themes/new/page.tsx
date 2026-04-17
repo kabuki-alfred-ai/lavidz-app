@@ -53,14 +53,14 @@ export default function NewThemePage() {
       {/* Back */}
       <Link
         href="/admin"
-        className="inline-flex items-center gap-2 text-[10px] font-mono uppercase tracking-widest text-muted-foreground hover:text-foreground transition-colors mb-8"
+        className="inline-flex items-center gap-2 text-xs text-muted-foreground hover:text-foreground transition-colors mb-8"
       >
         <ArrowLeft size={10} />
         Thèmes
       </Link>
 
       <div className="mb-8">
-        <p className="text-[10px] font-mono uppercase tracking-widest text-muted-foreground mb-1">Nouveau</p>
+        <p className="text-xs text-muted-foreground mb-1">Nouveau</p>
         <h1 className="font-sans font-extrabold text-3xl tracking-tight">Créer un thème</h1>
       </div>
 
@@ -89,8 +89,8 @@ export default function NewThemePage() {
               <Label htmlFor="slug">
                 Slug <span className="text-muted-foreground/50 normal-case tracking-normal">(auto-généré)</span>
               </Label>
-              <div className="flex items-center border border-input focus-within:border-primary transition-colors">
-                <span className="px-3 py-2 text-xs text-muted-foreground/60 border-r border-input bg-surface font-mono select-none">
+              <div className="flex items-center rounded-lg border border-input focus-within:border-primary transition-colors">
+                <span className="px-3 py-2 text-xs text-muted-foreground/60 border-r border-input bg-surface select-none">
                   /session/
                 </span>
                 <Input
@@ -125,11 +125,11 @@ export default function NewThemePage() {
                 onChange={(e) => setForm((f) => ({ ...f, introduction: e.target.value }))}
                 rows={4}
               />
-              <p className="text-[11px] text-muted-foreground/60">Ce texte sera énoncé par la voix IA au démarrage de la session.</p>
+              <p className="text-xs text-muted-foreground/60">Ce texte sera énoncé par la voix IA au démarrage de la session.</p>
             </div>
 
             {error && (
-              <p className="text-xs text-destructive font-mono">{error}</p>
+              <p className="text-xs text-destructive">{error}</p>
             )}
 
             <div className="flex items-center gap-3 pt-2">

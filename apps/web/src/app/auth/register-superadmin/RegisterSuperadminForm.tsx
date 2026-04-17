@@ -62,15 +62,15 @@ export function RegisterSuperadminForm({ token, email }: Props) {
             <span className="font-sans font-black text-lg tracking-tighter text-foreground uppercase">LAVIDZ</span>
           </div>
           <div className="border border-border p-8">
-            <div className="w-10 h-10 border border-emerald-500/40 bg-emerald-500/10 flex items-center justify-center mx-auto mb-4">
+            <div className="w-10 h-10 rounded-xl border border-emerald-500/40 bg-emerald-500/10 flex items-center justify-center mx-auto mb-4">
               <ShieldCheck size={18} className="text-emerald-400" />
             </div>
-            <p className="text-xs font-mono uppercase tracking-widest text-muted-foreground mb-3">Compte créé</p>
+            <p className="text-xs text-muted-foreground mb-3">Compte créé</p>
             <h2 className="font-sans font-extrabold text-xl tracking-tight mb-3">Bienvenue dans l&apos;équipe !</h2>
             <p className="text-xs text-muted-foreground mb-6">Votre compte superadmin a été créé avec succès.</p>
             <Link
               href="/auth/login"
-              className="inline-block text-xs font-mono bg-primary text-white px-6 py-3 hover:bg-primary/90 transition-colors"
+              className="inline-block text-xs bg-primary text-white px-6 py-3 hover:bg-primary/90 transition-colors"
             >
               Se connecter →
             </Link>
@@ -92,7 +92,7 @@ export function RegisterSuperadminForm({ token, email }: Props) {
 
         <div className="flex items-center gap-2 mb-2">
           <ShieldCheck size={14} className="text-primary" />
-          <span className="text-[10px] font-mono uppercase tracking-widest text-primary">Invitation Superadmin</span>
+          <span className="text-xs text-primary">Invitation Superadmin</span>
         </div>
         <h1 className="font-sans font-extrabold text-2xl tracking-tight mb-1">Créer votre compte</h1>
         <p className="text-xs text-muted-foreground mb-8">
@@ -103,7 +103,7 @@ export function RegisterSuperadminForm({ token, email }: Props) {
           <div className="flex flex-col gap-2">
             <Label>Email</Label>
             <Input value={email} disabled className="opacity-60 cursor-not-allowed" />
-            <p className="text-[10px] font-mono text-muted-foreground">L&apos;email est fixé par l&apos;invitation et ne peut pas être modifié.</p>
+            <p className="text-xs text-muted-foreground">L&apos;email est fixé par l&apos;invitation et ne peut pas être modifié.</p>
           </div>
 
           <div className="flex gap-4">
@@ -125,7 +125,7 @@ export function RegisterSuperadminForm({ token, email }: Props) {
               onChange={set('organizationName')}
               placeholder="Ex : Acme Corp"
             />
-            <p className="text-[10px] font-mono text-muted-foreground">
+            <p className="text-xs text-muted-foreground">
               Si renseigné, une organisation sera créée ou retrouvée par ce nom et associée à votre compte.
             </p>
           </div>
@@ -139,7 +139,7 @@ export function RegisterSuperadminForm({ token, email }: Props) {
             <Input id="confirm" type="password" value={form.confirm} onChange={set('confirm')} required />
           </div>
 
-          {error && <p className="text-xs text-destructive font-mono">{error}</p>}
+          {error && <p className="text-xs text-destructive">{error}</p>}
 
           <Button type="submit" disabled={loading}>
             {loading && <Loader2 size={12} className="animate-spin" />}

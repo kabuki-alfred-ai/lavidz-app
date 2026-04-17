@@ -15,9 +15,9 @@ export function LogoutButton() {
   return (
     <button
       onClick={handleLogout}
-      className="flex items-center gap-2 text-[10px] font-mono text-muted-foreground hover:text-foreground transition-colors"
+      className="flex items-center gap-2 text-xs text-muted-foreground hover:text-foreground transition-colors px-2"
     >
-      <LogOut size={11} />
+      <LogOut size={14} />
       Déconnexion
     </button>
   )

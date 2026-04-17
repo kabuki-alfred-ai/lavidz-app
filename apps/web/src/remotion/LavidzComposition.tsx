@@ -7,6 +7,7 @@ import { OutroCard } from './OutroCard'
 import { EndCard } from './EndCard'
 import { ColdOpen } from './ColdOpen'
 import { InlaysManager } from './InlaysManager'
+import { BRollManager } from './BRollManager'
 
 export const END_CARD_FRAMES = 150 // 5 seconds at 30fps
 import type { SubtitleSettings } from './subtitleTypes'
@@ -263,6 +264,12 @@ export function LavidzComposition({
           popVolume={motionSettings.inlays.popVolume}
           duration={motionSettings.inlays.duration}
           style={motionSettings.inlays.style}
+        />
+      )}
+      {motionSettings?.bRolls?.enabled && motionSettings.bRolls.items.length > 0 && (
+        <BRollManager
+          items={motionSettings.bRolls.items}
+          globalFrameOffset={coldOpenDurationFrames + (intro.enabled && intro.hookText ? Math.round(intro.durationSeconds * fps) : 0)}
         />
       )}
       {watermark}

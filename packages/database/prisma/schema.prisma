@@ -41,22 +41,25 @@ model Question {
 }
 
 model Session {
-  id              String              @id @default(cuid())
-  themeId         String
-  theme           Theme               @relation(fields: [themeId], references: [id])
-  status          SessionStatus       @default(PENDING)
-  recipientEmail  String?
-  recipientName   String?
-  version         Int                 @default(1)
-  finalVideoKey   String?
-  montageSettings Json?
-  submittedAt     DateTime?
-  deliveredAt     DateTime?
-  recordings      Recording[]
-  memories        ConversationMemory[]
-  feedback        Feedback?
-  createdAt       DateTime            @default(now())
-  updatedAt       DateTime            @updatedAt
+  id                 String               @id @default(cuid())
+  themeId            String
+  theme              Theme                @relation(fields: [themeId], references: [id])
+  status             SessionStatus        @default(PENDING)
+  contentFormat      ContentFormat?
+  targetPlatforms    String[]             @default([])
+  teleprompterScript String?
+  recipientEmail     String?
+  recipientName      String?
+  version            Int                  @default(1)
+  finalVideoKey      String?
+  montageSettings    Json?
+  submittedAt        DateTime?
+  deliveredAt        DateTime?
+  recordings         Recording[]
+  memories           ConversationMemory[]
+  feedback           Feedback?
+  createdAt          DateTime             @default(now())
+  updatedAt          DateTime             @updatedAt
 }
 
 model Recording {
@@ -91,32 +94,36 @@ enum OrgStatus {
 }
 
 model Organization {
-  id                 String               @id @default(cuid())
-  name               String
-  slug               String               @unique
-  status             OrgStatus            @default(PENDING)
-  users              User[]
-  themes             Theme[]
+  id                  String               @id @default(cuid())
+  name                String
+  slug                String               @unique
+  status              OrgStatus            @default(PENDING)
+  users               User[]
+  themes              Theme[]
   entrepreneurProfile EntrepreneurProfile?
-  orgInvitations     OrgInvitation[]
-  createdAt          DateTime             @default(now())
-  updatedAt          DateTime             @updatedAt
+  orgInvitations      OrgInvitation[]
+  brandKit            BrandKit?
+  brolls              BRoll[]
+  calendarEntries     ContentCalendar[]
+  compositions        Composition[]
+  createdAt           DateTime             @default(now())
+  updatedAt           DateTime             @updatedAt
 }
 
 model User {
-  id                   String            @id @default(cuid())
-  email                String            @unique
-  passwordHash         String
-  firstName            String?
-  lastName             String?
-  role                 UserRole          @default(USER)
-  avatarKey            String?
-  organizationId       String?
-  organization         Organization?     @relation(fields: [organizationId], references: [id])
-  sentInvitations      AdminInvitation[]
-  sentOrgInvitations   OrgInvitation[]
-  createdAt            DateTime          @default(now())
-  updatedAt            DateTime          @updatedAt
+  id                 String            @id @default(cuid())
+  email              String            @unique
+  passwordHash       String
+  firstName          String?
+  lastName           String?
+  role               UserRole          @default(USER)
+  avatarKey          String?
+  organizationId     String?
+  organization       Organization?     @relation(fields: [organizationId], references: [id])
+  sentInvitations    AdminInvitation[]
+  sentOrgInvitations OrgInvitation[]
+  createdAt          DateTime          @default(now())
+  updatedAt          DateTime          @updatedAt
 }
 
 enum SessionStatus {
@@ -184,6 +191,13 @@ model EntrepreneurProfile {
   communicationStyle String?
   linkedinUrl        String?
   linkedinIngestedAt DateTime?
+  websiteUrl         String?
+  websiteIngestedAt  DateTime?
+  editorialPillars   String[]             @default([])
+  editorialTone      String?
+  targetFrequency    Int?
+  targetPlatforms    String[]             @default([])
+  editorialValidated Boolean              @default(false)
   createdAt          DateTime             @default(now())
   updatedAt          DateTime             @updatedAt
   organization       Organization?        @relation(fields: [organizationId], references: [id])
@@ -191,25 +205,25 @@ model EntrepreneurProfile {
 }
 
 model Feedback {
-  id              String   @id @default(cuid())
-  sessionId       String   @unique
-  session         Session  @relation(fields: [sessionId], references: [id], onDelete: Cascade)
-  overallRating   Int      // 1-5 stars
-  questionRating  Int      // 1-5 stars — quality of questions
-  comment         String?
-  createdAt       DateTime @default(now())
+  id             String   @id @default(cuid())
+  sessionId      String   @unique
+  session        Session  @relation(fields: [sessionId], references: [id], onDelete: Cascade)
+  overallRating  Int // 1-5 stars
+  questionRating Int // 1-5 stars — quality of questions
+  comment        String?
+  createdAt      DateTime @default(now())
 }
 
 model ConversationMemory {
-  id        String              @id @default(cuid())
+  id        String                     @id @default(cuid())
   profileId String
   sessionId String?
   content   String
   embedding Unsupported("vector(768)")
-  tags      String[]            @default([])
-  createdAt DateTime            @default(now())
-  profile   EntrepreneurProfile @relation(fields: [profileId], references: [id], onDelete: Cascade)
-  session   Session?            @relation(fields: [sessionId], references: [id], onDelete: SetNull)
+  tags      String[]                   @default([])
+  createdAt DateTime                   @default(now())
+  profile   EntrepreneurProfile        @relation(fields: [profileId], references: [id], onDelete: Cascade)
+  session   Session?                   @relation(fields: [sessionId], references: [id], onDelete: SetNull)
 }
 
 model OrgInvitation {
@@ -227,4 +241,136 @@ model OrgInvitation {
   updatedAt      DateTime         @updatedAt
 
   @@unique([email, organizationId])
+}
+
+model ChatMessage {
+  id             String   @id @default(cuid())
+  organizationId String
+  threadId       String   @default(cuid())
+  role           String // 'user' | 'assistant' | 'system' | 'tool'
+  content        String
+  toolCalls      Json?
+  toolResults    Json?
+  createdAt      DateTime @default(now())
+
+  @@index([organizationId, createdAt])
+  @@index([organizationId, threadId, createdAt])
+}
+
+// ============================================
+// Personal Branding V1 — New Models
+// ============================================
+
+model BrandKit {
+  id             String       @id @default(cuid())
+  organizationId String       @unique
+  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  primaryColor   String       @default("#FF4D1C")
+  secondaryColor String       @default("#1A1A2E")
+  accentColor    String       @default("#E94560")
+  fontTitle      String       @default("Inter")
+  fontBody       String       @default("Inter")
+  logoUrl        String?
+  introVideoUrl  String?
+  outroVideoUrl  String?
+  watermark      Json? // { position, opacity, size }
+  voiceTone      VoiceTone    @default(PROFESSIONAL)
+  createdAt      DateTime     @default(now())
+  updatedAt      DateTime     @updatedAt
+}
+
+enum VoiceTone {
+  PROFESSIONAL
+  CASUAL
+  EXPERT
+  ENERGETIC
+  INSPIRATIONAL
+}
+
+enum BRollSource {
+  USER
+  PEXELS
+  UNSPLASH
+}
+
+model BRoll {
+  id             String       @id @default(cuid())
+  organizationId String
+  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  source         BRollSource
+  url            String
+  thumbnailUrl   String?
+  tags           String[]     @default([])
+  duration       Float? // duration in seconds
+  title          String?
+  createdAt      DateTime     @default(now())
+  updatedAt      DateTime     @updatedAt
+
+  @@index([organizationId])
+  @@index([tags])
+}
+
+enum ContentFormat {
+  QUESTION_BOX
+  TELEPROMPTER
+  HOT_TAKE
+  STORYTELLING
+  DAILY_TIP
+  MYTH_VS_REALITY
+}
+
+enum ContentCalendarStatus {
+  PLANNED
+  RECORDED
+  EDITING
+  DELIVERED
+  PUBLISHED
+  SKIPPED
+}
+
+model ContentCalendar {
+  id             String                @id @default(cuid())
+  organizationId String
+  organization   Organization          @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  scheduledDate  DateTime
+  topic          String
+  description    String?
+  format         ContentFormat
+  platforms      String[]              @default([]) // ["linkedin", "tiktok", "instagram", "youtube"]
+  status         ContentCalendarStatus @default(PLANNED)
+  sessionId      String? // linked to session once recorded
+  aiSuggestions  Json? // { hook, questions, script, angle }
+  createdAt      DateTime              @default(now())
+  updatedAt      DateTime              @updatedAt
+
+  @@index([organizationId])
+  @@index([scheduledDate])
+}
+
+enum CompositionStatus {
+  DRAFT
+  RENDERING
+  DONE
+  FAILED
+}
+
+model Composition {
+  id              String            @id @default(cuid())
+  organizationId  String
+  organization    Organization      @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  sessionId       String?
+  title           String?
+  platform        String? // target platform: linkedin, tiktok, instagram, youtube
+  aspectRatio     String            @default("9:16") // 9:16, 1:1, 16:9, 4:5
+  timeline        Json? // full timeline structure for Remotion
+  brollPlacements Json? // [{ brollId, startTime, duration, position }]
+  brandKitApplied Boolean           @default(true)
+  status          CompositionStatus @default(DRAFT)
+  outputUrl       String? // final rendered video URL/key
+  renderJobId     String? // BullMQ job reference
+  createdAt       DateTime          @default(now())
+  updatedAt       DateTime          @updatedAt
+
+  @@index([organizationId])
+  @@index([sessionId])
 }

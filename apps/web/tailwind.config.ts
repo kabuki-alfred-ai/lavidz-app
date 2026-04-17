@@ -45,7 +45,7 @@ const config: Config = {
         ring: 'hsl(var(--ring))',
       },
       fontFamily: {
-        sans: ['var(--font-syne)', 'sans-serif'],
+        sans: ['var(--font-inter)', 'sans-serif'],
         inter: ['var(--font-inter)', 'sans-serif'],
         mono: ['var(--font-dm-mono)', 'monospace'],
       },
@@ -53,6 +53,8 @@ const config: Config = {
         lg: 'var(--radius)',
         md: 'calc(var(--radius) - 2px)',
         sm: 'calc(var(--radius) - 4px)',
+        xl: 'calc(var(--radius) + 4px)',
+        '2xl': 'calc(var(--radius) + 8px)',
       },
       keyframes: {
         'rec-pulse': {

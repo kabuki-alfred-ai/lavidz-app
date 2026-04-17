@@ -9,6 +9,9 @@ import { JobsModule } from './modules/jobs/jobs.module'
 import { UsersModule } from './modules/users/users.module'
 import { AiModule } from './modules/ai/ai.module'
 import { FeedbacksModule } from './modules/feedbacks/feedbacks.module'
+import { BrandKitModule } from './modules/brand-kit/brand-kit.module'
+import { ContentCalendarModule } from './modules/content-calendar/content-calendar.module'
+import { BRollModule } from './modules/broll/broll.module'
 
 @Module({
   imports: [
@@ -16,7 +19,7 @@ import { FeedbacksModule } from './modules/feedbacks/feedbacks.module'
     BullModule.forRoot({
       connection: {
         url: process.env.REDIS_URL ?? 'redis://localhost:6379',
-        enableOfflineQueue: false,
+        maxRetriesPerRequest: null,
       },
     }),
     ThemesModule,
@@ -27,6 +30,9 @@ import { FeedbacksModule } from './modules/feedbacks/feedbacks.module'
     UsersModule,
     AiModule,
     FeedbacksModule,
+    BrandKitModule,
+    ContentCalendarModule,
+    BRollModule,
   ],
 })
 export class AppModule {}
