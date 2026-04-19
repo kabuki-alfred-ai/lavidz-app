@@ -13,6 +13,14 @@ export interface SubtitleSettings {
   wordEmojis?: { word: string; emoji: string }[]
   /** Use Google Noto Animated Emoji (GIF) instead of static emoji — default true */
   animatedEmojis?: boolean
+  /** Base (non-active) text color override. Falls back to each style's hardcoded default. */
+  fontColor?: string
+  /** Active/highlighted word color override (text or chip background, depending on style). */
+  mainColor?: string
+  /** Secondary accent override (box background, stroke, etc.). */
+  secondColor?: string
+  /** Tertiary accent override (gradient mid-color, shadow variant). */
+  thirdColor?: string
 }
 
 export const DEFAULT_SUBTITLE_SETTINGS: SubtitleSettings = {

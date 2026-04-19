@@ -88,50 +88,78 @@ function SlideBg({ bgColor, accentColor, pattern, frame, fps }: {
   }
 
   if (pattern === 'dots') {
+    const drift = (frame * 0.4) % 48
+    const radius = 2.5 + Math.sin(frame * 0.12) * 1.2
     return (
       <div style={{
         ...base,
         backgroundColor: bgColor,
-        backgroundImage: `radial-gradient(circle, ${accentColor}33 1.5px, transparent 1.5px)`,
+        backgroundImage: `radial-gradient(circle, ${accentColor}b0 ${radius}px, transparent ${radius}px)`,
         backgroundSize: '48px 48px',
+        backgroundPosition: `${drift}px ${drift * 0.55}px`,
       }} />
     )
   }
   if (pattern === 'grid') {
+    // Deterministic shimmer cells using hashed positions
+    const CELLS = 14
     return (
-      <div style={{
-        ...base,
-        backgroundColor: bgColor,
-        backgroundImage: `linear-gradient(${accentColor}22 1px, transparent 1px), linear-gradient(90deg, ${accentColor}22 1px, transparent 1px)`,
-        backgroundSize: '64px 64px',
-      }} />
+      <>
+        <div style={{
+          ...base, backgroundColor: bgColor,
+          backgroundImage: `linear-gradient(${accentColor}55 1.5px, transparent 1.5px), linear-gradient(90deg, ${accentColor}55 1.5px, transparent 1.5px)`,
+          backgroundSize: '64px 64px',
+        }} />
+        {Array.from({ length: CELLS }, (_, i) => {
+          const x = ((i * 157 + 23) % 100)
+          const y = ((i * 83 + 41) % 100)
+          const phase = i * 0.9
+          const op = Math.max(0, Math.sin(frame * 0.14 + phase)) * 0.35
+          return (
+            <div key={i} style={{
+              position: 'absolute', left: `${x}%`, top: `${y}%`,
+              width: 64, height: 64, backgroundColor: accentColor,
+              opacity: op, transform: 'translate(-50%, -50%)',
+            }} />
+          )
+        })}
+      </>
     )
   }
   if (pattern === 'diagonal') {
+    const offset = (frame * 0.7) % 25
     return (
       <div style={{
         ...base,
         backgroundColor: bgColor,
-        backgroundImage: `repeating-linear-gradient(45deg, ${accentColor}18 0, ${accentColor}18 1px, transparent 0, transparent 50%)`,
-        backgroundSize: '32px 32px',
+        backgroundImage: `repeating-linear-gradient(45deg, ${accentColor}55 0, ${accentColor}55 3px, transparent 3px, transparent 22px)`,
+        backgroundPosition: `${offset}px ${offset}px`,
       }} />
     )
   }
   if (pattern === 'radial') {
+    const breath = Math.sin(frame * 0.09)
+    const extent = 60 + breath * 12
+    const alpha = Math.floor(0x44 + breath * 0x1e)
+    const alphaHex = alpha.toString(16).padStart(2, '0')
+    const rot = frame * 0.15
     return (
       <div style={{
         ...base,
-        background: `radial-gradient(ellipse at 50% 50%, ${accentColor}44 0%, ${bgColor} 65%)`,
+        background: `radial-gradient(ellipse ${extent + 10}% ${extent}% at 50% 50%, ${accentColor}${alphaHex} 0%, ${bgColor} ${extent}%)`,
+        transform: `rotate(${rot}deg)`,
       }} />
     )
   }
   if (pattern === 'noise') {
+    // Animated seed makes the grain shimmer frame to frame
+    const seed = Math.floor(frame / 2) % 50
     return (
       <>
         <div style={{ ...base, backgroundColor: bgColor }} />
-        <svg style={{ ...base, opacity: 0.08 }}>
+        <svg style={{ ...base, opacity: 0.14 }}>
           <filter id="noise-intro">
-            <feTurbulence type="fractalNoise" baseFrequency="0.85" numOctaves="4" stitchTiles="stitch" />
+            <feTurbulence type="fractalNoise" baseFrequency="0.85" numOctaves="4" stitchTiles="stitch" seed={seed} />
             <feColorMatrix type="saturate" values="0" />
           </filter>
           <rect width="100%" height="100%" filter="url(#noise-intro)" />
@@ -189,14 +217,25 @@ function SlideBg({ bgColor, accentColor, pattern, frame, fps }: {
     )
   }
   if (pattern === 'scanlines') {
+    const jitter = Math.sin(frame * 0.25) * 2
+    const scrollY = (frame * 0.6) % 4
+    const glitch = Math.abs(Math.sin(frame * 0.05)) > 0.92
     return (
       <>
         <div style={{ ...base, backgroundColor: bgColor }} />
         <div style={{
           ...base,
-          backgroundImage: `repeating-linear-gradient(0deg, transparent 0px, transparent 2px, ${accentColor}0A 2px, ${accentColor}0A 4px)`,
-          backgroundPositionY: `${(frame * 0.4) % 4}px`,
+          backgroundImage: `repeating-linear-gradient(0deg, transparent 0px, transparent 2px, ${accentColor}14 2px, ${accentColor}14 4px)`,
+          backgroundPositionY: `${scrollY}px`,
+          transform: `translateX(${jitter}px)`,
         }} />
+        {glitch && (
+          <div style={{
+            ...base,
+            backgroundImage: `repeating-linear-gradient(0deg, transparent 0px, transparent 6px, ${accentColor}22 6px, ${accentColor}22 10px)`,
+            transform: `translateX(${jitter * 4}px)`, mixBlendMode: 'screen',
+          }} />
+        )}
       </>
     )
   }
@@ -229,12 +268,13 @@ function SlideBg({ bgColor, accentColor, pattern, frame, fps }: {
     )
   }
   if (pattern === 'halftone') {
-    const r = 3 + Math.sin(frame * 0.1) * 1.5
+    const r = 3 + Math.sin(frame * 0.12) * 1.8
     const spacing = 26
+    const waveRadius = 25 + (frame * 1.2) % 80  // expanding ring
     return (
       <>
         <div style={{ ...base, backgroundColor: bgColor }} />
-        <svg style={{ ...base, opacity: 0.22 }}>
+        <svg style={{ ...base, opacity: 0.3 }}>
           <defs>
             <pattern id="ht-intro" x="0" y="0" width={spacing} height={spacing} patternUnits="userSpaceOnUse">
               <circle cx={spacing / 2} cy={spacing / 2} r={r} fill={accentColor} />
@@ -242,6 +282,11 @@ function SlideBg({ bgColor, accentColor, pattern, frame, fps }: {
           </defs>
           <rect width="100%" height="100%" fill="url(#ht-intro)" />
         </svg>
+        {/* Expanding halftone ring brightening mid-distance dots */}
+        <div style={{
+          ...base,
+          background: `radial-gradient(circle at 50% 50%, transparent 0%, transparent ${Math.max(0, waveRadius - 20)}%, ${accentColor}35 ${waveRadius}%, transparent ${waveRadius + 10}%)`,
+        }} />
       </>
     )
   }
@@ -266,6 +311,133 @@ function SlideBg({ bgColor, accentColor, pattern, frame, fps }: {
           ...base,
           background: `linear-gradient(to bottom, ${accentColor}06 0%, transparent 15%, transparent 85%, ${accentColor}06 100%)`,
         }} />
+      </>
+    )
+  }
+  if (pattern === 'plasma') {
+    const t = frame * 0.02
+    const x1 = 50 + Math.sin(t) * 30
+    const y1 = 50 + Math.cos(t * 1.1) * 30
+    const x2 = 50 + Math.cos(t * 0.7) * 35
+    const y2 = 50 + Math.sin(t * 1.3) * 35
+    const x3 = 50 + Math.sin(t * 0.9 + 1.5) * 25
+    const y3 = 50 + Math.cos(t * 0.6 + 2.2) * 25
+    return (
+      <div style={{
+        ...base,
+        background: `
+          radial-gradient(circle at ${x1}% ${y1}%, ${accentColor}66, transparent 35%),
+          radial-gradient(circle at ${x2}% ${y2}%, ${accentColor}55, transparent 40%),
+          radial-gradient(circle at ${x3}% ${y3}%, ${accentColor}44, transparent 45%),
+          ${bgColor}
+        `,
+      }} />
+    )
+  }
+  if (pattern === 'synthwave') {
+    const HORIZON = 55
+    const sunPulse = 1 + Math.sin(frame * 0.1) * 0.06
+    const sunGlowAlpha = Math.floor(0xaa + Math.sin(frame * 0.15) * 0x30).toString(16).padStart(2, '0')
+    // Grid scroll: lines accelerate as they approach the viewer (perspective)
+    const gridPhase = (frame * 0.045) % 1
+    return (
+      <>
+        <div style={{ ...base, background: `linear-gradient(180deg, ${bgColor} 0%, ${bgColor} ${HORIZON - 5}%, ${accentColor}22 ${HORIZON}%, ${bgColor} 100%)` }} />
+        {/* Horizon glow pulse */}
+        <div style={{
+          position: 'absolute', left: 0, right: 0, top: `${HORIZON - 8}%`, height: '16%',
+          background: `radial-gradient(ellipse 70% 100% at 50% 50%, ${accentColor}${Math.floor(0x22 + Math.sin(frame * 0.12) * 0x18).toString(16).padStart(2, '0')} 0%, transparent 70%)`,
+        }} />
+        {/* Sun */}
+        <div style={{
+          position: 'absolute', left: '50%', top: `${HORIZON}%`,
+          transform: `translate(-50%, -50%) scale(${sunPulse})`,
+          width: '40%', aspectRatio: '1', borderRadius: '50%',
+          background: `radial-gradient(circle, ${accentColor}ee 0%, ${accentColor}${sunGlowAlpha} 55%, ${accentColor}33 75%, transparent 80%)`,
+        }} />
+        {/* Sun horizontal cuts (retro sun stripes) */}
+        <svg style={{ position: 'absolute', left: '30%', top: `${HORIZON}%`, width: '40%', aspectRatio: '1', transform: 'translateY(-50%)' }} viewBox="0 0 100 100">
+          {[62, 72, 82, 92].map((y, i) => (
+            <line key={i} x1="5" y1={y} x2="95" y2={y} stroke={bgColor} strokeWidth="3.5" strokeLinecap="round" opacity={1 - i * 0.15} />
+          ))}
+        </svg>
+        {/* Animated perspective grid */}
+        <svg style={{ position: 'absolute', left: 0, top: `${HORIZON}%`, right: 0, bottom: 0, opacity: 0.85 }}
+          viewBox="0 0 100 50" preserveAspectRatio="none">
+          {Array.from({ length: 10 }, (_, i) => {
+            const p = (i + gridPhase) / 9
+            const y = Math.pow(p, 1.8) * 50
+            const op = Math.min(1, p * 1.2)  // fade near horizon
+            return <line key={`h${i}`} x1="0" y1={y} x2="100" y2={y} stroke={accentColor} strokeWidth="0.35" opacity={0.55 * op} />
+          })}
+          {Array.from({ length: 15 }, (_, i) => {
+            const x = (i - 7) * 14
+            return <line key={`v${i}`} x1="50" y1="0" x2={50 + x} y2="50" stroke={accentColor} strokeWidth="0.35" opacity={0.6} />
+          })}
+        </svg>
+      </>
+    )
+  }
+  if (pattern === 'burst') {
+    const NUM_RAYS = 18
+    const rotation = frame * 0.25
+    return (
+      <>
+        <div style={{ ...base, backgroundColor: bgColor }} />
+        <div style={{
+          ...base,
+          background: `repeating-conic-gradient(from ${rotation}deg at 50% 50%, ${accentColor}55 0deg, ${accentColor}55 ${360 / NUM_RAYS / 2}deg, transparent ${360 / NUM_RAYS / 2}deg, transparent ${360 / NUM_RAYS}deg)`,
+        }} />
+        <div style={{
+          ...base,
+          background: `radial-gradient(circle at 50% 50%, transparent 0%, transparent 30%, ${bgColor}cc 70%, ${bgColor} 100%)`,
+        }} />
+      </>
+    )
+  }
+  if (pattern === 'liquid') {
+    return (
+      <>
+        <div style={{ ...base, backgroundColor: bgColor }} />
+        <svg style={{ ...base }} viewBox="0 0 100 100" preserveAspectRatio="none">
+          {Array.from({ length: 4 }, (_, wi) => {
+            const phase = frame * 0.04 + wi * 0.9
+            const yBase = 25 + wi * 22
+            const amp = 5 + wi * 1.5
+            const path = Array.from({ length: 41 }, (_, i) => {
+              const x = i * 2.5
+              const y = yBase + Math.sin(phase + i * 0.25) * amp
+              return `${i === 0 ? 'M' : 'L'} ${x} ${y}`
+            }).join(' ')
+            return (
+              <path key={wi} d={`${path} L 100 100 L 0 100 Z`}
+                fill={accentColor} opacity={0.12 + wi * 0.04} />
+            )
+          })}
+        </svg>
+      </>
+    )
+  }
+  if (pattern === 'eq') {
+    const NUM_BARS = 14
+    return (
+      <>
+        <div style={{ ...base, backgroundColor: bgColor }} />
+        <div style={{
+          position: 'absolute', inset: 0, display: 'flex', alignItems: 'flex-end',
+          justifyContent: 'center', gap: '1.4%', padding: '0 4%',
+        }}>
+          {Array.from({ length: NUM_BARS }, (_, i) => {
+            const h = 15 + Math.abs(Math.sin(frame * 0.18 + i * 0.6)) * 55
+            return (
+              <div key={i} style={{
+                flex: 1, height: `${h}%`,
+                backgroundColor: accentColor, opacity: 0.28,
+                borderRadius: '6px 6px 0 0',
+              }} />
+            )
+          })}
+        </div>
       </>
     )
   }
@@ -547,6 +719,7 @@ export function IntroCard({ intro, theme }: Props) {
 
   const bgColor = intro.bgColor || theme.backgroundColor
   const accentColor = intro.accentColor || theme.textColor
+  const textColor = intro.textColor || accentColor
   const fontFamily = intro.fontFamily || theme.fontFamily
   const fontWeight = intro.fontWeight ?? theme.fontWeight
   const pattern: SlideBgPattern = intro.bgPattern || 'solid'
@@ -587,7 +760,7 @@ export function IntroCard({ intro, theme }: Props) {
         {intro.hookText && (
           <AnimatedText
             text={intro.hookText} animation={animation} frame={frame} fps={fps}
-            textColor={accentColor} fontFamily={fontFamily}
+            textColor={textColor} fontFamily={fontFamily}
             fontWeight={fontWeight} fontSize={textSize}
           />
         )}

@@ -227,17 +227,25 @@ function EmojiPop({
 
 // ─── Style renderers ──────────────────────────────────────────────────────────
 
+interface StyleRendererProps {
+  words: string[]
+  activeIndex: number
+  size: number
+  wordPopScale: number
+  fontColor?: string
+  mainColor?: string
+  secondColor?: string
+  thirdColor?: string
+}
+
 function HormoziSubtitle({
   words,
   activeIndex,
   size,
   wordPopScale,
-}: {
-  words: string[]
-  activeIndex: number
-  size: number
-  wordPopScale: number
-}) {
+  fontColor = '#FFFFFF',
+  mainColor = '#FFE600',
+}: StyleRendererProps) {
   return (
     <div
       style={{
@@ -257,7 +265,7 @@ function HormoziSubtitle({
             fontWeight: 900,
             textTransform: 'uppercase',
             letterSpacing: 2,
-            color: i === activeIndex ? '#FFE600' : '#FFFFFF',
+            color: i === activeIndex ? mainColor : fontColor,
             textShadow: [
               `-3px -3px 0 #000`,
               ` 3px -3px 0 #000`,
@@ -283,16 +291,14 @@ function MinimalSubtitle({
   activeIndex,
   size,
   wordPopScale,
-}: {
-  words: string[]
-  activeIndex: number
-  size: number
-  wordPopScale: number
-}) {
+  fontColor = 'rgba(255,255,255,0.9)',
+  mainColor = '#FF4D1C',
+  secondColor = 'rgba(0,0,0,0.55)',
+}: StyleRendererProps) {
   return (
     <div
       style={{
-        background: 'rgba(0,0,0,0.55)',
+        background: secondColor,
         backdropFilter: 'blur(8px)',
         borderRadius: 8,
         padding: `${size * 0.25}px ${size * 0.6}px`,
@@ -310,7 +316,7 @@ function MinimalSubtitle({
             fontFamily: 'system-ui, sans-serif',
             fontSize: size,
             fontWeight: 600,
-            color: i === activeIndex ? '#FF4D1C' : 'rgba(255,255,255,0.9)',
+            color: i === activeIndex ? mainColor : fontColor,
             lineHeight: 1.3,
             display: 'inline-block',
             transform: i === activeIndex ? `scale(${wordPopScale})` : 'scale(1)',
@@ -329,12 +335,9 @@ function ClassicSubtitle({
   activeIndex,
   size,
   wordPopScale,
-}: {
-  words: string[]
-  activeIndex: number
-  size: number
-  wordPopScale: number
-}) {
+  fontColor = '#FFFFFF',
+  mainColor = '#FFFFFF',
+}: StyleRendererProps) {
   return (
     <div
       style={{
@@ -352,10 +355,10 @@ function ClassicSubtitle({
             fontFamily: 'Arial, sans-serif',
             fontSize: size,
             fontWeight: i === activeIndex ? 700 : 400,
-            color: '#FFFFFF',
+            color: fontColor,
             textShadow: '2px 2px 4px #000, -2px 2px 4px #000, 2px -2px 4px #000, -2px -2px 4px #000',
             lineHeight: 1.3,
-            borderBottom: i === activeIndex ? `3px solid #FFFFFF` : '3px solid transparent',
+            borderBottom: i === activeIndex ? `3px solid ${mainColor}` : '3px solid transparent',
             display: 'inline-block',
             transform: i === activeIndex ? `scale(${wordPopScale})` : 'scale(1)',
             transformOrigin: 'center bottom',
@@ -373,12 +376,10 @@ function NeonSubtitle({
   activeIndex,
   size,
   wordPopScale,
-}: {
-  words: string[]
-  activeIndex: number
-  size: number
-  wordPopScale: number
-}) {
+  fontColor = '#FFFFFF',
+  mainColor = '#00F5FF',
+  secondColor = '#00A8FF',
+}: StyleRendererProps) {
   return (
     <div
       style={{
@@ -396,9 +397,9 @@ function NeonSubtitle({
             fontFamily: '"Arial Black", sans-serif',
             fontSize: size,
             fontWeight: 900,
-            color: i === activeIndex ? '#00F5FF' : '#FFFFFF',
+            color: i === activeIndex ? mainColor : fontColor,
             textShadow: i === activeIndex
-              ? '0 0 10px #00F5FF, 0 0 30px #00F5FF, 0 0 60px #00A8FF'
+              ? `0 0 10px ${mainColor}, 0 0 30px ${mainColor}, 0 0 60px ${secondColor}`
               : '0 0 8px rgba(255,255,255,0.3)',
             lineHeight: 1.3,
             display: 'inline-block',
@@ -414,14 +415,14 @@ function NeonSubtitle({
 }
 
 // ─── Karaoke ─────────────────────────────────────────────────────────────────
-function KaraokeSubtitle({ words, activeIndex, size, wordPopScale }: { words: string[]; activeIndex: number; size: number; wordPopScale: number }) {
+function KaraokeSubtitle({ words, activeIndex, size, wordPopScale, fontColor = 'rgba(255,255,255,0.5)', mainColor = '#FFE600', secondColor = '#000' }: StyleRendererProps) {
   return (
     <div style={{ display: 'flex', flexWrap: 'wrap', justifyContent: 'center', gap: size * 0.15, maxWidth: '85%' }}>
       {words.map((word, i) => (
         <span key={i} style={{
           fontFamily: "'Oswald', Impact, sans-serif", fontSize: size, fontWeight: 700,
-          color: i === activeIndex ? '#000' : 'rgba(255,255,255,0.5)',
-          background: i === activeIndex ? '#FFE600' : 'transparent',
+          color: i === activeIndex ? secondColor : fontColor,
+          background: i === activeIndex ? mainColor : 'transparent',
           padding: i === activeIndex ? `${size * 0.05}px ${size * 0.18}px` : '0',
           borderRadius: size * 0.12, lineHeight: 1.2, display: 'inline-block',
           transform: i === activeIndex ? `scale(${wordPopScale})` : 'scale(1)',
@@ -433,15 +434,15 @@ function KaraokeSubtitle({ words, activeIndex, size, wordPopScale }: { words: st
 }
 
 // ─── Boxed ────────────────────────────────────────────────────────────────────
-function BoxedSubtitle({ words, activeIndex, size, wordPopScale }: { words: string[]; activeIndex: number; size: number; wordPopScale: number }) {
+function BoxedSubtitle({ words, activeIndex, size, wordPopScale, fontColor = 'rgba(255,255,255,0.8)', mainColor = '#FF4D1C', secondColor = 'rgba(0,0,0,0.6)' }: StyleRendererProps) {
   return (
     <div style={{ display: 'flex', flexWrap: 'wrap', justifyContent: 'center', gap: size * 0.18, maxWidth: '85%' }}>
       {words.map((word, i) => (
         <span key={i} style={{
           fontFamily: "'Space Grotesk', system-ui, sans-serif", fontSize: size, fontWeight: 700,
-          color: i === activeIndex ? '#fff' : 'rgba(255,255,255,0.8)',
-          background: i === activeIndex ? '#FF4D1C' : 'rgba(0,0,0,0.6)',
-          border: `2px solid ${i === activeIndex ? '#FF4D1C' : 'rgba(255,255,255,0.2)'}`,
+          color: i === activeIndex ? '#fff' : fontColor,
+          background: i === activeIndex ? mainColor : secondColor,
+          border: `2px solid ${i === activeIndex ? mainColor : 'rgba(255,255,255,0.2)'}`,
           padding: `${size * 0.08}px ${size * 0.22}px`, borderRadius: size * 0.15,
           lineHeight: 1.25, display: 'inline-block',
           transform: i === activeIndex ? `scale(${wordPopScale})` : 'scale(1)',
@@ -453,14 +454,14 @@ function BoxedSubtitle({ words, activeIndex, size, wordPopScale }: { words: stri
 }
 
 // ─── Outline ─────────────────────────────────────────────────────────────────
-function OutlineSubtitle({ words, activeIndex, size, wordPopScale }: { words: string[]; activeIndex: number; size: number; wordPopScale: number }) {
+function OutlineSubtitle({ words, activeIndex, size, wordPopScale, fontColor = '#FFFFFF', mainColor = '#FFE600' }: StyleRendererProps) {
   return (
     <div style={{ display: 'flex', flexWrap: 'wrap', justifyContent: 'center', gap: size * 0.2, maxWidth: '85%' }}>
       {words.map((word, i) => (
         <span key={i} style={{
           fontFamily: "'Anton', Impact, sans-serif", fontSize: size, fontWeight: 400,
-          color: i === activeIndex ? '#FFE600' : 'transparent',
-          WebkitTextStroke: `${Math.max(2, size * 0.03)}px ${i === activeIndex ? '#FFE600' : '#FFFFFF'}`,
+          color: i === activeIndex ? mainColor : 'transparent',
+          WebkitTextStroke: `${Math.max(2, size * 0.03)}px ${i === activeIndex ? mainColor : fontColor}`,
           letterSpacing: 2, lineHeight: 1.15, display: 'inline-block',
           transform: i === activeIndex ? `scale(${wordPopScale})` : 'scale(1)',
           transformOrigin: 'center bottom',
@@ -471,18 +472,18 @@ function OutlineSubtitle({ words, activeIndex, size, wordPopScale }: { words: st
 }
 
 // ─── Tape ─────────────────────────────────────────────────────────────────────
-function TapeSubtitle({ words, activeIndex, size, wordPopScale }: { words: string[]; activeIndex: number; size: number; wordPopScale: number }) {
+function TapeSubtitle({ words, activeIndex, size, wordPopScale, fontColor = 'rgba(255,255,255,0.85)', mainColor = '#FFE600', secondColor = '#000' }: StyleRendererProps) {
   return (
-    <div style={{ background: '#000', padding: `${size * 0.2}px ${size * 0.5}px`, display: 'flex', flexWrap: 'wrap', justifyContent: 'center', gap: size * 0.22, maxWidth: '100%', width: '100%' }}>
+    <div style={{ background: secondColor, padding: `${size * 0.2}px ${size * 0.5}px`, display: 'flex', flexWrap: 'wrap', justifyContent: 'center', gap: size * 0.22, maxWidth: '100%', width: '100%' }}>
       {words.map((word, i) => (
         <span key={i} style={{
           fontFamily: "'DM Sans', system-ui, sans-serif", fontSize: size, fontWeight: 700,
-          color: i === activeIndex ? '#FFE600' : 'rgba(255,255,255,0.85)',
+          color: i === activeIndex ? mainColor : fontColor,
           lineHeight: 1.25, display: 'inline-block',
           transform: i === activeIndex ? `scale(${wordPopScale})` : 'scale(1)',
           transformOrigin: 'center bottom',
           textDecoration: i === activeIndex ? 'underline' : 'none',
-          textDecorationColor: '#FFE600',
+          textDecorationColor: mainColor,
           textUnderlineOffset: '4px',
         }}>{word}</span>
       ))}
@@ -491,15 +492,15 @@ function TapeSubtitle({ words, activeIndex, size, wordPopScale }: { words: strin
 }
 
 // ─── Glitch ───────────────────────────────────────────────────────────────────
-function GlitchSubtitle({ words, activeIndex, size, wordPopScale }: { words: string[]; activeIndex: number; size: number; wordPopScale: number }) {
+function GlitchSubtitle({ words, activeIndex, size, wordPopScale, fontColor = 'rgba(255,255,255,0.7)', mainColor = '#FFFFFF', secondColor = '#FF0000', thirdColor = '#00FFFF' }: StyleRendererProps) {
   return (
     <div style={{ display: 'flex', flexWrap: 'wrap', justifyContent: 'center', gap: size * 0.22, maxWidth: '85%' }}>
       {words.map((word, i) => (
         <span key={i} style={{
           fontFamily: "'Teko', Impact, sans-serif", fontSize: size, fontWeight: 700,
-          color: i === activeIndex ? '#FFFFFF' : 'rgba(255,255,255,0.7)',
+          color: i === activeIndex ? mainColor : fontColor,
           textShadow: i === activeIndex
-            ? `3px 0 #FF0000, -3px 0 #00FFFF, 0 0 12px rgba(255,255,255,0.6)`
+            ? `3px 0 ${secondColor}, -3px 0 ${thirdColor}, 0 0 12px rgba(255,255,255,0.6)`
             : '2px 2px 6px rgba(0,0,0,0.8)',
           letterSpacing: i === activeIndex ? 3 : 1, lineHeight: 1.2, display: 'inline-block',
           transform: i === activeIndex ? `scale(${wordPopScale})` : 'scale(1)',
@@ -511,15 +512,15 @@ function GlitchSubtitle({ words, activeIndex, size, wordPopScale }: { words: str
 }
 
 // ─── Fire ─────────────────────────────────────────────────────────────────────
-function FireSubtitle({ words, activeIndex, size, wordPopScale }: { words: string[]; activeIndex: number; size: number; wordPopScale: number }) {
+function FireSubtitle({ words, activeIndex, size, wordPopScale, fontColor = '#FFFFFF', mainColor = '#FF6B00', secondColor = '#FF3500', thirdColor = '#FFF7ED' }: StyleRendererProps) {
   return (
     <div style={{ display: 'flex', flexWrap: 'wrap', justifyContent: 'center', gap: size * 0.22, maxWidth: '85%' }}>
       {words.map((word, i) => (
         <span key={i} style={{
           fontFamily: "'Barlow Condensed', Arial, sans-serif", fontSize: size, fontWeight: 900,
-          color: i === activeIndex ? '#FFF7ED' : '#FFFFFF',
+          color: i === activeIndex ? thirdColor : fontColor,
           textShadow: i === activeIndex
-            ? `0 0 8px #FF6B00, 0 0 18px #FF3500, 0 0 36px #FF1500, 0 0 60px #CC0000`
+            ? `0 0 8px ${mainColor}, 0 0 18px ${secondColor}, 0 0 36px #FF1500, 0 0 60px #CC0000`
             : '2px 2px 6px rgba(0,0,0,0.7)',
           letterSpacing: 1, lineHeight: 1.2, display: 'inline-block',
           transform: i === activeIndex ? `scale(${wordPopScale})` : 'scale(1)',
@@ -612,8 +613,11 @@ export function RecordingClip({
 
   // ─── Ken Burns ──────────────────────────────────────────────────────────────
   const kenBurnsScale = motionSettings?.kenBurns
-    ? interpolate(frame, [0, durationInFrames], [1.0, 1.04], { extrapolateRight: 'clamp' })
+    ? interpolate(frame, [0, durationInFrames], [1.0, 1.12], { extrapolateRight: 'clamp' })
     : 1.0
+  const kenBurnsTranslateY = motionSettings?.kenBurns
+    ? interpolate(frame, [0, durationInFrames], [0, -24], { extrapolateRight: 'clamp' })
+    : 0
 
   // ─── Subtitles timestamps (needed by Dynamic Zoom below) ────────────────────
   // Memoized: recomputed only when wordTimestamps or offsetMs changes, not every frame
@@ -769,9 +773,10 @@ export function RecordingClip({
 
   const finalVideoScale = entryScale * spinEntryScale * kenBurnsScale * dynamicZoomScale
   const combinedTranslateX = entryTranslateX + glitchX + shakeX
+  const combinedTranslateY = entryTranslateY + kenBurnsTranslateY
   const videoTransform = [
     `scale(${finalVideoScale})`,
-    `translateY(${entryTranslateY}px)`,
+    `translateY(${combinedTranslateY}px)`,
     combinedTranslateX !== 0 ? `translateX(${combinedTranslateX}px)` : '',
     entryRotate !== 0 ? `rotate(${entryRotate}deg)` : '',
   ].filter(Boolean).join(' ')
@@ -862,7 +867,16 @@ export function RecordingClip({
           zIndex: 12,
         }}
       >
-        <StyleComponent words={words} activeIndex={activeIndex} size={size} wordPopScale={wordPopScale} />
+        <StyleComponent
+          words={words}
+          activeIndex={activeIndex}
+          size={size}
+          wordPopScale={wordPopScale}
+          fontColor={settings.fontColor}
+          mainColor={settings.mainColor}
+          secondColor={settings.secondColor}
+          thirdColor={settings.thirdColor}
+        />
       </div>
     </>
   )

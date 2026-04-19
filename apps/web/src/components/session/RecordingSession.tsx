@@ -32,9 +32,10 @@ interface Props {
   mode?: 'default' | 'shared'
   contentFormat?: ContentFormat | null
   teleprompterScript?: string | null
+  topicId?: string
 }
 
-export function RecordingSession({ theme, initialSessionId, mode = 'default', contentFormat, teleprompterScript }: Props) {
+export function RecordingSession({ theme, initialSessionId, mode = 'default', contentFormat, teleprompterScript, topicId }: Props) {
   const router = useRouter()
   const [phase, setPhase] = useState<Phase>('intro')
   const [questionIndex, setQuestionIndex] = useState(0)
@@ -1273,13 +1274,24 @@ export function RecordingSession({ theme, initialSessionId, mode = 'default', co
             <span className="text-white/40 text-sm font-mono">Envoi en cours…</span>
           </div>
         ) : (
-          <button
-            onClick={() => router.push(`/session/${theme.slug}/result?session=${sessionId}`)}
-            className="px-8 py-3 rounded-xl font-semibold text-sm transition-all active:scale-95"
-            style={{ background: 'rgba(255,255,255,0.08)', color: 'rgba(255,255,255,0.8)' }}
-          >
-            Voir les résultats
-          </button>
+          <div className="flex flex-col items-center gap-3">
+            {topicId && (
+              <button
+                onClick={() => router.push(`/topics/${topicId}`)}
+                className="px-8 py-3 rounded-xl font-semibold text-sm transition-all active:scale-95"
+                style={{ background: accent, color: '#fff' }}
+              >
+                Retour au sujet
+              </button>
+            )}
+            <button
+              onClick={() => router.push(`/session/${theme.slug}/result?session=${sessionId}`)}
+              className="px-8 py-3 rounded-xl font-semibold text-sm transition-all active:scale-95"
+              style={{ background: 'rgba(255,255,255,0.08)', color: 'rgba(255,255,255,0.8)' }}
+            >
+              Voir les résultats
+            </button>
+          </div>
         )}
       </div>
     )

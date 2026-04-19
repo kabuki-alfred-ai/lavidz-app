@@ -21,7 +21,7 @@ export async function POST(req: Request) {
       : user.organizationId
     if (!orgId) return new Response('No organization', { status: 400 })
 
-    const { messages, threadId } = await req.json()
+    const { messages, threadId, topicId } = await req.json()
     const activeThreadId = threadId || messages[0]?.id || crypto.randomUUID()
 
     // Save the latest user message to DB
@@ -49,6 +49,17 @@ export async function POST(req: Request) {
         take: 10,
       })
     } catch { /* table might not exist yet */ }
+
+    // Load topic context if topicId provided
+    let currentTopic: { id: string; name: string; brief: string | null; status: string; pillar: string | null; threadId: string } | null = null
+    if (topicId) {
+      try {
+        currentTopic = await prisma.topic.findFirst({
+          where: { id: topicId, organizationId: orgId },
+          select: { id: true, name: true, brief: true, status: true, pillar: true, threadId: true },
+        })
+      } catch { /* */ }
+    }
 
     // RAG: search relevant memories based on last user message
     let ragMemories: string[] = []
@@ -135,6 +146,24 @@ REGLES :
       systemParts.push(lines.join('\n'))
     }
 
+    // Topic context
+    if (currentTopic) {
+      const topicLines = [`\nTU TRAVAILLES SUR LE SUJET : "${currentTopic.name}" (statut: ${currentTopic.status})`]
+      if (currentTopic.brief) topicLines.push(`Brief actuel : ${currentTopic.brief}`)
+      if (currentTopic.pillar) topicLines.push(`Pilier editorial : ${currentTopic.pillar}`)
+      topicLines.push(`Concentre-toi sur ce sujet. Quand la conversation apporte un element important (nouvel angle, point cle, decision), appelle update_topic_brief pour enrichir le brief.`)
+      if (currentTopic.status === 'DRAFT') {
+        topicLines.push(`Ce sujet est en brouillon. Quand tu estimes que le brief est solide (angle clair, points cles definis, pret a etre enregistre), propose a l'entrepreneur : "Ce sujet est bien cadre, tu veux que je le marque comme pret ?" S'il accepte, appelle mark_topic_ready.`)
+      }
+      systemParts.push(topicLines.join('\n'))
+    }
+
+    // Topic creation instructions (for free chat only)
+    if (!currentTopic) {
+      systemParts.push(`\nCREATION DE SUJETS :
+Quand un sujet interessant emerge dans la conversation et que l'entrepreneur semble vouloir en faire un contenu video, propose-lui de creer un Topic en disant quelque chose comme "Tu veux que j'en fasse un sujet de contenu ?". S'il accepte, appelle create_topic avec un nom et un brief resume. Ne force jamais la creation, c'est une proposition naturelle.`)
+    }
+
     // Recording instructions
     systemParts.push(`\nENREGISTREMENT VIDEO :
 Quand l'utilisateur veut enregistrer une video :
@@ -179,7 +208,7 @@ Tu as acces a un outil de recherche web (webSearch). Utilise-le quand c'est pert
       model: google('gemini-3.1-flash-lite-preview'),
       system: systemParts.join('\n'),
       messages: modelMessages,
-      stopWhen: tavilyKey ? stepCountIs(3) : stepCountIs(1),
+      stopWhen: stepCountIs(3),
       onFinish: async ({ text, toolCalls }) => {
         // Save assistant response to DB
         if (text) {
@@ -230,6 +259,71 @@ Tu as acces a un outil de recherche web (webSearch). Utilise-le quand c'est pert
               }
             },
           }),
+        } : {}),
+        create_topic: tool({
+          description: "Cree un nouveau sujet (Topic) a partir de la conversation. Appeler quand un sujet interessant emerge et que l'utilisateur veut en faire un contenu. Genere un brief resume a partir de la discussion.",
+          inputSchema: z.object({
+            name: z.string().describe("Nom court du sujet"),
+            brief: z.string().describe("Resume de 2-3 phrases : angle retenu, points cles, pourquoi c'est pertinent pour l'entrepreneur"),
+            pillar: z.string().optional().describe("Pilier editorial associe si pertinent"),
+          }),
+          execute: async ({ name, brief, pillar }: { name: string; brief: string; pillar?: string }) => {
+            try {
+              const API = process.env.API_URL ?? 'http://localhost:3001'
+              const res = await fetch(`${API}/api/ai/topics`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json', 'x-admin-secret': process.env.ADMIN_SECRET ?? '', 'x-organization-id': orgId },
+                body: JSON.stringify({ name, brief, pillar, sourceThreadId: activeThreadId }),
+              })
+              if (!res.ok) return { success: false, error: await res.text() }
+              const topic = await res.json()
+              return { success: true, topicId: topic.id, name: topic.name, topicUrl: `/topics/${topic.id}` }
+            } catch (err: any) {
+              return { success: false, error: err.message ?? 'Erreur lors de la creation du sujet' }
+            }
+          },
+        }),
+        ...(currentTopic ? {
+          update_topic_brief: tool({
+            description: "Met a jour le brief du Topic en cours quand un element important ressort de la conversation (nouvel angle, decision, point cle). N'appelle que quand c'est vraiment pertinent.",
+            inputSchema: z.object({
+              brief: z.string().describe("Le brief mis a jour, integrant les nouveaux elements de la conversation"),
+            }),
+            execute: async ({ brief }: { brief: string }) => {
+              try {
+                const API = process.env.API_URL ?? 'http://localhost:3001'
+                const res = await fetch(`${API}/api/ai/topics/${currentTopic!.id}`, {
+                  method: 'PUT',
+                  headers: { 'Content-Type': 'application/json', 'x-admin-secret': process.env.ADMIN_SECRET ?? '', 'x-organization-id': orgId },
+                  body: JSON.stringify({ brief }),
+                })
+                if (!res.ok) return { success: false, error: await res.text() }
+                return { success: true, updated: true }
+              } catch (err: any) {
+                return { success: false, error: err.message }
+              }
+            },
+          }),
+          ...(currentTopic.status === 'DRAFT' ? {
+            mark_topic_ready: tool({
+              description: "Marque le sujet comme pret a etre enregistre. Appeler quand l'entrepreneur confirme que le sujet est suffisamment travaille.",
+              inputSchema: z.object({}),
+              execute: async () => {
+                try {
+                  const API = process.env.API_URL ?? 'http://localhost:3001'
+                  const res = await fetch(`${API}/api/ai/topics/${currentTopic!.id}`, {
+                    method: 'PUT',
+                    headers: { 'Content-Type': 'application/json', 'x-admin-secret': process.env.ADMIN_SECRET ?? '', 'x-organization-id': orgId },
+                    body: JSON.stringify({ status: 'READY' }),
+                  })
+                  if (!res.ok) return { success: false, error: await res.text() }
+                  return { success: true, status: 'READY' }
+                } catch (err: any) {
+                  return { success: false, error: err.message }
+                }
+              },
+            }),
+          } : {}),
         } : {}),
         update_profile: {
           description: "Met a jour le profil business de l'utilisateur",
@@ -361,13 +455,14 @@ Pour les formats HOT_TAKE, DAILY_TIP : passe 1-3 points de guidage comme questio
                 },
               })
 
-              // Create session with format and script
+              // Create session with format and script, linked to topic if available
               const session = await prisma.session.create({
                 data: {
                   themeId: theme.id,
                   contentFormat: format as any,
                   targetPlatforms: [platform],
                   teleprompterScript: format === 'TELEPROMPTER' ? (teleprompterScript ?? null) : null,
+                  topicId: currentTopic?.id ?? null,
                 },
               })
 

@@ -18,6 +18,9 @@ export class ContentCalendarService {
     return prisma.contentCalendar.findMany({
       where,
       orderBy: { scheduledDate: 'asc' },
+      include: {
+        topicEntity: { select: { id: true, status: true } },
+      },
     })
   }
 

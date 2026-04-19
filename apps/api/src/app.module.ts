@@ -12,6 +12,7 @@ import { FeedbacksModule } from './modules/feedbacks/feedbacks.module'
 import { BrandKitModule } from './modules/brand-kit/brand-kit.module'
 import { ContentCalendarModule } from './modules/content-calendar/content-calendar.module'
 import { BRollModule } from './modules/broll/broll.module'
+import { ProjectsModule } from './modules/projects/projects.module'
 
 @Module({
   imports: [
@@ -33,6 +34,7 @@ import { BRollModule } from './modules/broll/broll.module'
     BrandKitModule,
     ContentCalendarModule,
     BRollModule,
+    ProjectsModule,
   ],
 })
 export class AppModule {}

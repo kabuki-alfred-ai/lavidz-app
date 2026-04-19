@@ -63,6 +63,24 @@ export class SessionsService {
           profileId: profile.id,
         })
       }
+
+      // Auto-create a Project from this session's recordings
+      const recordings = session.recordings ?? []
+      if (recordings.length > 0) {
+        await prisma.project.create({
+          data: {
+            title: session.theme?.name ?? 'Sans titre',
+            organizationId,
+            sessionId,
+            clips: {
+              create: recordings.map((rec: any, index: number) => ({
+                recordingId: rec.id,
+                order: index,
+              })),
+            },
+          },
+        })
+      }
     }
 
     return updated
@@ -304,6 +322,7 @@ export class SessionsService {
       data: { rawVideoKey },
     })
   }
+
 
   async getRecordingUrl(recordingId: string): Promise<string> {
     const recording = await prisma.recording.findUnique({ where: { id: recordingId } })

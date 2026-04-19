@@ -35,7 +35,7 @@ const TEXT_ANIMATIONS = [
   { value: 'stamp', label: 'Stamp' }, { value: 'wave', label: 'Wave' }, { value: 'cascade', label: 'Cascade' }, { value: 'split-reveal', label: 'Split' },
 ] as { value: string; label: string }[]
 
-interface SoundLibraryItem { id: string; name: string; tag: string; signedUrl: string }
+export interface SoundLibraryItem { id: string; name: string; tag: string; signedUrl: string }
 
 interface BookendsModuleProps {
   bookendTarget: 'intro' | 'outro'
@@ -55,7 +55,7 @@ interface BookendsModuleProps {
   soundPreviewAudioRef: React.MutableRefObject<HTMLAudioElement | null>
 }
 
-function SlideEditor({ target, data, setData, theme, audioSettings, setAudioSettings, hoveredPreset, setHoveredPreset, soundLibrary, soundPreviewAudioRef }: {
+export function SlideEditor({ target, data, setData, theme, audioSettings, setAudioSettings, hoveredPreset, setHoveredPreset, soundLibrary, soundPreviewAudioRef }: {
   target: 'intro' | 'outro'
   data: IntroSettings | OutroSettings
   setData: React.Dispatch<React.SetStateAction<any>>

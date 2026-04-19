@@ -90,7 +90,7 @@ export function LavidzComposition({
   }
 
   // Intro slide
-  if (intro.enabled && intro.hookText) {
+  if (intro.enabled && (intro.hookText || intro.logoUrl)) {
     const introDurationFrames = Math.round(intro.durationSeconds * fps)
     const introSfx = audioSettings?.introSfx
     sequences.push(
@@ -113,11 +113,13 @@ export function LavidzComposition({
       ? cardColors[i % cardColors.length]
       : undefined
 
-    sequences.push(
-      <Sequence key={`q-${seg.id}`} from={questionFrom} durationInFrames={qFrames}>
-        <QuestionCard question={seg.questionText} ttsUrl={seg.ttsUrl} theme={theme} backgroundColor={cardBg} ttsVolume={audioSettings?.ttsVolume} sfxUrl={audioSettings?.transitionSfx?.url} sfxVolume={audioSettings?.transitionSfx?.volume} questionCardStyle={motionSettings?.questionCardStyle} transitionStyle={motionSettings?.questionCardTransition} bgPattern={motionSettings?.questionCardBgPattern} colors={motionSettings?.questionCardColors} />
-      </Sequence>,
-    )
+    if (qFrames > 0) {
+      sequences.push(
+        <Sequence key={`q-${seg.id}`} from={questionFrom} durationInFrames={qFrames}>
+          <QuestionCard question={seg.questionText} ttsUrl={seg.ttsUrl} theme={theme} backgroundColor={cardBg} ttsVolume={audioSettings?.ttsVolume} sfxUrl={audioSettings?.transitionSfx?.url} sfxVolume={audioSettings?.transitionSfx?.volume} questionCardStyle={motionSettings?.questionCardStyle} transitionStyle={motionSettings?.questionCardTransition} bgPattern={motionSettings?.questionCardBgPattern} colors={motionSettings?.questionCardColors} />
+        </Sequence>,
+      )
+    }
 
     if (seg.visibleRanges && seg.visibleRanges.length > 0) {
       // Non-destructive cuts: render one sub-sequence per visible range.
@@ -259,7 +261,7 @@ export function LavidzComposition({
       {motionSettings?.inlays?.enabled && motionSettings.inlays.inlays.length > 0 && (
         <InlaysManager
           inlays={motionSettings.inlays.inlays}
-          globalFrameOffset={coldOpenDurationFrames + (intro.enabled && intro.hookText ? Math.round(intro.durationSeconds * fps) : 0)}
+          globalFrameOffset={coldOpenDurationFrames + (intro.enabled && (intro.hookText || intro.logoUrl) ? Math.round(intro.durationSeconds * fps) : 0)}
           popSoundEnabled={motionSettings.inlays.popSoundEnabled}
           popVolume={motionSettings.inlays.popVolume}
           duration={motionSettings.inlays.duration}
@@ -269,7 +271,7 @@ export function LavidzComposition({
       {motionSettings?.bRolls?.enabled && motionSettings.bRolls.items.length > 0 && (
         <BRollManager
           items={motionSettings.bRolls.items}
-          globalFrameOffset={coldOpenDurationFrames + (intro.enabled && intro.hookText ? Math.round(intro.durationSeconds * fps) : 0)}
+          globalFrameOffset={coldOpenDurationFrames + (intro.enabled && (intro.hookText || intro.logoUrl) ? Math.round(intro.durationSeconds * fps) : 0)}
         />
       )}
       {watermark}

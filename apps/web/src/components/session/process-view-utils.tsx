@@ -415,6 +415,8 @@ export interface RawRecording {
   ttsVoiceId: string | null
   processedVideoKey: string | null
   processingHash: string | null
+  /** Per-segment question card duration override (frames). Used in project mode. */
+  _questionDurationFrames?: number
 }
 
 export interface Voice {

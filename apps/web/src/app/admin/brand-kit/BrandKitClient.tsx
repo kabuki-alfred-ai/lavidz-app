@@ -93,13 +93,20 @@ export function BrandKitClient() {
     setSaving(true)
     setFeedback(null)
     try {
+      // Strip empty strings — backend DTO uses @IsUrl() which rejects ''
+      const payload = Object.fromEntries(
+        Object.entries(brandKit).filter(([, v]) => v !== '' && v !== null && v !== undefined),
+      )
       const res = await fetch('/api/admin/brand-kit', {
         method: 'PUT',
         credentials: 'include',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(brandKit),
+        body: JSON.stringify(payload),
       })
-      if (!res.ok) throw new Error('Erreur lors de la sauvegarde')
+      if (!res.ok) {
+        const txt = await res.text().catch(() => '')
+        throw new Error(txt || `Erreur ${res.status}`)
+      }
       const data = await res.json()
       setBrandKit({ ...DEFAULT_BRAND_KIT, ...data })
       setFeedback({ type: 'success', message: 'Brand Kit sauvegardé avec succès' })

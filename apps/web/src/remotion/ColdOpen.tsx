@@ -219,7 +219,9 @@ export function ColdOpen({
   const finalScale = zoomScale * slowZoom
 
   const fadeIn = interpolate(frame, [0, 5], [0, 1], { extrapolateRight: 'clamp' })
-  const fadeOut = interpolate(frame, [durationInFrames - 8, durationInFrames], [1, 0], { extrapolateLeft: 'clamp', extrapolateRight: 'clamp' })
+  // Short fade-out (3 frames ≈ 0.1s) so the trailing padding stays visible and the
+  // hook doesn't feel chopped while the speaker is still talking.
+  const fadeOut = interpolate(frame, [durationInFrames - 3, durationInFrames], [1, 0], { extrapolateLeft: 'clamp', extrapolateRight: 'clamp' })
   const opacity = fadeIn * fadeOut
 
   const textOpacity = interpolate(frame, [4, 9], [0, 1], { extrapolateRight: 'clamp' })

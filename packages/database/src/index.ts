@@ -46,4 +46,7 @@ export type {
   OwnerType,
   SoundAsset,
   SoundTag,
+  Project,
+  ProjectClip,
+  ProjectStatus,
 } from '@prisma/client'

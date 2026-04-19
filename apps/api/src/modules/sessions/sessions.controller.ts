@@ -144,4 +144,5 @@ export class SessionsController {
   ): Promise<any> {
     return this.sessionsService.updateRawKey(recordingId, body.rawVideoKey)
   }
+
 }

@@ -6,6 +6,7 @@ import type { CleanvoiceConfig, FormatKey } from '@/components/session/process-v
 
 interface AutoSaveParams {
   sessionId: string
+  projectId?: string | null
   selectedVoiceId: string
   voiceEnabled: boolean
   format: FormatKey
@@ -32,6 +33,7 @@ interface AutoSaveParams {
   sourceWordTimestampsRef: React.MutableRefObject<Record<string, WordTimestamp[]>>
   coldOpenEnabled: boolean
   coldOpenData: { hookPhrase: string; startInSeconds: number; endInSeconds: number; segmentId: string } | null
+  coldOpenCandidates: Array<{ hookPhrase: string; startInSeconds: number; endInSeconds: number; segmentId: string; angle?: string; why?: string }>
   inlaysEnabled: boolean
   inlaysData: { exactWord: string; category: string; timeInSeconds: number; label?: string }[]
   swooshEnabled: boolean
@@ -56,55 +58,65 @@ interface AutoSaveParams {
   inlaysPopVolume: number
   bRollEnabled: boolean
   bRollItems: BRollItem[]
+  easyMode?: boolean
+  energyLevel?: string
+  badTakesEnabled: boolean
+  badTakesRemovedCount: number
   setSaveStatus: (s: 'idle' | 'saving' | 'saved' | 'error') => void
 }
 
 export function useMontageAutoSave(params: AutoSaveParams) {
   const {
-    sessionId, selectedVoiceId, voiceEnabled, format, subtitleSettings, theme, intro, outro,
+    sessionId, projectId, easyMode, energyLevel,
+    selectedVoiceId, voiceEnabled, format, subtitleSettings, theme, intro, outro,
     motionSettings, questionCardFrames, activePresetId, audioSettings,
     bgMusicPrompt, transitionSfxPrompt, silenceCutEnabled, silenceThreshold,
     fillerCutEnabled, denoiseEnabled, denoiseStrength, cleanvoiceEnabled, cleanvoiceConfig,
     localTranscripts, wordTimestampsMap, clipEdits, sourceWordTimestampsRef,
-    coldOpenEnabled, coldOpenData, inlaysEnabled, inlaysData, swooshEnabled, popSoundEnabled,
+    coldOpenEnabled, coldOpenData, coldOpenCandidates, inlaysEnabled, inlaysData, swooshEnabled, popSoundEnabled,
     coldOpenTextColor, coldOpenHighlightColor, coldOpenFontFamily, coldOpenFontSize, coldOpenTextPosition, coldOpenVideoStyle,
     coldOpenFreezeFrame, coldOpenTextAnimEnabled, coldOpenTextAnimation,
     coldOpenHighlightModeEnabled, coldOpenHighlightMode,
     coldOpenSfxEnabled, coldOpenSfx, coldOpenEntrySfxEnabled, coldOpenEntrySfx,
     inlaysStyle, inlaysDuration, inlaysPopVolume,
     bRollEnabled, bRollItems,
+    badTakesEnabled, badTakesRemovedCount,
     setSaveStatus,
   } = params
 
   const saveIdleTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
 
   const settingsForSave = useMemo(() => JSON.stringify({
+    easyMode, energyLevel,
     selectedVoiceId, voiceEnabled, format, subtitleSettings, theme, intro, outro,
     motionSettings, questionCardFrames, activePresetId, audioSettings,
     bgMusicPrompt, transitionSfxPrompt, silenceCutEnabled, silenceThreshold,
     fillerCutEnabled, denoiseEnabled, denoiseStrength, cleanvoiceEnabled, cleanvoiceConfig,
     localTranscripts, wordTimestampsMap, clipEdits,
     sourceWordTimestampsMap: sourceWordTimestampsRef.current,
-    coldOpenEnabled, coldOpenData, inlaysEnabled, inlaysData, swooshEnabled, popSoundEnabled,
+    coldOpenEnabled, coldOpenData, coldOpenCandidates, inlaysEnabled, inlaysData, swooshEnabled, popSoundEnabled,
     coldOpenTextColor, coldOpenHighlightColor, coldOpenFontFamily, coldOpenFontSize, coldOpenTextPosition, coldOpenVideoStyle,
     coldOpenFreezeFrame, coldOpenTextAnimEnabled, coldOpenTextAnimation,
     coldOpenHighlightModeEnabled, coldOpenHighlightMode,
     coldOpenSfxEnabled, coldOpenSfx, coldOpenEntrySfxEnabled, coldOpenEntrySfx,
     inlaysStyle, inlaysDuration, inlaysPopVolume,
     bRollEnabled, bRollItems,
+    badTakesEnabled, badTakesRemovedCount,
   }), [
+    easyMode, energyLevel,
     selectedVoiceId, voiceEnabled, format, subtitleSettings, theme, intro, outro,
     motionSettings, questionCardFrames, activePresetId, audioSettings,
     bgMusicPrompt, transitionSfxPrompt, silenceCutEnabled, silenceThreshold,
     fillerCutEnabled, denoiseEnabled, denoiseStrength, cleanvoiceEnabled, cleanvoiceConfig,
     localTranscripts, wordTimestampsMap, clipEdits,
-    coldOpenEnabled, coldOpenData, inlaysEnabled, inlaysData, swooshEnabled, popSoundEnabled,
+    coldOpenEnabled, coldOpenData, coldOpenCandidates, inlaysEnabled, inlaysData, swooshEnabled, popSoundEnabled,
     coldOpenTextColor, coldOpenHighlightColor, coldOpenFontFamily, coldOpenFontSize, coldOpenTextPosition, coldOpenVideoStyle,
     coldOpenFreezeFrame, coldOpenTextAnimEnabled, coldOpenTextAnimation,
     coldOpenHighlightModeEnabled, coldOpenHighlightMode,
     coldOpenSfxEnabled, coldOpenSfx, coldOpenEntrySfxEnabled, coldOpenEntrySfx,
     inlaysStyle, inlaysDuration, inlaysPopVolume,
     bRollEnabled, bRollItems,
+    badTakesEnabled, badTakesRemovedCount,
   ])
 
   const settingsForSaveRef = useRef(settingsForSave)
@@ -115,7 +127,10 @@ export function useMontageAutoSave(params: AutoSaveParams) {
     setSaveStatus('saving')
     const timeout = setTimeout(async () => {
       try {
-        const res = await fetch(`/api/admin/sessions/${sessionId}/montage-settings`, {
+        const saveUrl = projectId
+          ? `/api/projects/${projectId}/montage-settings`
+          : `/api/admin/sessions/${sessionId}/montage-settings`
+        const res = await fetch(saveUrl, {
           method: 'PATCH',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ montageSettings: JSON.parse(settingsForSaveRef.current) }),

@@ -55,9 +55,12 @@ model Session {
   montageSettings    Json?
   submittedAt        DateTime?
   deliveredAt        DateTime?
+  topicId            String?
+  topicEntity        Topic?               @relation(fields: [topicId], references: [id], onDelete: SetNull)
   recordings         Recording[]
   memories           ConversationMemory[]
   feedback           Feedback?
+  generatedPosts     GeneratedPost[]
   createdAt          DateTime             @default(now())
   updatedAt          DateTime             @updatedAt
 }
@@ -77,6 +80,7 @@ model Recording {
   processedVideoKey String?
   processingHash    String?
   status            RecordingStatus @default(PENDING)
+  projectClips      ProjectClip[]
   createdAt         DateTime        @default(now())
   updatedAt         DateTime        @updatedAt
 }
@@ -105,7 +109,10 @@ model Organization {
   brandKit            BrandKit?
   brolls              BRoll[]
   calendarEntries     ContentCalendar[]
+  topics              Topic[]
   compositions        Composition[]
+  projects            Project[]
+  generatedPosts      GeneratedPost[]
   createdAt           DateTime             @default(now())
   updatedAt           DateTime             @updatedAt
 }
@@ -328,6 +335,32 @@ enum ContentCalendarStatus {
   SKIPPED
 }
 
+enum TopicStatus {
+  DRAFT
+  READY
+  ARCHIVED
+}
+
+model Topic {
+  id              String                @id @default(cuid())
+  organizationId  String
+  organization    Organization          @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  name            String
+  slug            String
+  brief           String?               // AI-generated summary, enriched over conversations
+  status          TopicStatus           @default(DRAFT)
+  threadId        String                @unique @default(cuid()) // dedicated chat thread
+  pillar          String?               // linked editorial pillar
+  calendarEntries ContentCalendar[]
+  sessions        Session[]
+  generatedPosts  GeneratedPost[]
+  createdAt       DateTime              @default(now())
+  updatedAt       DateTime              @updatedAt
+
+  @@unique([organizationId, slug])
+  @@index([organizationId])
+}
+
 model ContentCalendar {
   id             String                @id @default(cuid())
   organizationId String
@@ -339,12 +372,51 @@ model ContentCalendar {
   platforms      String[]              @default([]) // ["linkedin", "tiktok", "instagram", "youtube"]
   status         ContentCalendarStatus @default(PLANNED)
   sessionId      String? // linked to session once recorded
+  topicId        String? // linked to Topic entity
+  topicEntity    Topic?                @relation(fields: [topicId], references: [id], onDelete: SetNull)
   aiSuggestions  Json? // { hook, questions, script, angle }
   createdAt      DateTime              @default(now())
   updatedAt      DateTime              @updatedAt
 
   @@index([organizationId])
   @@index([scheduledDate])
+}
+
+enum ProjectStatus {
+  DRAFT
+  EDITING
+  RENDERING
+  DONE
+  FAILED
+}
+
+model Project {
+  id             String        @id @default(cuid())
+  title          String
+  organizationId String
+  organization   Organization  @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  status         ProjectStatus @default(DRAFT)
+  montageSettings Json?
+  sessionId      String?       // source session (auto-created projects)
+  clips          ProjectClip[]
+  compositions   Composition[]
+  createdAt      DateTime      @default(now())
+  updatedAt      DateTime      @updatedAt
+
+  @@index([organizationId])
+}
+
+model ProjectClip {
+  id          String    @id @default(cuid())
+  projectId   String
+  project     Project   @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  recordingId String
+  recording   Recording @relation(fields: [recordingId], references: [id], onDelete: Cascade)
+  order       Int
+  visibleRanges Json?   // per-clip trim overrides for this project
+
+  @@unique([projectId, recordingId])
+  @@index([projectId])
 }
 
 enum CompositionStatus {
@@ -359,6 +431,8 @@ model Composition {
   organizationId  String
   organization    Organization      @relation(fields: [organizationId], references: [id], onDelete: Cascade)
   sessionId       String?
+  projectId       String?
+  project         Project?          @relation(fields: [projectId], references: [id], onDelete: SetNull)
   title           String?
   platform        String? // target platform: linkedin, tiktok, instagram, youtube
   aspectRatio     String            @default("9:16") // 9:16, 1:1, 16:9, 4:5
@@ -372,5 +446,48 @@ model Composition {
   updatedAt       DateTime          @updatedAt
 
   @@index([organizationId])
+  @@index([sessionId])
+}
+
+// ---------------------------------------------------------------------------
+// Generated social posts (LinkedIn today, extensible to X / Threads later)
+// A post is always anchored to either a Topic OR a Session (exclusive).
+// ---------------------------------------------------------------------------
+
+enum GeneratedPostPlatform {
+  LINKEDIN
+  X
+  THREADS
+}
+
+enum GeneratedPostStatus {
+  DRAFT
+  READY
+  PUBLISHED
+}
+
+enum GeneratedPostVariant {
+  SHORT
+  LONG
+  STORY
+}
+
+model GeneratedPost {
+  id             String                @id @default(cuid())
+  organizationId String
+  organization   Organization          @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  platform       GeneratedPostPlatform @default(LINKEDIN)
+  variant        GeneratedPostVariant  @default(LONG)
+  content        String                @db.Text
+  status         GeneratedPostStatus   @default(DRAFT)
+  topicId        String?
+  topic          Topic?                @relation(fields: [topicId], references: [id], onDelete: Cascade)
+  sessionId      String?
+  session        Session?              @relation(fields: [sessionId], references: [id], onDelete: Cascade)
+  createdAt      DateTime              @default(now())
+  updatedAt      DateTime              @updatedAt
+
+  @@index([organizationId])
+  @@index([topicId])
   @@index([sessionId])
 }

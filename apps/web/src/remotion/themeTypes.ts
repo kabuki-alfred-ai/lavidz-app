@@ -156,6 +156,7 @@ export interface IntroSettings {
   durationSeconds: number
   bgColor?: string            // overrides theme.backgroundColor
   accentColor?: string        // color for pattern + decorative elements, default '#FFFFFF'
+  textColor?: string          // color for the hook text, defaults to accentColor for backward compat
   bgPattern?: SlideBgPattern  // default 'solid'
   textAnimation?: SlideTextAnimation // default 'spring-up'
   textSize?: number           // px, default 72
@@ -230,6 +231,7 @@ export interface OutroSettings {
   durationSeconds: number
   bgColor?: string            // overrides theme.backgroundColor
   accentColor?: string        // color for pattern + decorative elements, default '#FFFFFF'
+  textColor?: string          // color for the CTA/sub text, defaults to accentColor for backward compat
   bgPattern?: SlideBgPattern  // default 'solid'
   textAnimation?: SlideTextAnimation // default 'spring-up'
   textSize?: number           // px, default 68

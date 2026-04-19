@@ -50,7 +50,7 @@ export function useProcessViewState(recordings: RawRecording[]) {
   const [generatingSfx, setGeneratingSfx] = useState<{ bgMusic: boolean; transitionSfx: boolean }>({ bgMusic: false, transitionSfx: false })
   const [sfxLibrary, setSfxLibrary] = useState<{ filename: string; name: string }[]>([])
   const [soundLibrary, setSoundLibrary] = useState<{ id: string; name: string; tag: string; signedUrl: string }[]>([])
-  const [swooshEnabled, setSwooshEnabled] = useState(true)
+  const [swooshEnabled, setSwooshEnabled] = useState(false)
   const [popSoundEnabled, setPopSoundEnabled] = useState(false)
 
   // ── Voice / TTS ──────────────────────────────────────────────────────────
@@ -79,6 +79,7 @@ export function useProcessViewState(recordings: RawRecording[]) {
   // ── Cold Open & Visual Inlays ─────────────────────────────────────────────
   const [coldOpenEnabled, setColdOpenEnabled] = useState(false)
   const [coldOpenData, setColdOpenData] = useState<{ hookPhrase: string; startInSeconds: number; endInSeconds: number; segmentId: string } | null>(null)
+  const [coldOpenCandidates, setColdOpenCandidates] = useState<Array<{ hookPhrase: string; startInSeconds: number; endInSeconds: number; segmentId: string; angle?: string; why?: string }>>([])
   const [inlaysEnabled, setInlaysEnabled] = useState(false)
   const [inlaysData, setInlaysData] = useState<{ exactWord: string; category: string; timeInSeconds: number; label?: string }[]>([])
   const [coldOpenLoading, setColdOpenLoading] = useState(false)
@@ -205,6 +206,7 @@ export function useProcessViewState(recordings: RawRecording[]) {
     // Cold Open
     coldOpenEnabled, setColdOpenEnabled,
     coldOpenData, setColdOpenData,
+    coldOpenCandidates, setColdOpenCandidates,
     inlaysEnabled, setInlaysEnabled,
     inlaysData, setInlaysData,
     coldOpenLoading, setColdOpenLoading,

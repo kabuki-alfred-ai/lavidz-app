@@ -1,5 +1,5 @@
 import { RecursiveCharacterTextSplitter } from '@langchain/textsplitters'
-import { Controller, Get, Put, Post, Body, Headers, Query, UseGuards, BadRequestException } from '@nestjs/common'
+import { Controller, Get, Put, Post, Delete, Param, Body, Headers, Query, UseGuards, BadRequestException, NotFoundException } from '@nestjs/common'
 import { Prisma, prisma } from '@lavidz/database'
 import type { EntrepreneurProfile } from '@lavidz/database'
 import { AdminGuard } from '../../guards/admin.guard'
@@ -333,5 +333,145 @@ export class AiController {
     const weeksCount = Math.min(body.weeksCount ?? 4, 8)
     const videosPerWeek = Math.min(body.videosPerWeek ?? 3, 7)
     return this.calendarService.generateCalendar(organizationId, platforms, weeksCount, videosPerWeek)
+  }
+
+  // ─── Topics CRUD ──────────────────────────────────────────────────────────
+
+  @Get('topics')
+  async listTopics(
+    @Headers('x-organization-id') organizationId: string,
+  ): Promise<object[]> {
+    if (!organizationId) throw new BadRequestException('Header x-organization-id requis')
+    return prisma.topic.findMany({
+      where: { organizationId },
+      orderBy: { updatedAt: 'desc' },
+      include: {
+        calendarEntries: { select: { id: true, scheduledDate: true, format: true, status: true } },
+        sessions: { select: { id: true, status: true, contentFormat: true, createdAt: true } },
+      },
+    })
+  }
+
+  @Get('topics/:id')
+  async getTopic(
+    @Headers('x-organization-id') organizationId: string,
+    @Param('id') id: string,
+  ): Promise<object> {
+    if (!organizationId) throw new BadRequestException('Header x-organization-id requis')
+    const topic = await prisma.topic.findFirst({
+      where: { id, organizationId },
+      include: {
+        calendarEntries: { orderBy: { scheduledDate: 'asc' } },
+        sessions: { include: { theme: { select: { name: true } } }, orderBy: { createdAt: 'desc' } },
+      },
+    })
+    if (!topic) throw new NotFoundException('Topic introuvable')
+    return topic
+  }
+
+  @Post('topics')
+  async createTopic(
+    @Headers('x-organization-id') organizationId: string,
+    @Body() body: { name: string; brief?: string; pillar?: string; sourceThreadId?: string; calendarEntryId?: string },
+  ): Promise<object> {
+    if (!organizationId) throw new BadRequestException('Header x-organization-id requis')
+    if (!body.name?.trim()) throw new BadRequestException('name requis')
+
+    // Deduplication: check if a non-archived Topic with same name exists
+    const existing = await prisma.topic.findFirst({
+      where: {
+        organizationId,
+        name: { equals: body.name.trim(), mode: 'insensitive' },
+        status: { not: 'ARCHIVED' },
+      },
+    })
+    if (existing) {
+      // Link calendar entry if provided
+      if (body.calendarEntryId) {
+        await prisma.contentCalendar.update({
+          where: { id: body.calendarEntryId },
+          data: { topicId: existing.id },
+        }).catch(() => {})
+      }
+      return existing
+    }
+
+    const slug = `${body.name
+      .toLowerCase()
+      .normalize('NFD')
+      .replace(/[\u0300-\u036f]/g, '')
+      .replace(/[^a-z0-9]+/g, '-')
+      .replace(/(^-|-$)/g, '')}-${Date.now()}`
+
+    const topic = await prisma.topic.create({
+      data: {
+        organizationId,
+        name: body.name.trim(),
+        slug,
+        brief: body.brief ?? null,
+        pillar: body.pillar ?? null,
+      },
+    })
+
+    // Link calendar entry to this topic
+    if (body.calendarEntryId) {
+      await prisma.contentCalendar.update({
+        where: { id: body.calendarEntryId },
+        data: { topicId: topic.id },
+      }).catch(() => {})
+    }
+
+    // Copy recent relevant messages from source thread to topic thread
+    if (body.sourceThreadId) {
+      const recentMessages = await prisma.chatMessage.findMany({
+        where: { organizationId, threadId: body.sourceThreadId },
+        orderBy: { createdAt: 'desc' },
+        take: 20,
+      })
+      if (recentMessages.length > 0) {
+        await prisma.chatMessage.createMany({
+          data: recentMessages.reverse().map((m) => ({
+            organizationId,
+            threadId: topic.threadId,
+            role: m.role,
+            content: m.content,
+            toolCalls: m.toolCalls ?? undefined,
+            toolResults: m.toolResults ?? undefined,
+          })),
+        })
+      }
+    }
+
+    return topic
+  }
+
+  @Put('topics/:id')
+  async updateTopic(
+    @Headers('x-organization-id') organizationId: string,
+    @Param('id') id: string,
+    @Body() body: { name?: string; brief?: string; status?: string; pillar?: string },
+  ): Promise<object> {
+    if (!organizationId) throw new BadRequestException('Header x-organization-id requis')
+    const topic = await prisma.topic.findFirst({ where: { id, organizationId } })
+    if (!topic) throw new NotFoundException('Topic introuvable')
+
+    const data: Record<string, unknown> = {}
+    if (body.name !== undefined) data.name = body.name
+    if (body.brief !== undefined) data.brief = body.brief
+    if (body.status !== undefined) data.status = body.status
+    if (body.pillar !== undefined) data.pillar = body.pillar
+
+    return prisma.topic.update({ where: { id }, data })
+  }
+
+  @Delete('topics/:id')
+  async archiveTopic(
+    @Headers('x-organization-id') organizationId: string,
+    @Param('id') id: string,
+  ): Promise<object> {
+    if (!organizationId) throw new BadRequestException('Header x-organization-id requis')
+    const topic = await prisma.topic.findFirst({ where: { id, organizationId } })
+    if (!topic) throw new NotFoundException('Topic introuvable')
+    return prisma.topic.update({ where: { id }, data: { status: 'ARCHIVED' } })
   }
 }

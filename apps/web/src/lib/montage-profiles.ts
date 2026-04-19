@@ -122,9 +122,26 @@ export const MONTAGE_PROFILES: Record<ContentFormat, MontageProfile> = {
   },
 }
 
+export const MIXED_PROFILE: MontageProfile = {
+  label: 'Projet mixte',
+  icon: '🎬',
+  showQuestionCards: true,
+  showTTS: true,
+  showTransitions: true,
+  showBRolls: true,
+  showColdOpen: true,
+  showInlays: true,
+  subtitleStyle: 'standard',
+  musicMood: 'light',
+  autoCutMode: 'silence+filler',
+  durationHint: 'variable',
+  sidebarSections: FULL_SECTIONS,
+}
+
 export const DEFAULT_PROFILE: MontageProfile = MONTAGE_PROFILES.QUESTION_BOX
 
 export function getMontageProfile(format?: string | null): MontageProfile {
   if (!format) return DEFAULT_PROFILE
+  if (format === 'MIXED') return MIXED_PROFILE
   return MONTAGE_PROFILES[format as ContentFormat] ?? DEFAULT_PROFILE
 }

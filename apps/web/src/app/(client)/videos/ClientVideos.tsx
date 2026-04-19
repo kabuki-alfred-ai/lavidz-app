@@ -1,11 +1,11 @@
 'use client'
 
-import { useCallback, useEffect, useMemo, useState } from 'react'
+import { useCallback, useEffect, useState } from 'react'
 import Link from 'next/link'
-import { Film, Loader2, CheckCircle2, XCircle, CalendarDays, ChevronDown, Play } from 'lucide-react'
+import { Film, CalendarDays, ChevronDown } from 'lucide-react'
 import { Card, CardContent } from '@/components/ui/card'
-import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
+import { LinkedInPostsSection } from '@/components/social/LinkedInPostsSection'
 
 /* ------------------------------------------------------------------ */
 /* Types                                                               */
@@ -24,35 +24,6 @@ interface Rush {
   questionText: string
   questionOrder: number
   signedUrl: string
-}
-
-type StatusGroup = 'in_progress' | 'done' | 'failed'
-
-const STATUS_META: Record<StatusGroup, { label: string; icon: typeof Film; badgeClass: string; badgeLabel: string }> = {
-  in_progress: {
-    label: 'En montage',
-    icon: Loader2,
-    badgeClass: 'border-yellow-500/40 bg-yellow-500/10 text-yellow-400',
-    badgeLabel: 'En cours',
-  },
-  done: {
-    label: 'Livrees',
-    icon: CheckCircle2,
-    badgeClass: 'border-green-500/40 bg-green-500/10 text-green-400',
-    badgeLabel: 'Livre',
-  },
-  failed: {
-    label: 'Echecs',
-    icon: XCircle,
-    badgeClass: 'border-red-500/40 bg-red-500/10 text-red-400',
-    badgeLabel: 'Echec',
-  },
-}
-
-function getGroup(status: SessionVideo['status']): StatusGroup {
-  if (status === 'DONE') return 'done'
-  if (status === 'FAILED') return 'failed'
-  return 'in_progress'
 }
 
 function formatDate(iso: string): string {
@@ -123,8 +94,9 @@ function RushesPanel({ sessionId }: { sessionId: string }) {
 /* Session card                                                        */
 /* ------------------------------------------------------------------ */
 
-function SessionCard({ session, meta, groupKey }: { session: SessionVideo; meta: typeof STATUS_META['done']; groupKey: StatusGroup }) {
-  const [expanded, setExpanded] = useState(false)
+function SessionCard({ session, authorName }: { session: SessionVideo; authorName: string }) {
+  const [expanded, setExpanded] = useState(true)
+  const canGeneratePosts = session.status === 'DONE'
 
   return (
     <Card>
@@ -142,13 +114,24 @@ function SessionCard({ session, meta, groupKey }: { session: SessionVideo; meta:
             </p>
           </div>
 
-          <div className="flex items-center gap-2 shrink-0">
-            <Badge className={meta.badgeClass}>{meta.badgeLabel}</Badge>
-            <ChevronDown size={14} className={`text-muted-foreground transition-transform ${expanded ? 'rotate-180' : ''}`} />
-          </div>
+          <ChevronDown size={14} className={`text-muted-foreground shrink-0 transition-transform ${expanded ? 'rotate-180' : ''}`} />
         </div>
 
-        {expanded && <RushesPanel sessionId={session.id} />}
+        {expanded && (
+          <>
+            <RushesPanel sessionId={session.id} />
+            <div className="px-4 pb-4 pt-2 border-t border-border/30">
+              <LinkedInPostsSection
+                endpoint={`/api/sessions/${session.id}/linkedin-posts`}
+                authorName={authorName}
+                authorTitle={session.theme?.name}
+                generateLabel="Générer un post LinkedIn depuis cette vidéo"
+                disabled={!canGeneratePosts}
+                disabledReason="Disponible une fois la vidéo enregistrée et transcrite (statut DONE)."
+              />
+            </div>
+          </>
+        )}
       </CardContent>
     </Card>
   )
@@ -158,7 +141,7 @@ function SessionCard({ session, meta, groupKey }: { session: SessionVideo; meta:
 /* Main component                                                      */
 /* ------------------------------------------------------------------ */
 
-export function ClientVideos() {
+export function ClientVideos({ authorName = 'Vous' }: { authorName?: string }) {
   const [sessions, setSessions] = useState<SessionVideo[]>([])
   const [loading, setLoading] = useState(true)
 
@@ -168,22 +151,15 @@ export function ClientVideos() {
       const res = await fetch('/api/admin/sessions/submitted', { credentials: 'include' })
       if (res.ok) {
         const data = await res.json()
-        setSessions(Array.isArray(data) ? data : data.data ?? [])
+        const list: SessionVideo[] = Array.isArray(data) ? data : data.data ?? []
+        list.sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime())
+        setSessions(list)
       }
     } catch { /* */ }
     finally { setLoading(false) }
   }, [])
 
   useEffect(() => { fetchSessions() }, [fetchSessions])
-
-  const grouped = useMemo(() => {
-    const groups: Record<StatusGroup, SessionVideo[]> = { in_progress: [], done: [], failed: [] }
-    for (const s of sessions) groups[getGroup(s.status)].push(s)
-    for (const key of Object.keys(groups) as StatusGroup[]) {
-      groups[key].sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime())
-    }
-    return groups
-  }, [sessions])
 
   if (!loading && sessions.length === 0) {
     return (
@@ -202,7 +178,7 @@ export function ClientVideos() {
   }
 
   return (
-    <div className="max-w-2xl mx-auto px-4 py-6 space-y-6">
+    <div className="max-w-2xl mx-auto px-4 py-6 space-y-4">
       <h1 className="text-lg font-bold tracking-tight">Mes videos</h1>
 
       {loading && (
@@ -213,37 +189,13 @@ export function ClientVideos() {
         </div>
       )}
 
-      {!loading &&
-        (['in_progress', 'done', 'failed'] as StatusGroup[]).map((groupKey) => {
-          const items = grouped[groupKey]
-          if (items.length === 0) return null
-          const meta = STATUS_META[groupKey]
-          const GroupIcon = meta.icon
-
-          return (
-            <div key={groupKey} className="space-y-2">
-              <div className="flex items-center gap-2">
-                <GroupIcon
-                  size={14}
-                  className={
-                    groupKey === 'in_progress' ? 'text-yellow-400 animate-spin'
-                    : groupKey === 'done' ? 'text-green-400'
-                    : 'text-red-400'
-                  }
-                />
-                <h2 className="text-xs uppercase tracking-wider text-muted-foreground">
-                  {meta.label} ({items.length})
-                </h2>
-              </div>
-
-              <div className="space-y-1.5">
-                {items.map((session) => (
-                  <SessionCard key={session.id} session={session} meta={meta} groupKey={groupKey} />
-                ))}
-              </div>
-            </div>
-          )
-        })}
+      {!loading && (
+        <div className="space-y-2">
+          {sessions.map((session) => (
+            <SessionCard key={session.id} session={session} authorName={authorName} />
+          ))}
+        </div>
+      )}
     </div>
   )
 }

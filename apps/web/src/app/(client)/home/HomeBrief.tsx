@@ -1,6 +1,7 @@
 'use client'
 
 import { useCallback, useEffect, useState } from 'react'
+import { useRouter } from 'next/navigation'
 import Link from 'next/link'
 import {
   Sparkles,
@@ -92,9 +93,31 @@ function formatRelativeDate(iso: string): string {
 }
 
 export function HomeBrief() {
+  const router = useRouter()
   const [data, setData] = useState<HomeBriefData | null>(null)
   const [loading, setLoading] = useState(true)
   const [trendsRefreshing, setTrendsRefreshing] = useState(false)
+  const [creatingTopic, setCreatingTopic] = useState<string | null>(null)
+
+  const createTopicAndRedirect = useCallback(async (name: string, brief?: string) => {
+    setCreatingTopic(name)
+    try {
+      const res = await fetch('/api/topics', {
+        method: 'POST',
+        credentials: 'include',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ name, brief }),
+      })
+      if (res.ok) {
+        const topic = await res.json()
+        router.push(`/topics/${topic.id}`)
+        return
+      }
+    } catch { /* */ }
+    // Fallback to chat if topic creation fails
+    router.push(`/chat?topic=${encodeURIComponent(name)}`)
+    setCreatingTopic(null)
+  }, [router])
 
   const fetchBrief = useCallback(async () => {
     setLoading(true)
@@ -230,13 +253,14 @@ export function HomeBrief() {
               <div className="text-sm text-foreground leading-relaxed prose prose-sm max-w-none [&_p]:my-1 [&_strong]:text-foreground">
                 <ReactMarkdown>{data.trendsRecap}</ReactMarkdown>
               </div>
-              <Link
-                href={`/chat?topic=${encodeURIComponent(data.trendsRecap.slice(0, 200))}`}
-                className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-orange-500 text-white text-xs font-medium hover:bg-orange-500/90 transition-colors"
+              <button
+                onClick={() => createTopicAndRedirect('Tendance du jour', data.trendsRecap ?? undefined)}
+                disabled={creatingTopic !== null}
+                className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-orange-500 text-white text-xs font-medium hover:bg-orange-500/90 transition-colors disabled:opacity-50"
               >
-                <MessageSquare size={12} />
-                Creer un contenu sur ce sujet
-              </Link>
+                {creatingTopic ? <Loader2 size={12} className="animate-spin" /> : <MessageSquare size={12} />}
+                Creer un sujet sur cette tendance
+              </button>
             </div>
           )}
           <div className="space-y-2">
@@ -249,9 +273,13 @@ export function HomeBrief() {
                     <a href={t.url} target="_blank" rel="noopener noreferrer" className="text-xs text-muted-foreground/50 hover:text-orange-500 transition-colors flex items-center gap-1">
                       Lire <ExternalLink size={9} />
                     </a>
-                    <Link href={`/chat?topic=${encodeURIComponent(t.title)}`} className="text-xs text-orange-500/70 hover:text-orange-500 transition-colors flex items-center gap-1">
-                      <Mic size={9} /> Creer un contenu
-                    </Link>
+                    <button
+                      onClick={() => createTopicAndRedirect(t.title, t.snippet)}
+                      disabled={creatingTopic !== null}
+                      className="text-xs text-orange-500/70 hover:text-orange-500 transition-colors flex items-center gap-1 disabled:opacity-50"
+                    >
+                      {creatingTopic === t.title ? <Loader2 size={9} className="animate-spin" /> : <Mic size={9} />} Creer un sujet
+                    </button>
                   </div>
                 </div>
               </div>
@@ -271,20 +299,21 @@ export function HomeBrief() {
             {data.suggestions.map((s, i) => {
               const Icon = FORMAT_ICONS[s.format] || Sparkles
               return (
-                <Link
+                <button
                   key={i}
-                  href={`/chat?action=record&topic=${encodeURIComponent(s.title)}&format=${s.format}`}
-                  className="flex items-center gap-4 p-4 rounded-xl bg-muted/15 hover:bg-muted/30 transition-colors group"
+                  onClick={() => createTopicAndRedirect(s.title, s.reason)}
+                  disabled={creatingTopic !== null}
+                  className="w-full flex items-center gap-4 p-4 rounded-xl bg-muted/15 hover:bg-muted/30 transition-colors group text-left disabled:opacity-50"
                 >
                   <div className="w-10 h-10 rounded-xl bg-primary/5 flex items-center justify-center shrink-0 group-hover:bg-primary/10 transition-colors">
-                    <Icon size={16} className="text-primary/70" />
+                    {creatingTopic === s.title ? <Loader2 size={16} className="text-primary/70 animate-spin" /> : <Icon size={16} className="text-primary/70" />}
                   </div>
                   <div className="flex-1 min-w-0">
                     <p className="text-sm font-medium text-foreground">{s.title}</p>
                     <p className="text-xs text-muted-foreground mt-0.5">{s.reason}</p>
                   </div>
                   <ArrowRight size={14} className="text-muted-foreground/40 group-hover:text-primary transition-colors shrink-0" />
-                </Link>
+                </button>
               )
             })}
           </div>

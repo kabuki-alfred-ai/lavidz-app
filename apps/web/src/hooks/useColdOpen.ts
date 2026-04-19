@@ -2,6 +2,15 @@ import type { CompositionSegment } from '@/remotion/LavidzComposition'
 import type { WordTimestamp } from '@/remotion/themeTypes'
 import { FPS } from '@/components/session/process-view-utils'
 
+export type ColdOpenCandidate = {
+  hookPhrase: string
+  startInSeconds: number
+  endInSeconds: number
+  segmentId: string
+  angle?: string
+  why?: string
+}
+
 interface ColdOpenParams {
   segments: CompositionSegment[] | null
   effectiveSegments: CompositionSegment[] | null | undefined
@@ -9,6 +18,7 @@ interface ColdOpenParams {
   wordTimestampsRef: React.MutableRefObject<Record<string, WordTimestamp[]>>
   setColdOpenEnabled: (v: boolean) => void
   setColdOpenData: React.Dispatch<React.SetStateAction<{ hookPhrase: string; startInSeconds: number; endInSeconds: number; segmentId: string } | null>>
+  setColdOpenCandidates: React.Dispatch<React.SetStateAction<ColdOpenCandidate[]>>
   setColdOpenLoading: (v: boolean) => void
   setColdOpenError: (s: string) => void
   setInlaysEnabled: (v: boolean) => void
@@ -20,19 +30,18 @@ export function useColdOpen(params: ColdOpenParams) {
   const {
     segments, effectiveSegments, ready,
     wordTimestampsRef,
-    setColdOpenEnabled, setColdOpenData, setColdOpenLoading, setColdOpenError,
+    setColdOpenEnabled, setColdOpenData, setColdOpenCandidates,
+    setColdOpenLoading, setColdOpenError,
     setInlaysEnabled, setWordEmojisBySegmentId, setSubtitleSettings,
   } = params
 
   const runColdOpenAnalysis = async () => {
-    if (!ready || !segments?.length) {
-      setColdOpenError('Lance d\'abord la préparation (bouton "Préparer") pour charger les vidéos.')
+    if (!segments?.length) {
+      setColdOpenError('Aucun segment disponible.')
       return
     }
     setColdOpenLoading(true)
     setColdOpenError('')
-    // Ensure inlays (and their pop sound) don't interfere
-    setInlaysEnabled(false)
     try {
       const segsWithTranscript = (effectiveSegments ?? segments ?? []).filter(s => s.transcript)
       if (!segsWithTranscript.length) {
@@ -50,7 +59,23 @@ export function useColdOpen(params: ColdOpenParams) {
       })
       if (!firstRes.ok) { setColdOpenError(await firstRes.text()); return }
       const firstData = await firstRes.json()
-      if (firstData.coldOpen) { setColdOpenData(firstData.coldOpen); setColdOpenEnabled(true) }
+
+      const candidates: ColdOpenCandidate[] = Array.isArray(firstData.coldOpenCandidates)
+        ? firstData.coldOpenCandidates
+        : firstData.coldOpen
+          ? [firstData.coldOpen]
+          : []
+
+      setColdOpenCandidates(candidates)
+
+      if (candidates.length) {
+        // Auto-select the strongest candidate (first one)
+        setColdOpenData(candidates[0])
+        setColdOpenEnabled(true)
+      } else if (firstData.coldOpen) {
+        setColdOpenData(firstData.coldOpen)
+        setColdOpenEnabled(true)
+      }
 
       // All segments → context emojis (parallel, per-segment timestamps)
       const emojiResults = await Promise.all(
