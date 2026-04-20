@@ -208,7 +208,7 @@ export function NarrativeArcView() {
     <div className="mx-auto w-full max-w-5xl px-4 py-6 sm:py-8">
       <div className="mb-5">
         <Link
-          href="/mon-univers/memoire"
+          href="/mon-univers"
           className="inline-flex items-center gap-1.5 text-sm text-muted-foreground hover:text-foreground"
         >
           <ArrowLeft className="h-3.5 w-3.5" /> Mon univers

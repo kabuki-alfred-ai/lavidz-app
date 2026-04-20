@@ -23,6 +23,8 @@ const nextConfig: NextConfig = {
     return [
       // Legacy detail page moved to /sujets/:id — stale links (chat history, bookmarks) still work.
       { source: '/topics/:id', destination: '/sujets/:id', permanent: true },
+      // Deep links historiques vers la tab activité du profil — pointent vers Mon univers maintenant.
+      { source: '/profile/activite', destination: '/mon-univers/memoire', permanent: true },
     ]
   },
   async headers() {

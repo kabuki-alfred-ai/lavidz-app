@@ -126,6 +126,17 @@ export async function POST(req: Request) {
       if (profile.editorialPillars?.length > 0) {
         systemParts.push(`\nLIGNE EDITORIALE : Piliers=${profile.editorialPillars.join(', ')} | Ton=${profile.editorialTone ?? '?'} | Freq=${profile.targetFrequency ?? '?'}/sem | Plateformes=${profile.targetPlatforms?.join(', ') ?? '?'}`)
       }
+      // Thèse — la conviction forte qui oriente tout. Chaque proposition doit la respecter.
+      const thesis = profile.thesis as Record<string, unknown> | null
+      if (thesis && typeof thesis.statement === 'string' && thesis.statement.trim().length > 0) {
+        const enemies = Array.isArray(thesis.enemies) ? (thesis.enemies as string[]).filter(Boolean) : []
+        const archetype = typeof thesis.audienceArchetype === 'string' ? thesis.audienceArchetype : ''
+        const lines = [`\nTHESE DE L'ENTREPRENEUR : "${thesis.statement}"`]
+        if (archetype) lines.push(`Archétype d'audience : ${archetype}`)
+        if (enemies.length > 0) lines.push(`Idées reçues combattues : ${enemies.join(' / ')}`)
+        lines.push('Toutes tes propositions (Sujets, angles, hooks) doivent être cohérentes avec cette thèse. Si un angle s\'en éloigne, signale-le.')
+        systemParts.push(lines.join('\n'))
+      }
     }
 
     if (upcomingCalendar.length > 0) {

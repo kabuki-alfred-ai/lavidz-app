@@ -4,10 +4,12 @@ import { useCallback, useEffect, useState } from 'react'
 import Link from 'next/link'
 import {
   ArrowLeft,
+  CheckCircle2,
   Clock,
   Download,
   Loader2,
   Sparkles,
+  Undo2,
 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { LinkedInPostsSection } from '@/components/social/LinkedInPostsSection'
@@ -20,6 +22,7 @@ interface PublishViewProps {
   status: string
   hasFinalVideo: boolean
   authorName: string
+  publishedAt: string | null
 }
 
 /**
@@ -34,16 +37,39 @@ export function PublishView({
   status,
   hasFinalVideo,
   authorName,
+  publishedAt,
 }: PublishViewProps) {
   const [videoUrl, setVideoUrl] = useState<string | null>(null)
   const [loadingVideo, setLoadingVideo] = useState(false)
   const [videoError, setVideoError] = useState<string | null>(null)
   const [toast, setToast] = useState<string | null>(null)
+  const [publishedAtLocal, setPublishedAtLocal] = useState<string | null>(publishedAt)
+  const [publishTogglePending, setPublishTogglePending] = useState(false)
 
   const flashToast = useCallback((message: string) => {
     setToast(message)
     window.setTimeout(() => setToast(null), 2200)
   }, [])
+
+  const handleTogglePublished = useCallback(async () => {
+    setPublishTogglePending(true)
+    try {
+      const method = publishedAtLocal ? 'DELETE' : 'POST'
+      const res = await fetch(`/api/sessions/${sessionId}/publish`, {
+        method,
+        credentials: 'include',
+      })
+      if (!res.ok) {
+        flashToast(KABOU_TOASTS.oops)
+        return
+      }
+      const data = (await res.json()) as { publishedAt: string | null }
+      setPublishedAtLocal(data.publishedAt)
+      flashToast(data.publishedAt ? 'Noté — bravo.' : 'Marqué non-publié.')
+    } finally {
+      setPublishTogglePending(false)
+    }
+  }, [publishedAtLocal, sessionId, flashToast])
 
   useEffect(() => {
     if (!hasFinalVideo) return
@@ -182,6 +208,58 @@ export function PublishView({
           />
         </section>
       )}
+
+      {/* Publication flag */}
+      <section className="mb-8 rounded-2xl border border-border/50 bg-surface-raised/30 p-5">
+        {publishedAtLocal ? (
+          <div className="flex flex-wrap items-center justify-between gap-3">
+            <div className="flex items-start gap-3">
+              <CheckCircle2 className="mt-0.5 h-5 w-5 shrink-0 text-emerald-500" />
+              <div>
+                <p className="text-sm font-medium">Publié</p>
+                <p className="text-xs text-muted-foreground">
+                  Mis en ligne le{' '}
+                  {new Date(publishedAtLocal).toLocaleDateString('fr-FR', {
+                    day: 'numeric',
+                    month: 'long',
+                    year: 'numeric',
+                  })}
+                </p>
+              </div>
+            </div>
+            <Button
+              size="sm"
+              variant="ghost"
+              onClick={handleTogglePublished}
+              disabled={publishTogglePending}
+            >
+              {publishTogglePending ? (
+                <Loader2 className="h-3.5 w-3.5 animate-spin" />
+              ) : (
+                <Undo2 className="h-3.5 w-3.5" />
+              )}
+              Marquer non-publié
+            </Button>
+          </div>
+        ) : (
+          <div className="flex flex-wrap items-center justify-between gap-3">
+            <div>
+              <p className="text-sm font-medium">Tu l\'as publié ?</p>
+              <p className="text-xs text-muted-foreground">
+                Dis-le-moi — ça me permet de tenir ton arche narrative à jour.
+              </p>
+            </div>
+            <Button size="sm" onClick={handleTogglePublished} disabled={publishTogglePending}>
+              {publishTogglePending ? (
+                <Loader2 className="h-3.5 w-3.5 animate-spin" />
+              ) : (
+                <CheckCircle2 className="h-3.5 w-3.5" />
+              )}
+              C\'est en ligne
+            </Button>
+          </div>
+        )}
+      </section>
 
       {/* Footer suggestions */}
       <section className="mt-10 border-t border-border/40 pt-6">

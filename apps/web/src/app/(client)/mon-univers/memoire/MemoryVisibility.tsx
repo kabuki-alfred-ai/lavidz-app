@@ -2,15 +2,20 @@
 
 import { useCallback, useEffect, useState } from 'react'
 import Link from 'next/link'
+import { useRef } from 'react'
 import {
+  AlertTriangle,
   ArrowLeft,
   Brain,
   Check,
+  CheckCircle2,
   ExternalLink,
+  FileText,
   Loader2,
   Pencil,
   Sparkles,
   Trash2,
+  Upload,
   Waypoints,
   X,
 } from 'lucide-react'
@@ -52,6 +57,128 @@ function formatDate(iso: string): string {
   }
 }
 
+type UploadState =
+  | { status: 'idle' }
+  | { status: 'uploading'; filename: string }
+  | { status: 'done'; filename: string; saved: number }
+  | { status: 'error'; message: string }
+
+/**
+ * Drop zone that POSTs a document to the RAG ingestion endpoint.
+ * Inline helper kept in this file to avoid a dedicated module for a 90-line
+ * component (used only here).
+ */
+function DocumentUpload({ onSuccess }: { onSuccess: () => void }) {
+  const [state, setState] = useState<UploadState>({ status: 'idle' })
+  const [dragOver, setDragOver] = useState(false)
+  const inputRef = useRef<HTMLInputElement>(null)
+
+  async function upload(file: File) {
+    const ext = file.name.split('.').pop()?.toLowerCase()
+    if (!['txt', 'md', 'pdf'].includes(ext ?? '')) {
+      setState({ status: 'error', message: 'Format non supporté. Utilise .txt, .md ou .pdf' })
+      return
+    }
+    if (file.size > 10 * 1024 * 1024) {
+      setState({ status: 'error', message: 'Fichier trop volumineux (max 10 Mo)' })
+      return
+    }
+    setState({ status: 'uploading', filename: file.name })
+    const form = new FormData()
+    form.append('file', file)
+    try {
+      const res = await fetch('/api/admin/ai/documents', { method: 'POST', body: form })
+      if (!res.ok) throw new Error(await res.text())
+      const { saved } = (await res.json()) as { saved: number }
+      setState({ status: 'done', filename: file.name, saved })
+      onSuccess()
+    } catch (err) {
+      setState({ status: 'error', message: err instanceof Error ? err.message : 'Erreur' })
+    }
+  }
+
+  return (
+    <div
+      onClick={() =>
+        state.status === 'idle' || state.status === 'error' ? inputRef.current?.click() : undefined
+      }
+      onDragOver={(e) => {
+        e.preventDefault()
+        setDragOver(true)
+      }}
+      onDragLeave={() => setDragOver(false)}
+      onDrop={(e) => {
+        e.preventDefault()
+        setDragOver(false)
+        if (e.dataTransfer.files?.[0]) upload(e.dataTransfer.files[0])
+      }}
+      className={`relative flex cursor-pointer flex-col items-center gap-4 rounded-xl border-2 border-dashed p-8 transition-all ${
+        dragOver
+          ? 'border-primary/60 bg-primary/5'
+          : state.status === 'done'
+            ? 'cursor-default border-emerald-500/40 bg-emerald-500/5'
+            : state.status === 'error'
+              ? 'border-red-500/40 bg-red-500/5'
+              : 'border-border/50 hover:border-primary/40 hover:bg-muted/30'
+      }`}
+    >
+      <input
+        ref={inputRef}
+        type="file"
+        accept=".txt,.md,.pdf"
+        className="hidden"
+        onChange={(e) => e.target.files?.[0] && upload(e.target.files[0])}
+      />
+      {state.status === 'idle' && (
+        <>
+          <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-muted/40">
+            <FileText size={20} className="text-muted-foreground/40" />
+          </div>
+          <div className="text-center">
+            <p className="text-sm font-medium text-foreground">Dépose un fichier ou clique</p>
+            <p className="mt-1 text-xs text-muted-foreground">.txt · .md · .pdf — max 10 Mo</p>
+          </div>
+        </>
+      )}
+      {state.status === 'uploading' && (
+        <>
+          <Loader2 size={22} className="animate-spin text-primary/60" />
+          <div className="text-center">
+            <p className="text-sm font-medium text-foreground">{state.filename}</p>
+            <p className="mt-1 text-xs text-muted-foreground">Analyse et indexation…</p>
+          </div>
+        </>
+      )}
+      {state.status === 'done' && (
+        <>
+          <CheckCircle2 size={22} className="text-emerald-500" />
+          <div className="text-center">
+            <p className="text-sm font-medium text-foreground">{state.filename}</p>
+            <p className="mt-1 text-xs text-emerald-500/80">
+              {state.saved} fragment{state.saved > 1 ? 's' : ''} indexé{state.saved > 1 ? 's' : ''}
+            </p>
+          </div>
+          <button
+            onClick={(e) => {
+              e.stopPropagation()
+              setState({ status: 'idle' })
+            }}
+            className="inline-flex items-center gap-1.5 rounded-lg bg-muted/40 px-3 py-1.5 text-xs text-muted-foreground transition-colors hover:text-foreground"
+          >
+            <Upload size={10} /> Ajouter un autre
+          </button>
+        </>
+      )}
+      {state.status === 'error' && (
+        <>
+          <X size={22} className="text-red-400" />
+          <p className="text-sm font-medium text-red-400">{state.message}</p>
+        </>
+      )}
+    </div>
+  )
+}
+
 function stringifySummary(businessContext: Record<string, unknown> | null): string {
   if (!businessContext) return ''
   const summary = (businessContext.summary as Record<string, unknown> | undefined) ?? businessContext
@@ -82,6 +209,8 @@ export function MemoryVisibility() {
   const [drafts, setDrafts] = useState<Partial<Profile>>({})
   const [toast, setToast] = useState<string | null>(null)
   const [deletingMemory, setDeletingMemory] = useState<string | null>(null)
+  const [showResetConfirm, setShowResetConfirm] = useState(false)
+  const [resetting, setResetting] = useState(false)
 
   const flashToast = useCallback((message: string) => {
     setToast(message)
@@ -136,6 +265,22 @@ export function MemoryVisibility() {
     [flashToast],
   )
 
+  const resetProfile = useCallback(async () => {
+    setResetting(true)
+    try {
+      const res = await fetch('/api/admin/ai/profile', { method: 'DELETE' })
+      if (!res.ok) {
+        flashToast(KABOU_TOASTS.oops)
+        return
+      }
+      setShowResetConfirm(false)
+      flashToast('Profil réinitialisé.')
+      await load()
+    } finally {
+      setResetting(false)
+    }
+  }, [flashToast, load])
+
   const deleteMemory = useCallback(
     async (id: string) => {
       setDeletingMemory(id)
@@ -174,10 +319,10 @@ export function MemoryVisibility() {
       {/* Header */}
       <div className="mb-6">
         <Link
-          href="/home"
+          href="/mon-univers"
           className="inline-flex items-center gap-1.5 text-sm text-muted-foreground hover:text-foreground"
         >
-          <ArrowLeft className="h-3.5 w-3.5" /> Retour à l'accueil
+          <ArrowLeft className="h-3.5 w-3.5" /> Mon univers
         </Link>
       </div>
 
@@ -191,13 +336,22 @@ export function MemoryVisibility() {
         <p className="mt-2 text-sm text-muted-foreground">
           Tout est visible et modifiable. Plus tu m'apprends, plus mes propositions te ressemblent.
         </p>
-        <Link
-          href="/mon-univers/arche"
-          className="mt-4 inline-flex items-center gap-2 rounded-full border border-primary/30 bg-primary/5 px-3 py-1.5 text-xs font-medium text-primary transition hover:bg-primary/10"
-        >
-          <Waypoints className="h-3.5 w-3.5" />
-          Voir ton arche narrative sur 3 mois
-        </Link>
+        <div className="mt-4 flex flex-wrap gap-2">
+          <Link
+            href="/mon-univers/these"
+            className="inline-flex items-center gap-2 rounded-full border border-primary/30 bg-primary/5 px-3 py-1.5 text-xs font-medium text-primary transition hover:bg-primary/10"
+          >
+            <Waypoints className="h-3.5 w-3.5" />
+            Ta thèse
+          </Link>
+          <Link
+            href="/mon-univers/arche"
+            className="inline-flex items-center gap-2 rounded-full border border-primary/30 bg-primary/5 px-3 py-1.5 text-xs font-medium text-primary transition hover:bg-primary/10"
+          >
+            <Waypoints className="h-3.5 w-3.5" />
+            Ton arche narrative 3 mois
+          </Link>
+        </div>
       </header>
 
       {/* Section — Ton activité */}
@@ -505,6 +659,78 @@ export function MemoryVisibility() {
           </ul>
         )}
       </section>
+
+      {/* Section — Enrichir la mémoire */}
+      <section className="mb-6 rounded-2xl border border-border/50 bg-surface-raised/30 p-5">
+        <div className="mb-3 flex items-center justify-between">
+          <h2 className="inline-flex items-center gap-2 text-xs font-semibold uppercase tracking-widest text-muted-foreground">
+            <Upload className="h-3.5 w-3.5" /> Enrichir ma mémoire
+          </h2>
+        </div>
+        <p className="mb-4 text-sm text-muted-foreground">
+          Dépose un doc (.txt, .md, .pdf) pour que Kabou l'indexe. Ça peut être un pitch, une
+          interview de toi, un article qui te ressemble, ou n'importe quel texte qui
+          l'aidera à te représenter.
+        </p>
+        <DocumentUpload onSuccess={load} />
+      </section>
+
+      {/* Section — Danger (Reset) */}
+      <section className="mt-8 rounded-2xl border border-red-500/20 bg-red-500/5 p-5">
+        <div className="mb-2 inline-flex items-center gap-2 text-xs font-semibold uppercase tracking-widest text-red-500">
+          <AlertTriangle className="h-3.5 w-3.5" /> Zone rouge
+        </div>
+        <h2 className="mb-1 text-sm font-semibold">Réinitialiser mon profil IA</h2>
+        <p className="mb-4 text-xs leading-relaxed text-muted-foreground">
+          Supprime toutes les mémoires, le contexte business, les domaines, les sujets explorés
+          et la thèse. Kabou repart de zéro sur toi. Action irréversible.
+        </p>
+        <button
+          onClick={() => setShowResetConfirm(true)}
+          className="inline-flex items-center gap-1.5 rounded-lg border border-red-500/30 bg-background px-3 py-1.5 text-xs text-red-400 transition-colors hover:bg-red-500/10"
+        >
+          <Trash2 className="h-3.5 w-3.5" /> Réinitialiser
+        </button>
+      </section>
+
+      {/* Reset confirmation modal */}
+      {showResetConfirm && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-sm">
+          <div className="mx-4 w-full max-w-sm space-y-6 rounded-2xl bg-background p-8 shadow-2xl">
+            <div className="space-y-2">
+              <div className="flex items-center gap-2">
+                <Trash2 className="h-4 w-4 text-red-400" />
+                <h2 className="text-lg font-semibold text-foreground">Réinitialiser le profil</h2>
+              </div>
+              <p className="text-sm text-muted-foreground">
+                Toutes les mémoires seront supprimées. L'IA repartira de zéro.
+              </p>
+              <p className="text-xs text-red-400/80">Action irréversible.</p>
+            </div>
+            <div className="flex gap-3">
+              <button
+                onClick={() => setShowResetConfirm(false)}
+                disabled={resetting}
+                className="flex-1 rounded-lg bg-muted/40 px-4 py-2.5 text-sm text-muted-foreground transition-colors hover:text-foreground disabled:opacity-40"
+              >
+                Annuler
+              </button>
+              <button
+                onClick={resetProfile}
+                disabled={resetting}
+                className="flex flex-1 items-center justify-center gap-2 rounded-lg bg-red-500/10 px-4 py-2.5 text-sm text-red-400 transition-colors hover:bg-red-500/20 disabled:opacity-40"
+              >
+                {resetting ? (
+                  <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                ) : (
+                  <Trash2 className="h-3.5 w-3.5" />
+                )}
+                {resetting ? 'Reset…' : 'Réinitialiser'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {toast && (
         <div

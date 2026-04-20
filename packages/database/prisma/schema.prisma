@@ -55,6 +55,7 @@ model Session {
   montageSettings    Json?
   submittedAt        DateTime?
   deliveredAt        DateTime?
+  publishedAt        DateTime? // cochée par l'entrepreneur quand son contenu est en ligne
   topicId            String?
   topicEntity        Topic?               @relation(fields: [topicId], references: [id], onDelete: SetNull)
   recordings         Recording[]
@@ -234,6 +235,7 @@ model EntrepreneurProfile {
   targetFrequency    Int?
   targetPlatforms    String[]             @default([])
   editorialValidated Boolean              @default(false)
+  thesis             Json?                // { statement: string, enemies: string[], audienceArchetype: string, confidence: 'forming'|'emerging'|'crystallized', updatedAt: string }
   createdAt          DateTime             @default(now())
   updatedAt          DateTime             @updatedAt
   organization       Organization?        @relation(fields: [organizationId], references: [id])

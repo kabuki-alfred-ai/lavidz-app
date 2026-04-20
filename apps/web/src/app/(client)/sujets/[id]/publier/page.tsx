@@ -27,6 +27,7 @@ export default async function PublishPage({ params }: PageProps) {
     },
   })
   if (!session) notFound()
+  const publishedAt = session.publishedAt ? session.publishedAt.toISOString() : null
 
   const authorName = [user.firstName, user.lastName].filter(Boolean).join(' ') || user.email.split('@')[0]
 
@@ -46,6 +47,7 @@ export default async function PublishPage({ params }: PageProps) {
       status={session.status}
       hasFinalVideo={!!session.finalVideoKey}
       authorName={authorName}
+      publishedAt={publishedAt}
     />
   )
 }

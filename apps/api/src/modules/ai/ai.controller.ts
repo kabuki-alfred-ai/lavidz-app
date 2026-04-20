@@ -14,6 +14,8 @@ import { SubjectHookService } from './services/subject-hook.service'
 import { SourcesService } from './services/sources.service'
 import { TopicFromInsightService } from './services/topic-from-insight.service'
 import { NarrativeArcService } from './services/narrative-arc.service'
+import { ThesisService } from './services/thesis.service'
+import { PreflightService } from './services/preflight.service'
 
 type IngestDocumentBody = {
   content: string
@@ -87,6 +89,8 @@ export class AiController {
     private readonly sourcesService: SourcesService,
     private readonly topicFromInsightService: TopicFromInsightService,
     private readonly narrativeArcService: NarrativeArcService,
+    private readonly thesisService: ThesisService,
+    private readonly preflightService: PreflightService,
   ) {}
 
   @Get('profile')
@@ -464,6 +468,48 @@ export class AiController {
   narrativeArc(@Headers('x-organization-id') organizationId: string) {
     if (!organizationId) throw new BadRequestException('Header x-organization-id requis')
     return this.narrativeArcService.generate(organizationId)
+  }
+
+  @Get('thesis')
+  getThesis(@Headers('x-organization-id') organizationId: string) {
+    if (!organizationId) throw new BadRequestException('Header x-organization-id requis')
+    return this.thesisService.get(organizationId)
+  }
+
+  @Post('thesis/propose')
+  proposeThesis(@Headers('x-organization-id') organizationId: string) {
+    if (!organizationId) throw new BadRequestException('Header x-organization-id requis')
+    return this.thesisService.propose(organizationId)
+  }
+
+  @Put('thesis')
+  saveThesis(
+    @Headers('x-organization-id') organizationId: string,
+    @Body() body: { statement: string; enemies: string[]; audienceArchetype: string },
+  ) {
+    if (!organizationId) throw new BadRequestException('Header x-organization-id requis')
+    if (!body.statement?.trim()) throw new BadRequestException('statement requis')
+    return this.thesisService.save(organizationId, {
+      statement: body.statement,
+      enemies: body.enemies ?? [],
+      audienceArchetype: body.audienceArchetype ?? '',
+    })
+  }
+
+  @Delete('thesis')
+  async clearThesis(@Headers('x-organization-id') organizationId: string) {
+    if (!organizationId) throw new BadRequestException('Header x-organization-id requis')
+    await this.thesisService.clear(organizationId)
+    return { ok: true }
+  }
+
+  @Post('preflight/:topicId')
+  preflight(
+    @Headers('x-organization-id') organizationId: string,
+    @Param('topicId') topicId: string,
+  ) {
+    if (!organizationId) throw new BadRequestException('Header x-organization-id requis')
+    return this.preflightService.runForTopic(organizationId, topicId)
   }
 
   @Post('editorial-plan/commit')

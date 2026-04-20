@@ -14,6 +14,8 @@ import { SubjectHookService } from './services/subject-hook.service'
 import { SourcesService } from './services/sources.service'
 import { TopicFromInsightService } from './services/topic-from-insight.service'
 import { NarrativeArcService } from './services/narrative-arc.service'
+import { ThesisService } from './services/thesis.service'
+import { PreflightService } from './services/preflight.service'
 
 @Module({
   controllers: [AiController],
@@ -32,6 +34,8 @@ import { NarrativeArcService } from './services/narrative-arc.service'
     SourcesService,
     TopicFromInsightService,
     NarrativeArcService,
+    ThesisService,
+    PreflightService,
   ],
   exports: [
     ProfileService,
@@ -48,6 +52,8 @@ import { NarrativeArcService } from './services/narrative-arc.service'
     SourcesService,
     TopicFromInsightService,
     NarrativeArcService,
+    ThesisService,
+    PreflightService,
   ],
 })
 export class AiModule {}

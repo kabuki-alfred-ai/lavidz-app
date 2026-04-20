@@ -27,6 +27,8 @@ import {
 import { KABOU_TOASTS } from '@/lib/kabou-voice'
 import { SubjectHookSection } from '@/components/subject/SubjectHookSection'
 import { SubjectSourcesSection } from '@/components/subject/SubjectSourcesSection'
+import { SubjectPreflight } from '@/components/subject/SubjectPreflight'
+import { ThesisBanner } from '@/components/subject/ThesisBanner'
 import { SubjectKabouPanel } from './SubjectKabouPanel'
 
 type Topic = {
@@ -258,6 +260,8 @@ export function SubjectWorkspace({
         </Link>
       </div>
 
+      <ThesisBanner />
+
       <header className="mb-6">
         <div className="mb-2 flex flex-wrap items-center gap-2">
           <span
@@ -455,6 +459,11 @@ export function SubjectWorkspace({
               hasBrief={Boolean(topic.brief && topic.brief.trim().length > 20)}
               onFlashToast={flashToast}
             />
+          )}
+
+          {/* Pre-flight review — only right before tournage */}
+          {!isArchived && (creativeState === 'MATURE' || creativeState === 'SCHEDULED') && (
+            <SubjectPreflight topicId={topic.id} />
           )}
 
           {/* Next scheduled */}

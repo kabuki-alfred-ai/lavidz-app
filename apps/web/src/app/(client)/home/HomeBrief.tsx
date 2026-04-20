@@ -1,364 +1,295 @@
 'use client'
 
-import { useCallback, useEffect, useState } from 'react'
-import { useRouter } from 'next/navigation'
+import { useCallback, useEffect, useMemo, useState } from 'react'
 import Link from 'next/link'
 import {
-  Sparkles,
+  ArrowRight,
+  Brain,
   CalendarDays,
-  Play,
+  FileText,
   Film,
   Loader2,
-  ArrowRight,
   MessageSquare,
   Mic,
-  Zap,
-  BookOpen,
-  TrendingUp,
-  ExternalLink,
-  RefreshCw,
+  Sparkles,
+  Waypoints,
 } from 'lucide-react'
-import ReactMarkdown from 'react-markdown'
 import { Button } from '@/components/ui/button'
 
-interface HomeBriefData {
+type NextStep =
+  | { kind: 'publish'; label: string; href: string; topicName: string }
+  | { kind: 'record'; label: string; href: string; topicName: string }
+  | { kind: 'prepare_recording'; label: string; href: string; topicName: string }
+  | { kind: 'continue_exploring'; label: string; href: string; topicName: string }
+  | { kind: 'seed_exploration'; label: string; href: string; topicName: string }
+  | { kind: 'first_subject'; label: string; href: string; topicName?: string }
+
+type HomeState = {
   userName: string
-  nextSession: {
-    title: string
-    date: string
-    format: string
-    questionCount: number
-  } | null
-  lastVideo: {
-    title: string
-    date: string
-    status: string
-  } | null
-  suggestions: {
-    title: string
-    format: string
-    reason: string
-  }[]
-  trends: {
-    title: string
-    url: string
-    snippet: string
-  }[]
-  trendsRecap: string | null
+  thesis: { statement: string; confidence: 'forming' | 'emerging' | 'crystallized'; audienceArchetype: string | null } | null
   hasProfile: boolean
+  nextStep: NextStep
+  counts: Record<
+    'SEED' | 'EXPLORING' | 'MATURE' | 'SCHEDULED' | 'PRODUCING' | 'ARCHIVED',
+    number
+  >
+  totalActiveSubjects: number
+  publishedTotal: number
+  lastActivityAt: string | null
 }
 
-const FORMAT_ICONS: Record<string, typeof Film> = {
-  QUESTION_BOX: Mic,
-  TELEPROMPTER: BookOpen,
-  HOT_TAKE: Zap,
-  STORYTELLING: MessageSquare,
-  DAILY_TIP: Sparkles,
-  MYTH_VS_REALITY: Zap,
+const STEP_ICON: Record<NextStep['kind'], typeof Mic> = {
+  publish: Film,
+  record: Mic,
+  prepare_recording: Sparkles,
+  continue_exploring: MessageSquare,
+  seed_exploration: Sparkles,
+  first_subject: Sparkles,
 }
 
-const FORMAT_LABELS: Record<string, string> = {
-  QUESTION_BOX: 'Interview',
-  TELEPROMPTER: 'Guide',
-  HOT_TAKE: 'Reaction',
-  STORYTELLING: 'Histoire',
-  DAILY_TIP: 'Conseil',
-  MYTH_VS_REALITY: 'Myth vs Reality',
+const STEP_HINT: Record<NextStep['kind'], string> = {
+  publish: 'Un contenu est prêt — reste plus qu\'à le mettre en ligne.',
+  record: 'Tu as une session prête à tourner.',
+  prepare_recording: 'Un Sujet est mûr — on le prépare pour le tournage avec Kabou ?',
+  continue_exploring: 'On continue à creuser un Sujet qui prend forme.',
+  seed_exploration: 'Une graine attend d\'être explorée.',
+  first_subject: 'Démarrons ton premier Sujet — raconte-moi.',
 }
 
-function formatDate(iso: string): string {
-  const d = new Date(iso)
-  const now = new Date()
-  const diffMs = d.getTime() - now.getTime()
-  const diffDays = Math.floor(diffMs / (1000 * 60 * 60 * 24))
-
-  if (diffDays === 0) return "Aujourd'hui"
-  if (diffDays === 1) return 'Demain'
-  if (diffDays > 1 && diffDays < 7) {
-    return d.toLocaleDateString('fr-FR', { weekday: 'long' })
-  }
-  return d.toLocaleDateString('fr-FR', { day: 'numeric', month: 'long' })
-}
-
-function formatRelativeDate(iso: string): string {
-  const d = new Date(iso)
-  const now = new Date()
-  const diffMs = now.getTime() - d.getTime()
-  const diffDays = Math.floor(diffMs / (1000 * 60 * 60 * 24))
-
-  if (diffDays === 0) return "Aujourd'hui"
-  if (diffDays === 1) return 'Hier'
-  if (diffDays < 7) return `Il y a ${diffDays} jours`
-  return d.toLocaleDateString('fr-FR', { day: 'numeric', month: 'long' })
-}
-
-export function HomeBrief() {
-  const router = useRouter()
-  const [data, setData] = useState<HomeBriefData | null>(null)
-  const [loading, setLoading] = useState(true)
-  const [trendsRefreshing, setTrendsRefreshing] = useState(false)
-  const [creatingTopic, setCreatingTopic] = useState<string | null>(null)
-
-  const createTopicAndRedirect = useCallback(async (name: string, brief?: string) => {
-    setCreatingTopic(name)
-    try {
-      const res = await fetch('/api/topics', {
-        method: 'POST',
-        credentials: 'include',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ name, brief }),
-      })
-      if (res.ok) {
-        const topic = await res.json()
-        router.push(`/sujets/${topic.id}`)
-        return
-      }
-    } catch { /* */ }
-    // Fallback to chat if topic creation fails
-    router.push(`/chat?topic=${encodeURIComponent(name)}`)
-    setCreatingTopic(null)
-  }, [router])
-
-  const fetchBrief = useCallback(async () => {
-    setLoading(true)
-    try {
-      const res = await fetch('/api/home-brief', { credentials: 'include' })
-      if (res.ok) setData(await res.json())
-    } catch { /* */ }
-    finally { setLoading(false) }
-  }, [])
-
-  const refreshTrends = useCallback(async () => {
-    setTrendsRefreshing(true)
-    try {
-      const res = await fetch('/api/home-brief/trends', { credentials: 'include' })
-      if (res.ok) {
-        const { trends, trendsRecap } = await res.json()
-        setData((prev) => prev ? { ...prev, trends, trendsRecap } : prev)
-      }
-    } catch { /* */ }
-    finally { setTrendsRefreshing(false) }
-  }, [])
-
-  useEffect(() => { fetchBrief() }, [fetchBrief])
-
-  if (loading) {
-    return (
-      <div className="max-w-xl mx-auto px-4 py-12 space-y-6">
-        <div className="h-8 w-48 bg-muted animate-pulse rounded-lg" />
-        <div className="h-40 bg-muted animate-pulse rounded-2xl" />
-        <div className="h-24 bg-muted animate-pulse rounded-2xl" />
-        <div className="space-y-3">
-          <div className="h-20 bg-muted animate-pulse rounded-xl" />
-          <div className="h-20 bg-muted animate-pulse rounded-xl" />
-        </div>
-      </div>
-    )
-  }
-
-  if (!data) {
-    return (
-      <div className="flex items-center justify-center min-h-[60vh]">
-        <p className="text-sm text-muted-foreground">Impossible de charger le brief.</p>
-      </div>
-    )
-  }
-
-  const greeting = getGreeting()
-
-  return (
-    <div className="max-w-xl mx-auto px-4 py-8 md:py-12 space-y-8">
-      {/* Header */}
-      <div>
-        <h1 className="text-2xl font-bold tracking-tight text-foreground">
-          {greeting} {data.userName}
-        </h1>
-        <p className="text-sm text-muted-foreground mt-1">
-          {new Date().toLocaleDateString('fr-FR', { weekday: 'long', day: 'numeric', month: 'long' })}
-        </p>
-      </div>
-
-      {/* Next session — hero card */}
-      {data.nextSession ? (
-        <div className="rounded-2xl bg-primary/5 p-6 space-y-4">
-          <div className="flex items-center gap-2 text-primary">
-            <CalendarDays size={16} />
-            <span className="text-xs font-medium">{formatDate(data.nextSession.date)}</span>
-          </div>
-          <div>
-            <h2 className="text-lg font-semibold text-foreground">{data.nextSession.title}</h2>
-            <p className="text-sm text-muted-foreground mt-1">
-              {FORMAT_LABELS[data.nextSession.format] || data.nextSession.format} · {data.nextSession.questionCount} questions
-            </p>
-          </div>
-          <div className="pt-2">
-            <Link href={`/chat?action=record&topic=${encodeURIComponent(data.nextSession.title)}&format=${data.nextSession.format}`}>
-              <Button className="gap-2">
-                <Play size={14} />
-                Lancer la session
-              </Button>
-            </Link>
-          </div>
-        </div>
-      ) : (
-        <div className="rounded-2xl bg-muted/30 p-6 space-y-3 text-center">
-          <CalendarDays size={24} className="text-muted-foreground/40 mx-auto" />
-          <p className="text-sm text-muted-foreground">Aucune session planifiee</p>
-          <Link href="/calendar">
-            <Button variant="outline" size="sm" className="gap-1.5">
-              <CalendarDays size={14} />
-              Voir le calendrier
-            </Button>
-          </Link>
-        </div>
-      )}
-
-      {/* Last video */}
-      {data.lastVideo && (
-        <div className="rounded-xl bg-muted/20 p-4 flex items-center justify-between gap-4">
-          <div className="flex items-center gap-3 min-w-0">
-            <div className="w-10 h-10 rounded-xl bg-emerald-500/10 flex items-center justify-center shrink-0">
-              <Film size={16} className="text-emerald-500" />
-            </div>
-            <div className="min-w-0">
-              <p className="text-sm font-medium text-foreground truncate">{data.lastVideo.title}</p>
-              <p className="text-xs text-muted-foreground">{formatRelativeDate(data.lastVideo.date)}</p>
-            </div>
-          </div>
-          <Link href="/videos" className="text-xs text-primary hover:text-primary/80 transition-colors shrink-0 flex items-center gap-1">
-            Voir <ArrowRight size={12} />
-          </Link>
-        </div>
-      )}
-
-      {/* Trends */}
-      {data.trends?.length > 0 && (
-        <div className="space-y-3">
-          <div className="flex items-center justify-between">
-            <h3 className="text-sm font-medium text-muted-foreground flex items-center gap-2">
-              <TrendingUp size={14} className="text-orange-500" />
-              Tendances du jour
-            </h3>
-            <button
-              onClick={refreshTrends}
-              disabled={trendsRefreshing}
-              className="flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-xs text-muted-foreground hover:text-foreground hover:bg-muted/40 transition-colors disabled:opacity-40"
-            >
-              <RefreshCw size={11} className={trendsRefreshing ? 'animate-spin' : ''} />
-              Actualiser
-            </button>
-          </div>
-          {data.trendsRecap && (
-            <div className="rounded-xl bg-orange-500/5 border border-orange-500/10 p-4 space-y-3">
-              <div className="text-sm text-foreground leading-relaxed prose prose-sm max-w-none [&_p]:my-1 [&_strong]:text-foreground">
-                <ReactMarkdown>{data.trendsRecap}</ReactMarkdown>
-              </div>
-              <button
-                onClick={() => createTopicAndRedirect('Tendance du jour', data.trendsRecap ?? undefined)}
-                disabled={creatingTopic !== null}
-                className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-orange-500 text-white text-xs font-medium hover:bg-orange-500/90 transition-colors disabled:opacity-50"
-              >
-                {creatingTopic ? <Loader2 size={12} className="animate-spin" /> : <MessageSquare size={12} />}
-                Creer un sujet sur cette tendance
-              </button>
-            </div>
-          )}
-          <div className="space-y-2">
-            {data.trends.map((t, i) => (
-              <div key={i} className="flex items-start gap-3 p-3 rounded-xl hover:bg-muted/30 transition-colors group">
-                <div className="flex-1 min-w-0">
-                  <p className="text-sm font-medium text-foreground leading-snug">{t.title}</p>
-                  <p className="text-xs text-muted-foreground mt-1 line-clamp-1">{t.snippet}</p>
-                  <div className="flex items-center gap-3 mt-2">
-                    <a href={t.url} target="_blank" rel="noopener noreferrer" className="text-xs text-muted-foreground/50 hover:text-orange-500 transition-colors flex items-center gap-1">
-                      Lire <ExternalLink size={9} />
-                    </a>
-                    <button
-                      onClick={() => createTopicAndRedirect(t.title, t.snippet)}
-                      disabled={creatingTopic !== null}
-                      className="text-xs text-orange-500/70 hover:text-orange-500 transition-colors flex items-center gap-1 disabled:opacity-50"
-                    >
-                      {creatingTopic === t.title ? <Loader2 size={9} className="animate-spin" /> : <Mic size={9} />} Creer un sujet
-                    </button>
-                  </div>
-                </div>
-              </div>
-            ))}
-          </div>
-        </div>
-      )}
-
-      {/* Suggestions */}
-      {data.suggestions.length > 0 && (
-        <div className="space-y-3">
-          <h3 className="text-sm font-medium text-muted-foreground flex items-center gap-2">
-            <Sparkles size={14} className="text-primary" />
-            Idees pour toi
-          </h3>
-          <div className="space-y-2">
-            {data.suggestions.map((s, i) => {
-              const Icon = FORMAT_ICONS[s.format] || Sparkles
-              return (
-                <button
-                  key={i}
-                  onClick={() => createTopicAndRedirect(s.title, s.reason)}
-                  disabled={creatingTopic !== null}
-                  className="w-full flex items-center gap-4 p-4 rounded-xl bg-muted/15 hover:bg-muted/30 transition-colors group text-left disabled:opacity-50"
-                >
-                  <div className="w-10 h-10 rounded-xl bg-primary/5 flex items-center justify-center shrink-0 group-hover:bg-primary/10 transition-colors">
-                    {creatingTopic === s.title ? <Loader2 size={16} className="text-primary/70 animate-spin" /> : <Icon size={16} className="text-primary/70" />}
-                  </div>
-                  <div className="flex-1 min-w-0">
-                    <p className="text-sm font-medium text-foreground">{s.title}</p>
-                    <p className="text-xs text-muted-foreground mt-0.5">{s.reason}</p>
-                  </div>
-                  <ArrowRight size={14} className="text-muted-foreground/40 group-hover:text-primary transition-colors shrink-0" />
-                </button>
-              )
-            })}
-          </div>
-        </div>
-      )}
-
-      {/* No profile CTA */}
-      {!data.hasProfile && (
-        <div className="rounded-2xl bg-muted/20 p-6 text-center space-y-3">
-          <div className="w-12 h-12 rounded-full bg-primary/5 flex items-center justify-center mx-auto">
-            <MessageSquare size={20} className="text-primary/60" />
-          </div>
-          <p className="text-sm text-muted-foreground max-w-xs mx-auto">
-            On ne se connait pas encore. Raconte-moi ton activite pour que je te prepare tes premiers sujets.
-          </p>
-          <Link href="/chat">
-            <Button size="sm" className="gap-1.5">
-              <MessageSquare size={14} />
-              Discuter avec l&apos;IA
-            </Button>
-          </Link>
-        </div>
-      )}
-
-      {/* Quick access */}
-      <div className="flex items-center justify-center gap-3 pt-4">
-        <Link href="/chat" className="text-xs text-muted-foreground hover:text-foreground transition-colors flex items-center gap-1.5">
-          <MessageSquare size={12} /> Chat IA
-        </Link>
-        <span className="text-muted-foreground/30">·</span>
-        <Link href="/calendar" className="text-xs text-muted-foreground hover:text-foreground transition-colors flex items-center gap-1.5">
-          <CalendarDays size={12} /> Calendrier
-        </Link>
-        <span className="text-muted-foreground/30">·</span>
-        <Link href="/videos" className="text-xs text-muted-foreground hover:text-foreground transition-colors flex items-center gap-1.5">
-          <Film size={12} /> Videos
-        </Link>
-      </div>
-    </div>
-  )
+const CONFIDENCE_META: Record<
+  NonNullable<HomeState['thesis']>['confidence'],
+  { label: string; tone: string }
+> = {
+  forming: { label: 'en formation', tone: 'bg-amber-500/10 text-amber-700 dark:text-amber-400' },
+  emerging: { label: 'qui émerge', tone: 'bg-blue-500/10 text-blue-700 dark:text-blue-400' },
+  crystallized: { label: 'cristallisée', tone: 'bg-emerald-500/10 text-emerald-700 dark:text-emerald-400' },
 }
 
 function getGreeting(): string {
   const h = new Date().getHours()
+  if (h < 5) return 'Bonsoir'
   if (h < 12) return 'Bonjour'
-  if (h < 18) return 'Bon apres-midi'
+  if (h < 18) return 'Bel après-midi'
   return 'Bonsoir'
+}
+
+function formatRelativeDate(iso: string): string {
+  const d = new Date(iso)
+  const diffDays = Math.floor((Date.now() - d.getTime()) / (1000 * 60 * 60 * 24))
+  if (diffDays === 0) return "aujourd'hui"
+  if (diffDays === 1) return 'hier'
+  if (diffDays < 7) return `il y a ${diffDays} jours`
+  if (diffDays < 30) return `il y a ${Math.floor(diffDays / 7)} semaines`
+  return d.toLocaleDateString('fr-FR', { day: 'numeric', month: 'long' })
+}
+
+function CountTile({ label, value, href }: { label: string; value: number; href?: string }) {
+  const inner = (
+    <div className="rounded-2xl border border-border/50 bg-surface-raised/30 p-4 transition hover:bg-surface-raised/50">
+      <p className="text-xs uppercase tracking-wider text-muted-foreground">{label}</p>
+      <p className="mt-1 text-2xl font-bold text-foreground">{value}</p>
+    </div>
+  )
+  return href ? <Link href={href}>{inner}</Link> : inner
+}
+
+export function HomeBrief() {
+  const [state, setState] = useState<HomeState | null>(null)
+  const [loading, setLoading] = useState(true)
+
+  const fetchState = useCallback(async () => {
+    try {
+      const res = await fetch('/api/home/state', { credentials: 'include', cache: 'no-store' })
+      if (res.ok) setState(await res.json())
+    } finally {
+      setLoading(false)
+    }
+  }, [])
+
+  useEffect(() => {
+    fetchState()
+  }, [fetchState])
+
+  const contextLine = useMemo(() => {
+    if (!state) return ''
+    const bits: string[] = []
+    if (state.counts.EXPLORING > 0) {
+      bits.push(`${state.counts.EXPLORING} Sujet${state.counts.EXPLORING > 1 ? 's' : ''} en exploration`)
+    }
+    if (state.counts.MATURE + state.counts.SCHEDULED > 0) {
+      const n = state.counts.MATURE + state.counts.SCHEDULED
+      bits.push(`${n} prêt${n > 1 ? 's' : ''} à tourner`)
+    }
+    if (state.counts.PRODUCING > 0) {
+      bits.push(`${state.counts.PRODUCING} en production`)
+    }
+    if (bits.length === 0) return 'Tu pars d\'une page blanche — c\'est un bon point de départ.'
+    return `Tu as ${bits.slice(0, 2).join(', ')}.`
+  }, [state])
+
+  if (loading) {
+    return (
+      <div className="mx-auto max-w-3xl space-y-6 px-4 py-8 md:py-12">
+        <div className="h-10 w-48 animate-pulse rounded-lg bg-muted" />
+        <div className="h-44 animate-pulse rounded-3xl bg-muted" />
+        <div className="grid grid-cols-3 gap-3">
+          <div className="h-24 animate-pulse rounded-2xl bg-muted" />
+          <div className="h-24 animate-pulse rounded-2xl bg-muted" />
+          <div className="h-24 animate-pulse rounded-2xl bg-muted" />
+        </div>
+      </div>
+    )
+  }
+
+  if (!state) {
+    return (
+      <div className="flex min-h-[60vh] items-center justify-center">
+        <p className="text-sm italic text-muted-foreground">Home indisponible pour le moment.</p>
+      </div>
+    )
+  }
+
+  const Icon = STEP_ICON[state.nextStep.kind]
+  const topicName = 'topicName' in state.nextStep ? state.nextStep.topicName : null
+  const confidence = state.thesis?.confidence
+
+  return (
+    <div className="mx-auto max-w-3xl space-y-8 px-4 py-8 md:py-12">
+      {/* Greeting + thesis banner */}
+      <header>
+        <h1 className="text-2xl font-bold tracking-tight text-foreground sm:text-3xl">
+          {getGreeting()} {state.userName}
+        </h1>
+        <p className="mt-1 text-sm text-muted-foreground">
+          {new Date().toLocaleDateString('fr-FR', { weekday: 'long', day: 'numeric', month: 'long' })}
+          {state.lastActivityAt && ` · dernière activité ${formatRelativeDate(state.lastActivityAt)}`}
+        </p>
+        {state.thesis ? (
+          <Link
+            href="/mon-univers/these"
+            className="mt-4 block rounded-xl border border-primary/20 bg-primary/5 px-4 py-3 transition hover:bg-primary/10"
+          >
+            <div className="mb-1 flex items-center gap-2 text-[11px] uppercase tracking-wider text-primary">
+              <Waypoints className="h-3 w-3" /> Ta thèse
+              {confidence && (
+                <span
+                  className={`ml-auto inline-flex rounded-full px-1.5 py-0.5 text-[10px] font-medium normal-case tracking-normal ${CONFIDENCE_META[confidence].tone}`}
+                >
+                  {CONFIDENCE_META[confidence].label}
+                </span>
+              )}
+            </div>
+            <p className="text-sm italic text-foreground">&laquo;&nbsp;{state.thesis.statement}&nbsp;&raquo;</p>
+          </Link>
+        ) : (
+          <Link
+            href="/mon-univers/these"
+            className="mt-4 inline-flex items-center gap-1.5 text-xs text-muted-foreground transition hover:text-foreground"
+          >
+            <Waypoints className="h-3.5 w-3.5" />
+            Tu n'as pas encore de thèse — Kabou peut t'aider à la formuler.
+            <ArrowRight className="h-3 w-3" />
+          </Link>
+        )}
+      </header>
+
+      {/* Next step — dominant tile */}
+      <section className="rounded-3xl border border-primary/30 bg-gradient-to-br from-primary/10 via-primary/5 to-transparent p-6 sm:p-8">
+        <p className="mb-2 text-xs font-semibold uppercase tracking-widest text-primary">
+          🎯 Ton prochain pas
+        </p>
+        <p className="mb-5 text-sm text-muted-foreground">{contextLine}</p>
+        <div className="mb-4">
+          <p className="text-base leading-snug text-foreground sm:text-lg">
+            {STEP_HINT[state.nextStep.kind]}
+          </p>
+          {topicName && (
+            <p className="mt-2 text-sm font-semibold text-foreground">
+              &laquo;&nbsp;{topicName}&nbsp;&raquo;
+            </p>
+          )}
+        </div>
+        <Button asChild size="lg">
+          <Link href={state.nextStep.href}>
+            <Icon className="h-4 w-4" />
+            {state.nextStep.label}
+          </Link>
+        </Button>
+      </section>
+
+      {/* Counts — framed reality */}
+      {state.totalActiveSubjects > 0 && (
+        <section className="grid gap-3 sm:grid-cols-3">
+          <CountTile
+            label="En exploration"
+            value={state.counts.SEED + state.counts.EXPLORING}
+            href="/topics?filter=draft"
+          />
+          <CountTile
+            label="Prêts à tourner"
+            value={state.counts.MATURE + state.counts.SCHEDULED}
+            href="/topics?filter=ready"
+          />
+          <CountTile
+            label="Publiés"
+            value={state.publishedTotal}
+            href="/mon-univers/arche"
+          />
+        </section>
+      )}
+
+      {/* Secondary — shortcuts */}
+      <section>
+        <h2 className="mb-3 inline-flex items-center gap-1.5 text-xs font-semibold uppercase tracking-widest text-muted-foreground">
+          Aller à
+        </h2>
+        <div className="grid gap-2 sm:grid-cols-2">
+          <Link
+            href="/chat"
+            className="flex items-center gap-3 rounded-xl border border-border/40 bg-surface-raised/30 p-4 transition hover:bg-surface-raised/50"
+          >
+            <MessageSquare className="h-4 w-4 text-muted-foreground" />
+            <div className="flex-1">
+              <p className="text-sm font-medium text-foreground">Discuter avec Kabou</p>
+              <p className="text-xs text-muted-foreground">Idées, débat, inspiration</p>
+            </div>
+            <ArrowRight className="h-3.5 w-3.5 text-muted-foreground" />
+          </Link>
+          <Link
+            href="/calendar"
+            className="flex items-center gap-3 rounded-xl border border-border/40 bg-surface-raised/30 p-4 transition hover:bg-surface-raised/50"
+          >
+            <CalendarDays className="h-4 w-4 text-muted-foreground" />
+            <div className="flex-1">
+              <p className="text-sm font-medium text-foreground">Calendrier</p>
+              <p className="text-xs text-muted-foreground">La semaine en vue d'action</p>
+            </div>
+            <ArrowRight className="h-3.5 w-3.5 text-muted-foreground" />
+          </Link>
+          <Link
+            href="/topics"
+            className="flex items-center gap-3 rounded-xl border border-border/40 bg-surface-raised/30 p-4 transition hover:bg-surface-raised/50"
+          >
+            <FileText className="h-4 w-4 text-muted-foreground" />
+            <div className="flex-1">
+              <p className="text-sm font-medium text-foreground">Mes Sujets</p>
+              <p className="text-xs text-muted-foreground">Tous tes angles en cours</p>
+            </div>
+            <ArrowRight className="h-3.5 w-3.5 text-muted-foreground" />
+          </Link>
+          <Link
+            href="/mon-univers/memoire"
+            className="flex items-center gap-3 rounded-xl border border-border/40 bg-surface-raised/30 p-4 transition hover:bg-surface-raised/50"
+          >
+            <Brain className="h-4 w-4 text-muted-foreground" />
+            <div className="flex-1">
+              <p className="text-sm font-medium text-foreground">Mon univers</p>
+              <p className="text-xs text-muted-foreground">Ce que Kabou a retenu de toi</p>
+            </div>
+            <ArrowRight className="h-3.5 w-3.5 text-muted-foreground" />
+          </Link>
+        </div>
+      </section>
+    </div>
+  )
 }

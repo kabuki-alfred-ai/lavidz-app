@@ -12,8 +12,8 @@ const BASE_ITEMS = [
   { href: '/projects', label: 'Projets', icon: FolderOpen },
   { href: '/videos', label: 'Videos', icon: Film },
   { href: '/brand-kit', label: 'Brand Kit', icon: Palette },
-  { href: '/mon-univers/memoire', label: 'Mon univers', icon: Brain },
-  { href: '/profile', label: 'Profil', icon: User },
+  { href: '/mon-univers', label: 'Mon univers', icon: Brain },
+  { href: '/profile', label: 'Compte', icon: User },
 ]
 
 const ADMIN_SECTIONS: { label: string; items: { href: string; label: string; icon: LucideIcon }[] }[] = [
