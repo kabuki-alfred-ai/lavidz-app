@@ -4,10 +4,11 @@ import { renderMedia, selectComposition } from '@remotion/renderer'
 import path from 'path'
 import fs from 'fs'
 import crypto from 'crypto'
-import { S3Client, PutObjectCommand, GetObjectCommand } from '@aws-sdk/client-s3'
+import { PutObjectCommand, GetObjectCommand } from '@aws-sdk/client-s3'
 import { getSignedUrl } from '@aws-sdk/s3-request-presigner'
 import { purgeStaleTmpFiles } from '@/lib/tmp-cleanup'
 import { isMiniMax, generateMiniMaxTTS } from '@/lib/tts-provider'
+import { getInternalS3Client, getPresignS3Client, getBucket } from '@/lib/s3'
 
 export const runtime = 'nodejs'
 export const maxDuration = 600
@@ -20,26 +21,12 @@ import { setJob, getJob } from './jobs-store'
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
-function getS3Client() {
-  return new S3Client({
-    endpoint: process.env.RUSTFS_ENDPOINT ?? 'http://localhost:9000',
-    region: 'us-east-1',
-    credentials: {
-      accessKeyId: process.env.RUSTFS_ACCESS_KEY ?? 'admin',
-      secretAccessKey: process.env.RUSTFS_SECRET_KEY ?? 'password123',
-    },
-    forcePathStyle: true,
-  })
-}
-
 async function uploadFinalToS3(filePath: string, sessionId: string): Promise<string> {
   const key = `sessions/${sessionId}/final.mp4`
   const { size } = await fs.promises.stat(filePath)
   const stream = fs.createReadStream(filePath)
-  const s3 = getS3Client()
-  const bucket = process.env.RUSTFS_BUCKET ?? 'lavidz-videos'
-  await s3.send(new PutObjectCommand({
-    Bucket: bucket,
+  await getInternalS3Client().send(new PutObjectCommand({
+    Bucket: getBucket(),
     Key: key,
     Body: stream,
     ContentLength: size,
@@ -139,11 +126,10 @@ async function runRender(jobId: string, body: any) {
       if (url.includes('X-Amz-Signature')) {
         try {
           const parsed = new URL(url)
-          const bucket = process.env.RUSTFS_BUCKET ?? 'lavidz-videos'
+          const bucket = getBucket()
           const pathParts = parsed.pathname.replace(/^\//, '').split('/')
           const key = pathParts[0] === bucket ? pathParts.slice(1).join('/') : pathParts.join('/')
-          const s3 = getS3Client()
-          return await getSignedUrl(s3, new GetObjectCommand({ Bucket: bucket, Key: key }), { expiresIn: 43200 })
+          return await getSignedUrl(getPresignS3Client(), new GetObjectCommand({ Bucket: bucket, Key: key }), { expiresIn: 43200 })
         } catch {
           return url
         }
@@ -177,12 +163,11 @@ async function runRender(jobId: string, body: any) {
           const parsed = new URL(url)
           // Path format: /bucket/key or /key depending on path style
           // e.g. /lavidz-videos/sounds/uuid.wav → key = sounds/uuid.wav
-          const bucket = process.env.RUSTFS_BUCKET ?? 'lavidz-videos'
+          const bucket = getBucket()
           const pathParts = parsed.pathname.replace(/^\//, '').split('/')
           // If first segment = bucket name, strip it
           const key = pathParts[0] === bucket ? pathParts.slice(1).join('/') : pathParts.join('/')
-          const s3 = getS3Client()
-          return await getSignedUrl(s3, new GetObjectCommand({ Bucket: bucket, Key: key }), { expiresIn: 43200 })
+          return await getSignedUrl(getPresignS3Client(), new GetObjectCommand({ Bucket: bucket, Key: key }), { expiresIn: 43200 })
         } catch {
           return url // fallback: return original, let Remotion fail naturally
         }
