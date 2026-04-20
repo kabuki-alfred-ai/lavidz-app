@@ -4,11 +4,11 @@ import { renderMedia, selectComposition } from '@remotion/renderer'
 import path from 'path'
 import fs from 'fs'
 import crypto from 'crypto'
-import { PutObjectCommand, GetObjectCommand } from '@aws-sdk/client-s3'
-import { getSignedUrl } from '@aws-sdk/s3-request-presigner'
+import { PutObjectCommand } from '@aws-sdk/client-s3'
 import { purgeStaleTmpFiles } from '@/lib/tmp-cleanup'
 import { isMiniMax, generateMiniMaxTTS } from '@/lib/tts-provider'
 import { getInternalS3Client, getBucket } from '@/lib/s3'
+import { streamResponseToFile } from '@/lib/stream-file'
 
 export const runtime = 'nodejs'
 export const maxDuration = 600
@@ -119,23 +119,32 @@ async function runRender(jobId: string, body: any) {
     const generatedIds = await generateTTSBatched(segments, voiceId ?? DEFAULT_VOICE_ID, apiKey)
     ttsIds.push(...generatedIds)
 
-    // Re-sign expired presigned S3 video URLs (X-Amz-Expires=3600 — expires after 1h)
+    // Download MinIO/remote assets to /tmp and serve them back via
+    // http://localhost:3000/api/render-asset/{id}. This bypasses all Docker
+    // network path issues (IPv6-only DNS + Chromium hang, HTTP/3 proxy bugs).
+    // Remotion's Chromium fetches over the loopback (127.0.0.1, always IPv4).
+    const renderOrigin = 'http://localhost:3000'
+    const downloadToTmp = async (url: string): Promise<string | undefined> => {
+      const assetId = crypto.randomUUID()
+      const dest = path.join('/tmp', `render-asset-${assetId}.mp4`)
+      try {
+        const res = await fetch(url)
+        if (!res.ok) throw new Error(`download ${res.status}`)
+        await streamResponseToFile(res, dest)
+        return `${renderOrigin}/api/render-asset/${assetId}`
+      } catch (err) {
+        console.error('[render] downloadToTmp failed for', url, err)
+        return undefined
+      }
+    }
+
     const resolveVideoUrl = async (url: string | undefined): Promise<string | undefined> => {
       if (!url) return url
-      if (url.startsWith('/')) return `${origin}${url}`
-      if (url.includes('X-Amz-Signature')) {
-        try {
-          const parsed = new URL(url)
-          const bucket = getBucket()
-          const pathParts = parsed.pathname.replace(/^\//, '').split('/')
-          const key = pathParts[0] === bucket ? pathParts.slice(1).join('/') : pathParts.join('/')
-          // Sign with internal endpoint: Remotion's Chromium runs inside the
-          // web container and reaches minio via Docker DNS, avoiding a proxy
-          // hairpin + HTTP/3 issues on the public endpoint.
-          return await getSignedUrl(getInternalS3Client(), new GetObjectCommand({ Bucket: bucket, Key: key }), { expiresIn: 43200 })
-        } catch {
-          return url
-        }
+      if (url.startsWith('/')) return `${renderOrigin}${url}`
+      // MinIO presigned or any http(s) URL — download + serve via loopback.
+      if (url.startsWith('http://') || url.startsWith('https://')) {
+        const local = await downloadToTmp(url)
+        if (local) return local
       }
       return url
     }
@@ -143,7 +152,7 @@ async function runRender(jobId: string, body: any) {
     const serverSegments = await Promise.all(segments.map(async (seg: any, i: number) => ({
       ...seg,
       videoUrl: await resolveVideoUrl(seg.videoUrl),
-      ttsUrl: ttsIds[i] ? `${origin}/api/tts-asset/${ttsIds[i]}` : null,
+      ttsUrl: ttsIds[i] ? `${renderOrigin}/api/tts-asset/${ttsIds[i]}` : null,
     })))
 
     await setProgress(10)
@@ -158,25 +167,10 @@ async function runRender(jobId: string, body: any) {
     // Legacy presigned URLs contain X-Amz- params and may have expired — re-sign them
     const resolveSoundUrl = async (url: string | undefined): Promise<string | undefined> => {
       if (!url) return url
-      // Relative proxy URL — make absolute
-      if (url.startsWith('/')) return `${origin}${url}`
-      // Presigned S3 URL that may have expired — extract key and re-sign with 12h expiry
-      if (url.includes('X-Amz-Signature')) {
-        try {
-          const parsed = new URL(url)
-          // Path format: /bucket/key or /key depending on path style
-          // e.g. /lavidz-videos/sounds/uuid.wav → key = sounds/uuid.wav
-          const bucket = getBucket()
-          const pathParts = parsed.pathname.replace(/^\//, '').split('/')
-          // If first segment = bucket name, strip it
-          const key = pathParts[0] === bucket ? pathParts.slice(1).join('/') : pathParts.join('/')
-          // Sign with internal endpoint: Remotion's Chromium runs inside the
-          // web container and reaches minio via Docker DNS, avoiding a proxy
-          // hairpin + HTTP/3 issues on the public endpoint.
-          return await getSignedUrl(getInternalS3Client(), new GetObjectCommand({ Bucket: bucket, Key: key }), { expiresIn: 43200 })
-        } catch {
-          return url // fallback: return original, let Remotion fail naturally
-        }
+      if (url.startsWith('/')) return `${renderOrigin}${url}`
+      if (url.startsWith('http://') || url.startsWith('https://')) {
+        const local = await downloadToTmp(url)
+        if (local) return local
       }
       return url
     }
