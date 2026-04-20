@@ -158,6 +158,7 @@ function InlayEmoji({
           lineHeight: 1,
           display: 'block',
           userSelect: 'none',
+          fontFamily: '"Noto Color Emoji", "Apple Color Emoji", "Segoe UI Emoji", "Segoe UI Symbol", "Twemoji Mozilla", sans-serif',
         }}
       >
         {emoji}

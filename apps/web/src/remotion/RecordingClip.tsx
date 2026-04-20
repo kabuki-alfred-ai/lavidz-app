@@ -1,4 +1,4 @@
-import { AbsoluteFill, Audio, Video, OffthreadVideo, interpolate, spring, useCurrentFrame, useVideoConfig } from 'remotion'
+import { AbsoluteFill, Audio, OffthreadVideo, interpolate, spring, useCurrentFrame, useVideoConfig } from 'remotion'
 import { useMemo, useRef, useEffect } from 'react'
 import type { SubtitleSettings } from './subtitleTypes'
 import { DEFAULT_SUBTITLE_SETTINGS } from './subtitleTypes'
@@ -218,6 +218,7 @@ function EmojiPop({
         display: 'block',
         filter: 'drop-shadow(0 4px 20px rgba(0,0,0,0.6))',
         userSelect: 'none',
+        fontFamily: '"Noto Color Emoji", "Apple Color Emoji", "Segoe UI Emoji", "Segoe UI Symbol", "Twemoji Mozilla", sans-serif',
       }}>
         {emoji}
       </span>
@@ -1056,9 +1057,9 @@ export function RecordingClip({
               }}
             />
           </div>
-          {/* Foreground centered video */}
+          {/* Foreground centered video — OffthreadVideo for frame-accurate A/V sync during render */}
           <div style={{ position: 'absolute', inset: 0, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-            <Video src={videoUrl} {...(startFromFrame ? { startFrom: startFromFrame } : {})} style={{ width: '100%', objectFit: 'contain' }} />
+            <OffthreadVideo src={videoUrl} {...(startFromFrame ? { startFrom: startFromFrame } : {})} style={{ width: '100%', objectFit: 'contain' }} />
           </div>
         </div>
         {progressBarNode}
@@ -1073,7 +1074,7 @@ export function RecordingClip({
     <AbsoluteFill style={{ background: 'black', opacity: entryOpacity }}>
       {sfxNode}
       <div style={{ position: 'absolute', inset: 0, transform: videoTransform, filter: videoFilter }}>
-        <Video src={videoUrl} {...(startFromFrame ? { startFrom: startFromFrame } : {})} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+        <OffthreadVideo src={videoUrl} {...(startFromFrame ? { startFrom: startFromFrame } : {})} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
       </div>
       {progressBarNode}
       {subtitlesNode}

@@ -33,6 +33,9 @@ ENV NODE_ENV=production
 RUN echo "precedence ::ffff:0:0/96 100" >> /etc/gai.conf
 
 # ffmpeg + Chrome headless shell system dependencies
+# fonts-noto-color-emoji: required for Chromium to render color emoji in Remotion
+# renders. Without it, emoji glyphs fall back to tofu/black boxes.
+# fonts-noto-core + fonts-noto-cjk: broad Unicode coverage for subtitles/cards.
 RUN apt-get update && apt-get install -y --no-install-recommends \
     ffmpeg \
     libnss3 \
@@ -49,6 +52,11 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     libpango-1.0-0 \
     libcairo2 \
     libcups2 \
+    fonts-noto-color-emoji \
+    fonts-noto-core \
+    fonts-noto-cjk \
+    fontconfig \
+    && fc-cache -f \
     && rm -rf /var/lib/apt/lists/*
 
 # Standalone bundle — self-contained Node.js server
