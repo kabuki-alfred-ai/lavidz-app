@@ -1,7 +1,8 @@
-import fs from 'fs'
 import path from 'path'
 import { streamResponseToFile } from '@/lib/stream-file'
 import { mergeElidedWords } from '@/lib/word-timestamps'
+import { uploadFileToS3 } from '@/lib/s3'
+import { cleanvoiceS3Key } from '@/lib/cleanvoice-storage'
 
 export const runtime = 'nodejs'
 export const maxDuration = 60
@@ -44,6 +45,14 @@ export async function GET(req: Request) {
     return Response.json({ done: true, error: `Impossible de télécharger la vidéo nettoyée (${cleanedRes.status})` })
   }
   await streamResponseToFile(cleanedRes, outputPath)
+
+  // Upload to MinIO/S3 so the file is reachable from any serverless instance during render.
+  // The /tmp copy is kept for the current invocation (fast local access) and GC'd by purgeStaleTmpFiles.
+  try {
+    await uploadFileToS3(outputPath, cleanvoiceS3Key(id), 'video/mp4')
+  } catch (uploadErr) {
+    console.error('[cleanvoice] MinIO upload failed:', uploadErr)
+  }
 
   const rawWords: any[] = result.transcription?.transcription?.words ?? result.transcript?.words ?? []
   const wordTimestamps = mergeElidedWords(

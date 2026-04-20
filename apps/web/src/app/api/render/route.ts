@@ -234,6 +234,7 @@ async function runRender(jobId: string, body: any) {
         outputLocation: outputPath,
         inputProps,
         concurrency: Math.max(1, Math.floor((os.cpus().length ?? 2) * 0.75)),
+        timeoutInMilliseconds: 120_000,
         onProgress: ({ progress }) => {
           setProgress(15 + Math.round(progress * 83))
         },
