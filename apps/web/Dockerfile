@@ -26,6 +26,12 @@ FROM node:22-slim AS runner
 WORKDIR /app
 ENV NODE_ENV=production
 
+# Prefer IPv4 when both A and AAAA records exist. The coolify Docker network
+# exposes both families for `minio`, but headless Chromium (used by Remotion
+# to render video) hangs on IPv6-only resolution in some Docker setups. Node
+# and Chromium both honor /etc/gai.conf precedence.
+RUN echo "precedence ::ffff:0:0/96 100" >> /etc/gai.conf
+
 # ffmpeg + Chrome headless shell system dependencies
 RUN apt-get update && apt-get install -y --no-install-recommends \
     ffmpeg \
