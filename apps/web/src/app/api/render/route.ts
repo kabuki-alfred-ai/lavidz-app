@@ -1,4 +1,3 @@
-import os from 'os'
 import { bundle } from '@remotion/bundler'
 import { renderMedia, selectComposition } from '@remotion/renderer'
 import path from 'path'
@@ -175,24 +174,36 @@ async function runRender(jobId: string, body: any) {
       return url
     }
 
+    // Resolve all sound URLs in parallel (previously sequential ~seconds saved)
+    const [bgMusicUrl, transitionSfxUrl, introSfxUrl, outroSfxUrl] = audioSettings ? await Promise.all([
+      audioSettings.bgMusic       ? resolveSoundUrl(audioSettings.bgMusic.url)       : Promise.resolve(undefined),
+      audioSettings.transitionSfx ? resolveSoundUrl(audioSettings.transitionSfx.url) : Promise.resolve(undefined),
+      audioSettings.introSfx      ? resolveSoundUrl(audioSettings.introSfx.url)      : Promise.resolve(undefined),
+      audioSettings.outroSfx      ? resolveSoundUrl(audioSettings.outroSfx.url)      : Promise.resolve(undefined),
+    ]) : [undefined, undefined, undefined, undefined]
+
     const resolvedAudioSettings = audioSettings ? {
       ...audioSettings,
-      bgMusic:       audioSettings.bgMusic       ? { ...audioSettings.bgMusic,       url: await resolveSoundUrl(audioSettings.bgMusic.url) }       : undefined,
-      transitionSfx: audioSettings.transitionSfx ? { ...audioSettings.transitionSfx, url: await resolveSoundUrl(audioSettings.transitionSfx.url) } : undefined,
-      introSfx:      audioSettings.introSfx      ? { ...audioSettings.introSfx,      url: await resolveSoundUrl(audioSettings.introSfx.url) }      : undefined,
-      outroSfx:      audioSettings.outroSfx      ? { ...audioSettings.outroSfx,      url: await resolveSoundUrl(audioSettings.outroSfx.url) }      : undefined,
+      bgMusic:       audioSettings.bgMusic       ? { ...audioSettings.bgMusic,       url: bgMusicUrl }       : undefined,
+      transitionSfx: audioSettings.transitionSfx ? { ...audioSettings.transitionSfx, url: transitionSfxUrl } : undefined,
+      introSfx:      audioSettings.introSfx      ? { ...audioSettings.introSfx,      url: introSfxUrl }      : undefined,
+      outroSfx:      audioSettings.outroSfx      ? { ...audioSettings.outroSfx,      url: outroSfxUrl }      : undefined,
     } : audioSettings
 
-    // Resolve cold open SFX URLs (motionSettings.coldOpen) — same logic as audioSettings
+    // Resolve cold open SFX URLs (motionSettings.coldOpen) — parallel
     let resolvedMotionSettings = motionSettings
     if (motionSettings?.coldOpen) {
       const co = motionSettings.coldOpen
+      const [coldOpenSfxUrl, entrySfxUrl] = await Promise.all([
+        co.coldOpenSfx ? resolveSoundUrl(co.coldOpenSfx.url) : Promise.resolve(undefined),
+        co.entrySfx    ? resolveSoundUrl(co.entrySfx.url)    : Promise.resolve(undefined),
+      ])
       resolvedMotionSettings = {
         ...motionSettings,
         coldOpen: {
           ...co,
-          coldOpenSfx: co.coldOpenSfx ? { ...co.coldOpenSfx, url: await resolveSoundUrl(co.coldOpenSfx.url) ?? co.coldOpenSfx.url } : undefined,
-          entrySfx:    co.entrySfx    ? { ...co.entrySfx,    url: await resolveSoundUrl(co.entrySfx.url)    ?? co.entrySfx.url    } : undefined,
+          coldOpenSfx: co.coldOpenSfx ? { ...co.coldOpenSfx, url: coldOpenSfxUrl ?? co.coldOpenSfx.url } : undefined,
+          entrySfx:    co.entrySfx    ? { ...co.entrySfx,    url: entrySfxUrl    ?? co.entrySfx.url    } : undefined,
         },
       }
     }
@@ -218,7 +229,16 @@ async function runRender(jobId: string, body: any) {
         codec: 'h264',
         outputLocation: outputPath,
         inputProps,
-        concurrency: Math.max(1, Math.floor((os.cpus().length ?? 2) * 0.75)),
+        // null lets Remotion auto-tune concurrency (≈ cores). Manual 0.75× was leaving
+        // CPU headroom that the renderer could otherwise use.
+        concurrency: null,
+        // 'veryfast' x264 preset: ~2-3× encode speed vs default 'medium', same CRF.
+        // Quality loss is imperceptible for social-media content.
+        x264Preset: 'veryfast',
+        // Lower intermediate JPEG quality: faster disk I/O between Chromium and encoder.
+        jpegQuality: 70,
+        // Allow Chromium hardware decoding when host supports it (no-op otherwise).
+        hardwareAcceleration: 'if-possible',
         timeoutInMilliseconds: 120_000,
         onProgress: ({ progress }) => {
           setProgress(15 + Math.round(progress * 83))
