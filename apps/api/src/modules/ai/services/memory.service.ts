@@ -140,6 +140,13 @@ export class MemoryService {
     return Number(result[0].count)
   }
 
+  async deleteMemory(profileId: string, memoryId: string): Promise<void> {
+    await prisma.$executeRaw`
+      DELETE FROM "ConversationMemory"
+      WHERE id = ${memoryId} AND "profileId" = ${profileId}
+    `
+  }
+
   async saveManyDocs(params: SaveManyDocsParams): Promise<void> {
     const { profileId, items } = params
     if (items.length === 0) return

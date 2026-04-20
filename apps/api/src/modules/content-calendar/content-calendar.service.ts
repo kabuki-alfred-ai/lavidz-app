@@ -15,13 +15,28 @@ export class ContentCalendarService {
       where.scheduledDate = scheduledDate
     }
 
-    return prisma.contentCalendar.findMany({
+    const entries = await prisma.contentCalendar.findMany({
       where,
       orderBy: { scheduledDate: 'asc' },
       include: {
-        topicEntity: { select: { id: true, status: true } },
+        topicEntity: {
+          select: {
+            id: true,
+            name: true,
+            status: true,
+            brief: true,
+            pillar: true,
+            sessions: {
+              select: { id: true, status: true, submittedAt: true },
+              orderBy: { updatedAt: 'desc' },
+              take: 1,
+            },
+          },
+        },
       },
     })
+    // Preserve the legacy `topic` string field on the wire so existing clients keep working.
+    return entries.map((e) => ({ ...e, topic: e.topicEntity?.name ?? '' }))
   }
 
   async findOne(id: string): Promise<any> {
@@ -31,16 +46,55 @@ export class ContentCalendarService {
   }
 
   async create(organizationId: string, dto: CreateContentCalendarDto): Promise<any> {
+    const topicId = await this.resolveTopicId(organizationId, dto.topicId, dto.topic)
     return prisma.contentCalendar.create({
       data: {
         organizationId,
         scheduledDate: new Date(dto.scheduledDate),
-        topic: dto.topic,
         description: dto.description,
         format: dto.format,
         platforms: dto.platforms,
+        topicId,
       },
     })
+  }
+
+  /**
+   * Every ContentCalendar row requires a Topic now. We accept either an explicit
+   * topicId or a topic name string (find-or-create within the organization).
+   */
+  private async resolveTopicId(
+    organizationId: string,
+    topicId: string | undefined,
+    name: string | undefined,
+  ): Promise<string> {
+    if (topicId) {
+      const existing = await prisma.topic.findFirst({ where: { id: topicId, organizationId } })
+      if (!existing) throw new NotFoundException(`Sujet ${topicId} introuvable`)
+      return existing.id
+    }
+    const cleanName = name?.trim()
+    if (!cleanName) throw new NotFoundException('Il faut un topicId ou un topic pour créer une entrée')
+
+    const existing = await prisma.topic.findFirst({
+      where: {
+        organizationId,
+        name: { equals: cleanName, mode: 'insensitive' },
+        status: { not: 'ARCHIVED' },
+      },
+    })
+    if (existing) return existing.id
+
+    const slug = `${cleanName
+      .toLowerCase()
+      .normalize('NFD')
+      .replace(/[\u0300-\u036f]/g, '')
+      .replace(/[^a-z0-9]+/g, '-')
+      .replace(/(^-|-$)/g, '')}-${Date.now()}`
+    const created = await prisma.topic.create({
+      data: { organizationId, name: cleanName, slug },
+    })
+    return created.id
   }
 
   async update(id: string, dto: UpdateContentCalendarDto): Promise<any> {

@@ -1277,7 +1277,7 @@ export function RecordingSession({ theme, initialSessionId, mode = 'default', co
           <div className="flex flex-col items-center gap-3">
             {topicId && (
               <button
-                onClick={() => router.push(`/topics/${topicId}`)}
+                onClick={() => router.push(`/sujets/${topicId}`)}
                 className="px-8 py-3 rounded-xl font-semibold text-sm transition-all active:scale-95"
                 style={{ background: accent, color: '#fff' }}
               >

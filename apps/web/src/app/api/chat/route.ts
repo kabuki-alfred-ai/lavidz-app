@@ -3,6 +3,7 @@ import { createGoogleGenerativeAI } from '@ai-sdk/google'
 import { z } from 'zod'
 import { getSessionUser } from '@/lib/auth'
 import { prisma } from '@lavidz/database'
+import { KABOU_SYSTEM_PREAMBLE } from '@/lib/kabou-voice'
 
 export const runtime = 'nodejs'
 export const maxDuration = 60
@@ -47,6 +48,7 @@ export async function POST(req: Request) {
         where: { organizationId: orgId, status: 'PLANNED' },
         orderBy: { scheduledDate: 'asc' },
         take: 10,
+        include: { topicEntity: { select: { name: true } } },
       })
     } catch { /* table might not exist yet */ }
 
@@ -94,19 +96,10 @@ export async function POST(req: Request) {
     // Build user display name
     const userName = [user.firstName, user.lastName].filter(Boolean).join(' ') || undefined
 
-    systemParts.push(`Tu es Kabou, un assistant IA chaleureux et complice, dedie aux entrepreneurs createurs de contenu video.
-
-QUI TU ES :
-Tu es comme un ami proche qui connait parfaitement le business de l'entrepreneur et l'aide a raconter son histoire en video. Tu es curieux, bienveillant, parfois drole — jamais froid ni corporatif. Tu t'investis sincerement dans la reussite de la personne en face de toi. Tu tutoies toujours.
-
-REGLES :
-- Reponds TOUJOURS en francais
-- Pose UNE SEULE question a la fois, naturellement, comme dans une vraie conversation
-- Creuse ce qui est interessant, rebondis sur les details, montre que tu retiens tout
-- Adapte-toi a l'humeur — parfois il veut reflechir a voix haute, partager une nouvelle, demander un avis
-- Ne repose JAMAIS une information que tu connais deja
-- Quand tu utilises un outil, explique brievement ce que tu fais
-- Sois humain, chaleureux, affectueux — comme un vrai complice`)
+    // Authoritative voice guide — canonical source is apps/web/src/lib/kabou-voice.ts.
+    // The 10 rules, vocabulary and tonal guidance ship as a single preamble so the
+    // LLM can't drift from the Kabou persona as features grow.
+    systemParts.push(KABOU_SYSTEM_PREAMBLE)
 
     if (userName) {
       systemParts.push(`\nIDENTITE : Tu parles avec ${userName}. Utilise son prenom naturellement.`)
@@ -136,7 +129,7 @@ REGLES :
     }
 
     if (upcomingCalendar.length > 0) {
-      systemParts.push(`\nCALENDRIER :\n${upcomingCalendar.map(e => `- ${new Date(e.scheduledDate).toLocaleDateString('fr-FR')} : ${e.topic} (${e.format})`).join('\n')}`)
+      systemParts.push(`\nCALENDRIER :\n${upcomingCalendar.map(e => `- ${new Date(e.scheduledDate).toLocaleDateString('fr-FR')} : ${e.topicEntity?.name ?? ''} (${e.format})`).join('\n')}`)
     }
 
     if (ragMemories.length > 0) {
@@ -277,7 +270,7 @@ Tu as acces a un outil de recherche web (webSearch). Utilise-le quand c'est pert
               })
               if (!res.ok) return { success: false, error: await res.text() }
               const topic = await res.json()
-              return { success: true, topicId: topic.id, name: topic.name, topicUrl: `/topics/${topic.id}` }
+              return { success: true, topicId: topic.id, name: topic.name, topicUrl: `/sujets/${topic.id}` }
             } catch (err: any) {
               return { success: false, error: err.message ?? 'Erreur lors de la creation du sujet' }
             }
@@ -405,10 +398,48 @@ Tu as acces a un outil de recherche web (webSearch). Utilise-le quand c'est pert
           }),
           execute: async ({ entryId, topic, description }) => {
             const data: Record<string, unknown> = {}
-            if (topic) data.topic = topic
             if (description) data.description = description
-            const entry = await prisma.contentCalendar.update({ where: { id: entryId }, data })
-            return { success: true, entry: { id: entry.id, topic: entry.topic, format: entry.format, scheduledDate: entry.scheduledDate } }
+            if (topic) {
+              const current = await prisma.contentCalendar.findUnique({
+                where: { id: entryId },
+                select: { organizationId: true, topicId: true },
+              })
+              if (current) {
+                const existingTopic = await prisma.topic.findFirst({
+                  where: {
+                    organizationId: current.organizationId,
+                    name: { equals: topic, mode: 'insensitive' },
+                    status: { not: 'ARCHIVED' },
+                  },
+                })
+                const slug = `${topic
+                  .toLowerCase()
+                  .normalize('NFD')
+                  .replace(/[\u0300-\u036f]/g, '')
+                  .replace(/[^a-z0-9]+/g, '-')
+                  .replace(/(^-|-$)/g, '')}-${Date.now()}`
+                const newTopic =
+                  existingTopic ??
+                  (await prisma.topic.create({
+                    data: { organizationId: current.organizationId, name: topic, slug },
+                  }))
+                data.topicId = newTopic.id
+              }
+            }
+            const entry = await prisma.contentCalendar.update({
+              where: { id: entryId },
+              data,
+              include: { topicEntity: { select: { name: true } } },
+            })
+            return {
+              success: true,
+              entry: {
+                id: entry.id,
+                topic: entry.topicEntity?.name ?? '',
+                format: entry.format,
+                scheduledDate: entry.scheduledDate,
+              },
+            }
           },
         },
         create_recording_session: {
@@ -494,6 +525,246 @@ Pour les formats HOT_TAKE, DAILY_TIP : passe 1-3 points de guidage comme questio
             }
           },
         },
+        weekly_creative_review: tool({
+          description: "Produit une revue hebdomadaire chaleureuse des 7 derniers jours de l'entrepreneur — patterns observés, forces, 1-3 invitations pour la suite. Utilise cet outil quand l'entrepreneur demande 'fais-moi un bilan', 'où j'en suis', 'qu'est-ce qui marche' — ou quand tu veux prendre la parole toi-même pour marquer une semaine. Retourne null si la semaine est vide (dans ce cas, dis-le doucement sans culpabiliser).",
+          inputSchema: z.object({}),
+          execute: async () => {
+            try {
+              const API = process.env.API_URL ?? 'http://localhost:3001'
+              const res = await fetch(`${API}/api/ai/weekly-review`, {
+                method: 'POST',
+                headers: { 'x-admin-secret': process.env.ADMIN_SECRET ?? '', 'x-organization-id': orgId },
+              })
+              if (!res.ok) return { success: false, error: await res.text() }
+              const data = await res.json()
+              if (!data) {
+                return {
+                  success: true,
+                  empty: true as const,
+                  message: "Pas assez d'activité cette semaine pour une revue — on repart plus fort quand tu veux.",
+                }
+              }
+              return { success: true, mode: 'weekly_review' as const, ...data }
+            } catch (err: any) {
+              return { success: false, error: err?.message ?? 'Revue indisponible' }
+            }
+          },
+        }),
+        explore_weekly_moment: tool({
+          description: "Lance le mode 'Raconte-moi ta semaine' quand l'entrepreneur n'a pas d'idée. Retourne des ouvertures de conversation que Kabou peut enchaîner + les sujets/tournages récents comme repères. Utilise cet outil quand l'entrepreneur dit 'je suis bloqué', 'je sais pas quoi dire', 'j'ai pas d'idée aujourd'hui'. Après cet appel, Kabou doit **poser une question ouverte** parmi les openers et laisser l'entrepreneur parler librement.",
+          inputSchema: z.object({}),
+          execute: async () => {
+            try {
+              const API = process.env.API_URL ?? 'http://localhost:3001'
+              const res = await fetch(`${API}/api/ai/unstuck/weekly-moment`, {
+                method: 'POST',
+                headers: { 'x-admin-secret': process.env.ADMIN_SECRET ?? '', 'x-organization-id': orgId },
+              })
+              if (!res.ok) return { success: false, error: await res.text() }
+              return { success: true, mode: 'weekly_moment' as const, ...(await res.json()) }
+            } catch (err: any) {
+              return { success: false, error: err?.message ?? 'Kabou a buggé' }
+            }
+          },
+        }),
+        resurrect_seed_topic: tool({
+          description: "Propose 2 ou 3 Sujets laissés en Graine ou en Archive qui pourraient être repris aujourd'hui, avec pour chacun un angle frais. Utilise cet outil quand l'entrepreneur est en panne d'inspiration et qu'il a déjà un historique de sujets — évite de l'utiliser s'il vient tout juste de démarrer.",
+          inputSchema: z.object({}),
+          execute: async () => {
+            try {
+              const API = process.env.API_URL ?? 'http://localhost:3001'
+              const res = await fetch(`${API}/api/ai/unstuck/resurrect-seed`, {
+                method: 'POST',
+                headers: { 'x-admin-secret': process.env.ADMIN_SECRET ?? '', 'x-organization-id': orgId },
+              })
+              if (!res.ok) return { success: false, error: await res.text() }
+              return { success: true, mode: 'resurrect_seed' as const, ...(await res.json()) }
+            } catch (err: any) {
+              return { success: false, error: err?.message ?? 'Kabou a buggé' }
+            }
+          },
+        }),
+        propose_forgotten_domain: tool({
+          description: "Détecte un domaine éditorial que l'entrepreneur n'a plus traité depuis 3+ semaines et propose 2-3 angles originaux pour le revisiter. Utile quand il tourne en rond sur les mêmes sujets — à utiliser si tu sens une monotonie ou sur demande explicite 'qu'est-ce que j'ai pas exploré récemment ?'.",
+          inputSchema: z.object({}),
+          execute: async () => {
+            try {
+              const API = process.env.API_URL ?? 'http://localhost:3001'
+              const res = await fetch(`${API}/api/ai/unstuck/forgotten-domain`, {
+                method: 'POST',
+                headers: { 'x-admin-secret': process.env.ADMIN_SECRET ?? '', 'x-organization-id': orgId },
+              })
+              if (!res.ok) return { success: false, error: await res.text() }
+              return { success: true, mode: 'forgotten_domain' as const, ...(await res.json()) }
+            } catch (err: any) {
+              return { success: false, error: err?.message ?? 'Kabou a buggé' }
+            }
+          },
+        }),
+        react_to_industry_news: tool({
+          description: "Cherche l'actualité récente du secteur de l'entrepreneur (7 derniers jours via webSearch) et propose 1-3 articles avec des angles de réaction. Utile quand l'entrepreneur veut 'surfer' sur une actu sans savoir laquelle. Ne l'utilise pas s'il a déjà un sujet en tête.",
+          inputSchema: z.object({}),
+          execute: async () => {
+            try {
+              const API = process.env.API_URL ?? 'http://localhost:3001'
+              const res = await fetch(`${API}/api/ai/unstuck/industry-news`, {
+                method: 'POST',
+                headers: { 'x-admin-secret': process.env.ADMIN_SECRET ?? '', 'x-organization-id': orgId },
+              })
+              if (!res.ok) return { success: false, error: await res.text() }
+              return { success: true, mode: 'industry_news' as const, ...(await res.json()) }
+            } catch (err: any) {
+              return { success: false, error: err?.message ?? 'Kabou a buggé' }
+            }
+          },
+        }),
+        propose_editorial_plan: tool({
+          description: "Prépare une proposition de Vision éditoriale dialoguée : une collection de 4 à 12 Sujets avec un fil rouge narratif. Ne persiste rien — retourne une preview que l'entrepreneur va sculpter (garder / reformuler / retirer) avant de valider. Utilise cet outil au lieu de generate_calendar quand tu co-construis un plan avec l'entrepreneur, surtout s'il a exprimé une intention (fil rouge, domaine, angle) ou qu'il a déjà des sujets en maturation qu'il faut respecter.",
+          inputSchema: z.object({
+            intentionSummary: z.string().optional().describe("Reformulation synthétique de l'intention de l'entrepreneur (fil rouge, période, pourquoi)"),
+            weeksCount: z.number().optional().default(4).describe('Nombre de semaines à couvrir (max 8)'),
+            videosPerWeek: z.number().optional().default(2).describe('Vidéos par semaine (max 7)'),
+            platforms: z.array(z.string()).optional().describe("Plateformes cibles. Par défaut [linkedin]."),
+            keepExistingTopics: z.boolean().optional().default(true).describe("Si vrai, respecte les Sujets déjà en maturation et ne les doublonne pas."),
+          }),
+          execute: async (input: {
+            intentionSummary?: string
+            weeksCount?: number
+            videosPerWeek?: number
+            platforms?: string[]
+            keepExistingTopics?: boolean
+          }) => {
+            try {
+              const API = process.env.API_URL ?? 'http://localhost:3001'
+              const res = await fetch(`${API}/api/ai/editorial-plan/propose`, {
+                method: 'POST',
+                headers: {
+                  'content-type': 'application/json',
+                  'x-admin-secret': process.env.ADMIN_SECRET ?? '',
+                  'x-organization-id': orgId,
+                },
+                body: JSON.stringify({
+                  intentionSummary: input.intentionSummary,
+                  weeksCount: input.weeksCount ?? 4,
+                  videosPerWeek: input.videosPerWeek ?? 2,
+                  platforms: input.platforms ?? ['linkedin'],
+                  keepExistingTopics: input.keepExistingTopics ?? true,
+                }),
+              })
+              if (!res.ok) return { success: false, error: await res.text() }
+              const plan = await res.json()
+              return {
+                success: true,
+                status: 'preview' as const,
+                narrativeArc: plan.narrativeArc,
+                intentionCaptured: plan.intentionCaptured,
+                proposals: plan.proposals,
+              }
+            } catch (err: any) {
+              return { success: false, error: err?.message ?? "Kabou n'a pas réussi cette fois" }
+            }
+          },
+        }),
+        commit_editorial_plan: tool({
+          description: "Persiste une sélection de propositions de Vision éditoriale après validation par l'entrepreneur. Chaque proposition devient un Sujet (état Graine) + une entrée de calendrier liée, en transaction. À appeler UNIQUEMENT après que l'entrepreneur a explicitement validé la sélection.",
+          inputSchema: z.object({
+            proposals: z.array(
+              z.object({
+                suggestedDate: z.string().describe('Date YYYY-MM-DD'),
+                format: z.enum(['QUESTION_BOX', 'TELEPROMPTER', 'HOT_TAKE', 'STORYTELLING', 'DAILY_TIP', 'MYTH_VS_REALITY']),
+                title: z.string(),
+                angle: z.string(),
+                hook: z.string(),
+                pillar: z.string().optional().nullable(),
+                platforms: z.array(z.string()).optional(),
+              }),
+            ).min(1).max(12),
+          }),
+          execute: async ({ proposals }: { proposals: any[] }) => {
+            try {
+              const API = process.env.API_URL ?? 'http://localhost:3001'
+              const res = await fetch(`${API}/api/ai/editorial-plan/commit`, {
+                method: 'POST',
+                headers: {
+                  'content-type': 'application/json',
+                  'x-admin-secret': process.env.ADMIN_SECRET ?? '',
+                  'x-organization-id': orgId,
+                },
+                body: JSON.stringify({ proposals }),
+              })
+              if (!res.ok) return { success: false, error: await res.text() }
+              const data = await res.json()
+              return {
+                success: true,
+                status: 'committed' as const,
+                committed: data.committed,
+                items: data.items,
+              }
+            } catch (err: any) {
+              return { success: false, error: err?.message ?? 'Enregistrement impossible' }
+            }
+          },
+        }),
+        analyze_recording: tool({
+          description: "Regarde avec l'entrepreneur ce qui est sorti de son tournage : un résumé, ce qui a bien marché, et 0 à 2 pistes pour aller plus loin. À utiliser quand l'entrepreneur demande ton avis sur un tournage qu'il vient de faire OU quand il veut une analyse fraîche. Renvoie l'analyse persistée si elle existe déjà, sinon relance l'analyse en arrière-plan.",
+          inputSchema: z.object({
+            sessionId: z.string().describe("ID du tournage (Session) à analyser"),
+            regenerate: z.boolean().optional().describe("Force une nouvelle analyse même si une existe déjà"),
+          }),
+          execute: async ({ sessionId, regenerate }: { sessionId: string; regenerate?: boolean }) => {
+            try {
+              // Verify the session belongs to this org before reading/ triggering anything
+              const session = await prisma.session.findFirst({
+                where: { id: sessionId, theme: { organizationId: orgId } },
+                select: { id: true },
+              })
+              if (!session) return { success: false, error: 'Tournage introuvable' }
+
+              if (regenerate) {
+                const API = process.env.API_URL ?? 'http://localhost:3001'
+                await fetch(`${API}/api/sessions/${sessionId}/analysis/regenerate`, {
+                  method: 'POST',
+                  headers: {
+                    'x-admin-secret': process.env.ADMIN_SECRET ?? '',
+                    'x-organization-id': orgId,
+                  },
+                }).catch(() => {})
+              }
+
+              const existing = await prisma.recordingAnalysis.findUnique({ where: { sessionId } })
+
+              if (!existing || existing.status === 'PENDING') {
+                return {
+                  success: true,
+                  status: 'pending',
+                  message: "L'analyse tourne en arrière-plan — on peut la regarder ensemble dans 30 secondes, ou tu veux un lien direct vers l'écran d'après-tournage ?",
+                  afterRecordingUrl: `/sujets/${sessionId}/apres-tournage`,
+                }
+              }
+
+              if (existing.status === 'FAILED') {
+                return {
+                  success: true,
+                  status: 'failed',
+                  message: "Je n'ai pas réussi à analyser ce tournage cette fois. Tu veux qu'on réessaye ?",
+                  afterRecordingUrl: `/sujets/${sessionId}/apres-tournage`,
+                }
+              }
+
+              return {
+                success: true,
+                status: 'ready',
+                summary: existing.summary,
+                standoutMoment: existing.standoutMoment,
+                strengths: existing.strengths,
+                improvementPaths: existing.improvementPaths,
+                afterRecordingUrl: `/sujets/${sessionId}/apres-tournage`,
+              }
+            } catch (err: any) {
+              return { success: false, error: err?.message ?? "Souci lors de l'analyse" }
+            }
+          },
+        }),
       },
     })
 

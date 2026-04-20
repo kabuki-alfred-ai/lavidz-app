@@ -61,8 +61,37 @@ model Session {
   memories           ConversationMemory[]
   feedback           Feedback?
   generatedPosts     GeneratedPost[]
+  analysis           RecordingAnalysis?
   createdAt          DateTime             @default(now())
   updatedAt          DateTime             @updatedAt
+}
+
+enum RecordingAnalysisStatus {
+  PENDING
+  READY
+  FAILED
+}
+
+model RecordingAnalysis {
+  id                String                  @id @default(cuid())
+  sessionId         String                  @unique
+  session           Session                 @relation(fields: [sessionId], references: [id], onDelete: Cascade)
+  status            RecordingAnalysisStatus @default(PENDING)
+  // Summary of what the entrepreneur said (array of bullet-point strings)
+  summary           Json?
+  // A single standout quote or moment extracted from the takes
+  standoutMoment    String?
+  // What worked well (array of strings, max 3)
+  strengths         Json?
+  // Improvement paths (max 2) — each { path, reason, actionType: 'redo'|'montage_hint'|'none', targetQuestionId?, montageHint? }
+  improvementPaths  Json?
+  // Raw computed stats — fillers count, silences, avg sentence length, etc.
+  stats             Json?
+  errorMessage      String?
+  generatedAt       DateTime?
+  regeneratedAt     DateTime?
+  createdAt         DateTime                @default(now())
+  updatedAt         DateTime                @updatedAt
 }
 
 model Recording {
@@ -351,6 +380,8 @@ model Topic {
   status          TopicStatus           @default(DRAFT)
   threadId        String                @unique @default(cuid()) // dedicated chat thread
   pillar          String?               // linked editorial pillar
+  hooks           Json?                 // { native: string, marketing: string, chosen?: 'native'|'marketing', generatedAt: string }
+  sources         Json?                 // [{ title, url, summary, relevance, fetchedAt }] — anchors HOT_TAKE / fact-heavy sujets
   calendarEntries ContentCalendar[]
   sessions        Session[]
   generatedPosts  GeneratedPost[]
@@ -366,20 +397,20 @@ model ContentCalendar {
   organizationId String
   organization   Organization          @relation(fields: [organizationId], references: [id], onDelete: Cascade)
   scheduledDate  DateTime
-  topic          String
   description    String?
   format         ContentFormat
   platforms      String[]              @default([]) // ["linkedin", "tiktok", "instagram", "youtube"]
   status         ContentCalendarStatus @default(PLANNED)
   sessionId      String? // linked to session once recorded
-  topicId        String? // linked to Topic entity
-  topicEntity    Topic?                @relation(fields: [topicId], references: [id], onDelete: SetNull)
+  topicId        String // le Sujet est l'atome — chaque entrée du calendrier EST un Sujet planifié
+  topicEntity    Topic                 @relation(fields: [topicId], references: [id], onDelete: Cascade)
   aiSuggestions  Json? // { hook, questions, script, angle }
   createdAt      DateTime              @default(now())
   updatedAt      DateTime              @updatedAt
 
   @@index([organizationId])
   @@index([scheduledDate])
+  @@index([topicId])
 }
 
 enum ProjectStatus {

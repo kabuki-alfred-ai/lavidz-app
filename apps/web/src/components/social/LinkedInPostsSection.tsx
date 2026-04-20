@@ -1,7 +1,7 @@
 'use client'
 
 import { useCallback, useEffect, useState } from 'react'
-import { Loader2, Sparkles, Copy, Check, RefreshCw, Trash2, Linkedin } from 'lucide-react'
+import { Loader2, Sparkles, Copy, Check, RefreshCw, Trash2, Linkedin, ExternalLink } from 'lucide-react'
 import { LinkedInPreview } from './LinkedInPreview'
 
 interface GeneratedPost {
@@ -196,6 +196,16 @@ export function LinkedInPostsSection({
                         <><Copy size={11} /> Copier</>
                       )}
                     </button>
+                    <a
+                      href={`https://www.linkedin.com/feed/?shareActive=true&text=${encodeURIComponent(post.content)}`}
+                      target="_blank"
+                      rel="noreferrer"
+                      onClick={() => copyToClipboard(post)}
+                      className="inline-flex items-center gap-1 px-2 py-1 rounded-md text-xs font-medium text-[#0A66C2] hover:bg-[#0A66C2]/10 transition-colors"
+                      title="Ouvre LinkedIn avec ce post pré-rempli — on copie aussi au presse-papier au cas où"
+                    >
+                      <ExternalLink size={11} /> Ouvrir sur LinkedIn
+                    </a>
                     <button
                       onClick={() => deletePost(post)}
                       aria-label="Supprimer"

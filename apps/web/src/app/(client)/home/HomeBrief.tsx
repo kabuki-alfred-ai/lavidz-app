@@ -110,7 +110,7 @@ export function HomeBrief() {
       })
       if (res.ok) {
         const topic = await res.json()
-        router.push(`/topics/${topic.id}`)
+        router.push(`/sujets/${topic.id}`)
         return
       }
     } catch { /* */ }

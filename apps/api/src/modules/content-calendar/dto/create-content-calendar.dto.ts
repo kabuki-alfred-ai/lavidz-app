@@ -13,9 +13,14 @@ export class CreateContentCalendarDto {
   @IsDateString()
   scheduledDate!: string
 
+  // One of `topicId` (preferred) or `topic` (name, find-or-create) must be provided.
+  @IsOptional()
   @IsString()
-  @IsNotEmpty()
-  topic!: string
+  topicId?: string
+
+  @IsOptional()
+  @IsString()
+  topic?: string
 
   @IsOptional()
   @IsString()

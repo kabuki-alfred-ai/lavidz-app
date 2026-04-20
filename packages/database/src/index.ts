@@ -49,4 +49,6 @@ export type {
   Project,
   ProjectClip,
   ProjectStatus,
+  RecordingAnalysis,
+  RecordingAnalysisStatus,
 } from '@prisma/client'

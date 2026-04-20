@@ -1,0 +1,216 @@
+'use client'
+
+import { useCallback, useEffect, useState } from 'react'
+import Link from 'next/link'
+import {
+  ArrowLeft,
+  Clock,
+  Download,
+  Loader2,
+  Sparkles,
+} from 'lucide-react'
+import { Button } from '@/components/ui/button'
+import { LinkedInPostsSection } from '@/components/social/LinkedInPostsSection'
+import { POST_RECORDING_COPY, KABOU_TOASTS } from '@/lib/kabou-voice'
+
+interface PublishViewProps {
+  sessionId: string
+  themeName: string | null
+  topic: { id: string; name: string; pillar: string | null } | null
+  status: string
+  hasFinalVideo: boolean
+  authorName: string
+}
+
+/**
+ * Publish view — the moment after export, reframed as a "launch ritual"
+ * instead of a silent download. See project_lavidz_post_recording_analysis.md
+ * section Phase 6 / Diffusion for the product intention.
+ */
+export function PublishView({
+  sessionId,
+  themeName,
+  topic,
+  status,
+  hasFinalVideo,
+  authorName,
+}: PublishViewProps) {
+  const [videoUrl, setVideoUrl] = useState<string | null>(null)
+  const [loadingVideo, setLoadingVideo] = useState(false)
+  const [videoError, setVideoError] = useState<string | null>(null)
+  const [toast, setToast] = useState<string | null>(null)
+
+  const flashToast = useCallback((message: string) => {
+    setToast(message)
+    window.setTimeout(() => setToast(null), 2200)
+  }, [])
+
+  useEffect(() => {
+    if (!hasFinalVideo) return
+    let cancelled = false
+    setLoadingVideo(true)
+    fetch(`/api/sessions/${sessionId}/final-url`, { credentials: 'include' })
+      .then(async (res) => {
+        if (cancelled) return
+        if (!res.ok) {
+          setVideoError(await res.text())
+          return
+        }
+        const data = await res.json()
+        const url = typeof data === 'string' ? data : (data?.url ?? null)
+        if (url) setVideoUrl(url)
+      })
+      .catch((err) => setVideoError(err instanceof Error ? err.message : String(err)))
+      .finally(() => {
+        if (!cancelled) setLoadingVideo(false)
+      })
+    return () => {
+      cancelled = true
+    }
+  }, [sessionId, hasFinalVideo])
+
+  const displayTitle = topic?.name ?? themeName ?? 'Ton contenu'
+  const isDone = status === 'DONE'
+
+  return (
+    <div className="mx-auto w-full max-w-3xl px-4 py-8 sm:py-12">
+      {/* Back link */}
+      <div className="mb-5">
+        {topic ? (
+          <Link
+            href={`/sujets/${topic.id}`}
+            className="inline-flex items-center gap-1.5 text-sm text-muted-foreground hover:text-foreground"
+          >
+            <ArrowLeft className="h-3.5 w-3.5" /> Retour au sujet
+          </Link>
+        ) : (
+          <Link
+            href="/videos"
+            className="inline-flex items-center gap-1.5 text-sm text-muted-foreground hover:text-foreground"
+          >
+            <ArrowLeft className="h-3.5 w-3.5" /> Mes vidéos
+          </Link>
+        )}
+      </div>
+
+      {/* Header — celebration */}
+      <header className="mb-8">
+        <div className="mb-3 inline-flex items-center gap-2 rounded-full border border-primary/30 bg-primary/10 px-3 py-1 text-xs font-medium text-primary">
+          <Sparkles className="h-3 w-3" />
+          {isDone ? 'Ton contenu est prêt' : 'Encore quelques minutes'}
+        </div>
+        <h1 className="text-2xl font-bold tracking-tight sm:text-3xl">
+          {isDone ? 'Ton contenu est prêt — on le lance ?' : 'Presque prêt'}
+        </h1>
+        <p className="mt-2 text-sm text-muted-foreground">
+          {isDone
+            ? 'Tu l\'as bien porté. Voici ta vidéo et trois façons de la raconter en mots — tu choisis comment tu veux la partager.'
+            : 'Ton montage finalise — reviens dans un instant ou continue à préparer tes prochains sujets.'}
+        </p>
+        <p className="mt-3 text-sm text-muted-foreground">
+          <span className="font-medium text-foreground">{displayTitle}</span>
+          {topic?.pillar && (
+            <span className="ml-2 rounded-full bg-surface-raised/60 px-2 py-0.5 text-xs">
+              🎯 {topic.pillar}
+            </span>
+          )}
+        </p>
+      </header>
+
+      {/* Video */}
+      <section className="mb-8 rounded-2xl border border-border/50 bg-black overflow-hidden">
+        {loadingVideo && (
+          <div className="flex aspect-video items-center justify-center text-sm text-white/60">
+            <Loader2 className="mr-2 h-4 w-4 animate-spin" /> Je charge ta vidéo…
+          </div>
+        )}
+        {!loadingVideo && videoError && (
+          <div className="flex aspect-video items-center justify-center px-6 text-center text-sm text-white/60">
+            {KABOU_TOASTS.oops}
+            <span className="ml-2 text-white/40">({videoError})</span>
+          </div>
+        )}
+        {!loadingVideo && !videoError && videoUrl && (
+          <video
+            src={videoUrl}
+            controls
+            playsInline
+            preload="metadata"
+            className="aspect-video w-full"
+          />
+        )}
+        {!loadingVideo && !videoError && !videoUrl && !hasFinalVideo && (
+          <div className="flex aspect-video items-center justify-center px-6 text-center text-sm text-white/60">
+            Le montage finalise. L'aperçu apparaîtra ici dès qu'il sera prêt.
+          </div>
+        )}
+      </section>
+
+      {/* Download + secondary actions */}
+      {isDone && videoUrl && (
+        <section className="mb-10 flex flex-wrap gap-2">
+          <Button asChild size="lg">
+            <a href={videoUrl} download={`${displayTitle}.mp4`}>
+              <Download className="h-4 w-4" /> Télécharger la vidéo
+            </a>
+          </Button>
+          <Button
+            size="lg"
+            variant="outline"
+            disabled
+            title="Bientôt : programmer la publication via un outil tiers (Buffer, Metricool…)"
+          >
+            <Clock className="h-4 w-4" /> Programmer — bientôt
+          </Button>
+        </section>
+      )}
+
+      {/* LinkedIn posts */}
+      {isDone && (
+        <section className="mb-8">
+          <div className="mb-4 flex items-center gap-2">
+            <div className="h-px flex-1 bg-border/40" />
+            <h2 className="text-xs font-semibold uppercase tracking-widest text-muted-foreground">
+              Trois façons de le raconter
+            </h2>
+            <div className="h-px flex-1 bg-border/40" />
+          </div>
+          <LinkedInPostsSection
+            endpoint={`/api/sessions/${sessionId}/linkedin-posts`}
+            authorName={authorName}
+            generateLabel="Proposer trois variantes LinkedIn"
+          />
+        </section>
+      )}
+
+      {/* Footer suggestions */}
+      <section className="mt-10 border-t border-border/40 pt-6">
+        <p className="mb-3 text-xs font-semibold uppercase tracking-widest text-muted-foreground">
+          {POST_RECORDING_COPY.nextSteps.heading}
+        </p>
+        <div className="flex flex-wrap gap-2">
+          {topic && (
+            <Button asChild variant="outline" size="sm">
+              <Link href={`/sujets/${topic.id}`}>Retour au sujet</Link>
+            </Button>
+          )}
+          <Button asChild variant="outline" size="sm">
+            <Link href="/calendar">Voir le calendrier</Link>
+          </Button>
+          <Button asChild variant="ghost" size="sm">
+            <Link href="/chat">Préparer le prochain avec Kabou</Link>
+          </Button>
+        </div>
+      </section>
+
+      {toast && (
+        <div
+          role="status"
+          className="fixed bottom-6 left-1/2 z-50 -translate-x-1/2 rounded-full border border-border/40 bg-card px-4 py-2 text-xs shadow-lg"
+        >
+          {toast}
+        </div>
+      )}
+    </div>
+  )
+}

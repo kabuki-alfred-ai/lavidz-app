@@ -2,6 +2,7 @@ import { Module } from '@nestjs/common'
 import { BullModule } from '@nestjs/bullmq'
 import { TranscriptionProcessor } from './transcription.processor'
 import { EnrichmentProcessor } from './enrichment.processor'
+import { RecordingAnalysisProcessor } from './recording-analysis.processor'
 import { StorageModule } from '../storage/storage.module'
 import { AiModule } from '../ai/ai.module'
 
@@ -22,9 +23,13 @@ const JOB_DEFAULT_OPTIONS = {
       name: 'enrichment',
       defaultJobOptions: JOB_DEFAULT_OPTIONS,
     }),
+    BullModule.registerQueue({
+      name: 'recording-analysis',
+      defaultJobOptions: JOB_DEFAULT_OPTIONS,
+    }),
     StorageModule,
     AiModule,
   ],
-  providers: [TranscriptionProcessor, EnrichmentProcessor],
+  providers: [TranscriptionProcessor, EnrichmentProcessor, RecordingAnalysisProcessor],
 })
 export class JobsModule {}

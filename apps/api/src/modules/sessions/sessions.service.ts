@@ -3,6 +3,7 @@ import { InjectQueue } from '@nestjs/bullmq'
 import { Queue } from 'bullmq'
 import { prisma, type Recording } from '@lavidz/database'
 import { StorageService } from '../storage/storage.service'
+import { RecordingAnalysisService } from '../ai/services/recording-analysis.service'
 import { Resend } from 'resend'
 
 @Injectable()
@@ -12,8 +13,10 @@ export class SessionsService {
 
   constructor(
     private readonly storageService: StorageService,
+    private readonly recordingAnalysisService: RecordingAnalysisService,
     @InjectQueue('transcription') private readonly transcriptionQueue: Queue,
     @InjectQueue('enrichment') private readonly enrichmentQueue: Queue,
+    @InjectQueue('recording-analysis') private readonly recordingAnalysisQueue: Queue,
   ) {
     this.resend = process.env.RESEND_API_KEY ? new Resend(process.env.RESEND_API_KEY) : null
   }
@@ -83,7 +86,36 @@ export class SessionsService {
       }
     }
 
+    // Queue post-recording analysis — fires and forgets. The analysis row
+    // is created inside the service so the frontend can poll immediately.
+    this.recordingAnalysisQueue
+      .add('analyze', { sessionId, reason: 'post_submit' as const }, { delay: 500 })
+      .catch((err) => this.logger.error('Failed to queue recording analysis', err))
+
     return updated
+  }
+
+  async getAnalysis(sessionId: string): Promise<any> {
+    return this.recordingAnalysisService.getAnalysis(sessionId)
+  }
+
+  async regenerateAnalysis(sessionId: string): Promise<void> {
+    await this.recordingAnalysisService.requestRegeneration(sessionId)
+    await this.recordingAnalysisQueue.add('analyze', {
+      sessionId,
+      reason: 'manual_regeneration' as const,
+    })
+  }
+
+  async redoRecording(sessionId: string, questionId: string): Promise<void> {
+    await this.recordingAnalysisService.invalidateRecording(sessionId, questionId)
+  }
+
+  async addMontageHint(
+    sessionId: string,
+    hint: { type: string; count?: number; note?: string },
+  ): Promise<void> {
+    await this.recordingAnalysisService.addMontageHint(sessionId, hint)
   }
 
   async getSubmitted(): Promise<any[]> {

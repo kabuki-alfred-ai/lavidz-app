@@ -116,7 +116,7 @@ export function TopicsList() {
             return (
               <Link
                 key={topic.id}
-                href={`/topics/${topic.id}`}
+                href={`/sujets/${topic.id}`}
                 className="flex items-start gap-4 p-4 rounded-xl bg-muted/10 hover:bg-muted/25 transition-colors group"
               >
                 <div className="w-10 h-10 rounded-xl bg-primary/5 flex items-center justify-center shrink-0 mt-0.5 group-hover:bg-primary/10 transition-colors">

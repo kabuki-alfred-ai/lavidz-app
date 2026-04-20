@@ -5,12 +5,17 @@ import { lastAssistantMessageIsCompleteWithToolCalls, DefaultChatTransport } fro
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { useSearchParams } from 'next/navigation'
 import Link from 'next/link'
-import { Send, CalendarDays, Sparkles, RefreshCw, Pencil, ArrowRight, RotateCcw, Mic, Square, Loader2 as Loader, MessageSquare, Trash2, PanelLeftClose, PanelLeft, Plus, ChevronLeft, Menu, X } from 'lucide-react'
+import { Send, CalendarDays, Sparkles, RefreshCw, Pencil, ArrowRight, RotateCcw, Mic, Square, Loader2 as Loader, MessageSquare, Trash2, PanelLeftClose, PanelLeft, Plus, ChevronLeft, Menu, X, Flame } from 'lucide-react'
 import ReactMarkdown from 'react-markdown'
+import { EditorialPlanProposal } from '@/components/chat/EditorialPlanProposal'
+import { UnstuckCard } from '@/components/chat/UnstuckCard'
+import { WeeklyReviewCard } from '@/components/chat/WeeklyReviewCard'
+import { MakeSubjectButton } from '@/components/chat/MakeSubjectButton'
 
 // ─── Constants ───────────────────────────────────────────────────────────────
 
 const QUICK_ACTIONS = [
+  { label: "J'ai besoin d'inspiration", icon: Flame },
   { label: 'Mon calendrier', icon: CalendarDays },
   { label: 'Modifier un sujet', icon: Pencil },
   { label: 'Regenerer le calendrier', icon: RefreshCw },
@@ -110,6 +115,53 @@ function ToolResultCard({ toolName, result }: { toolName: string; result: Record
   }
   if (toolName === 'update_profile') {
     return (<div className="rounded-xl bg-primary/5 p-4 my-2"><div className="flex items-center gap-2"><Sparkles size={16} className="text-primary" /><span className="text-sm font-medium text-foreground">Profil mis a jour</span></div></div>)
+  }
+  if (toolName === 'weekly_creative_review') {
+    const payload = result.empty
+      ? { empty: true as const, message: (result.message as string) ?? '' }
+      : ({ ...(result as Record<string, unknown>), empty: false } as any)
+    return <WeeklyReviewCard payload={payload} />
+  }
+  if (
+    toolName === 'explore_weekly_moment' ||
+    toolName === 'resurrect_seed_topic' ||
+    toolName === 'propose_forgotten_domain' ||
+    toolName === 'react_to_industry_news'
+  ) {
+    const mode =
+      toolName === 'explore_weekly_moment'
+        ? 'weekly_moment'
+        : toolName === 'resurrect_seed_topic'
+          ? 'resurrect_seed'
+          : toolName === 'propose_forgotten_domain'
+            ? 'forgotten_domain'
+            : 'industry_news'
+    return <UnstuckCard result={{ ...(result as Record<string, unknown>), mode } as any} />
+  }
+  if (toolName === 'propose_editorial_plan' && result.status === 'preview') {
+    const proposals = (result.proposals as unknown[]) ?? []
+    return (
+      <EditorialPlanProposal
+        narrativeArc={(result.narrativeArc as string) ?? ''}
+        intentionCaptured={(result.intentionCaptured as string) ?? undefined}
+        proposals={proposals as any}
+      />
+    )
+  }
+  if (toolName === 'commit_editorial_plan' && result.status === 'committed') {
+    return (
+      <div className="my-3 rounded-xl bg-emerald-500/5 border border-emerald-500/20 p-4">
+        <div className="flex items-center gap-2">
+          <Sparkles size={16} className="text-emerald-600" />
+          <span className="text-sm font-medium">
+            {(result.committed as number) ?? 0} sujets enregistrés — regarde-les dans ton calendrier.
+          </span>
+        </div>
+        <a href="/calendar" className="mt-2 inline-flex items-center gap-1 text-xs text-emerald-700 hover:underline">
+          Voir mon calendrier <ArrowRight size={10} />
+        </a>
+      </div>
+    )
   }
   if (toolName === 'create_recording_session') {
     const shareLink = result.shareLink as string | undefined
@@ -551,6 +603,9 @@ export function ChatPage() {
                               <div className="prose prose-sm max-w-none [&_p]:my-1 [&_ul]:my-1 [&_ol]:my-1 [&_li]:my-0.5 [&_strong]:text-foreground [&_a]:text-primary">
                                 <ReactMarkdown components={{ a: ({ href, children }) => <a href={href} target="_blank" rel="noopener noreferrer" className="text-primary underline">{children}</a>, p: ({ children }) => { if (typeof children === 'string') { const parts = children.split(/(https?:\/\/[^\s]+)/g); if (parts.length > 1) return <p>{parts.map((p, i) => /^https?:\/\//.test(p) ? <a key={i} href={p} target="_blank" rel="noopener noreferrer" className="text-primary underline break-all">{p}</a> : p)}</p>; } return <p>{children}</p> } }}>{part.text}</ReactMarkdown>
                               </div>
+                            )}
+                            {!isUser && (
+                              <MakeSubjectButton text={part.text} sourceThreadId={activeThreadId} />
                             )}
                           </div>
                         </div>

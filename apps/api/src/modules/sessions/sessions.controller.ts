@@ -145,4 +145,32 @@ export class SessionsController {
     return this.sessionsService.updateRawKey(recordingId, body.rawVideoKey)
   }
 
+  @Get(':id/analysis')
+  getAnalysis(@Param('id') id: string): Promise<any> {
+    return this.sessionsService.getAnalysis(id)
+  }
+
+  @Post(':id/analysis/regenerate')
+  @HttpCode(202)
+  regenerateAnalysis(@Param('id') id: string): Promise<void> {
+    return this.sessionsService.regenerateAnalysis(id)
+  }
+
+  @Post(':id/recordings/:questionId/redo')
+  @HttpCode(204)
+  redoRecording(
+    @Param('id') id: string,
+    @Param('questionId') questionId: string,
+  ): Promise<void> {
+    return this.sessionsService.redoRecording(id, questionId)
+  }
+
+  @Post(':id/montage-hints')
+  @HttpCode(204)
+  addMontageHint(
+    @Param('id') id: string,
+    @Body() body: { type: string; count?: number; note?: string },
+  ): Promise<void> {
+    return this.sessionsService.addMontageHint(id, body)
+  }
 }

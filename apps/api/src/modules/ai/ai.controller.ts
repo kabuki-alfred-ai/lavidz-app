@@ -8,6 +8,12 @@ import { QuestionnaireService } from './services/questionnaire.service'
 import { MemoryService, type SearchResult } from './services/memory.service'
 import { LinkedinService, type LinkedinPreview } from './services/linkedin.service'
 import { CalendarService } from './services/calendar.service'
+import { UnstuckService } from './services/unstuck.service'
+import { WeeklyReviewService } from './services/weekly-review.service'
+import { SubjectHookService } from './services/subject-hook.service'
+import { SourcesService } from './services/sources.service'
+import { TopicFromInsightService } from './services/topic-from-insight.service'
+import { NarrativeArcService } from './services/narrative-arc.service'
 
 type IngestDocumentBody = {
   content: string
@@ -75,6 +81,12 @@ export class AiController {
     private readonly memoryService: MemoryService,
     private readonly linkedinService: LinkedinService,
     private readonly calendarService: CalendarService,
+    private readonly unstuckService: UnstuckService,
+    private readonly weeklyReviewService: WeeklyReviewService,
+    private readonly subjectHookService: SubjectHookService,
+    private readonly sourcesService: SourcesService,
+    private readonly topicFromInsightService: TopicFromInsightService,
+    private readonly narrativeArcService: NarrativeArcService,
   ) {}
 
   @Get('profile')
@@ -146,6 +158,17 @@ export class AiController {
   ): Promise<EntrepreneurProfile> {
     if (!organizationId) throw new BadRequestException('Header x-organization-id requis')
     return this.profileService.generateAndSaveSummary(organizationId)
+  }
+
+  @Delete('memories/:id')
+  async deleteMemory(
+    @Headers('x-organization-id') organizationId: string,
+    @Param('id') memoryId: string,
+  ): Promise<{ ok: boolean }> {
+    if (!organizationId) throw new BadRequestException('Header x-organization-id requis')
+    const profile = await this.profileService.getOrCreate(organizationId)
+    await this.memoryService.deleteMemory(profile.id, memoryId)
+    return { ok: true }
   }
 
   @Get('memories')
@@ -335,6 +358,141 @@ export class AiController {
     return this.calendarService.generateCalendar(organizationId, platforms, weeksCount, videosPerWeek)
   }
 
+  @Post('editorial-plan/propose')
+  async proposeEditorialPlan(
+    @Headers('x-organization-id') organizationId: string,
+    @Body()
+    body: {
+      platforms?: string[]
+      weeksCount?: number
+      videosPerWeek?: number
+      intentionSummary?: string
+      keepExistingTopics?: boolean
+    },
+  ) {
+    if (!organizationId) throw new BadRequestException('Header x-organization-id requis')
+    return this.calendarService.proposeEditorialPlan({
+      organizationId,
+      platforms: body.platforms?.length ? body.platforms : ['linkedin'],
+      weeksCount: Math.min(body.weeksCount ?? 4, 8),
+      videosPerWeek: Math.min(body.videosPerWeek ?? 2, 7),
+      intentionSummary: body.intentionSummary,
+      keepExistingTopics: body.keepExistingTopics ?? true,
+    })
+  }
+
+  @Post('unstuck/weekly-moment')
+  unstuckWeeklyMoment(@Headers('x-organization-id') organizationId: string) {
+    if (!organizationId) throw new BadRequestException('Header x-organization-id requis')
+    return this.unstuckService.exploreWeeklyMoment(organizationId)
+  }
+
+  @Post('unstuck/resurrect-seed')
+  unstuckResurrectSeed(@Headers('x-organization-id') organizationId: string) {
+    if (!organizationId) throw new BadRequestException('Header x-organization-id requis')
+    return this.unstuckService.resurrectSeedTopic(organizationId)
+  }
+
+  @Post('unstuck/forgotten-domain')
+  unstuckForgottenDomain(@Headers('x-organization-id') organizationId: string) {
+    if (!organizationId) throw new BadRequestException('Header x-organization-id requis')
+    return this.unstuckService.proposeForgottenDomain(organizationId)
+  }
+
+  @Post('unstuck/industry-news')
+  unstuckIndustryNews(@Headers('x-organization-id') organizationId: string) {
+    if (!organizationId) throw new BadRequestException('Header x-organization-id requis')
+    return this.unstuckService.reactToIndustryNews(organizationId)
+  }
+
+  @Post('weekly-review')
+  weeklyReview(@Headers('x-organization-id') organizationId: string) {
+    if (!organizationId) throw new BadRequestException('Header x-organization-id requis')
+    return this.weeklyReviewService.generateReview(organizationId)
+  }
+
+  @Get('subject-hooks/:topicId')
+  getSubjectHooks(
+    @Headers('x-organization-id') organizationId: string,
+    @Param('topicId') topicId: string,
+  ) {
+    if (!organizationId) throw new BadRequestException('Header x-organization-id requis')
+    return this.subjectHookService.get(organizationId, topicId)
+  }
+
+  @Post('subject-hooks/:topicId/generate')
+  generateSubjectHooks(
+    @Headers('x-organization-id') organizationId: string,
+    @Param('topicId') topicId: string,
+  ) {
+    if (!organizationId) throw new BadRequestException('Header x-organization-id requis')
+    return this.subjectHookService.generate(organizationId, topicId)
+  }
+
+  @Post('subject-hooks/:topicId/chosen')
+  setSubjectHookChosen(
+    @Headers('x-organization-id') organizationId: string,
+    @Param('topicId') topicId: string,
+    @Body() body: { chosen: 'native' | 'marketing' | null },
+  ) {
+    if (!organizationId) throw new BadRequestException('Header x-organization-id requis')
+    if (body.chosen !== null && body.chosen !== 'native' && body.chosen !== 'marketing') {
+      throw new BadRequestException("chosen doit être 'native', 'marketing' ou null")
+    }
+    return this.subjectHookService.setChosen(organizationId, topicId, body.chosen)
+  }
+
+  @Get('sources/:topicId')
+  getSources(
+    @Headers('x-organization-id') organizationId: string,
+    @Param('topicId') topicId: string,
+  ) {
+    if (!organizationId) throw new BadRequestException('Header x-organization-id requis')
+    return this.sourcesService.get(organizationId, topicId)
+  }
+
+  @Post('sources/:topicId/fetch')
+  fetchSources(
+    @Headers('x-organization-id') organizationId: string,
+    @Param('topicId') topicId: string,
+  ) {
+    if (!organizationId) throw new BadRequestException('Header x-organization-id requis')
+    return this.sourcesService.fetchForTopic(organizationId, topicId)
+  }
+
+  @Get('narrative-arc')
+  narrativeArc(@Headers('x-organization-id') organizationId: string) {
+    if (!organizationId) throw new BadRequestException('Header x-organization-id requis')
+    return this.narrativeArcService.generate(organizationId)
+  }
+
+  @Post('editorial-plan/commit')
+  async commitEditorialPlan(
+    @Headers('x-organization-id') organizationId: string,
+    @Body()
+    body: {
+      proposals: Array<{
+        suggestedDate: string
+        format: string
+        title: string
+        angle: string
+        hook: string
+        pillar?: string | null
+        platforms?: string[]
+        topicId?: string | null
+      }>
+    },
+  ) {
+    if (!organizationId) throw new BadRequestException('Header x-organization-id requis')
+    if (!Array.isArray(body?.proposals) || body.proposals.length === 0) {
+      throw new BadRequestException('proposals est requis')
+    }
+    return this.calendarService.commitEditorialPlan({
+      organizationId,
+      proposals: body.proposals as any,
+    })
+  }
+
   // ─── Topics CRUD ──────────────────────────────────────────────────────────
 
   @Get('topics')
@@ -443,6 +601,20 @@ export class AiController {
     }
 
     return topic
+  }
+
+  @Post('topics/from-insight')
+  async createTopicFromInsight(
+    @Headers('x-organization-id') organizationId: string,
+    @Body() body: { insight: string; sourceThreadId?: string | null },
+  ): Promise<{ topicId: string; name: string; brief: string }> {
+    if (!organizationId) throw new BadRequestException('Header x-organization-id requis')
+    if (!body.insight || body.insight.trim().length < 30) {
+      throw new BadRequestException("insight trop court (min 30 caractères)")
+    }
+    return this.topicFromInsightService.createSeed(organizationId, body.insight, {
+      sourceThreadId: body.sourceThreadId ?? null,
+    })
   }
 
   @Put('topics/:id')

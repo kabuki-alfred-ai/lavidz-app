@@ -19,6 +19,12 @@ const nextConfig: NextConfig = {
       { source: '/api/cleanvoice/input/:id.mp4', destination: '/api/cleanvoice/input/:id' },
     ]
   },
+  async redirects() {
+    return [
+      // Legacy detail page moved to /sujets/:id — stale links (chat history, bookmarks) still work.
+      { source: '/topics/:id', destination: '/sujets/:id', permanent: true },
+    ]
+  },
   async headers() {
     return [
       {
