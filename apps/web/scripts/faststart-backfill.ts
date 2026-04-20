@@ -46,6 +46,9 @@ const s3 = new S3Client({
     secretAccessKey: process.env.RUSTFS_SECRET_KEY ?? 'password123',
   },
   forcePathStyle: true,
+  // MinIO compat — see lib/s3.ts for rationale.
+  requestChecksumCalculation: 'WHEN_REQUIRED',
+  responseChecksumValidation: 'WHEN_REQUIRED',
 })
 
 const FFMPEG_CANDIDATES = ['ffmpeg', '/usr/bin/ffmpeg', '/usr/local/bin/ffmpeg', '/opt/homebrew/bin/ffmpeg']

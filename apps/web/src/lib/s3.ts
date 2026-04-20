@@ -7,6 +7,16 @@ const credentials = () => ({
   secretAccessKey: process.env.RUSTFS_SECRET_KEY ?? 'password123',
 })
 
+// MinIO doesn't fully support the newer AWS checksum-mode headers that
+// @aws-sdk v3.7xx injects by default (e.g. `x-amz-checksum-mode=ENABLED`,
+// `x-amz-sdk-checksum-algorithm`). Those extra params can hang GET responses
+// and break signed URLs when consumed by non-AWS clients (Chromium / Remotion
+// renderer). Forcing WHEN_REQUIRED disables the opportunistic checksum path.
+const CHECKSUM_OPTS = {
+  requestChecksumCalculation: 'WHEN_REQUIRED' as const,
+  responseChecksumValidation: 'WHEN_REQUIRED' as const,
+}
+
 // Used for PUT/HEAD/GET from inside the container (internal Docker network).
 export function getInternalS3Client(): S3Client {
   return new S3Client({
@@ -14,6 +24,7 @@ export function getInternalS3Client(): S3Client {
     region: 'us-east-1',
     credentials: credentials(),
     forcePathStyle: true,
+    ...CHECKSUM_OPTS,
   })
 }
 
@@ -25,6 +36,7 @@ export function getPresignS3Client(): S3Client {
     region: 'us-east-1',
     credentials: credentials(),
     forcePathStyle: true,
+    ...CHECKSUM_OPTS,
   })
 }
 

@@ -22,17 +22,28 @@ export class StorageService implements OnModuleInit {
       accessKeyId: process.env.RUSTFS_ACCESS_KEY ?? 'admin',
       secretAccessKey: process.env.RUSTFS_SECRET_KEY ?? 'password123',
     }
+    // MinIO doesn't fully support @aws-sdk v3.7xx's default checksum-mode
+    // headers. Those extra params (`x-amz-checksum-mode=ENABLED`, etc.) can
+    // hang GET responses and break signed URLs consumed by non-AWS clients
+    // (Chromium / Remotion renderer). WHEN_REQUIRED disables the opportunistic
+    // checksum path.
+    const checksumOpts = {
+      requestChecksumCalculation: 'WHEN_REQUIRED' as const,
+      responseChecksumValidation: 'WHEN_REQUIRED' as const,
+    }
     this.client = new S3Client({
       endpoint: process.env.RUSTFS_ENDPOINT ?? 'http://localhost:9000',
       region: 'us-east-1',
       credentials,
       forcePathStyle: true,
+      ...checksumOpts,
     })
     this.presignClient = new S3Client({
       endpoint: process.env.RUSTFS_PUBLIC_ENDPOINT ?? process.env.RUSTFS_ENDPOINT ?? 'http://localhost:9000',
       region: 'us-east-1',
       credentials,
       forcePathStyle: true,
+      ...checksumOpts,
     })
     this.bucket = process.env.RUSTFS_BUCKET ?? 'lavidz-videos'
   }
