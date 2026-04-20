@@ -16,6 +16,9 @@ ENV NEXT_PUBLIC_ADMIN_SECRET=$NEXT_PUBLIC_ADMIN_SECRET
 COPY . .
 RUN --mount=type=cache,id=pnpm,target=/pnpm/store pnpm install --frozen-lockfile
 RUN pnpm --filter @lavidz/database run db:generate
+# Next.js static generation on this repo peaks above the Node default ~1.5 GB
+# heap, causing the builder to be OOM-killed during "Generating static pages".
+ENV NODE_OPTIONS="--max-old-space-size=4096"
 RUN pnpm --filter @lavidz/web build
 
 # ── Stage 2: production runner — Debian slim (glibc, required for chrome-headless-shell) ──
