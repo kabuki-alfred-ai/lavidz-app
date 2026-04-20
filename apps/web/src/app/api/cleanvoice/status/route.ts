@@ -1,8 +1,10 @@
+import fs from 'fs'
 import path from 'path'
 import { streamResponseToFile } from '@/lib/stream-file'
 import { mergeElidedWords } from '@/lib/word-timestamps'
 import { uploadFileToS3 } from '@/lib/s3'
 import { cleanvoiceS3Key } from '@/lib/cleanvoice-storage'
+import { remuxToFaststart } from '@/lib/ffmpeg'
 
 export const runtime = 'nodejs'
 export const maxDuration = 60
@@ -39,12 +41,24 @@ export async function GET(req: Request) {
     return Response.json({ done: true, error: `Cleanvoice: aucun lien de téléchargement dans la réponse` })
   }
 
+  const rawPath = path.join('/tmp', `cleanvoice-${id}-raw.mp4`)
   const outputPath = path.join('/tmp', `cleanvoice-${id}.mp4`)
   const cleanedRes = await fetch(downloadUrl)
   if (!cleanedRes.ok) {
     return Response.json({ done: true, error: `Impossible de télécharger la vidéo nettoyée (${cleanedRes.status})` })
   }
-  await streamResponseToFile(cleanedRes, outputPath)
+  await streamResponseToFile(cleanedRes, rawPath)
+
+  // Cleanvoice returns MP4 with moov atom at end of file — forces Chromium (and
+  // Remotion's renderer) to download the full file before seeking, which times
+  // out delayRender on large videos. Remux with +faststart (no re-encode) to
+  // move moov to the start. If ffmpeg is unavailable, fall back to the raw file.
+  const remuxed = remuxToFaststart(rawPath, outputPath)
+  if (!remuxed) {
+    fs.renameSync(rawPath, outputPath)
+  } else {
+    try { fs.unlinkSync(rawPath) } catch {}
+  }
 
   // Upload to MinIO/S3 so the file is reachable from any serverless instance during render.
   // The /tmp copy is kept for the current invocation (fast local access) and GC'd by purgeStaleTmpFiles.
