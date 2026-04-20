@@ -8,7 +8,7 @@ import { PutObjectCommand, GetObjectCommand } from '@aws-sdk/client-s3'
 import { getSignedUrl } from '@aws-sdk/s3-request-presigner'
 import { purgeStaleTmpFiles } from '@/lib/tmp-cleanup'
 import { isMiniMax, generateMiniMaxTTS } from '@/lib/tts-provider'
-import { getInternalS3Client, getPresignS3Client, getBucket } from '@/lib/s3'
+import { getInternalS3Client, getBucket } from '@/lib/s3'
 
 export const runtime = 'nodejs'
 export const maxDuration = 600
@@ -129,7 +129,10 @@ async function runRender(jobId: string, body: any) {
           const bucket = getBucket()
           const pathParts = parsed.pathname.replace(/^\//, '').split('/')
           const key = pathParts[0] === bucket ? pathParts.slice(1).join('/') : pathParts.join('/')
-          return await getSignedUrl(getPresignS3Client(), new GetObjectCommand({ Bucket: bucket, Key: key }), { expiresIn: 43200 })
+          // Sign with internal endpoint: Remotion's Chromium runs inside the
+          // web container and reaches minio via Docker DNS, avoiding a proxy
+          // hairpin + HTTP/3 issues on the public endpoint.
+          return await getSignedUrl(getInternalS3Client(), new GetObjectCommand({ Bucket: bucket, Key: key }), { expiresIn: 43200 })
         } catch {
           return url
         }
@@ -167,7 +170,10 @@ async function runRender(jobId: string, body: any) {
           const pathParts = parsed.pathname.replace(/^\//, '').split('/')
           // If first segment = bucket name, strip it
           const key = pathParts[0] === bucket ? pathParts.slice(1).join('/') : pathParts.join('/')
-          return await getSignedUrl(getPresignS3Client(), new GetObjectCommand({ Bucket: bucket, Key: key }), { expiresIn: 43200 })
+          // Sign with internal endpoint: Remotion's Chromium runs inside the
+          // web container and reaches minio via Docker DNS, avoiding a proxy
+          // hairpin + HTTP/3 issues on the public endpoint.
+          return await getSignedUrl(getInternalS3Client(), new GetObjectCommand({ Bucket: bucket, Key: key }), { expiresIn: 43200 })
         } catch {
           return url // fallback: return original, let Remotion fail naturally
         }
