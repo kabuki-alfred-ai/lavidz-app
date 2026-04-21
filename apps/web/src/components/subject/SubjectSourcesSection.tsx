@@ -138,26 +138,46 @@ export function SubjectSourcesSection({
         )}
       </div>
 
-      {!data && (
+      {!data && !fetching && (
         <div className="space-y-3">
           <p className="text-sm text-muted-foreground">
             Avant d'enregistrer, on peut ancrer ton sujet sur quelques sources crédibles — un chiffre,
             un contexte sectoriel, un contre-angle à contester. Pratique surtout pour les réactions et
             les prises de position.
           </p>
-          <Button size="sm" onClick={handleFetch} disabled={fetching || !hasBrief}>
-            {fetching ? (
-              <Loader2 className="h-3.5 w-3.5 animate-spin" />
-            ) : (
-              <Search className="h-3.5 w-3.5" />
-            )}
+          <Button size="sm" onClick={handleFetch} disabled={fetching}>
+            <Search className="h-3.5 w-3.5" />
             Chercher des sources
           </Button>
           {!hasBrief && (
             <p className="text-xs italic text-muted-foreground">
-              Travaille un angle avant — la recherche sera plus précise.
+              Plus ton angle sera précis, mieux Kabou ciblera — mais tu peux déjà tenter.
             </p>
           )}
+        </div>
+      )}
+
+      {!data && fetching && (
+        <div className="space-y-3">
+          <p className="inline-flex items-center gap-2 text-sm text-muted-foreground">
+            <Loader2 className="h-3.5 w-3.5 animate-spin" />
+            Kabou cherche des sources fiables…
+          </p>
+          <ul className="space-y-3">
+            {[0, 1, 2].map((i) => (
+              <li
+                key={i}
+                className="rounded-xl border border-border/30 bg-background/30 p-3"
+              >
+                <div className="mb-2 flex items-center gap-2">
+                  <div className="h-4 w-14 animate-pulse rounded-full bg-muted/60" />
+                  <div className="h-3 w-24 animate-pulse rounded bg-muted/40" />
+                </div>
+                <div className="mb-1.5 h-4 w-4/5 animate-pulse rounded bg-muted/50" />
+                <div className="h-3 w-full animate-pulse rounded bg-muted/40" />
+              </li>
+            ))}
+          </ul>
         </div>
       )}
 

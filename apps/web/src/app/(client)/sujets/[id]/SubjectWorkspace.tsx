@@ -1,9 +1,10 @@
 'use client'
 
-import { useCallback, useMemo, useState, useTransition } from 'react'
+import { useCallback, useEffect, useMemo, useState, useTransition } from 'react'
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
 import ReactMarkdown from 'react-markdown'
+import { Drawer } from 'vaul'
 import {
   ArrowLeft,
   Archive,
@@ -14,22 +15,26 @@ import {
   Film,
   Loader2,
   Mic,
+  MessageCircle,
   Pencil,
   Play,
+  RefreshCw,
   Sparkles,
   Video,
 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
-import {
-  CREATIVE_STATE_META,
-  type CreativeState,
-} from '@/lib/creative-state'
+import type { CreativeState } from '@/lib/creative-state'
 import { KABOU_TOASTS } from '@/lib/kabou-voice'
 import { SubjectHookSection } from '@/components/subject/SubjectHookSection'
 import { SubjectSourcesSection } from '@/components/subject/SubjectSourcesSection'
 import { SubjectPreflight } from '@/components/subject/SubjectPreflight'
+import { SubjectRecordingGuide } from '@/components/subject/SubjectRecordingGuide'
 import { ThesisBanner } from '@/components/subject/ThesisBanner'
+import { CreativeStateTimeline } from '@/components/subject/CreativeStateTimeline'
 import { SubjectKabouPanel } from './SubjectKabouPanel'
+import { isRecordingGuide, type RecordingGuide } from '@/lib/recording-guide'
+import { ReadyActions } from '@/components/subject/ReadyActions'
+import { ReadinessHint } from '@/components/subject/ReadinessHint'
 
 type Topic = {
   id: string
@@ -39,6 +44,7 @@ type Topic = {
   status: 'DRAFT' | 'READY' | 'ARCHIVED'
   threadId: string
   updatedAt: string
+  recordingGuide: RecordingGuide | null
 }
 
 type SubjectSessionRef = {
@@ -75,6 +81,16 @@ const FORMAT_LABELS: Record<string, string> = {
   MYTH_VS_REALITY: 'Mythe vs Réalité',
 }
 
+// Mapping tool name Kabou → toast de confirmation (Fix 2.2 : plus de mutations
+// silencieuses, l'entrepreneur réalise que Kabou vient de l'aider).
+const KABOU_MUTATION_TOAST: Record<string, string> = {
+  update_recording_guide_draft: '✨ Kabou a enrichi ton fil conducteur',
+  reshape_recording_guide_to_format: '🎬 Kabou a reformaté ton fil conducteur',
+  update_topic_brief: '✏️ Angle mis à jour par Kabou',
+  mark_topic_ready: '✅ Sujet marqué comme prêt',
+  commit_editorial_plan: '📅 Plan éditorial calé avec Kabou',
+}
+
 const SESSION_STATUS_LABEL: Record<string, { label: string; tone: string }> = {
   PENDING: { label: 'À enregistrer', tone: 'text-amber-600' },
   RECORDING: { label: 'En cours', tone: 'text-blue-500' },
@@ -91,8 +107,9 @@ function formatDate(iso: string): string {
 
 /**
  * Two-pane layout on desktop: main subject detail on the left, live Kabou
- * chat on the right. On mobile we switch with tabs. The page is the canonical
- * home of a Sujet — every action is contextual to its current creative state.
+ * chat on the right. On mobile a FAB opens a bottom-sheet with Kabou.
+ * The page is the canonical home of a Sujet — every action is contextual
+ * to its current creative state.
  */
 export function SubjectWorkspace({
   initial,
@@ -110,9 +127,30 @@ export function SubjectWorkspace({
   const [editingPillar, setEditingPillar] = useState(false)
   const [pillarDraft, setPillarDraft] = useState(topic.pillar ?? '')
   const [toast, setToast] = useState<string | null>(null)
-  const [mobileTab, setMobileTab] = useState<'subject' | 'kabou'>('subject')
+  const [kabouDrawerOpen, setKabouDrawerOpen] = useState(false)
+  // Mobile vs desktop split : on mount côté client, on bascule. SSR rend par
+  // défaut la version desktop (aside), ce qui correspond à la majorité du
+  // traffic et évite un double-mount du SubjectKabouPanel (qui porte le chat
+  // actif — deux instances signifieraient deux fetch d'historique).
+  const [isDesktop, setIsDesktop] = useState(true)
+  useEffect(() => {
+    const mq = window.matchMedia('(min-width: 1024px)')
+    setIsDesktop(mq.matches)
+    const handler = (e: MediaQueryListEvent) => setIsDesktop(e.matches)
+    mq.addEventListener('change', handler)
+    return () => mq.removeEventListener('change', handler)
+  }, [])
 
-  const meta = CREATIVE_STATE_META[creativeState]
+  // Re-sync quand le server-side se rafraîchit (router.refresh après mutation
+  // par un tool Kabou), sauf si l'utilisateur est en train d'éditer localement.
+  useEffect(() => {
+    setTopic(initial)
+    if (!editingBrief) setBriefDraft(initial.brief ?? '')
+    if (!editingPillar) setPillarDraft(initial.pillar ?? '')
+    // editingBrief/editingPillar volontairement hors deps pour éviter les boucles
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [initial.id, initial.status, initial.brief, initial.pillar, initial.updatedAt, initial.recordingGuide])
+
   const isArchived = topic.status === 'ARCHIVED'
 
   const flashToast = useCallback((message: string) => {
@@ -177,6 +215,44 @@ export function SubjectWorkspace({
     })
   }, [patchTopic, router])
 
+  // Déclenché quand Kabou utilise un tool qui mute le topic (status, brief,
+  // calendrier). Refetch le topic pour mettre à jour l'en-tête immédiatement,
+  // puis router.refresh pour re-dériver creativeState/sessions/calendar côté
+  // server component. Affiche aussi un toast contextualisé pour que
+  // l'entrepreneur réalise que Kabou vient de l'aider (pas de mutation silencieuse).
+  const handleTopicMutated = useCallback(
+    async (toolName?: string) => {
+      try {
+        const res = await fetch(`/api/topics/${topic.id}`, {
+          credentials: 'include',
+          cache: 'no-store',
+        })
+        if (res.ok) {
+          const updated = (await res.json()) as Partial<Topic> & { recordingGuide?: unknown }
+          setTopic((prev) => ({
+            ...prev,
+            brief: updated.brief ?? prev.brief,
+            pillar: updated.pillar ?? prev.pillar,
+            status: updated.status ?? prev.status,
+            name: updated.name ?? prev.name,
+            updatedAt: updated.updatedAt ?? prev.updatedAt,
+            recordingGuide: isRecordingGuide(updated.recordingGuide)
+              ? updated.recordingGuide
+              : updated.recordingGuide === null
+                ? null
+                : prev.recordingGuide,
+          }))
+        }
+      } catch {
+        // Si le refetch échoue, router.refresh suffira à re-synchroniser.
+      }
+      const toastMessage = toolName ? KABOU_MUTATION_TOAST[toolName] : null
+      if (toastMessage) flashToast(toastMessage)
+      router.refresh()
+    },
+    [topic.id, router, flashToast],
+  )
+
   const pendingSession = useMemo(
     () =>
       sessions.find((s) => s.status === 'PENDING') ??
@@ -186,8 +262,13 @@ export function SubjectWorkspace({
 
   const doneSession = sessions.find((s) => s.status === 'DONE')
 
+  const isEmptySeed =
+    creativeState === 'SEED' && !topic.brief && !topic.recordingGuide && !isArchived
+
   const primaryCta = useMemo(() => {
     if (isArchived) return null
+    // Sur un SEED vide on préfère la hero card dédiée, pas un simple bouton.
+    if (isEmptySeed) return null
 
     if (doneSession) {
       return (
@@ -239,14 +320,17 @@ export function SubjectWorkspace({
     return (
       <Button
         size="lg"
-        onClick={() => setMobileTab('kabou')}
+        onClick={() => {
+          if (isDesktop) return
+          setKabouDrawerOpen(true)
+        }}
         disabled={isPending}
       >
         <Sparkles className="h-4 w-4" />
         Explorer avec Kabou
       </Button>
     )
-  }, [creativeState, doneSession, handleMarkReady, isArchived, isPending, pendingSession, topic.brief, topic.id])
+  }, [creativeState, doneSession, handleMarkReady, isArchived, isDesktop, isEmptySeed, isPending, pendingSession, topic.brief, topic.id])
 
   return (
     <div className="mx-auto w-full max-w-[1500px] px-4 py-6 sm:py-8">
@@ -263,15 +347,23 @@ export function SubjectWorkspace({
       <ThesisBanner />
 
       <header className="mb-6">
-        <div className="mb-2 flex flex-wrap items-center gap-2">
-          <span
-            className={`inline-flex items-center gap-1.5 rounded-full border px-2.5 py-1 text-xs font-medium ${meta.color}`}
-          >
-            <span>{meta.emoji}</span>
-            {meta.label}
-          </span>
-          <span className="text-xs text-muted-foreground/70">· {meta.shortHint}</span>
+        <div className="mb-5 rounded-2xl border border-border/40 bg-surface-raised/20 px-4 py-4">
+          <CreativeStateTimeline state={creativeState} />
         </div>
+        {topic.status === 'READY' && (
+          <div className="mb-5">
+            <ReadyActions
+              topicId={topic.id}
+              defaultFormat={(topic.recordingGuide as { format?: 'QUESTION_BOX' | 'TELEPROMPTER' | 'HOT_TAKE' | 'STORYTELLING' | 'DAILY_TIP' | 'MYTH_VS_REALITY' } | null | undefined)?.format}
+              onChanged={() => router.refresh()}
+            />
+          </div>
+        )}
+        {topic.status === 'DRAFT' && (
+          <div className="mb-5">
+            <ReadinessHint topicId={topic.id} />
+          </div>
+        )}
         <h1 className="text-2xl font-bold tracking-tight sm:text-3xl">{topic.name}</h1>
         <div className="mt-2 flex flex-wrap items-center gap-3 text-sm text-muted-foreground">
           {topic.pillar && (
@@ -308,34 +400,42 @@ export function SubjectWorkspace({
         </div>
       </header>
 
-      {/* Mobile tabs */}
-      <div className="mb-4 flex gap-1 rounded-xl border border-border/40 p-1 lg:hidden">
-        <button
-          type="button"
-          onClick={() => setMobileTab('subject')}
-          className={`flex-1 rounded-lg px-3 py-2 text-sm font-medium transition ${
-            mobileTab === 'subject'
-              ? 'bg-surface-raised text-foreground'
-              : 'text-muted-foreground'
-          }`}
-        >
-          Le sujet
-        </button>
-        <button
-          type="button"
-          onClick={() => setMobileTab('kabou')}
-          className={`flex-1 rounded-lg px-3 py-2 text-sm font-medium transition ${
-            mobileTab === 'kabou' ? 'bg-surface-raised text-foreground' : 'text-muted-foreground'
-          }`}
-        >
-          <Sparkles className="mr-1 inline-block h-3.5 w-3.5" />
-          Kabou
-        </button>
-      </div>
-
       <div className="grid gap-6 lg:grid-cols-[1fr_560px]">
-        {/* Main subject area */}
-        <div className={mobileTab === 'subject' ? 'block' : 'hidden lg:block'}>
+        {/* Main subject area — always visible; Kabou est accessible via FAB mobile ou aside desktop */}
+        <div className="block">
+          {/* Hero onboarding pour un sujet tout frais : évite la "mer grise"
+             des sections désactivées et invite directement à dialoguer. */}
+          {isEmptySeed && (
+            <section className="mb-6 overflow-hidden rounded-2xl border border-primary/30 bg-gradient-to-br from-primary/10 via-surface-raised/40 to-background p-6 shadow-sm">
+              <div className="mb-4 inline-flex h-12 w-12 items-center justify-center rounded-full bg-primary/15 text-2xl">
+                🌱
+              </div>
+              <h2 className="mb-2 text-xl font-semibold tracking-tight">
+                Commençons ensemble
+              </h2>
+              <p className="mb-5 max-w-xl text-sm leading-relaxed text-muted-foreground">
+                Ton sujet vient de germer. Kabou est là pour t'aider à le transformer en un contenu
+                qui te ressemble — raconte-lui ton intention, il s'occupe du reste.
+              </p>
+              <Button
+                size="lg"
+                onClick={() => {
+                  if (isDesktop) return
+                  setKabouDrawerOpen(true)
+                }}
+                disabled={isPending}
+              >
+                <Sparkles className="h-4 w-4" />
+                {isDesktop ? 'Démarrer avec Kabou' : 'Ouvrir Kabou'}
+              </Button>
+              {isDesktop && (
+                <p className="mt-3 text-xs italic text-muted-foreground">
+                  Kabou t'écoute déjà sur ta droite →
+                </p>
+              )}
+            </section>
+          )}
+
           {/* Primary CTA */}
           {primaryCta && <div className="mb-6">{primaryCta}</div>}
 
@@ -461,6 +561,15 @@ export function SubjectWorkspace({
             />
           )}
 
+          {/* Fil conducteur d'enregistrement — affiché dès qu'un guide existe
+             (même en SEED : Kabou peut avoir généré le guide avant que le brief
+             ne signale EXPLORING, il faut briser ce catch-22). */}
+          {!isArchived && topic.recordingGuide && creativeState !== 'PRODUCING' && (
+            <div className="mb-6">
+              <SubjectRecordingGuide guide={topic.recordingGuide} />
+            </div>
+          )}
+
           {/* Pre-flight review — only right before tournage */}
           {!isArchived && (creativeState === 'MATURE' || creativeState === 'SCHEDULED') && (
             <SubjectPreflight topicId={topic.id} />
@@ -542,6 +651,13 @@ export function SubjectWorkspace({
                           </Link>
                         </Button>
                       )}
+                      {s.status === 'FAILED' && (
+                        <Button asChild size="sm" variant="outline">
+                          <Link href={`/s/${s.id}`}>
+                            <RefreshCw className="h-3 w-3" /> Retenter
+                          </Link>
+                        </Button>
+                      )}
                     </li>
                   )
                 })}
@@ -577,20 +693,64 @@ export function SubjectWorkspace({
           </section>
         </div>
 
-        {/* Kabou panel */}
-        <aside className={`h-[calc(100vh-16rem)] min-h-[480px] ${mobileTab === 'kabou' ? 'block' : 'hidden lg:block'}`}>
-          <SubjectKabouPanel
-            topicId={topic.id}
-            threadId={topic.threadId}
-            subjectName={topic.name}
-          />
-        </aside>
+        {/* Kabou panel desktop — rendered only on desktop to avoid double-mount
+           with the mobile drawer (chaque mount = un fetch d'historique séparé). */}
+        {isDesktop && (
+          <aside className="h-[calc(100svh-14rem)] min-h-[400px] max-h-[860px] hidden lg:block">
+            <SubjectKabouPanel
+              topicId={topic.id}
+              threadId={topic.threadId}
+              subjectName={topic.name}
+              onTopicMutated={handleTopicMutated}
+            />
+          </aside>
+        )}
       </div>
+
+      {/* FAB + bottom sheet Kabou sur mobile. Permet de consulter Kabou "en
+         passant" sans quitter le sujet (pattern Slack/Discord mobile). */}
+      {!isDesktop && (
+        <>
+          <button
+            type="button"
+            onClick={() => setKabouDrawerOpen(true)}
+            className="fixed bottom-6 right-5 z-40 inline-flex h-14 items-center gap-2 rounded-full bg-primary px-5 text-sm font-semibold text-primary-foreground shadow-xl shadow-primary/30 transition active:scale-95 lg:hidden"
+            aria-label="Ouvrir Kabou"
+          >
+            <MessageCircle className="h-5 w-5" />
+            Kabou
+          </button>
+          <Drawer.Root
+            open={kabouDrawerOpen}
+            onOpenChange={setKabouDrawerOpen}
+            snapPoints={[0.6, 0.92]}
+          >
+            <Drawer.Portal>
+              <Drawer.Overlay className="fixed inset-0 z-40 bg-black/50 backdrop-blur-sm" />
+              <Drawer.Content className="fixed inset-x-0 bottom-0 z-50 mt-24 flex h-full max-h-[92vh] flex-col rounded-t-2xl border border-b-0 border-border/50 bg-card focus:outline-none">
+                <div className="mx-auto mt-2 h-1.5 w-12 flex-none rounded-full bg-muted" />
+                <Drawer.Title className="sr-only">Kabou sur {topic.name}</Drawer.Title>
+                <Drawer.Description className="sr-only">
+                  Discute avec Kabou sans quitter ton sujet.
+                </Drawer.Description>
+                <div className="flex-1 overflow-hidden p-2">
+                  <SubjectKabouPanel
+                    topicId={topic.id}
+                    threadId={topic.threadId}
+                    subjectName={topic.name}
+                    onTopicMutated={handleTopicMutated}
+                  />
+                </div>
+              </Drawer.Content>
+            </Drawer.Portal>
+          </Drawer.Root>
+        </>
+      )}
 
       {toast && (
         <div
           role="status"
-          className="fixed bottom-6 left-1/2 z-50 -translate-x-1/2 rounded-full border border-border/40 bg-card px-4 py-2 text-xs shadow-lg"
+          className="fixed bottom-24 left-1/2 z-[60] -translate-x-1/2 rounded-full border border-border/40 bg-card px-4 py-2 text-xs shadow-lg lg:bottom-6"
         >
           {toast}
         </div>

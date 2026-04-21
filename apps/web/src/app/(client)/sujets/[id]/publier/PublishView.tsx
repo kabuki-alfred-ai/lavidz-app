@@ -244,7 +244,7 @@ export function PublishView({
         ) : (
           <div className="flex flex-wrap items-center justify-between gap-3">
             <div>
-              <p className="text-sm font-medium">Tu l\'as publié ?</p>
+              <p className="text-sm font-medium">Tu l'as publié ?</p>
               <p className="text-xs text-muted-foreground">
                 Dis-le-moi — ça me permet de tenir ton arche narrative à jour.
               </p>
@@ -255,7 +255,7 @@ export function PublishView({
               ) : (
                 <CheckCircle2 className="h-3.5 w-3.5" />
               )}
-              C\'est en ligne
+              C'est en ligne
             </Button>
           </div>
         )}

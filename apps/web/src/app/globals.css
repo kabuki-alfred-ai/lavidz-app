@@ -139,4 +139,69 @@
   .animate-logo-morph {
     animation: logo-morph 4s cubic-bezier(0.4, 0, 0.2, 1) infinite;
   }
+
+  @keyframes seed-pulse {
+    0%, 100% { transform: scale(1); opacity: 0.9; }
+    50%      { transform: scale(1.06); opacity: 1; }
+  }
+  .animate-seed-pulse {
+    animation: seed-pulse 2.4s ease-in-out infinite;
+    transform-origin: 24px 32px;
+  }
+
+  @keyframes sprout-sway {
+    0%, 100% { transform: rotate(-3deg); }
+    50%      { transform: rotate(3deg); }
+  }
+  .animate-sprout-sway {
+    animation: sprout-sway 3s ease-in-out infinite;
+    transform-origin: 24px 42px;
+  }
+
+  @keyframes tree-rustle {
+    0%, 100% { transform: scale(1) rotate(0deg); }
+    25%      { transform: scale(1.02) rotate(0.6deg); }
+    75%      { transform: scale(1.02) rotate(-0.6deg); }
+  }
+  .animate-tree-rustle {
+    animation: tree-rustle 4s ease-in-out infinite;
+    transform-origin: 24px 42px;
+  }
+
+  @keyframes wind-gust {
+    0%   { transform: translateX(-6px); opacity: 0; }
+    25%  { opacity: 0.55; }
+    75%  { opacity: 0.55; }
+    100% { transform: translateX(8px); opacity: 0; }
+  }
+  @keyframes leaf-flutter {
+    0%, 100% { transform: rotate(0deg); }
+    25%      { transform: rotate(-9deg); }
+    50%      { transform: rotate(1deg); }
+    75%      { transform: rotate(-4deg); }
+  }
+  .animate-leaf-flutter {
+    animation: leaf-flutter 2.6s ease-in-out infinite;
+    transform-box: fill-box;
+    transform-origin: center;
+  }
+  .animate-leaf-flutter-delayed {
+    animation: leaf-flutter 2.6s ease-in-out infinite;
+    animation-delay: 0.9s;
+    transform-box: fill-box;
+    transform-origin: center;
+  }
+  .animate-leaf-flutter-slow {
+    animation: leaf-flutter 3.4s ease-in-out infinite;
+    animation-delay: 0.4s;
+    transform-box: fill-box;
+    transform-origin: center;
+  }
+  .animate-wind-gust {
+    animation: wind-gust 2.6s ease-in-out infinite;
+  }
+  .animate-wind-gust-delayed {
+    animation: wind-gust 2.6s ease-in-out infinite;
+    animation-delay: 1.1s;
+  }
 }

@@ -1,5 +1,6 @@
 import { apiClient } from '@/lib/api'
 import { RecordingSession } from '@/components/session/RecordingSession'
+import { isRecordingGuide, type RecordingGuide } from '@/lib/recording-guide'
 import type { ThemeDto } from '@lavidz/types'
 
 interface Props {
@@ -14,6 +15,7 @@ interface SessionWithTheme {
   contentFormat?: string | null
   teleprompterScript?: string | null
   topicId?: string | null
+  topicEntity?: { recordingGuide?: unknown } | null
 }
 
 export default async function ShareableSessionPage({ params }: Props) {
@@ -48,6 +50,9 @@ export default async function ShareableSessionPage({ params }: Props) {
     )
   }
 
+  const rawGuide = session.topicEntity?.recordingGuide
+  const recordingGuide: RecordingGuide | null = isRecordingGuide(rawGuide) ? rawGuide : null
+
   return (
     <RecordingSession
       theme={session.theme}
@@ -56,6 +61,7 @@ export default async function ShareableSessionPage({ params }: Props) {
       contentFormat={session.contentFormat as any}
       teleprompterScript={session.teleprompterScript}
       topicId={session.topicId ?? undefined}
+      recordingGuide={recordingGuide}
     />
   )
 }

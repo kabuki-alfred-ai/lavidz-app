@@ -2,12 +2,14 @@
 
 import { useState, useRef, useEffect, useCallback, useMemo } from 'react'
 import { useRouter } from 'next/navigation'
-import { SwitchCamera } from 'lucide-react'
+import { SwitchCamera, ListChecks, X } from 'lucide-react'
 import type { ThemeDto } from '@lavidz/types'
 import { FORMAT_CONFIGS, type ContentFormat, type RecordingMode } from '@lavidz/types'
 import TeleprompterOverlay from './TeleprompterOverlay'
 import FreeformGuide from './FreeformGuide'
 import PreRecordingCheck from './PreRecordingCheck'
+import { SubjectRecordingGuide } from '@/components/subject/SubjectRecordingGuide'
+import type { RecordingGuide } from '@/lib/recording-guide'
 
 type Phase = 'intro' | 'check' | 'reading' | 'countdown' | 'recording' | 'review' | 'uploading' | 'done'
 
@@ -33,9 +35,10 @@ interface Props {
   contentFormat?: ContentFormat | null
   teleprompterScript?: string | null
   topicId?: string
+  recordingGuide?: RecordingGuide | null
 }
 
-export function RecordingSession({ theme, initialSessionId, mode = 'default', contentFormat, teleprompterScript, topicId }: Props) {
+export function RecordingSession({ theme, initialSessionId, mode = 'default', contentFormat, teleprompterScript, topicId, recordingGuide }: Props) {
   const router = useRouter()
   const [phase, setPhase] = useState<Phase>('intro')
   const [questionIndex, setQuestionIndex] = useState(0)
@@ -75,6 +78,7 @@ export function RecordingSession({ theme, initialSessionId, mode = 'default', co
   const [feedbackSent, setFeedbackSent] = useState(false)
   const [feedbackSending, setFeedbackSending] = useState(false)
   const [qualityCheckReady, setQualityCheckReady] = useState(false)
+  const [guideOpen, setGuideOpen] = useState(false)
 
   const formatConfig = useMemo(() => contentFormat ? FORMAT_CONFIGS[contentFormat] : null, [contentFormat])
   const recordingMode: RecordingMode = formatConfig?.recordingMode ?? 'questions'
@@ -1089,6 +1093,7 @@ export function RecordingSession({ theme, initialSessionId, mode = 'default', co
 
       // Écran final après envoi du feedback
       if (feedbackSent) {
+        const sid = sessionIdRef.current ?? initialSessionId
         return (
           <div
             className="fixed inset-0 flex flex-col items-center justify-center gap-8 px-8"
@@ -1110,6 +1115,37 @@ export function RecordingSession({ theme, initialSessionId, mode = 'default', co
               <h1 className="text-4xl font-black text-white mb-3">Merci !</h1>
               <p className="text-base text-white/40 leading-relaxed">Vos réponses et votre retour<br />ont bien été reçus.</p>
             </div>
+            {topicId && (
+              <div
+                className="flex flex-col items-stretch gap-3 w-full max-w-xs"
+                style={{ opacity: 0, animation: 'fadeSlideIn 0.5s ease 0.6s forwards' }}
+              >
+                {sid && (
+                  <button
+                    type="button"
+                    onClick={() => router.push(`/sujets/${sid}/apres-tournage`)}
+                    className="w-full font-bold text-sm tracking-wide transition-all active:scale-[0.97]"
+                    style={{ background: accent, color: '#fff', padding: '16px 24px', borderRadius: 14 }}
+                  >
+                    Voir l&apos;analyse de mon tournage
+                  </button>
+                )}
+                <button
+                  type="button"
+                  onClick={() => router.push(`/sujets/${topicId}`)}
+                  className="w-full font-medium text-sm transition-all active:scale-[0.97]"
+                  style={{
+                    background: 'rgba(255,255,255,0.06)',
+                    border: '1px solid rgba(255,255,255,0.12)',
+                    color: 'rgba(255,255,255,0.85)',
+                    padding: '14px 24px',
+                    borderRadius: 14,
+                  }}
+                >
+                  Retour au sujet
+                </button>
+              </div>
+            )}
           </div>
         )
       }
@@ -1579,6 +1615,33 @@ export function RecordingSession({ theme, initialSessionId, mode = 'default', co
           accentColor={accent}
           promptMode={formatConfig?.promptMode}
         />
+      )}
+
+      {/* Fil conducteur — sidebar compacte disponible pendant le tournage comme
+         ancre mentale. Toggle via un bouton flottant pour ne pas encombrer. */}
+      {recordingGuide && (isReading || isRecording) && (
+        <>
+          <button
+            type="button"
+            onClick={() => setGuideOpen((v) => !v)}
+            className="absolute top-4 right-4 z-30 flex items-center gap-1.5 rounded-full px-3 py-2 text-xs font-semibold text-white transition active:scale-95"
+            style={{ background: 'rgba(0,0,0,0.55)', border: '1px solid rgba(255,255,255,0.15)', backdropFilter: 'blur(6px)' }}
+            aria-label={guideOpen ? 'Masquer le fil conducteur' : 'Afficher le fil conducteur'}
+          >
+            {guideOpen ? <X className="h-3.5 w-3.5" /> : <ListChecks className="h-3.5 w-3.5" />}
+            <span>Mon fil</span>
+          </button>
+          {guideOpen && (
+            <div
+              className="absolute right-4 top-16 z-30 max-h-[70vh] w-[min(22rem,calc(100vw-2rem))] overflow-y-auto rounded-2xl border text-white shadow-2xl"
+              style={{ background: 'rgba(14,14,14,0.92)', borderColor: 'rgba(255,255,255,0.12)', backdropFilter: 'blur(10px)' }}
+            >
+              <div className="p-3">
+                <SubjectRecordingGuide guide={recordingGuide} compact />
+              </div>
+            </div>
+          )}
+        </>
       )}
 
       {/* Freeform guide — shown during recording */}

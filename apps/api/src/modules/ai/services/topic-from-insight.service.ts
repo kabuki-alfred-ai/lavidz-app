@@ -1,5 +1,5 @@
 import { Injectable, Logger } from '@nestjs/common'
-import { generateObject } from 'ai'
+import { generateObject } from '../providers/ai-sdk'
 import { z } from 'zod'
 import { prisma } from '@lavidz/database'
 import { getDefaultModel } from '../providers/model.config'

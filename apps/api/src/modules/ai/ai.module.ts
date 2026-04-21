@@ -16,6 +16,8 @@ import { TopicFromInsightService } from './services/topic-from-insight.service'
 import { NarrativeArcService } from './services/narrative-arc.service'
 import { ThesisService } from './services/thesis.service'
 import { PreflightService } from './services/preflight.service'
+import { RecordingGuideService } from './services/recording-guide.service'
+import { TopicReadinessService } from './services/topic-readiness.service'
 
 @Module({
   controllers: [AiController],
@@ -36,6 +38,8 @@ import { PreflightService } from './services/preflight.service'
     NarrativeArcService,
     ThesisService,
     PreflightService,
+    RecordingGuideService,
+    TopicReadinessService,
   ],
   exports: [
     ProfileService,
@@ -54,6 +58,8 @@ import { PreflightService } from './services/preflight.service'
     NarrativeArcService,
     ThesisService,
     PreflightService,
+    RecordingGuideService,
+    TopicReadinessService,
   ],
 })
 export class AiModule {}

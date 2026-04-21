@@ -86,17 +86,42 @@ export function SubjectPreflight({ topicId }: SubjectPreflightProps) {
         </h2>
       </div>
 
-      {!result && (
+      {!result && !loading && (
         <div className="space-y-3">
           <p className="text-sm text-muted-foreground">
             Avant de tourner, Kabou peut passer ton Sujet au crible en 3 points : accroche, preuve, pensée
             qui reste. Non bloquant — tu décides.
           </p>
           <Button size="sm" onClick={handleRun} disabled={loading}>
-            {loading ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <PlaneTakeoff className="h-3.5 w-3.5" />}
+            <PlaneTakeoff className="h-3.5 w-3.5" />
             Lancer le check Kabou
           </Button>
           {error && <p className="text-xs italic text-rose-500">{error}</p>}
+        </div>
+      )}
+
+      {!result && loading && (
+        <div className="space-y-3">
+          <p className="inline-flex items-center gap-2 text-sm text-muted-foreground">
+            <Loader2 className="h-3.5 w-3.5 animate-spin" />
+            Kabou passe ton Sujet au crible…
+          </p>
+          <ul className="space-y-4">
+            {(['hook', 'proof', 'takeaway'] as const).map((key) => {
+              const label = FILTER_LABEL[key]
+              return (
+                <li key={key} className="rounded-xl border border-border/30 bg-background/30 p-4">
+                  <div className="mb-1.5 flex items-center gap-2">
+                    <span className="inline-block h-2 w-2 animate-pulse rounded-full bg-muted/60" />
+                    <span className="text-sm font-semibold">{label.title}</span>
+                  </div>
+                  <p className="mb-1.5 text-xs text-muted-foreground">{label.subtitle}</p>
+                  <div className="mb-2 h-4 w-5/6 animate-pulse rounded bg-muted/50" />
+                  <div className="h-3 w-2/3 animate-pulse rounded bg-muted/40" />
+                </li>
+              )
+            })}
+          </ul>
         </div>
       )}
 

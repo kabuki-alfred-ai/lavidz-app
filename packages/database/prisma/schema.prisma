@@ -384,6 +384,7 @@ model Topic {
   pillar          String?               // linked editorial pillar
   hooks           Json?                 // { native: string, marketing: string, chosen?: 'native'|'marketing', generatedAt: string }
   sources         Json?                 // [{ title, url, summary, relevance, fetchedAt }] — anchors HOT_TAKE / fact-heavy sujets
+  recordingGuide  Json?                 // fil conducteur d'enregistrement, polymorphe par format (cf. apps/web/src/lib/recording-guide.ts)
   calendarEntries ContentCalendar[]
   sessions        Session[]
   generatedPosts  GeneratedPost[]
@@ -398,7 +399,8 @@ model ContentCalendar {
   id             String                @id @default(cuid())
   organizationId String
   organization   Organization          @relation(fields: [organizationId], references: [id], onDelete: Cascade)
-  scheduledDate  DateTime
+  scheduledDate  DateTime // legacy — prefer publishAt for new flows
+  publishAt      DateTime? // target publication date, null when not planned
   description    String?
   format         ContentFormat
   platforms      String[]              @default([]) // ["linkedin", "tiktok", "instagram", "youtube"]
@@ -412,6 +414,7 @@ model ContentCalendar {
 
   @@index([organizationId])
   @@index([scheduledDate])
+  @@index([publishAt])
   @@index([topicId])
 }
 

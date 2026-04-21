@@ -39,6 +39,9 @@ export class SessionsService {
       include: {
         theme: { include: { questions: { where: { active: true }, orderBy: { order: 'asc' } } } },
         recordings: { orderBy: { createdAt: 'asc' } },
+        // recordingGuide du topic : affiché en sidebar pendant le tournage pour
+        // servir d'ancre mentale (draft ou variant reformatté selon le format).
+        topicEntity: { select: { recordingGuide: true } },
       },
     })
     if (!session) throw new NotFoundException(`Session ${id} not found`)

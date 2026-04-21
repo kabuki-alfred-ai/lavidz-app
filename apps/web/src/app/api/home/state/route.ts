@@ -70,7 +70,7 @@ export async function GET() {
       ...t,
       creativeState: deriveCreativeState({
         topicStatus: t.status,
-        briefLength: t.brief?.length ?? 0,
+        brief: t.brief ?? null,
         calendarEntriesCount: t.calendarEntries.length,
         sessions: t.sessions,
       }),

@@ -11,7 +11,7 @@ type Thesis = {
 
 /**
  * Small discreet banner surfacing the entrepreneur's thesis on a Sujet screen.
- * Its job : remind the user *"voilà la conviction dont tu t\'es dotée — ce
+ * Its job : remind the user *"voilà la conviction dont tu t'es dotée — ce
  * Sujet doit la servir"*. Clickable → /mon-univers/these.
  */
 export function ThesisBanner() {
@@ -45,7 +45,7 @@ export function ThesisBanner() {
         className="mb-4 inline-flex items-center gap-1.5 text-xs text-muted-foreground transition hover:text-foreground"
       >
         <Waypoints className="h-3 w-3" />
-        Tu n\'as pas encore de thèse — elle aidera Kabou à rester cohérent.
+        Tu n'as pas encore de thèse — elle aidera Kabou à rester cohérent.
       </Link>
     )
   }

@@ -1,16 +1,17 @@
 'use client'
 
-import { useCallback, useEffect, useState } from 'react'
+import { useCallback, useEffect, useMemo, useState } from 'react'
 import Link from 'next/link'
 import {
   FileText,
-  Loader2,
   Plus,
   ArrowRight,
   CalendarDays,
   Film,
-  Archive,
 } from 'lucide-react'
+import { deriveCreativeState, type CreativeState } from '@/lib/creative-state'
+import { isRecordingGuide } from '@/lib/recording-guide'
+import { getCreativeStageVisual } from '@/components/subject/CreativeStageIcons'
 
 interface TopicEntry {
   id: string
@@ -18,15 +19,10 @@ interface TopicEntry {
   brief: string | null
   status: 'DRAFT' | 'READY' | 'ARCHIVED'
   pillar: string | null
+  recordingGuide: unknown
   calendarEntries: { id: string; scheduledDate: string; format: string; status: string }[]
   sessions: { id: string; status: string }[]
   updatedAt: string
-}
-
-const STATUS_STYLE: Record<string, { label: string; class: string }> = {
-  DRAFT: { label: 'Brouillon', class: 'bg-amber-500/10 text-amber-600' },
-  READY: { label: 'Pret', class: 'bg-emerald-500/10 text-emerald-600' },
-  ARCHIVED: { label: 'Archive', class: 'bg-muted text-muted-foreground' },
 }
 
 function formatRelative(iso: string) {
@@ -41,10 +37,42 @@ function formatRelative(iso: string) {
   return new Date(iso).toLocaleDateString('fr-FR', { day: 'numeric', month: 'short' })
 }
 
+type StageFilter = 'all' | 'growing' | 'ready' | 'producing' | 'archived'
+
+// Enrichit chaque topic avec son creativeState dérivé côté front.
+type EnrichedTopic = TopicEntry & { creativeState: CreativeState }
+
+function enrichTopic(topic: TopicEntry): EnrichedTopic {
+  const guide = isRecordingGuide(topic.recordingGuide) ? topic.recordingGuide : null
+  return {
+    ...topic,
+    creativeState: deriveCreativeState({
+      topicStatus: topic.status,
+      brief: topic.brief,
+      calendarEntriesCount: topic.calendarEntries.length,
+      sessions: topic.sessions.map((s) => ({ status: s.status })),
+      recordingGuide: guide,
+    }),
+  }
+}
+
+// Mappe un filtre UX → ensemble de creativeState. Garde le cadrage simple :
+// "En germination" regroupe SEED + EXPLORING (l'entrepreneur travaille
+// encore le sujet avec Kabou), "Prêts" = MATURE + SCHEDULED.
+function matchesFilter(state: CreativeState, filter: StageFilter): boolean {
+  switch (filter) {
+    case 'all': return true
+    case 'growing': return state === 'SEED' || state === 'EXPLORING'
+    case 'ready': return state === 'MATURE' || state === 'SCHEDULED'
+    case 'producing': return state === 'PRODUCING'
+    case 'archived': return state === 'ARCHIVED'
+  }
+}
+
 export function TopicsList() {
   const [topics, setTopics] = useState<TopicEntry[]>([])
   const [loading, setLoading] = useState(true)
-  const [filter, setFilter] = useState<'all' | 'DRAFT' | 'READY' | 'ARCHIVED'>('all')
+  const [filter, setFilter] = useState<StageFilter>('all')
 
   const load = useCallback(async () => {
     setLoading(true)
@@ -57,7 +85,8 @@ export function TopicsList() {
 
   useEffect(() => { load() }, [load])
 
-  const filtered = filter === 'all' ? topics : topics.filter((t) => t.status === filter)
+  const enriched = useMemo(() => topics.map(enrichTopic), [topics])
+  const filtered = enriched.filter((t) => matchesFilter(t.creativeState, filter))
 
   if (loading) {
     return (
@@ -86,9 +115,15 @@ export function TopicsList() {
         </Link>
       </div>
 
-      {/* Filters */}
-      <div className="flex gap-1 p-1 bg-surface rounded-xl w-fit">
-        {([['all', 'Tous'], ['DRAFT', 'Brouillons'], ['READY', 'Prets'], ['ARCHIVED', 'Archives']] as const).map(([key, label]) => (
+      {/* Filters — regroupent les creativeStates par phase de maturation */}
+      <div className="flex gap-1 p-1 bg-surface rounded-xl w-fit flex-wrap">
+        {([
+          ['all', 'Tous'],
+          ['growing', 'En germination'],
+          ['ready', 'Prêts'],
+          ['producing', 'En production'],
+          ['archived', 'Archivés'],
+        ] as const).map(([key, label]) => (
           <button
             key={key}
             onClick={() => setFilter(key)}
@@ -112,25 +147,35 @@ export function TopicsList() {
       ) : (
         <div className="space-y-3">
           {filtered.map((topic) => {
-            const style = STATUS_STYLE[topic.status]
+            const stage = getCreativeStageVisual(topic.creativeState)
+            const isArchived = topic.creativeState === 'ARCHIVED'
             return (
               <Link
                 key={topic.id}
                 href={`/sujets/${topic.id}`}
-                className="flex items-start gap-4 p-4 rounded-xl bg-muted/10 hover:bg-muted/25 transition-colors group"
+                className={`group flex items-start gap-4 rounded-xl bg-muted/10 p-4 transition-colors hover:bg-muted/25 ${
+                  isArchived ? 'opacity-70' : ''
+                }`}
               >
-                <div className="w-10 h-10 rounded-xl bg-primary/5 flex items-center justify-center shrink-0 mt-0.5 group-hover:bg-primary/10 transition-colors">
-                  {topic.status === 'ARCHIVED' ? (
-                    <Archive size={16} className="text-muted-foreground/50" />
-                  ) : (
-                    <FileText size={16} className="text-primary/70" />
-                  )}
-                </div>
-                <div className="flex-1 min-w-0">
-                  <div className="flex items-center gap-2">
-                    <p className="text-sm font-medium text-foreground truncate">{topic.name}</p>
-                    <span className={`text-xs font-medium px-2 py-0.5 rounded-full shrink-0 ${style.class}`}>{style.label}</span>
+                {/* Statut du sujet — même style que le stade actif de la
+                   timeline sur la page détail : cercle avec ring, illustration,
+                   label + hint en dessous. */}
+                <div className="flex flex-col items-center gap-1.5 shrink-0">
+                  <div
+                    className={`flex h-14 w-14 items-center justify-center rounded-full border ${stage.bgClass} ${stage.borderClass} ${
+                      !isArchived ? 'shadow-sm ring-2 ring-primary/10' : ''
+                    }`}
+                  >
+                    <stage.Icon className={`h-9 w-9 ${stage.textColor}`} active={!isArchived} />
                   </div>
+                  <div className="text-center">
+                    <p className={`text-[11px] font-semibold leading-tight ${stage.textColor}`}>{stage.label}</p>
+                    <p className="mt-0.5 text-[10px] leading-tight text-muted-foreground">{stage.hint}</p>
+                  </div>
+                </div>
+
+                <div className="flex-1 min-w-0">
+                  <p className="text-sm font-semibold text-foreground truncate">{topic.name}</p>
                   {topic.brief && (
                     <p className="text-xs text-muted-foreground mt-1 line-clamp-2">{topic.brief}</p>
                   )}
@@ -147,7 +192,7 @@ export function TopicsList() {
                           <CalendarDays size={10} />
                           {next
                             ? new Date(next.scheduledDate).toLocaleDateString('fr-FR', { day: 'numeric', month: 'short' })
-                            : `${topic.calendarEntries.length} planifie${topic.calendarEntries.length > 1 ? 's' : ''}`
+                            : `${topic.calendarEntries.length} planifié${topic.calendarEntries.length > 1 ? 's' : ''}`
                           }
                         </span>
                       )

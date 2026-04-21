@@ -158,29 +158,43 @@ export function SubjectHookSection({
         )}
       </div>
 
-      {!hooks && (
+      {!hooks && !generating && (
         <div className="space-y-3">
           <p className="text-sm text-muted-foreground">
             Kabou te propose deux versions de ton accroche : ta voix à toi, et une version plus
             scroll-stopping. Tu choisis celle qui te ressemble.
           </p>
-          <Button
-            size="sm"
-            onClick={handleGenerate}
-            disabled={generating || !hasBrief}
-          >
-            {generating ? (
-              <Loader2 className="h-3.5 w-3.5 animate-spin" />
-            ) : (
-              <Sparkles className="h-3.5 w-3.5" />
-            )}
+          <Button size="sm" onClick={handleGenerate} disabled={generating}>
+            <Sparkles className="h-3.5 w-3.5" />
             Proposer deux accroches
           </Button>
           {!hasBrief && (
             <p className="text-xs italic text-muted-foreground">
-              Travaille d'abord un angle pour avoir des accroches ancrées.
+              Plus ton angle sera clair, mieux Kabou l'ancrera — mais tu peux déjà lancer.
             </p>
           )}
+        </div>
+      )}
+
+      {!hooks && generating && (
+        <div className="space-y-3">
+          <p className="inline-flex items-center gap-2 text-sm text-muted-foreground">
+            <Loader2 className="h-3.5 w-3.5 animate-spin" />
+            Kabou écoute ta voix — deux accroches arrivent…
+          </p>
+          <div className="grid gap-3 sm:grid-cols-2">
+            {[0, 1].map((i) => (
+              <div
+                key={i}
+                className="rounded-xl border border-border/30 bg-background/30 p-4"
+              >
+                <div className="mb-2 h-3 w-16 animate-pulse rounded-full bg-muted/60" />
+                <div className="mb-3 h-5 w-full animate-pulse rounded bg-muted/50" />
+                <div className="mb-3 h-5 w-4/5 animate-pulse rounded bg-muted/50" />
+                <div className="h-3 w-3/4 animate-pulse rounded bg-muted/40" />
+              </div>
+            ))}
+          </div>
         </div>
       )}
 

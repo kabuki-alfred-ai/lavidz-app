@@ -51,6 +51,7 @@ export class ContentCalendarService {
       data: {
         organizationId,
         scheduledDate: new Date(dto.scheduledDate),
+        publishAt: dto.publishAt ? new Date(dto.publishAt) : null,
         description: dto.description,
         format: dto.format,
         platforms: dto.platforms,
@@ -101,6 +102,9 @@ export class ContentCalendarService {
     try {
       const data: Record<string, unknown> = { ...dto }
       if (dto.scheduledDate) data.scheduledDate = new Date(dto.scheduledDate)
+      if (dto.publishAt !== undefined) {
+        data.publishAt = dto.publishAt ? new Date(dto.publishAt) : null
+      }
       return await prisma.contentCalendar.update({ where: { id }, data })
     } catch (e: any) {
       if (e?.code === 'P2025') throw new NotFoundException(`ContentCalendar ${id} not found`)

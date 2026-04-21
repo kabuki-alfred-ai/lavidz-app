@@ -2,6 +2,7 @@ import { notFound, redirect } from 'next/navigation'
 import { prisma } from '@lavidz/database'
 import { getSessionUser } from '@/lib/auth'
 import { deriveCreativeState } from '@/lib/creative-state'
+import { isRecordingGuide } from '@/lib/recording-guide'
 import { SubjectWorkspace } from './SubjectWorkspace'
 
 export const dynamic = 'force-dynamic'
@@ -45,11 +46,14 @@ export default async function SubjectPage({ params }: PageProps) {
 
   if (!topic) notFound()
 
+  const recordingGuide = isRecordingGuide(topic.recordingGuide) ? topic.recordingGuide : null
+
   const creativeState = deriveCreativeState({
     topicStatus: topic.status,
-    briefLength: topic.brief?.length ?? 0,
+    brief: topic.brief ?? null,
     calendarEntriesCount: topic.calendarEntries.length,
     sessions: topic.sessions.map((s) => ({ status: s.status })),
+    recordingGuide,
   })
 
   // Pull profile pillars for contextual dropdown
@@ -70,6 +74,7 @@ export default async function SubjectPage({ params }: PageProps) {
         status: topic.status,
         threadId: topic.threadId,
         updatedAt: topic.updatedAt.toISOString(),
+        recordingGuide,
       }}
       creativeState={creativeState}
       availablePillars={profile?.editorialPillars ?? []}

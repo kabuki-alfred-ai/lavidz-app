@@ -1,7 +1,7 @@
 'use client'
 
 import React from 'react'
-import { Clapperboard, Building2, Activity, Users, Music, MessageSquare, Mic, Palette, LifeBuoy, CalendarDays, Film, BarChart3, ClipboardList } from 'lucide-react'
+import { Clapperboard, Building2, Activity, Users, Music, MessageSquare, Mic, Palette, LifeBuoy, CalendarDays, Film, BarChart3, ClipboardList, Workflow } from 'lucide-react'
 import { AdminNavItem } from './AdminNavItem'
 
 interface AdminSidebarNavProps {
@@ -33,6 +33,7 @@ export function AdminSidebarNav({ userRole, activeOrgId }: AdminSidebarNavProps)
         <p className={`text-xs font-medium text-muted-foreground px-3 pb-2 ${isSuperadmin ? '' : 'pt-4'} select-none`}>
           Production
         </p>
+        <AdminNavItem href="/admin/pipeline" label="Pipeline" icon={Workflow} />
         <AdminNavItem href="/admin/sessions" label="Sessions" icon={ClipboardList} />
         <AdminNavItem href="/admin/montage" label="Montage" icon={Clapperboard} />
         <AdminNavItem href="/admin/calendar" label="Calendrier" icon={CalendarDays} />

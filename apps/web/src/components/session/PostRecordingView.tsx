@@ -154,6 +154,11 @@ export function PostRecordingView({
   const strengths = analysis?.strengths ?? []
   const paths = analysis?.improvementPaths ?? []
   const standout = analysis?.standoutMoment ?? null
+  // Analyse "vide" : le LLM n'a pas pu construire un résumé (transcription trop
+  // courte/incohérente ou absente). Dans ce cas on cache les forces — le
+  // fallback "rien ne saute aux yeux" serait mensonger — et on montre une
+  // bannière honnête au-dessus des pistes.
+  const analysisIsEmpty = summary.length === 0 && strengths.length === 0
 
   const handleRegenerate = useCallback(async () => {
     setActionPending('regenerate')
@@ -334,8 +339,51 @@ export function PostRecordingView({
         </section>
       )}
 
-      {/* Strate 3 — Strengths */}
-      {status === 'READY' && (
+      {/* Analyse vide — transcription inexploitable. Erreur franche : on ne
+         cherche pas à enrober, l'entrepreneur doit comprendre que ce tournage
+         ne peut pas être utilisé tel quel. */}
+      {status === 'READY' && analysisIsEmpty && (
+        <section className="mb-10 rounded-2xl border-2 border-destructive/40 bg-destructive/10 p-6">
+          <div className="flex items-start gap-4">
+            <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-destructive/15">
+              <AlertCircle className="h-5 w-5 text-destructive" />
+            </div>
+            <div className="flex-1">
+              <h2 className="text-lg font-bold text-destructive">
+                Ce tournage n&apos;est pas exploitable
+              </h2>
+              <p className="mt-2 text-sm leading-relaxed">
+                {analysis?.errorMessage
+                  ? analysis.errorMessage
+                  : "La transcription est trop courte ou incohérente — il n'y a pas assez de contenu pour analyser quoi que ce soit."}
+              </p>
+              <ul className="mt-3 space-y-1 text-xs text-muted-foreground">
+                <li>• Vérifie que ton micro capte bien ta voix.</li>
+                <li>• Parle franchement et développe chaque réponse.</li>
+                <li>• Refais les prises ci-dessous quand tu es prêt.</li>
+              </ul>
+              <div className="mt-4 flex flex-wrap gap-2">
+                <Button
+                  variant="destructive"
+                  size="sm"
+                  onClick={handleRegenerate}
+                  disabled={actionPending === 'regenerate'}
+                >
+                  {actionPending === 'regenerate' ? (
+                    <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                  ) : (
+                    <RefreshCw className="h-3.5 w-3.5" />
+                  )}
+                  Relancer l&apos;analyse
+                </Button>
+              </div>
+            </div>
+          </div>
+        </section>
+      )}
+
+      {/* Strate 3 — Strengths (masquée si l'analyse est vide) */}
+      {status === 'READY' && !analysisIsEmpty && (
         <section className="mb-10">
           <div className="mb-4 flex items-center gap-2">
             <div className="h-px flex-1 bg-border/40" />

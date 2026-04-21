@@ -171,10 +171,10 @@ export function ThesisView() {
         <div className="mb-3 inline-flex items-center gap-2 rounded-full border border-primary/30 bg-primary/10 px-3 py-1 text-xs font-medium text-primary">
           <Waypoints className="h-3 w-3" /> Ta thèse
         </div>
-        <h1 className="text-2xl font-bold tracking-tight sm:text-3xl">La phrase qu\'on retient de toi</h1>
+        <h1 className="text-2xl font-bold tracking-tight sm:text-3xl">La phrase qu'on retient de toi</h1>
         <p className="mt-2 text-sm leading-relaxed text-muted-foreground">
-          Ta thèse, c\'est la conviction forte qui oriente tout ce que tu dis publiquement. Elle tient en
-          une phrase de 15 mots, elle se défend, elle refuse un consensus. Kabou s\'y adosse pour te
+          Ta thèse, c'est la conviction forte qui oriente tout ce que tu dis publiquement. Elle tient en
+          une phrase de 15 mots, elle se défend, elle refuse un consensus. Kabou s'y adosse pour te
           proposer des Sujets cohérents.
         </p>
       </header>
@@ -183,7 +183,7 @@ export function ThesisView() {
       {isEmpty && !showEditor && (
         <section className="rounded-2xl border border-border/50 bg-surface-raised/30 p-6">
           <p className="mb-4 text-sm leading-relaxed text-foreground/90">
-            Tu n\'as pas encore posé ta thèse. Je peux t\'en proposer une brouillon à partir de ce que j\'ai
+            Tu n'as pas encore posé ta thèse. Je peux t'en proposer une brouillon à partir de ce que j'ai
             compris de toi et des Sujets que tu as déjà travaillés. Tu pourras la raffiner ensuite.
           </p>
           <div className="flex flex-wrap gap-2">
@@ -204,7 +204,7 @@ export function ThesisView() {
               disabled={proposing}
             >
               <Pencil className="h-4 w-4" />
-              Je l\'écris moi-même
+              Je l'écris moi-même
             </Button>
           </div>
         </section>
@@ -293,7 +293,7 @@ export function ThesisView() {
 
           <label className="mb-5 block">
             <span className="mb-1 block text-xs font-semibold uppercase tracking-widest text-muted-foreground">
-              À qui tu t\'adresses (archétype précis)
+              À qui tu t'adresses (archétype précis)
             </span>
             <input
               type="text"

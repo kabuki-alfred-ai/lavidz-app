@@ -1,5 +1,5 @@
 import { RecursiveCharacterTextSplitter } from '@langchain/textsplitters'
-import { Controller, Get, Put, Post, Delete, Param, Body, Headers, Query, UseGuards, BadRequestException, NotFoundException } from '@nestjs/common'
+import { Controller, Get, Put, Patch, Post, Delete, Param, Body, Headers, Query, UseGuards, BadRequestException, NotFoundException } from '@nestjs/common'
 import { Prisma, prisma } from '@lavidz/database'
 import type { EntrepreneurProfile } from '@lavidz/database'
 import { AdminGuard } from '../../guards/admin.guard'
@@ -16,6 +16,9 @@ import { TopicFromInsightService } from './services/topic-from-insight.service'
 import { NarrativeArcService } from './services/narrative-arc.service'
 import { ThesisService } from './services/thesis.service'
 import { PreflightService } from './services/preflight.service'
+import { RecordingGuideService } from './services/recording-guide.service'
+import { TopicReadinessService } from './services/topic-readiness.service'
+import { assertTopicInOrg } from './services/topic-ownership.util'
 
 type IngestDocumentBody = {
   content: string
@@ -91,6 +94,8 @@ export class AiController {
     private readonly narrativeArcService: NarrativeArcService,
     private readonly thesisService: ThesisService,
     private readonly preflightService: PreflightService,
+    private readonly recordingGuideService: RecordingGuideService,
+    private readonly topicReadinessService: TopicReadinessService,
   ) {}
 
   @Get('profile')
@@ -667,7 +672,14 @@ export class AiController {
   async updateTopic(
     @Headers('x-organization-id') organizationId: string,
     @Param('id') id: string,
-    @Body() body: { name?: string; brief?: string; status?: string; pillar?: string },
+    @Body()
+    body: {
+      name?: string
+      brief?: string
+      status?: string
+      pillar?: string
+      recordingGuide?: unknown
+    },
   ): Promise<object> {
     if (!organizationId) throw new BadRequestException('Header x-organization-id requis')
     const topic = await prisma.topic.findFirst({ where: { id, organizationId } })
@@ -678,8 +690,36 @@ export class AiController {
     if (body.brief !== undefined) data.brief = body.brief
     if (body.status !== undefined) data.status = body.status
     if (body.pillar !== undefined) data.pillar = body.pillar
+    if (body.recordingGuide !== undefined) {
+      // Null explicite = reset. Sinon on attend un objet discriminé par `kind`.
+      if (body.recordingGuide === null) {
+        data.recordingGuide = null
+      } else if (
+        typeof body.recordingGuide === 'object' &&
+        body.recordingGuide !== null &&
+        typeof (body.recordingGuide as { kind?: unknown }).kind === 'string'
+      ) {
+        data.recordingGuide = {
+          ...(body.recordingGuide as Record<string, unknown>),
+          updatedAt: new Date().toISOString(),
+        } as Prisma.InputJsonValue
+      } else {
+        throw new BadRequestException('recordingGuide invalide : objet avec `kind` requis')
+      }
+    }
 
     return prisma.topic.update({ where: { id }, data })
+  }
+
+  @Post('topics/:id/recording-guide/reshape')
+  async reshapeRecordingGuide(
+    @Headers('x-organization-id') organizationId: string,
+    @Param('id') id: string,
+    @Body() body: { format: string },
+  ): Promise<object> {
+    if (!organizationId) throw new BadRequestException('Header x-organization-id requis')
+    if (!body?.format) throw new BadRequestException('format requis')
+    return this.recordingGuideService.reshapeToFormat(organizationId, id, body.format)
   }
 
   @Delete('topics/:id')
@@ -691,5 +731,146 @@ export class AiController {
     const topic = await prisma.topic.findFirst({ where: { id, organizationId } })
     if (!topic) throw new NotFoundException('Topic introuvable')
     return prisma.topic.update({ where: { id }, data: { status: 'ARCHIVED' } })
+  }
+
+  // T06 — Readiness endpoint
+  @Get('topics/:id/readiness')
+  async getTopicReadiness(
+    @Headers('x-organization-id') organizationId: string,
+    @Param('id') id: string,
+  ): Promise<object> {
+    if (!organizationId) throw new BadRequestException('Header x-organization-id requis')
+    const topic = await assertTopicInOrg(id, organizationId)
+    return this.topicReadinessService.computeScore(topic)
+  }
+
+  // T07 — Topic status transition
+  @Patch('topics/:id/status')
+  async updateTopicStatus(
+    @Headers('x-organization-id') organizationId: string,
+    @Param('id') id: string,
+    @Body() body: { status: 'DRAFT' | 'READY' | 'ARCHIVED' },
+  ): Promise<object> {
+    if (!organizationId) throw new BadRequestException('Header x-organization-id requis')
+    if (!body?.status || !['DRAFT', 'READY', 'ARCHIVED'].includes(body.status)) {
+      throw new BadRequestException('status must be DRAFT, READY, or ARCHIVED')
+    }
+    await assertTopicInOrg(id, organizationId)
+    return prisma.topic.update({ where: { id }, data: { status: body.status } })
+  }
+
+  // T08 — Tourner maintenant
+  @Post('topics/:id/record-now')
+  async recordNow(
+    @Headers('x-organization-id') organizationId: string,
+    @Param('id') id: string,
+    @Body() body: { format?: string },
+  ): Promise<object> {
+    if (!organizationId) throw new BadRequestException('Header x-organization-id requis')
+    const topic = await assertTopicInOrg(id, organizationId)
+
+    const validFormats = ['QUESTION_BOX', 'TELEPROMPTER', 'HOT_TAKE', 'STORYTELLING', 'DAILY_TIP', 'MYTH_VS_REALITY']
+    const guideFormat = (topic.recordingGuide as { format?: string } | null)?.format
+    const format = body?.format || guideFormat || 'HOT_TAKE'
+    if (!validFormats.includes(format)) {
+      throw new BadRequestException(`format must be one of ${validFormats.join(', ')}`)
+    }
+
+    const now = new Date()
+    const themeSlug = `${topic.slug}-${now.getTime()}`
+
+    const result = await prisma.$transaction(async (tx) => {
+      const theme = await tx.theme.create({
+        data: {
+          name: topic.name,
+          slug: themeSlug,
+          organizationId,
+          questions: {
+            create: [{ text: topic.name, hint: null, order: 0 }],
+          },
+        },
+      })
+
+      const session = await tx.session.create({
+        data: {
+          themeId: theme.id,
+          contentFormat: format as any,
+          targetPlatforms: [],
+          topicId: topic.id,
+        },
+      })
+
+      const calendarEntry = await tx.contentCalendar.create({
+        data: {
+          organizationId,
+          topicId: topic.id,
+          scheduledDate: now,
+          publishAt: null,
+          format: format as any,
+          platforms: [],
+          status: 'RECORDED',
+          sessionId: session.id,
+          description: null,
+          aiSuggestions: Prisma.JsonNull,
+        },
+      })
+
+      return { session, calendarEntry }
+    })
+
+    const baseUrl = process.env.WEB_URL ?? process.env.NEXT_PUBLIC_APP_URL ?? 'http://localhost:3000'
+    return {
+      sessionId: result.session.id,
+      shareLink: `${baseUrl}/s/${result.session.id}`,
+      calendarEntryId: result.calendarEntry.id,
+    }
+  }
+
+  // T09 — Planifier la publication
+  @Post('topics/:id/schedule-publish')
+  async schedulePublish(
+    @Headers('x-organization-id') organizationId: string,
+    @Param('id') id: string,
+    @Body() body: { publishAt: string; format: string; platforms: string[] },
+  ): Promise<object> {
+    if (!organizationId) throw new BadRequestException('Header x-organization-id requis')
+    if (!body?.publishAt) throw new BadRequestException('publishAt requis')
+    if (!body?.format) throw new BadRequestException('format requis')
+
+    const validFormats = ['QUESTION_BOX', 'TELEPROMPTER', 'HOT_TAKE', 'STORYTELLING', 'DAILY_TIP', 'MYTH_VS_REALITY']
+    if (!validFormats.includes(body.format)) {
+      throw new BadRequestException(`format must be one of ${validFormats.join(', ')}`)
+    }
+
+    const topic = await assertTopicInOrg(id, organizationId)
+
+    const publishDate = new Date(body.publishAt)
+    if (Number.isNaN(publishDate.getTime())) {
+      throw new BadRequestException('publishAt must be a valid ISO date')
+    }
+
+    // Compare at day granularity (today-start is allowed)
+    const todayStart = new Date()
+    todayStart.setHours(0, 0, 0, 0)
+    if (publishDate < todayStart) {
+      throw new BadRequestException('La date doit être dans le futur.')
+    }
+
+    const platforms = Array.isArray(body.platforms) ? body.platforms : []
+
+    return prisma.contentCalendar.create({
+      data: {
+        organizationId,
+        topicId: topic.id,
+        scheduledDate: publishDate,
+        publishAt: publishDate,
+        format: body.format as any,
+        platforms,
+        status: 'PLANNED',
+        sessionId: null,
+        description: null,
+        aiSuggestions: Prisma.JsonNull,
+      },
+    })
   }
 }

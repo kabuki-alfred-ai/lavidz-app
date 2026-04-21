@@ -53,12 +53,32 @@ export async function POST(req: Request) {
     } catch { /* table might not exist yet */ }
 
     // Load topic context if topicId provided
-    let currentTopic: { id: string; name: string; brief: string | null; status: string; pillar: string | null; threadId: string } | null = null
+    let currentTopic: {
+      id: string
+      name: string
+      brief: string | null
+      status: string
+      pillar: string | null
+      threadId: string
+      recordingGuide: unknown
+      hooks: unknown
+      sources: unknown
+    } | null = null
     if (topicId) {
       try {
         currentTopic = await prisma.topic.findFirst({
           where: { id: topicId, organizationId: orgId },
-          select: { id: true, name: true, brief: true, status: true, pillar: true, threadId: true },
+          select: {
+            id: true,
+            name: true,
+            brief: true,
+            status: true,
+            pillar: true,
+            threadId: true,
+            recordingGuide: true,
+            hooks: true,
+            sources: true,
+          },
         })
       } catch { /* */ }
     }
@@ -156,6 +176,79 @@ export async function POST(req: Request) {
       if (currentTopic.brief) topicLines.push(`Brief actuel : ${currentTopic.brief}`)
       if (currentTopic.pillar) topicLines.push(`Pilier editorial : ${currentTopic.pillar}`)
       topicLines.push(`Concentre-toi sur ce sujet. Quand la conversation apporte un element important (nouvel angle, point cle, decision), appelle update_topic_brief pour enrichir le brief.`)
+
+      // Accroche — deux variantes générées (native vs marketing), potentiellement une choisie.
+      // Kabou doit pouvoir la référencer, proposer de la reformuler, ou tisser la suite autour.
+      const hooks = currentTopic.hooks as {
+        native?: { phrase?: string; rationale?: string }
+        marketing?: { phrase?: string; rationale?: string }
+        chosen?: 'native' | 'marketing' | null
+      } | null
+      if (hooks && typeof hooks === 'object') {
+        const nativePhrase = typeof hooks.native?.phrase === 'string' ? hooks.native.phrase : null
+        const marketingPhrase = typeof hooks.marketing?.phrase === 'string' ? hooks.marketing.phrase : null
+        const chosen = hooks.chosen === 'native' || hooks.chosen === 'marketing' ? hooks.chosen : null
+        if (nativePhrase || marketingPhrase) {
+          const lines = ['\nAccroches générées pour ce sujet :']
+          if (nativePhrase) lines.push(`- Ta voix : "${nativePhrase}"`)
+          if (marketingPhrase) lines.push(`- Version scroll : "${marketingPhrase}"`)
+          if (chosen) {
+            const chosenPhrase = chosen === 'native' ? nativePhrase : marketingPhrase
+            if (chosenPhrase) lines.push(`Accroche choisie par l'entrepreneur : "${chosenPhrase}" (${chosen === 'native' ? 'version native' : 'version scroll'}).`)
+          } else {
+            lines.push(`Aucune n'est encore choisie — tu peux aider à trancher ou proposer une troisième voie si pertinent.`)
+          }
+          topicLines.push(lines.join('\n'))
+        }
+      }
+
+      // Sources — ancrages factuels (3-5 idéalement). Chaque source a un "keyTakeaway" déjà formulé à l'oral.
+      const sourcesRaw = currentTopic.sources as {
+        sources?: Array<{
+          title?: string
+          url?: string
+          summary?: string
+          relevance?: string
+          keyTakeaway?: string
+        }>
+      } | null
+      if (sourcesRaw && Array.isArray(sourcesRaw.sources) && sourcesRaw.sources.length > 0) {
+        const lines = ['\nSources ancrées sur ce sujet (utilise-les pour muscler l\'angle, proposer un fait ou un contre-angle) :']
+        sourcesRaw.sources.slice(0, 5).forEach((s, i) => {
+          const title = typeof s.title === 'string' ? s.title : 'Source'
+          const relevance = typeof s.relevance === 'string' ? ` [${s.relevance}]` : ''
+          const takeaway = typeof s.keyTakeaway === 'string' && s.keyTakeaway.trim().length > 0
+            ? s.keyTakeaway.trim()
+            : (typeof s.summary === 'string' ? s.summary.trim() : '')
+          lines.push(`${i + 1}. ${title}${relevance} — ${takeaway}`)
+        })
+        lines.push(`Référence ces sources naturellement dans la conversation, sans les réciter brutalement. Elles nourrissent la solidité factuelle, pas la diction.`)
+        topicLines.push(lines.join('\n'))
+      }
+
+      // Fil conducteur d'enregistrement — draft enrichi au fil des échanges
+      const guide = currentTopic.recordingGuide as { kind?: string; bullets?: unknown[] } | null
+      if (guide && typeof guide === 'object') {
+        if (guide.kind === 'draft' && Array.isArray(guide.bullets)) {
+          const bullets = (guide.bullets as unknown[])
+            .filter((b): b is string => typeof b === 'string')
+            .map((b) => `  - ${b}`)
+            .join('\n')
+          topicLines.push(`\nFil conducteur d'enregistrement actuel (ébauche) :\n${bullets}`)
+          topicLines.push(
+            `Quand un point clé ressort de la discussion, enrichis ce fil en appelant update_recording_guide_draft avec la liste complète mise à jour (3-5 bullets max, concises). Ne lance pas le tool après chaque message — attends qu'un vrai point structurant émerge.`,
+          )
+        } else {
+          topicLines.push(
+            `\nCe sujet a déjà un fil conducteur reformatté (kind: ${guide.kind}). Ne l'écrase pas sans demander — si l'entrepreneur veut repartir d'un draft, propose-lui d'abord de repasser sur les bullets.`,
+          )
+        }
+      } else {
+        topicLines.push(
+          `\nCe sujet n'a pas encore de fil conducteur d'enregistrement. Quand 3+ points structurants ont émergé de vos échanges (angle, anecdote, conseil, idée reçue à combattre), appelle update_recording_guide_draft pour poser 3-5 bullets qui guideront le tournage.`,
+        )
+      }
+
       if (currentTopic.status === 'DRAFT') {
         topicLines.push(`Ce sujet est en brouillon. Quand tu estimes que le brief est solide (angle clair, points cles definis, pret a etre enregistre), propose a l'entrepreneur : "Ce sujet est bien cadre, tu veux que je le marque comme pret ?" S'il accepte, appelle mark_topic_ready.`)
       }
@@ -328,6 +421,80 @@ Tu as acces a un outil de recherche web (webSearch). Utilise-le quand c'est pert
               },
             }),
           } : {}),
+          update_recording_guide_draft: tool({
+            description: `Met à jour le fil conducteur d'enregistrement (ébauche) du Sujet courant. À appeler quand 3+ points structurants ont émergé de la conversation — angle, anecdote, idée reçue à combattre, conseil actionnable, point de bascule. Passe toujours la liste COMPLÈTE mise à jour (3-5 bullets max, concises, chacune ≤ 20 mots). N'appelle pas ce tool si le sujet a déjà un guide reformatté vers un format spécifique — propose d'abord à l'entrepreneur de repartir du draft.`,
+            inputSchema: z.object({
+              bullets: z
+                .array(z.string())
+                .min(2)
+                .max(6)
+                .describe('Liste complète des bullets du fil conducteur (3-5 idéalement, concises)'),
+            }),
+            execute: async ({ bullets }: { bullets: string[] }) => {
+              try {
+                const cleaned = bullets.map((b) => b.trim()).filter((b) => b.length > 0)
+                if (cleaned.length < 2) {
+                  return { success: false, error: 'Au moins 2 bullets non vides requis' }
+                }
+                // On préserve sourceDraft si présent pour ne pas perdre la trace
+                // d'un reshape éventuel — permet au format de rester ré-adaptable.
+                const existing = currentTopic!.recordingGuide as Record<string, unknown> | null
+                const sourceDraft =
+                  existing && typeof existing === 'object' && existing.sourceDraft
+                    ? existing.sourceDraft
+                    : undefined
+                const payload = {
+                  kind: 'draft' as const,
+                  bullets: cleaned,
+                  ...(sourceDraft ? { sourceDraft } : {}),
+                }
+                const API = process.env.API_URL ?? 'http://localhost:3001'
+                const res = await fetch(`${API}/api/ai/topics/${currentTopic!.id}`, {
+                  method: 'PUT',
+                  headers: {
+                    'Content-Type': 'application/json',
+                    'x-admin-secret': process.env.ADMIN_SECRET ?? '',
+                    'x-organization-id': orgId,
+                  },
+                  body: JSON.stringify({ recordingGuide: payload }),
+                })
+                if (!res.ok) return { success: false, error: await res.text() }
+                return { success: true, bulletsCount: cleaned.length }
+              } catch (err: any) {
+                return { success: false, error: err?.message ?? 'Erreur' }
+              }
+            },
+          }),
+          reshape_recording_guide_to_format: tool({
+            description: `Reformate le fil conducteur (draft) vers la structure d'un format précis (mythe/réalité, Q/R, storytelling, prise de position, conseil du jour, téléprompteur). À appeler UNIQUEMENT après que l'entrepreneur a confirmé vouloir adapter son fil au format — ne reformate pas sans validation explicite, l'ébauche doit rester l'ancre mentale tant qu'il n'a pas choisi.`,
+            inputSchema: z.object({
+              format: z
+                .enum(['MYTH_VS_REALITY', 'QUESTION_BOX', 'STORYTELLING', 'HOT_TAKE', 'DAILY_TIP', 'TELEPROMPTER'])
+                .describe('Format cible — doit correspondre au contentFormat de la session'),
+            }),
+            execute: async ({ format }: { format: string }) => {
+              try {
+                const API = process.env.API_URL ?? 'http://localhost:3001'
+                const res = await fetch(
+                  `${API}/api/ai/topics/${currentTopic!.id}/recording-guide/reshape`,
+                  {
+                    method: 'POST',
+                    headers: {
+                      'Content-Type': 'application/json',
+                      'x-admin-secret': process.env.ADMIN_SECRET ?? '',
+                      'x-organization-id': orgId,
+                    },
+                    body: JSON.stringify({ format }),
+                  },
+                )
+                if (!res.ok) return { success: false, error: await res.text() }
+                const data = await res.json()
+                return { success: true, format, kind: (data.recordingGuide as { kind?: string })?.kind }
+              } catch (err: any) {
+                return { success: false, error: err?.message ?? 'Erreur' }
+              }
+            },
+          }),
         } : {}),
         update_profile: {
           description: "Met a jour le profil business de l'utilisateur",

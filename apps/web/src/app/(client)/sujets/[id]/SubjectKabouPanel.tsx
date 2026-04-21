@@ -5,6 +5,9 @@ import { useChat } from '@ai-sdk/react'
 import { lastAssistantMessageIsCompleteWithToolCalls, DefaultChatTransport } from 'ai'
 import ReactMarkdown from 'react-markdown'
 import { Loader2, Send, Sparkles } from 'lucide-react'
+import { ChatLink, ChatParagraph } from '@/components/chat/ChatLink'
+
+const MARKDOWN_COMPONENTS = { a: ChatLink, p: ChatParagraph } as const
 
 type ChatMessage = {
   id: string
@@ -16,14 +19,26 @@ interface SubjectKabouPanelProps {
   topicId: string
   threadId: string
   subjectName: string
+  onTopicMutated?: (toolName?: string) => void
 }
+
+// Tools qui, une fois complétés, changent des données affichées dans
+// SubjectWorkspace (status, brief, calendrier). Détectés dans les messages
+// pour déclencher un refetch automatique côté parent.
+const MUTATING_TOOLS = new Set([
+  'update_topic_brief',
+  'mark_topic_ready',
+  'commit_editorial_plan',
+  'update_recording_guide_draft',
+  'reshape_recording_guide_to_format',
+])
 
 /**
  * Inline Kabou panel — rendered to the right of the SubjectWorkspace on
  * desktop, as a tab on mobile. Wraps useChat against the topic's dedicated
  * thread so the conversation persists between visits.
  */
-export function SubjectKabouPanel({ topicId, threadId, subjectName }: SubjectKabouPanelProps) {
+export function SubjectKabouPanel({ topicId, threadId, subjectName, onTopicMutated }: SubjectKabouPanelProps) {
   const threadIdRef = useRef(threadId)
   threadIdRef.current = threadId
 
@@ -73,6 +88,29 @@ export function SubjectKabouPanel({ topicId, threadId, subjectName }: SubjectKab
   const scrollRef = useRef<HTMLDivElement>(null)
   const isBusy = status === 'submitted' || status === 'streaming'
 
+  const processedToolCallIds = useRef<Set<string>>(new Set())
+  const onTopicMutatedRef = useRef(onTopicMutated)
+  onTopicMutatedRef.current = onTopicMutated
+
+  useEffect(() => {
+    for (const m of messages as unknown as Array<{ id: string; role: string; parts?: Array<Record<string, unknown>> }>) {
+      if (m.role !== 'assistant') continue
+      for (const part of m.parts ?? []) {
+        const type = part.type
+        if (typeof type !== 'string' || !type.startsWith('tool-')) continue
+        const toolName = type.slice('tool-'.length)
+        if (!MUTATING_TOOLS.has(toolName)) continue
+        if (part.state !== 'output-available') continue
+        const callId = (part.toolCallId as string | undefined) ?? `${m.id}:${toolName}`
+        if (processedToolCallIds.current.has(callId)) continue
+        processedToolCallIds.current.add(callId)
+        const output = part.output as { success?: boolean } | undefined
+        if (output && output.success === false) continue
+        onTopicMutatedRef.current?.(toolName)
+      }
+    }
+  }, [messages])
+
   useEffect(() => {
     if (scrollRef.current) scrollRef.current.scrollTop = scrollRef.current.scrollHeight
   }, [messages, isBusy])
@@ -96,8 +134,8 @@ export function SubjectKabouPanel({ topicId, threadId, subjectName }: SubjectKab
         }
       >
         {m.role === 'assistant' ? (
-          <div className="prose prose-sm dark:prose-invert max-w-none prose-p:my-1">
-            <ReactMarkdown>{text}</ReactMarkdown>
+          <div className="prose prose-sm dark:prose-invert max-w-none prose-p:my-1 prose-a:no-underline">
+            <ReactMarkdown components={MARKDOWN_COMPONENTS}>{text}</ReactMarkdown>
           </div>
         ) : (
           <p className="whitespace-pre-wrap">{text}</p>

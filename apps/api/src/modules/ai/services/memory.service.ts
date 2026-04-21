@@ -94,18 +94,12 @@ export class MemoryService {
 
     const vectorLiteral = `[${embedding.join(',')}]`
 
-    // Hybrid search: 70% semantic (cosine) + 30% keyword (BM25 / tsvector)
-    // ts_rank returns 0 when no keyword match → graceful fallback to pure vector
     const rows = await prisma.$queryRaw<RawMemoryRow[]>`
       SELECT
         id, content, tags,
-        (
-          0.7 * (1 - (embedding <=> ${vectorLiteral}::vector))
-          + 0.3 * COALESCE(ts_rank("contentTsv", plainto_tsquery('french', ${query})), 0)
-        ) AS similarity
+        (1 - (embedding <=> ${vectorLiteral}::vector)) AS similarity
       FROM "ConversationMemory"
       WHERE "profileId" = ${profileId}
-        AND embedding IS NOT NULL
       ORDER BY similarity DESC
       LIMIT ${k}
     `

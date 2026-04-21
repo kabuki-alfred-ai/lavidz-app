@@ -1,5 +1,5 @@
 import { Injectable } from '@nestjs/common'
-import { generateObject } from 'ai'
+import { generateObject } from '../providers/ai-sdk'
 import { z } from 'zod'
 import { prisma } from '@lavidz/database'
 import type { EntrepreneurProfile, Theme, Session } from '@lavidz/database'

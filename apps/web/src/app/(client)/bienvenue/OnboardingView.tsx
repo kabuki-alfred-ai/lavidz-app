@@ -86,8 +86,8 @@ export function OnboardingView({ firstName }: { firstName: string | null }) {
           </div>
         </div>
         <p className="text-sm leading-relaxed text-muted-foreground">
-          Avant qu\'on parle contenu, j\'aimerais te connaître. Trois questions courtes. Tu peux répondre en
-          quelques phrases — ou une page entière. Je m\'adapte.
+          Avant qu'on parle contenu, j'aimerais te connaître. Trois questions courtes. Tu peux répondre en
+          quelques phrases — ou une page entière. Je m'adapte.
         </p>
       </header>
 
@@ -146,10 +146,10 @@ export function OnboardingView({ firstName }: { firstName: string | null }) {
       {isDone && (
         <section className="flex-1">
           <div className="mb-5 inline-flex items-center gap-1.5 rounded-full bg-primary/10 px-3 py-1 text-xs font-medium text-primary">
-            <Sparkles className="h-3 w-3" /> Voilà ce que j\'ai compris
+            <Sparkles className="h-3 w-3" /> Voilà ce que j'ai compris
           </div>
           <p className="mb-6 text-sm text-muted-foreground">
-            On retravaillera tout ça ensemble. Pour l\'instant, j\'ai la matière pour te proposer des Sujets qui
+            On retravaillera tout ça ensemble. Pour l'instant, j'ai la matière pour te proposer des Sujets qui
             te ressemblent.
           </p>
 
@@ -181,7 +181,7 @@ export function OnboardingView({ firstName }: { firstName: string | null }) {
           <div className="mt-8 flex flex-wrap gap-2">
             <Button size="lg" onClick={handleFinish} disabled={saving}>
               {saving ? <Loader2 className="h-4 w-4 animate-spin" /> : <Check className="h-4 w-4" />}
-              C\'est bon, on démarre
+              C'est bon, on démarre
             </Button>
             <Button
               size="lg"

@@ -1,5 +1,5 @@
 import { Injectable, NotFoundException, Logger } from '@nestjs/common'
-import { generateObject } from 'ai'
+import { generateObject } from '../providers/ai-sdk'
 import { z } from 'zod'
 import { prisma, Prisma } from '@lavidz/database'
 import type { EntrepreneurProfile } from '@lavidz/database'
