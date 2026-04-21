@@ -29,6 +29,10 @@ const MUTATING_TOOLS = new Set([
   'update_topic_brief',
   'mark_topic_ready',
   'commit_editorial_plan',
+  // Nouveaux noms (Task 2.4) + legacy aliases — tant que le dual-write tourne,
+  // les 4 clés coexistent et doivent toutes déclencher un refetch du Topic.
+  'update_narrative_anchor',
+  'reshape_to_recording_script',
   'update_recording_guide_draft',
   'reshape_recording_guide_to_format',
 ])

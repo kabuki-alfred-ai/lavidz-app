@@ -11,6 +11,8 @@ import { CalendarService } from './services/calendar.service'
 import { UnstuckService } from './services/unstuck.service'
 import { WeeklyReviewService } from './services/weekly-review.service'
 import { SubjectHookService } from './services/subject-hook.service'
+import { TopicHookDraftService } from './services/topic-hook-draft.service'
+import { SessionHookService } from './services/session-hook.service'
 import { SourcesService } from './services/sources.service'
 import { TopicFromInsightService } from './services/topic-from-insight.service'
 import { NarrativeArcService } from './services/narrative-arc.service'
@@ -88,6 +90,8 @@ export class AiController {
     private readonly unstuckService: UnstuckService,
     private readonly weeklyReviewService: WeeklyReviewService,
     private readonly subjectHookService: SubjectHookService,
+    private readonly topicHookDraftService: TopicHookDraftService,
+    private readonly sessionHookService: SessionHookService,
     private readonly sourcesService: SourcesService,
     private readonly topicFromInsightService: TopicFromInsightService,
     private readonly narrativeArcService: NarrativeArcService,
@@ -204,12 +208,18 @@ export class AiController {
     @Headers('x-organization-id') organizationId: string,
     @Query('q') query: string,
     @Query('k') kStr?: string,
+    @Query('topicId') topicId?: string,
   ): Promise<{ results: SearchResult[] }> {
     if (!organizationId) throw new BadRequestException('Header x-organization-id requis')
     if (!query?.trim()) return { results: [] }
     const profile = await this.profileService.getOrCreate(organizationId)
     const k = Math.min(10, parseInt(kStr ?? '5', 10) || 5)
-    const results = await this.memoryService.search({ profileId: profile.id, query, k })
+    const results = await this.memoryService.search({
+      profileId: profile.id,
+      query,
+      k,
+      ...(topicId ? { topicId } : {}),
+    })
     return { results }
   }
 
@@ -449,6 +459,70 @@ export class AiController {
     return this.subjectHookService.setChosen(organizationId, topicId, body.chosen)
   }
 
+  // ─── Topic.hookDraft (notes libres, pas de LLM) ──────────────────────────
+
+  @Get('topics/:id/hook-draft')
+  getHookDraft(
+    @Headers('x-organization-id') organizationId: string,
+    @Param('id') topicId: string,
+  ) {
+    if (!organizationId) throw new BadRequestException('Header x-organization-id requis')
+    return this.topicHookDraftService.get(organizationId, topicId)
+  }
+
+  @Put('topics/:id/hook-draft')
+  setHookDraft(
+    @Headers('x-organization-id') organizationId: string,
+    @Param('id') topicId: string,
+    @Body() body: { notes: string },
+  ) {
+    if (!organizationId) throw new BadRequestException('Header x-organization-id requis')
+    return this.topicHookDraftService.set(organizationId, topicId, body?.notes ?? '')
+  }
+
+  @Delete('topics/:id/hook-draft')
+  async clearHookDraft(
+    @Headers('x-organization-id') organizationId: string,
+    @Param('id') topicId: string,
+  ) {
+    if (!organizationId) throw new BadRequestException('Header x-organization-id requis')
+    await this.topicHookDraftService.clear(organizationId, topicId)
+    return { ok: true }
+  }
+
+  // ─── Session.hooks (format-specific, LLM + RAG) ──────────────────────────
+
+  @Get('sessions/:id/hooks')
+  getSessionHooks(
+    @Headers('x-organization-id') organizationId: string,
+    @Param('id') sessionId: string,
+  ) {
+    if (!organizationId) throw new BadRequestException('Header x-organization-id requis')
+    return this.sessionHookService.get(organizationId, sessionId)
+  }
+
+  @Post('sessions/:id/hooks/generate')
+  generateSessionHooks(
+    @Headers('x-organization-id') organizationId: string,
+    @Param('id') sessionId: string,
+  ) {
+    if (!organizationId) throw new BadRequestException('Header x-organization-id requis')
+    return this.sessionHookService.generate(organizationId, sessionId)
+  }
+
+  @Post('sessions/:id/hooks/chosen')
+  setSessionHookChosen(
+    @Headers('x-organization-id') organizationId: string,
+    @Param('id') sessionId: string,
+    @Body() body: { chosen: 'native' | 'marketing' | null },
+  ) {
+    if (!organizationId) throw new BadRequestException('Header x-organization-id requis')
+    if (body.chosen !== null && body.chosen !== 'native' && body.chosen !== 'marketing') {
+      throw new BadRequestException("chosen doit être 'native', 'marketing' ou null")
+    }
+    return this.sessionHookService.setChosen(organizationId, sessionId, body.chosen)
+  }
+
   @Get('sources/:topicId')
   getSources(
     @Headers('x-organization-id') organizationId: string,
@@ -668,6 +742,7 @@ export class AiController {
       status?: string
       pillar?: string
       recordingGuide?: unknown
+      narrativeAnchor?: unknown
     },
   ): Promise<object> {
     if (!organizationId) throw new BadRequestException('Header x-organization-id requis')
@@ -679,6 +754,9 @@ export class AiController {
     if (body.brief !== undefined) data.brief = body.brief
     if (body.status !== undefined) data.status = body.status
     if (body.pillar !== undefined) data.pillar = body.pillar
+
+    const now = new Date().toISOString()
+
     if (body.recordingGuide !== undefined) {
       // Null explicite = reset. Sinon on attend un objet discriminé par `kind`.
       if (body.recordingGuide === null) {
@@ -690,14 +768,50 @@ export class AiController {
       ) {
         data.recordingGuide = {
           ...(body.recordingGuide as Record<string, unknown>),
-          updatedAt: new Date().toISOString(),
+          updatedAt: now,
         } as Prisma.InputJsonValue
       } else {
         throw new BadRequestException('recordingGuide invalide : objet avec `kind` requis')
       }
     }
 
+    if (body.narrativeAnchor !== undefined) {
+      // F3 — narrativeAnchor est strictement `{ kind: 'draft', bullets: string[], updatedAt }`
+      if (body.narrativeAnchor === null) {
+        data.narrativeAnchor = null
+      } else if (
+        typeof body.narrativeAnchor === 'object' &&
+        body.narrativeAnchor !== null &&
+        (body.narrativeAnchor as { kind?: unknown }).kind === 'draft' &&
+        Array.isArray((body.narrativeAnchor as { bullets?: unknown }).bullets)
+      ) {
+        data.narrativeAnchor = {
+          kind: 'draft',
+          bullets: ((body.narrativeAnchor as { bullets: unknown[] }).bullets).filter(
+            (b): b is string => typeof b === 'string',
+          ),
+          updatedAt: now,
+        } as Prisma.InputJsonValue
+      } else {
+        throw new BadRequestException(
+          "narrativeAnchor invalide : { kind: 'draft', bullets: string[] } requis",
+        )
+      }
+    }
+
     return prisma.topic.update({ where: { id }, data })
+  }
+
+  // Task 2.5 — reshape narrativeAnchor → Session.recordingScript format-specific (+ RAG)
+  @Post('sessions/:id/recording-script/reshape')
+  async reshapeSessionRecordingScript(
+    @Headers('x-organization-id') organizationId: string,
+    @Param('id') sessionId: string,
+    @Body() body: { format: string },
+  ): Promise<object> {
+    if (!organizationId) throw new BadRequestException('Header x-organization-id requis')
+    if (!body?.format) throw new BadRequestException('format requis')
+    return this.recordingGuideService.reshapeSessionScript(organizationId, sessionId, body.format)
   }
 
   @Post('topics/:id/recording-guide/reshape')

@@ -12,6 +12,90 @@ const google = createGoogleGenerativeAI({
   apiKey: process.env.GOOGLE_GENERATIVE_AI_API_KEY ?? '',
 })
 
+/**
+ * Dual-write Topic.narrativeAnchor (nouvelle source de vérité) + Topic.recordingGuide
+ * (legacy) — factorise la logique des tools `update_narrative_anchor` (nouveau)
+ * et `update_recording_guide_draft` (alias legacy, F2+F9).
+ */
+async function writeNarrativeAnchor(
+  topicId: string,
+  bullets: string[],
+  existingRecordingGuide: unknown,
+  orgId: string,
+): Promise<{ success: true; bulletsCount: number } | { success: false; error: string }> {
+  try {
+    const cleaned = bullets.map((b) => b.trim()).filter((b) => b.length > 0)
+    if (cleaned.length < 2) {
+      return { success: false, error: 'Au moins 2 bullets non vides requis' }
+    }
+    // On préserve sourceDraft si présent sur le recordingGuide legacy
+    // pour ne pas perdre la trace d'un reshape éventuel côté ancienne archi.
+    const legacyExisting = existingRecordingGuide as Record<string, unknown> | null
+    const sourceDraft =
+      legacyExisting && typeof legacyExisting === 'object' && legacyExisting.sourceDraft
+        ? legacyExisting.sourceDraft
+        : undefined
+    const legacyPayload = {
+      kind: 'draft' as const,
+      bullets: cleaned,
+      ...(sourceDraft ? { sourceDraft } : {}),
+    }
+    const newPayload = {
+      kind: 'draft' as const,
+      bullets: cleaned,
+    }
+    const API = process.env.API_URL ?? 'http://localhost:3001'
+    const res = await fetch(`${API}/api/ai/topics/${topicId}`, {
+      method: 'PUT',
+      headers: {
+        'Content-Type': 'application/json',
+        'x-admin-secret': process.env.ADMIN_SECRET ?? '',
+        'x-organization-id': orgId,
+      },
+      body: JSON.stringify({
+        recordingGuide: legacyPayload, // F9 dual-write legacy
+        narrativeAnchor: newPayload, // F3 nouvelle source de vérité
+      }),
+    })
+    if (!res.ok) return { success: false, error: await res.text() }
+    return { success: true, bulletsCount: cleaned.length }
+  } catch (err: any) {
+    return { success: false, error: err?.message ?? 'Erreur' }
+  }
+}
+
+/**
+ * Déclenche le reshape de Topic.narrativeAnchor vers Session.recordingScript
+ * format-specific côté backend (qui gère RAG + écriture). Task 2.5.
+ */
+async function reshapeSessionScript(
+  sessionId: string,
+  format: string,
+  orgId: string,
+): Promise<{ success: true; format: string; kind?: string } | { success: false; error: string }> {
+  try {
+    const API = process.env.API_URL ?? 'http://localhost:3001'
+    const res = await fetch(`${API}/api/ai/sessions/${sessionId}/recording-script/reshape`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'x-admin-secret': process.env.ADMIN_SECRET ?? '',
+        'x-organization-id': orgId,
+      },
+      body: JSON.stringify({ format }),
+    })
+    if (!res.ok) return { success: false, error: await res.text() }
+    const data = await res.json()
+    return {
+      success: true,
+      format,
+      kind: (data?.recordingScript as { kind?: string } | undefined)?.kind,
+    }
+  } catch (err: any) {
+    return { success: false, error: err?.message ?? 'Erreur' }
+  }
+}
+
 export async function POST(req: Request) {
   try {
     const user = await getSessionUser()
@@ -22,7 +106,7 @@ export async function POST(req: Request) {
       : user.organizationId
     if (!orgId) return new Response('No organization', { status: 400 })
 
-    const { messages, threadId, topicId } = await req.json()
+    const { messages, threadId, topicId, currentSessionId, currentFormat } = await req.json()
     const activeThreadId = threadId || messages[0]?.id || crypto.randomUUID()
 
     // Save the latest user message to DB
@@ -95,10 +179,14 @@ export async function POST(req: Request) {
 
       if (lastText.trim() && orgId) {
         const API = process.env.API_URL ?? 'http://localhost:3001'
-        const ragRes = await fetch(
-          `${API}/api/ai/memories/search?q=${encodeURIComponent(lastText)}&k=5`,
-          { headers: { 'x-admin-secret': process.env.ADMIN_SECRET ?? '', 'x-organization-id': orgId } },
-        )
+        // RAG scope topicId-aware : si on est sur un Topic, on privilégie ses memories
+        // (sinon fallback profile-wide via le param `scope`)
+        const ragUrl = topicId
+          ? `${API}/api/ai/memories/search?q=${encodeURIComponent(lastText)}&k=5&topicId=${encodeURIComponent(String(topicId))}`
+          : `${API}/api/ai/memories/search?q=${encodeURIComponent(lastText)}&k=5`
+        const ragRes = await fetch(ragUrl, {
+          headers: { 'x-admin-secret': process.env.ADMIN_SECRET ?? '', 'x-organization-id': orgId },
+        })
         if (ragRes.ok) {
           const { results } = await ragRes.json()
           ragMemories = results
@@ -120,6 +208,15 @@ export async function POST(req: Request) {
     // The 10 rules, vocabulary and tonal guidance ship as a single preamble so the
     // LLM can't drift from the Kabou persona as features grow.
     systemParts.push(KABOU_SYSTEM_PREAMBLE)
+
+    // F12 — Contexte session/format en tête pour que Kabou n'hallucine pas entre
+    // deux formats quand un même thread Topic mélange plusieurs tournages.
+    if (currentSessionId || currentFormat) {
+      const ctxBits: string[] = []
+      if (currentSessionId) ctxBits.push(`session ${currentSessionId}`)
+      if (currentFormat) ctxBits.push(`format ${currentFormat}`)
+      systemParts.push(`\n[Context: ${ctxBits.join(', ')}]`)
+    }
 
     if (userName) {
       systemParts.push(`\nIDENTITE : Tu parles avec ${userName}. Utilise son prenom naturellement.`)
@@ -421,58 +518,60 @@ Tu as acces a un outil de recherche web (webSearch). Utilise-le quand c'est pert
               },
             }),
           } : {}),
-          update_recording_guide_draft: tool({
-            description: `Met à jour le fil conducteur d'enregistrement (ébauche) du Sujet courant. À appeler quand 3+ points structurants ont émergé de la conversation — angle, anecdote, idée reçue à combattre, conseil actionnable, point de bascule. Passe toujours la liste COMPLÈTE mise à jour (3-5 bullets max, concises, chacune ≤ 20 mots). N'appelle pas ce tool si le sujet a déjà un guide reformatté vers un format spécifique — propose d'abord à l'entrepreneur de repartir du draft.`,
+          // Task 2.4 — update_narrative_anchor : écriture sur Topic.narrativeAnchor
+          // (NOUVELLE source de vérité stratégique, F3). Le controller accepte
+          // simultanément recordingGuide pour préserver le dual-write (F9).
+          update_narrative_anchor: tool({
+            description: `Met à jour l'ancre narrative stratégique du Sujet courant (bullets de fond qui résistent aux formats). À appeler quand 3+ points structurants ont émergé de la conversation — angle, anecdote, idée reçue à combattre, conseil actionnable. Passe toujours la liste COMPLÈTE mise à jour (3-5 bullets max, chacune ≤ 20 mots). Cette ancre alimente ensuite les scripts format-specific via reshape_to_recording_script.`,
             inputSchema: z.object({
               bullets: z
                 .array(z.string())
                 .min(2)
                 .max(6)
-                .describe('Liste complète des bullets du fil conducteur (3-5 idéalement, concises)'),
+                .describe("Liste complète des bullets de l'ancre narrative (3-5 idéalement, concises)"),
             }),
-            execute: async ({ bullets }: { bullets: string[] }) => {
-              try {
-                const cleaned = bullets.map((b) => b.trim()).filter((b) => b.length > 0)
-                if (cleaned.length < 2) {
-                  return { success: false, error: 'Au moins 2 bullets non vides requis' }
-                }
-                // On préserve sourceDraft si présent pour ne pas perdre la trace
-                // d'un reshape éventuel — permet au format de rester ré-adaptable.
-                const existing = currentTopic!.recordingGuide as Record<string, unknown> | null
-                const sourceDraft =
-                  existing && typeof existing === 'object' && existing.sourceDraft
-                    ? existing.sourceDraft
-                    : undefined
-                const payload = {
-                  kind: 'draft' as const,
-                  bullets: cleaned,
-                  ...(sourceDraft ? { sourceDraft } : {}),
-                }
-                const API = process.env.API_URL ?? 'http://localhost:3001'
-                const res = await fetch(`${API}/api/ai/topics/${currentTopic!.id}`, {
-                  method: 'PUT',
-                  headers: {
-                    'Content-Type': 'application/json',
-                    'x-admin-secret': process.env.ADMIN_SECRET ?? '',
-                    'x-organization-id': orgId,
-                  },
-                  body: JSON.stringify({ recordingGuide: payload }),
-                })
-                if (!res.ok) return { success: false, error: await res.text() }
-                return { success: true, bulletsCount: cleaned.length }
-              } catch (err: any) {
-                return { success: false, error: err?.message ?? 'Erreur' }
-              }
-            },
+            execute: async ({ bullets }: { bullets: string[] }) =>
+              writeNarrativeAnchor(currentTopic!.id, bullets, currentTopic!.recordingGuide, orgId),
           }),
-          reshape_recording_guide_to_format: tool({
-            description: `Reformate le fil conducteur (draft) vers la structure d'un format précis (mythe/réalité, Q/R, storytelling, prise de position, conseil du jour, téléprompteur). À appeler UNIQUEMENT après que l'entrepreneur a confirmé vouloir adapter son fil au format — ne reformate pas sans validation explicite, l'ébauche doit rester l'ancre mentale tant qu'il n'a pas choisi.`,
+          // LEGACY alias — dual-entry pendant 1 sprint pour ne pas casser les
+          // threads Kabou qui référencent encore l'ancien nom (F2). Même logique
+          // interne : dual-write Topic.narrativeAnchor + Topic.recordingGuide.
+          update_recording_guide_draft: tool({
+            description: `[LEGACY — utilise update_narrative_anchor à la place] Met à jour le fil conducteur d'enregistrement (ébauche) du Sujet courant.`,
             inputSchema: z.object({
+              bullets: z.array(z.string()).min(2).max(6).describe('Liste complète des bullets (3-5 idéalement)'),
+            }),
+            execute: async ({ bullets }: { bullets: string[] }) =>
+              writeNarrativeAnchor(currentTopic!.id, bullets, currentTopic!.recordingGuide, orgId),
+          }),
+          // Task 2.5 — reshape_to_recording_script : écriture sur Session.recordingScript
+          // format-specific depuis Topic.narrativeAnchor + RAG topic-scoped (côté backend).
+          reshape_to_recording_script: tool({
+            description: `Reformate l'ancre narrative du Sujet vers un script format-specific (mythe/réalité, Q/R, storytelling, prise de position, conseil du jour, téléprompteur) pour UNE SESSION précise. À appeler UNIQUEMENT après validation explicite de l'entrepreneur. Nécessite un sessionId — si le contexte de la conversation porte déjà une session active, l'utiliser.`,
+            inputSchema: z.object({
+              sessionId: z.string().describe('ID de la session cible dont le recordingScript doit être généré'),
               format: z
                 .enum(['MYTH_VS_REALITY', 'QUESTION_BOX', 'STORYTELLING', 'HOT_TAKE', 'DAILY_TIP', 'TELEPROMPTER'])
                 .describe('Format cible — doit correspondre au contentFormat de la session'),
             }),
+            execute: async ({ sessionId, format }: { sessionId: string; format: string }) =>
+              reshapeSessionScript(sessionId, format, orgId),
+          }),
+          // LEGACY alias — pour les threads qui référencent encore l'ancien nom.
+          // Si currentSessionId est présent (utilisateur sur /s/[id]), on bascule
+          // vers le flux Session. Sinon fallback legacy Topic.recordingGuide.
+          reshape_recording_guide_to_format: tool({
+            description: `[LEGACY — utilise reshape_to_recording_script] Reformate le fil conducteur vers un format précis.`,
+            inputSchema: z.object({
+              format: z
+                .enum(['MYTH_VS_REALITY', 'QUESTION_BOX', 'STORYTELLING', 'HOT_TAKE', 'DAILY_TIP', 'TELEPROMPTER'])
+                .describe('Format cible'),
+            }),
             execute: async ({ format }: { format: string }) => {
+              if (currentSessionId) {
+                return reshapeSessionScript(currentSessionId as string, format, orgId)
+              }
+              // Fallback legacy : reshape Topic.recordingGuide (ancienne architecture)
               try {
                 const API = process.env.API_URL ?? 'http://localhost:3001'
                 const res = await fetch(

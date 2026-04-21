@@ -4,6 +4,7 @@ import { Prisma, prisma } from '@lavidz/database'
 import { generateObject } from '../providers/ai-sdk'
 import { getDefaultModel } from '../providers/model.config'
 import { buildReshapeRecordingGuidePrompt } from '../prompts/reshape-recording-guide.prompt'
+import { MemoryService } from './memory.service'
 
 const SUPPORTED_FORMATS = [
   'MYTH_VS_REALITY',
@@ -87,6 +88,126 @@ const TeleprompterSchema = z.object({
 @Injectable()
 export class RecordingGuideService {
   private readonly logger = new Logger(RecordingGuideService.name)
+
+  constructor(private readonly memoryService: MemoryService) {}
+
+  /**
+   * Reshape `Topic.narrativeAnchor` → `Session.recordingScript` format-specific,
+   * enrichi RAG topic-scoped pour la cohérence de voix (Task 2.5, F11).
+   * Écrit dans `Session.recordingScript` avec `anchorSyncedAt` et
+   * `sourceAnchorBullets` (traçabilité vers l'ancre d'origine).
+   */
+  async reshapeSessionScript(
+    organizationId: string,
+    sessionId: string,
+    format: string,
+  ): Promise<{ recordingScript: unknown }> {
+    if (!SUPPORTED_FORMATS.includes(format as SupportedFormat)) {
+      throw new BadRequestException(`format non supporté : ${format}`)
+    }
+    const typedFormat = format as SupportedFormat
+
+    const session = await prisma.session.findFirst({
+      where: { id: sessionId, theme: { organizationId } },
+      select: {
+        id: true,
+        topicId: true,
+        topicEntity: {
+          select: {
+            id: true,
+            name: true,
+            brief: true,
+            narrativeAnchor: true,
+            recordingGuide: true,
+          },
+        },
+      },
+    })
+    if (!session) throw new NotFoundException('Session introuvable')
+    if (!session.topicEntity) {
+      throw new BadRequestException('Session sans Topic lié')
+    }
+    const topic = session.topicEntity
+
+    // Bullets source : priorité narrativeAnchor, fallback recordingGuide legacy
+    let bullets: string[] = []
+    const anchor = topic.narrativeAnchor as Record<string, unknown> | null
+    if (anchor?.kind === 'draft' && Array.isArray(anchor.bullets)) {
+      bullets = (anchor.bullets as unknown[]).filter((b): b is string => typeof b === 'string')
+    } else {
+      const legacy = topic.recordingGuide as Record<string, unknown> | null
+      if (legacy?.kind === 'draft' && Array.isArray(legacy.bullets)) {
+        bullets = (legacy.bullets as unknown[]).filter((b): b is string => typeof b === 'string')
+      } else if (
+        legacy?.sourceDraft &&
+        typeof legacy.sourceDraft === 'object' &&
+        Array.isArray((legacy.sourceDraft as { bullets?: unknown }).bullets)
+      ) {
+        bullets = ((legacy.sourceDraft as { bullets: unknown[] }).bullets).filter(
+          (b): b is string => typeof b === 'string',
+        )
+      }
+    }
+
+    if (bullets.length < 1) {
+      throw new BadRequestException(
+        "Ce sujet n'a pas d'ancre narrative — demande d'abord à Kabou de poser les bullets.",
+      )
+    }
+
+    // RAG topic-scoped (F11) — enrichit le prompt avec les tournures passées
+    const profile = await prisma.entrepreneurProfile.findUnique({
+      where: { organizationId },
+      select: { id: true },
+    })
+    const ragHits = profile
+      ? await this.memoryService.searchWithFallback(
+          {
+            profileId: profile.id,
+            topicId: topic.id,
+            query: `${bullets.join(' ')} ${typedFormat}`,
+            k: 5,
+          },
+          { service: 'reshape-recording-script' },
+        )
+      : []
+
+    const basePrompt = buildReshapeRecordingGuidePrompt({
+      subjectName: topic.name,
+      brief: topic.brief,
+      draftBullets: bullets,
+      format: typedFormat,
+    })
+    const voiceBlock = ragHits.length
+      ? `\n\n## Tes tournures passées sur ce sujet (mémoire, utilise-les pour coller à la voix native)\n${ragHits
+          .slice(0, 5)
+          .map((h) => `- ${h.content.replace(/\s+/g, ' ').trim().slice(0, 220)}`)
+          .join('\n')}`
+      : ''
+    const prompt = basePrompt + voiceBlock
+
+    const schema = this.schemaForFormat(typedFormat)
+    const { object } = await generateObject({
+      model: getDefaultModel(),
+      schema,
+      prompt,
+    })
+
+    const kind = FORMAT_TO_KIND[typedFormat]
+    const stored = {
+      kind,
+      ...object,
+      anchorSyncedAt: new Date().toISOString(),
+      sourceAnchorBullets: bullets,
+    }
+
+    await prisma.session.update({
+      where: { id: session.id },
+      data: { recordingScript: stored as unknown as Prisma.InputJsonValue },
+    })
+
+    return { recordingScript: stored }
+  }
 
   async reshapeToFormat(
     organizationId: string,

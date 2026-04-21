@@ -11,6 +11,8 @@ import { UnstuckService } from './services/unstuck.service'
 import { VoiceGuardianService } from './services/voice-guardian.service'
 import { WeeklyReviewService } from './services/weekly-review.service'
 import { SubjectHookService } from './services/subject-hook.service'
+import { TopicHookDraftService } from './services/topic-hook-draft.service'
+import { SessionHookService } from './services/session-hook.service'
 import { SourcesService } from './services/sources.service'
 import { TopicFromInsightService } from './services/topic-from-insight.service'
 import { NarrativeArcService } from './services/narrative-arc.service'
@@ -32,6 +34,8 @@ import { TopicReadinessService } from './services/topic-readiness.service'
     VoiceGuardianService,
     WeeklyReviewService,
     SubjectHookService,
+    TopicHookDraftService,
+    SessionHookService,
     SourcesService,
     TopicFromInsightService,
     NarrativeArcService,
@@ -51,6 +55,8 @@ import { TopicReadinessService } from './services/topic-readiness.service'
     VoiceGuardianService,
     WeeklyReviewService,
     SubjectHookService,
+    TopicHookDraftService,
+    SessionHookService,
     SourcesService,
     TopicFromInsightService,
     NarrativeArcService,
