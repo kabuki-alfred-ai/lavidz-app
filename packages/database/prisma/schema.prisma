@@ -58,6 +58,9 @@ model Session {
   publishedAt        DateTime? // cochée par l'entrepreneur quand son contenu est en ligne
   topicId            String?
   topicEntity        Topic?               @relation(fields: [topicId], references: [id], onDelete: SetNull)
+  recordingScript    Json?                // format-specific polymorphe (6 kinds) + anchorSyncedAt — cf. apps/web/src/lib/recording-script.ts
+  hooks              Json?                // { native, marketing, chosen?, generatedAt } format-specific
+  lastActivityAt     DateTime?            // updated à chaque take fini — source du banner reprise Kabou
   recordings         Recording[]
   memories           ConversationMemory[]
   feedback           Feedback?
@@ -96,23 +99,25 @@ model RecordingAnalysis {
 }
 
 model Recording {
-  id                String          @id @default(cuid())
-  sessionId         String
-  session           Session         @relation(fields: [sessionId], references: [id], onDelete: Cascade)
-  questionId        String
-  question          Question        @relation(fields: [questionId], references: [id])
-  rawVideoKey       String?
-  finalVideoKey     String?
-  transcript        String?
-  wordTimestamps    Json?
-  ttsAudioKey       String?
-  ttsVoiceId        String?
-  processedVideoKey String?
-  processingHash    String?
-  status            RecordingStatus @default(PENDING)
-  projectClips      ProjectClip[]
-  createdAt         DateTime        @default(now())
-  updatedAt         DateTime        @updatedAt
+  id                  String          @id @default(cuid())
+  sessionId           String
+  session             Session         @relation(fields: [sessionId], references: [id], onDelete: Cascade)
+  questionId          String
+  question            Question        @relation(fields: [questionId], references: [id])
+  rawVideoKey         String?
+  finalVideoKey       String?
+  transcript          String?
+  wordTimestamps      Json?
+  ttsAudioKey         String?
+  ttsVoiceId          String?
+  processedVideoKey   String?
+  processingHash      String?
+  status              RecordingStatus @default(PENDING)
+  supersededAt        DateTime?       // set quand un retake canonique sur le même questionId est créé (F10)
+  kabouRecommendation Json?           // { score, reason, criteria: { tempo, clarity, energy, tone } }
+  projectClips        ProjectClip[]
+  createdAt           DateTime        @default(now())
+  updatedAt           DateTime        @updatedAt
 }
 
 enum UserRole {
@@ -169,6 +174,8 @@ enum SessionStatus {
   SUBMITTED
   PROCESSING
   DONE
+  LIVE     // sticky — publishedAt renseigné
+  REPLACED // variante remplacée (auto-set quand "Tenter un autre angle")
   FAILED
 }
 
@@ -256,12 +263,16 @@ model ConversationMemory {
   id        String                     @id @default(cuid())
   profileId String
   sessionId String?
+  topicId   String?                    // scope topic-level pour RAG
   content   String
   embedding Unsupported("vector(768)")
   tags      String[]                   @default([])
   createdAt DateTime                   @default(now())
   profile   EntrepreneurProfile        @relation(fields: [profileId], references: [id], onDelete: Cascade)
   session   Session?                   @relation(fields: [sessionId], references: [id], onDelete: SetNull)
+  topic     Topic?                     @relation(fields: [topicId], references: [id], onDelete: SetNull)
+
+  @@index([profileId, topicId])
 }
 
 model OrgInvitation {
@@ -382,12 +393,15 @@ model Topic {
   status          TopicStatus           @default(DRAFT)
   threadId        String                @unique @default(cuid()) // dedicated chat thread
   pillar          String?               // linked editorial pillar
-  hooks           Json?                 // { native: string, marketing: string, chosen?: 'native'|'marketing', generatedAt: string }
+  hooks           Json?                 // LEGACY dual-write — drop sprint+1
+  hookDraft       Json?                 // notes libres d'idées d'accroches (texte libre, pas structuré)
   sources         Json?                 // [{ title, url, summary, relevance, fetchedAt }] — anchors HOT_TAKE / fact-heavy sujets
-  recordingGuide  Json?                 // fil conducteur d'enregistrement, polymorphe par format (cf. apps/web/src/lib/recording-guide.ts)
+  recordingGuide  Json?                 // LEGACY dual-write — drop sprint+1
+  narrativeAnchor Json?                 // { kind: 'draft', bullets: string[], updatedAt: string } — cf. apps/web/src/lib/narrative-anchor.ts
   calendarEntries ContentCalendar[]
   sessions        Session[]
   generatedPosts  GeneratedPost[]
+  memories        ConversationMemory[]
   createdAt       DateTime              @default(now())
   updatedAt       DateTime              @updatedAt
 
@@ -433,7 +447,7 @@ model Project {
   organization   Organization  @relation(fields: [organizationId], references: [id], onDelete: Cascade)
   status         ProjectStatus @default(DRAFT)
   montageSettings Json?
-  sessionId      String?       // source session (auto-created projects)
+  sessionId      String?       @unique // source session (auto-created projects) — @unique pour idempotence F5
   clips          ProjectClip[]
   compositions   Composition[]
   createdAt      DateTime      @default(now())
