@@ -1,14 +1,41 @@
 import type { ContentFormat } from '@lavidz/types'
 
 /**
+ * @deprecated SHIM legacy — à supprimer sprint+1. Utiliser à la place :
+ *   - `@/lib/narrative-anchor` pour l'ancre stratégique (Topic.narrativeAnchor)
+ *   - `@/lib/recording-script` pour le script format-specific (Session.recordingScript)
+ *
+ * Ce fichier reste en place pour la durée du rollout dual-write (migrations
+ * `20260422000002_subject_session_refactor`). Les types legacy continuent
+ * de fonctionner sur `Topic.recordingGuide` (colonne JSON conservée).
+ *
  * Fil conducteur d'enregistrement — discriminé par `kind`. Démarre toujours
  * en `draft` (3-5 bullets génériques tirées de la conversation Kabou), puis
  * se reshape vers la variante matchant le format de la session une fois
  * celui-ci choisi.
- *
- * Persisté dans `Topic.recordingGuide` (Json). Source de vérité des renderers
- * UI côté SubjectWorkspace + sidebar RecordingSession.
  */
+
+// Re-exports pour faciliter la migration progressive des consumers
+export type {
+  NarrativeAnchor,
+} from './narrative-anchor'
+export { isNarrativeAnchor, narrativeAnchorHasSubstance } from './narrative-anchor'
+export type {
+  RecordingScript,
+  RecordingScriptKind,
+  RecordingScriptMythVsReality,
+  RecordingScriptQA,
+  RecordingScriptStorytelling,
+  RecordingScriptHotTake,
+  RecordingScriptDailyTip,
+  RecordingScriptTeleprompter,
+} from './recording-script'
+export {
+  isRecordingScript,
+  recordingScriptHasSubstance,
+  FORMAT_TO_SCRIPT_KIND,
+  SCRIPT_KIND_LABELS,
+} from './recording-script'
 
 export type RecordingGuideDraft = {
   kind: 'draft'
