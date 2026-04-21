@@ -15,7 +15,6 @@ import { SourcesService } from './services/sources.service'
 import { TopicFromInsightService } from './services/topic-from-insight.service'
 import { NarrativeArcService } from './services/narrative-arc.service'
 import { ThesisService } from './services/thesis.service'
-import { PreflightService } from './services/preflight.service'
 import { RecordingGuideService } from './services/recording-guide.service'
 import { TopicReadinessService } from './services/topic-readiness.service'
 import { assertTopicInOrg } from './services/topic-ownership.util'
@@ -93,7 +92,6 @@ export class AiController {
     private readonly topicFromInsightService: TopicFromInsightService,
     private readonly narrativeArcService: NarrativeArcService,
     private readonly thesisService: ThesisService,
-    private readonly preflightService: PreflightService,
     private readonly recordingGuideService: RecordingGuideService,
     private readonly topicReadinessService: TopicReadinessService,
   ) {}
@@ -506,15 +504,6 @@ export class AiController {
     if (!organizationId) throw new BadRequestException('Header x-organization-id requis')
     await this.thesisService.clear(organizationId)
     return { ok: true }
-  }
-
-  @Post('preflight/:topicId')
-  preflight(
-    @Headers('x-organization-id') organizationId: string,
-    @Param('topicId') topicId: string,
-  ) {
-    if (!organizationId) throw new BadRequestException('Header x-organization-id requis')
-    return this.preflightService.runForTopic(organizationId, topicId)
   }
 
   @Post('editorial-plan/commit')

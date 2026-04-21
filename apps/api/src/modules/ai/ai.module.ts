@@ -15,7 +15,6 @@ import { SourcesService } from './services/sources.service'
 import { TopicFromInsightService } from './services/topic-from-insight.service'
 import { NarrativeArcService } from './services/narrative-arc.service'
 import { ThesisService } from './services/thesis.service'
-import { PreflightService } from './services/preflight.service'
 import { RecordingGuideService } from './services/recording-guide.service'
 import { TopicReadinessService } from './services/topic-readiness.service'
 
@@ -37,7 +36,6 @@ import { TopicReadinessService } from './services/topic-readiness.service'
     TopicFromInsightService,
     NarrativeArcService,
     ThesisService,
-    PreflightService,
     RecordingGuideService,
     TopicReadinessService,
   ],
@@ -57,7 +55,6 @@ import { TopicReadinessService } from './services/topic-readiness.service'
     TopicFromInsightService,
     NarrativeArcService,
     ThesisService,
-    PreflightService,
     RecordingGuideService,
     TopicReadinessService,
   ],

@@ -3,6 +3,7 @@ import { generateObject } from '../providers/ai-sdk'
 import { z } from 'zod'
 import { prisma } from '@lavidz/database'
 import { getDefaultModel } from '../providers/model.config'
+import { MemoryService, type SearchResult } from './memory.service'
 
 const NarrativeObservationsSchema = z.object({
   headline: z
@@ -59,6 +60,8 @@ const WINDOW_DAYS = 90
 export class NarrativeArcService {
   private readonly logger = new Logger(NarrativeArcService.name)
 
+  constructor(private readonly memoryService: MemoryService) {}
+
   async generate(organizationId: string): Promise<NarrativeArcResult> {
     const now = new Date()
     const since = new Date(now.getTime() - WINDOW_DAYS * 24 * 60 * 60 * 1000)
@@ -97,6 +100,7 @@ export class NarrativeArcService {
       prisma.entrepreneurProfile.findUnique({
         where: { organizationId },
         select: {
+          id: true,
           businessContext: true,
           communicationStyle: true,
           editorialPillars: true,
@@ -110,8 +114,49 @@ export class NarrativeArcService {
       return { stats, observations: null, empty: true }
     }
 
-    const observations = await this.buildObservations(stats, topics, sessions, profile)
+    // F18 — enrichissement RAG cross-topic (fraîcheur + pertinence).
+    // Search k=30 par pertinence sémantique, resort par createdAt DESC, slice 10.
+    const ragHits = profile
+      ? await this.retrieveNarrativeMemories(profile.id, topics, sessions)
+      : []
+
+    const observations = await this.buildObservations(stats, topics, sessions, profile, ragHits)
     return { stats, observations, empty: false }
+  }
+
+  private async retrieveNarrativeMemories(
+    profileId: string,
+    topics: Array<{ name: string; pillar: string | null }>,
+    sessions: Array<{ topicEntity: { name: string; pillar: string | null } | null }>,
+  ): Promise<SearchResult[]> {
+    // Construit une query synthétique à partir des domaines/sujets récents
+    const pillars = Array.from(
+      new Set(
+        [
+          ...topics.map((t) => t.pillar),
+          ...sessions.map((s) => s.topicEntity?.pillar ?? null),
+        ].filter((p): p is string => Boolean(p?.trim())),
+      ),
+    ).slice(0, 4)
+    const recentNames = Array.from(
+      new Set([
+        ...topics.slice(0, 6).map((t) => t.name),
+        ...sessions.slice(0, 6).map((s) => s.topicEntity?.name ?? ''),
+      ]),
+    )
+      .filter(Boolean)
+      .slice(0, 6)
+    const query = [pillars.join(' '), recentNames.join(' ')].filter(Boolean).join(' | ').trim()
+    if (!query) return []
+
+    const pool = await this.memoryService.searchWithFallback(
+      { profileId, query, k: 30 },
+      { service: 'narrative-arc' },
+    )
+    // Resort par fraîcheur puis slice 10 (F18 : sem pertinence + évolution chrono)
+    return [...pool]
+      .sort((a, b) => b.createdAt.getTime() - a.createdAt.getTime())
+      .slice(0, 10)
   }
 
   private buildStats(
@@ -195,6 +240,7 @@ export class NarrativeArcService {
       communicationStyle: string | null
       editorialPillars: string[]
     } | null,
+    ragHits: SearchResult[],
   ): Promise<NarrativeObservations | null> {
     try {
       const topicsBlock = topics
@@ -239,6 +285,15 @@ ${topicsBlock || '(aucun)'}
 
 ## Tournages récents (max 20)
 ${sessionsBlock || '(aucun)'}
+
+${
+  ragHits.length
+    ? `## Tournures passées de l'entrepreneur (extraits mémoire, les plus récents)\n${ragHits
+        .slice(0, 10)
+        .map((h) => `- ${h.content.replace(/\s+/g, ' ').trim().slice(0, 220)}`)
+        .join('\n')}\n`
+    : ''
+}
 
 ## Ce que tu produis
 Un objet JSON strict :
