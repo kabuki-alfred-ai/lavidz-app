@@ -9,6 +9,8 @@ import {
   ArrowLeft,
   Archive,
   CheckCircle2,
+  ChevronDown,
+  ChevronUp,
   Circle,
   Clock,
   FileText,
@@ -18,6 +20,7 @@ import {
   MessageCircle,
   Pencil,
   Play,
+  Plus,
   RefreshCw,
   Sparkles,
   Video,
@@ -84,6 +87,25 @@ const FORMAT_LABELS: Record<string, string> = {
   MYTH_VS_REALITY: 'Mythe vs Réalité',
 }
 
+const FORMAT_EMOJIS: Record<string, string> = {
+  HOT_TAKE: '🔥',
+  STORYTELLING: '📖',
+  QUESTION_BOX: '❓',
+  DAILY_TIP: '💡',
+  MYTH_VS_REALITY: '🪞',
+  TELEPROMPTER: '📜',
+}
+
+// Ordre canonique d'affichage des cartes format (stable d'un Sujet à l'autre).
+const FORMAT_ORDER = [
+  'HOT_TAKE',
+  'STORYTELLING',
+  'QUESTION_BOX',
+  'DAILY_TIP',
+  'MYTH_VS_REALITY',
+  'TELEPROMPTER',
+] as const
+
 // Mapping tool name Kabou → toast de confirmation (Fix 2.2 : plus de mutations
 // silencieuses, l'entrepreneur réalise que Kabou vient de l'aider).
 const KABOU_MUTATION_TOAST: Record<string, string> = {
@@ -100,12 +122,81 @@ const SESSION_STATUS_LABEL: Record<string, { label: string; tone: string }> = {
   SUBMITTED: { label: 'Soumise', tone: 'text-blue-500' },
   PROCESSING: { label: 'En traitement', tone: 'text-blue-500' },
   DONE: { label: 'Terminée', tone: 'text-emerald-600' },
-  FAILED: { label: 'Échec', tone: 'text-red-500' },
+  LIVE: { label: 'En ligne', tone: 'text-emerald-700' },
+  REPLACED: { label: 'Variante remplacée', tone: 'text-muted-foreground' },
+  FAILED: { label: 'Raté', tone: 'text-red-500' },
 }
 
 function formatDate(iso: string): string {
   const d = new Date(iso)
   return d.toLocaleDateString('fr-FR', { weekday: 'long', day: 'numeric', month: 'long' })
+}
+
+/**
+ * Rangée d'une session dans une carte format. Affiche le titre, le statut
+ * avec pastille colorée + CTA contextuel (lancer / revoir / publier / etc.).
+ * `muted` = rendu atténué pour les variantes REPLACED de l'accordion.
+ */
+function SessionRow({ session, muted = false }: { session: SubjectSessionRef; muted?: boolean }) {
+  const statusMeta = SESSION_STATUS_LABEL[session.status] ?? SESSION_STATUS_LABEL.PENDING
+  return (
+    <div
+      className={`flex items-center gap-3 px-4 py-3 ${muted ? 'opacity-70' : ''}`}
+    >
+      <Circle className={`h-2 w-2 shrink-0 fill-current ${statusMeta.tone}`} />
+      <div className="flex-1 min-w-0">
+        <p className="truncate text-sm">
+          {session.themeName ?? 'Tournage sans titre'}
+        </p>
+        <p className={`text-xs ${statusMeta.tone}`}>{statusMeta.label}</p>
+      </div>
+      {session.status === 'PENDING' && (
+        <Button asChild size="sm" variant="outline">
+          <Link href={`/s/${session.id}`}>
+            <Play className="h-3 w-3" /> Lancer
+          </Link>
+        </Button>
+      )}
+      {session.status === 'RECORDING' && (
+        <Button asChild size="sm" variant="outline">
+          <Link href={`/s/${session.id}`}>
+            <Play className="h-3 w-3" /> Reprendre
+          </Link>
+        </Button>
+      )}
+      {(session.status === 'SUBMITTED' || session.status === 'PROCESSING') && (
+        <Button asChild size="sm" variant="ghost">
+          <Link href={`/sujets/${session.id}/apres-tournage`}>
+            <Video className="h-3 w-3" /> Revoir
+          </Link>
+        </Button>
+      )}
+      {session.status === 'DONE' && (
+        <Button asChild size="sm" variant="outline">
+          <Link href={`/sujets/${session.id}/publier`}>
+            <Sparkles className="h-3 w-3" /> Publier
+          </Link>
+        </Button>
+      )}
+      {session.status === 'LIVE' && (
+        <Button asChild size="sm" variant="ghost">
+          <Link href={`/sujets/${session.id}/publier`}>
+            <Sparkles className="h-3 w-3" /> En ligne
+          </Link>
+        </Button>
+      )}
+      {session.status === 'FAILED' && (
+        <Button asChild size="sm" variant="outline">
+          <Link href={`/s/${session.id}`}>
+            <RefreshCw className="h-3 w-3" /> Retenter
+          </Link>
+        </Button>
+      )}
+      {session.status === 'REPLACED' && (
+        <span className="text-xs italic text-muted-foreground">Archivée</span>
+      )}
+    </div>
+  )
 }
 
 /**
@@ -131,6 +222,15 @@ export function SubjectWorkspace({
   const [pillarDraft, setPillarDraft] = useState(topic.pillar ?? '')
   const [toast, setToast] = useState<string | null>(null)
   const [kabouDrawerOpen, setKabouDrawerOpen] = useState(false)
+  const [expandedVariants, setExpandedVariants] = useState<Set<string>>(new Set())
+  const toggleVariants = useCallback((format: string) => {
+    setExpandedVariants((prev) => {
+      const next = new Set(prev)
+      if (next.has(format)) next.delete(format)
+      else next.add(format)
+      return next
+    })
+  }, [])
   // Mobile vs desktop split : on mount côté client, on bascule. SSR rend par
   // défaut la version desktop (aside), ce qui correspond à la majorité du
   // traffic et évite un double-mount du SubjectKabouPanel (qui porte le chat
@@ -267,6 +367,46 @@ export function SubjectWorkspace({
 
   const isEmptySeed =
     creativeState === 'SEED' && !topic.brief && !topic.recordingGuide && !isArchived
+
+  // Task 3.6 — hero "choisis ton premier format" pour un Sujet MATURE qui n'a
+  // encore aucun tournage. Différent d'un SEED vide : ici l'angle est clair,
+  // le choix porte sur la forme (HOT_TAKE vs STORYTELLING vs ...).
+  const isFreshMature =
+    creativeState === 'MATURE' && sessions.length === 0 && !isArchived
+
+  // Task 3.3 — groupe les sessions par contentFormat. Par format on expose au
+  // plus UNE session "canonique" (la plus récente non-REPLACED / non-FAILED)
+  // et la liste des variantes précédentes (REPLACED) dans un accordion.
+  const formatGroups = useMemo(() => {
+    type Group = { canonical: SubjectSessionRef | null; variants: SubjectSessionRef[] }
+    const map = new Map<string, Group>()
+    // sessions arrivent triées createdAt DESC côté server → la première
+    // non-REPLACED est la canonique naturelle.
+    for (const s of sessions) {
+      const key = s.contentFormat ?? 'OTHER'
+      if (!map.has(key)) map.set(key, { canonical: null, variants: [] })
+      const g = map.get(key)!
+      if (s.status === 'REPLACED') {
+        g.variants.push(s)
+      } else if (!g.canonical) {
+        g.canonical = s
+      } else {
+        // Ne devrait pas arriver grâce à l'index unique partiel DB (F4),
+        // mais par précaution on les affiche comme variantes.
+        g.variants.push(s)
+      }
+    }
+    const ordered: Array<{ format: string; canonical: SubjectSessionRef | null; variants: SubjectSessionRef[] }> = []
+    for (const fmt of FORMAT_ORDER) {
+      const g = map.get(fmt)
+      if (g) ordered.push({ format: fmt, canonical: g.canonical, variants: g.variants })
+    }
+    const other = map.get('OTHER')
+    if (other) ordered.push({ format: 'OTHER', canonical: other.canonical, variants: other.variants })
+    return ordered
+  }, [sessions])
+
+  const usedFormats = useMemo(() => new Set(formatGroups.map((g) => g.format)), [formatGroups])
 
   const primaryCta = useMemo(() => {
     if (isArchived) return null
@@ -441,6 +581,42 @@ export function SubjectWorkspace({
             </section>
           )}
 
+          {/* Task 3.6 — Hero "choisis ton premier format" pour un Sujet MATURE
+             qui n'a encore aucun tournage. L'angle est posé, reste à choisir
+             la forme. Évite de pousser l'entrepreneur vers un seul CTA générique. */}
+          {isFreshMature && (
+            <section className="mb-6 overflow-hidden rounded-2xl border border-emerald-500/30 bg-gradient-to-br from-emerald-500/10 via-surface-raised/40 to-background p-6 shadow-sm">
+              <div className="mb-4 inline-flex h-12 w-12 items-center justify-center rounded-full bg-emerald-500/15 text-2xl">
+                🌳
+              </div>
+              <h2 className="mb-2 text-xl font-semibold tracking-tight">
+                Ton sujet est prêt — choisis ton premier format
+              </h2>
+              <p className="mb-5 max-w-xl text-sm leading-relaxed text-muted-foreground">
+                L'angle est posé. Pour le tournage, pose-toi 30 secondes sur la forme
+                qui colle le mieux à cette idée. Chaque format déclenche un script adapté.
+              </p>
+              <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-3">
+                {FORMAT_ORDER.map((fmt) => (
+                  <Link
+                    key={fmt}
+                    href={`/chat?topicId=${topic.id}&action=record&format=${fmt}`}
+                    className="group flex items-start gap-3 rounded-xl border border-border/40 bg-background/40 p-3 transition hover:border-emerald-500/40 hover:bg-emerald-500/5"
+                  >
+                    <span className="text-xl" aria-hidden>
+                      {FORMAT_EMOJIS[fmt]}
+                    </span>
+                    <div className="flex-1 min-w-0">
+                      <p className="text-sm font-semibold text-foreground">
+                        {FORMAT_LABELS[fmt]}
+                      </p>
+                    </div>
+                  </Link>
+                ))}
+              </div>
+            </section>
+          )}
+
           {/* Primary CTA */}
           {primaryCta && <div className="mb-6">{primaryCta}</div>}
 
@@ -607,66 +783,107 @@ export function SubjectWorkspace({
             </section>
           )}
 
-          {/* Sessions */}
-          {sessions.length > 0 && (
-            <section className="mb-6 rounded-2xl border border-border/50 bg-surface-raised/30 p-5">
-              <h2 className="mb-3 inline-flex items-center gap-2 text-xs font-semibold uppercase tracking-widest text-muted-foreground">
+          {/* Task 3.3 — Cartes par format (contentFormat groupé). Chaque carte
+             affiche la session canonique (la plus récente non-REPLACED) plus
+             un accordion des variantes précédentes. */}
+          {formatGroups.length > 0 && !isArchived && (
+            <section className="mb-6 space-y-3">
+              <h2 className="inline-flex items-center gap-2 text-xs font-semibold uppercase tracking-widest text-muted-foreground">
                 <Film className="h-3.5 w-3.5" />
-                Tournages
+                Tournages par format
               </h2>
-              <ul className="space-y-2">
-                {sessions.map((s) => {
-                  const statusMeta = SESSION_STATUS_LABEL[s.status] ?? SESSION_STATUS_LABEL.PENDING
-                  return (
-                    <li
-                      key={s.id}
-                      className="flex items-center gap-3 rounded-xl border border-border/30 bg-background/30 px-3 py-2"
-                    >
-                      <Circle className={`h-2 w-2 fill-current ${statusMeta.tone}`} />
-                      <div className="flex-1 min-w-0">
-                        <p className="truncate text-sm">
-                          {s.themeName ?? 'Tournage sans titre'}
-                          {s.contentFormat && (
-                            <span className="ml-2 text-xs text-muted-foreground">
-                              · {FORMAT_LABELS[s.contentFormat] ?? s.contentFormat}
-                            </span>
-                          )}
-                        </p>
-                        <p className={`text-xs ${statusMeta.tone}`}>{statusMeta.label}</p>
+              {formatGroups.map((group) => {
+                const canonical = group.canonical
+                const variants = group.variants
+                const formatEmoji = FORMAT_EMOJIS[group.format] ?? '🎬'
+                const formatLabel = FORMAT_LABELS[group.format] ?? group.format
+                const canonicalIsActive =
+                  canonical && canonical.status !== 'FAILED' && canonical.status !== 'REPLACED'
+                const expanded = expandedVariants.has(group.format)
+                return (
+                  <article
+                    key={group.format}
+                    className="overflow-hidden rounded-2xl border border-border/50 bg-surface-raised/30"
+                  >
+                    <header className="flex items-center gap-3 border-b border-border/30 px-4 py-3">
+                      <span className="text-lg" aria-hidden>
+                        {formatEmoji}
+                      </span>
+                      <h3 className="flex-1 text-sm font-semibold">{formatLabel}</h3>
+                      {canonicalIsActive ? (
+                        <Button asChild size="sm" variant="ghost" disabled>
+                          <span className="text-xs text-muted-foreground" title="Un tournage est déjà en cours dans ce format">
+                            Tournage actif
+                          </span>
+                        </Button>
+                      ) : (
+                        <Button asChild size="sm" variant="outline">
+                          <Link
+                            href={`/chat?topicId=${topic.id}&action=record&format=${group.format}`}
+                          >
+                            <Plus className="h-3 w-3" />
+                            {canonical ? 'Tenter une variante' : 'Nouveau tournage'}
+                          </Link>
+                        </Button>
+                      )}
+                    </header>
+
+                    {canonical && (
+                      <SessionRow session={canonical} />
+                    )}
+                    {!canonical && variants.length === 0 && (
+                      <div className="px-4 py-3 text-xs italic text-muted-foreground">
+                        Pas encore de tournage dans ce format.
                       </div>
-                      {s.status === 'PENDING' && (
-                        <Button asChild size="sm" variant="outline">
-                          <Link href={`/s/${s.id}`}>
-                            <Play className="h-3 w-3" /> Lancer
-                          </Link>
-                        </Button>
-                      )}
-                      {(s.status === 'SUBMITTED' ||
-                        s.status === 'PROCESSING') && (
-                        <Button asChild size="sm" variant="ghost">
-                          <Link href={`/sujets/${s.id}/apres-tournage`}>
-                            <Video className="h-3 w-3" /> Revoir
-                          </Link>
-                        </Button>
-                      )}
-                      {s.status === 'DONE' && (
-                        <Button asChild size="sm" variant="outline">
-                          <Link href={`/sujets/${s.id}/publier`}>
-                            <Sparkles className="h-3 w-3" /> Publier
-                          </Link>
-                        </Button>
-                      )}
-                      {s.status === 'FAILED' && (
-                        <Button asChild size="sm" variant="outline">
-                          <Link href={`/s/${s.id}`}>
-                            <RefreshCw className="h-3 w-3" /> Retenter
-                          </Link>
-                        </Button>
-                      )}
-                    </li>
-                  )
-                })}
-              </ul>
+                    )}
+
+                    {variants.length > 0 && (
+                      <div className="border-t border-border/30 bg-background/20">
+                        <button
+                          type="button"
+                          onClick={() => toggleVariants(group.format)}
+                          className="flex w-full items-center gap-2 px-4 py-2 text-left text-xs text-muted-foreground hover:bg-background/40"
+                        >
+                          {expanded ? (
+                            <ChevronUp className="h-3 w-3" />
+                          ) : (
+                            <ChevronDown className="h-3 w-3" />
+                          )}
+                          Variantes précédentes ({variants.length})
+                        </button>
+                        {expanded && (
+                          <ul>
+                            {variants.map((v) => (
+                              <SessionRow key={v.id} session={v} muted />
+                            ))}
+                          </ul>
+                        )}
+                      </div>
+                    )}
+                  </article>
+                )
+              })}
+            </section>
+          )}
+
+          {/* Ajouter un format pas encore exploré */}
+          {!isArchived && creativeState === 'MATURE' && formatGroups.length > 0 && formatGroups.length < FORMAT_ORDER.length && (
+            <section className="mb-6 rounded-2xl border border-dashed border-border/40 bg-background/20 p-4">
+              <p className="mb-3 text-xs font-semibold uppercase tracking-widest text-muted-foreground">
+                Tenter un autre format
+              </p>
+              <div className="flex flex-wrap gap-2">
+                {FORMAT_ORDER.filter((fmt) => !usedFormats.has(fmt)).map((fmt) => (
+                  <Link
+                    key={fmt}
+                    href={`/chat?topicId=${topic.id}&action=record&format=${fmt}`}
+                    className="inline-flex items-center gap-1.5 rounded-full border border-border/40 bg-surface-raised/30 px-3 py-1 text-xs transition hover:bg-surface-raised/60"
+                  >
+                    <span aria-hidden>{FORMAT_EMOJIS[fmt]}</span>
+                    {FORMAT_LABELS[fmt]}
+                  </Link>
+                ))}
+              </div>
             </section>
           )}
 
