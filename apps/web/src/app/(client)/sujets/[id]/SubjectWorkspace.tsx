@@ -48,7 +48,6 @@ import { isRecordingGuide, type RecordingGuide } from '@/lib/recording-guide'
 import type { NarrativeAnchor } from '@/lib/narrative-anchor'
 import type { RecordingScript } from '@/lib/recording-script'
 import { Eye } from 'lucide-react'
-import { ReadinessHint } from '@/components/subject/ReadinessHint'
 
 type Topic = {
   id: string
@@ -641,11 +640,11 @@ export function SubjectWorkspace({
         <div className="mb-5 rounded-2xl border border-border/40 bg-surface-raised/20 px-4 py-4">
           <CreativeStateTimeline state={creativeState} />
         </div>
-        {topic.status === 'DRAFT' && (
-          <div className="mb-5">
-            <ReadinessHint topicId={topic.id} />
-          </div>
-        )}
+        {/* Ancien ReadinessHint (jauge % + checklist) retiré : il contredisait
+           la voix Kabou (pas de score chiffré, pas de gamification) et
+           doublait le primaryCta qui propose déjà "Marquer comme prêt" en
+           EXPLORING. La progression du sujet est surfacée par la timeline +
+           l'atmosphère + les transitions — pas par une barre de productivité. */}
         <h1 className="text-2xl font-bold tracking-tight sm:text-3xl">{topic.name}</h1>
         <div className="mt-2 flex flex-wrap items-center gap-3 text-sm text-muted-foreground">
           {topic.pillar && (
