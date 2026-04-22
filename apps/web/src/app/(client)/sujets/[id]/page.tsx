@@ -65,6 +65,22 @@ export default async function SubjectPage({ params }: PageProps) {
 
   const nextScheduled = topic.calendarEntries[0] ?? null
 
+  // Task 11.5 — on résout côté server le Project auto-créé par session pour
+  // que SessionRow linke directement vers `/projects/[projectId]/publier`
+  // sans passer par le legacy redirect. Project.sessionId étant @unique (F5),
+  // la map est 1-à-1.
+  const sessionIds = topic.sessions.map((s) => s.id)
+  const projectsForSessions = sessionIds.length
+    ? await prisma.project.findMany({
+        where: { sessionId: { in: sessionIds } },
+        select: { id: true, sessionId: true },
+      })
+    : []
+  const projectBySessionId = new Map<string, string>()
+  for (const p of projectsForSessions) {
+    if (p.sessionId) projectBySessionId.set(p.sessionId, p.id)
+  }
+
   return (
     <SubjectWorkspace
       initial={{
@@ -98,6 +114,7 @@ export default async function SubjectPage({ params }: PageProps) {
         createdAt: s.createdAt.toISOString(),
         themeName: s.theme?.name ?? null,
         questionsCount: s.theme?.questions?.length ?? 0,
+        projectId: projectBySessionId.get(s.id) ?? null,
       }))}
     />
   )

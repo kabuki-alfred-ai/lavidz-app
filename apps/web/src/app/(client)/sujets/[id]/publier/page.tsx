@@ -1,53 +1,31 @@
 import { notFound, redirect } from 'next/navigation'
 import { prisma } from '@lavidz/database'
 import { getSessionUser } from '@/lib/auth'
-import { PublishView } from './PublishView'
 
 export const dynamic = 'force-dynamic'
 
 type PageProps = {
-  // [id] dans l'URL = identifiant d'une Session (c'est la session qu'on publie)
+  // [id] = sessionId historique — la publication a migré sur Project.
   params: Promise<{ id: string }>
 }
 
-export default async function PublishPage({ params }: PageProps) {
+/**
+ * Task 11.3 — redirect legacy `/sujets/[sessionId]/publier` → `/projects/[id]/publier`.
+ * Lookup du Project associé via `Project.sessionId` (unique, F5). 404 si aucun
+ * Project (session trop ancienne / jamais auto-create). Backward-compat 1 sprint
+ * puis suppression dure.
+ */
+export default async function LegacyPublishRedirect({ params }: PageProps) {
   const user = await getSessionUser()
   if (!user) redirect('/auth/login')
 
   const { id: sessionId } = await params
 
-  const session = await prisma.session.findFirst({
-    where: {
-      id: sessionId,
-      theme: { organizationId: user.organizationId ?? undefined },
-    },
-    include: {
-      theme: { select: { name: true, organizationId: true } },
-      topicEntity: { select: { id: true, name: true, pillar: true } },
-    },
+  const project = await prisma.project.findFirst({
+    where: { sessionId, organizationId: user.organizationId ?? undefined },
+    select: { id: true },
   })
-  if (!session) notFound()
-  const publishedAt = session.publishedAt ? session.publishedAt.toISOString() : null
+  if (!project) notFound()
 
-  const authorName = [user.firstName, user.lastName].filter(Boolean).join(' ') || user.email.split('@')[0]
-
-  return (
-    <PublishView
-      sessionId={sessionId}
-      themeName={session.theme?.name ?? null}
-      topic={
-        session.topicEntity
-          ? {
-              id: session.topicEntity.id,
-              name: session.topicEntity.name,
-              pillar: session.topicEntity.pillar,
-            }
-          : null
-      }
-      status={session.status}
-      hasFinalVideo={!!session.finalVideoKey}
-      authorName={authorName}
-      publishedAt={publishedAt}
-    />
-  )
+  redirect(`/projects/${project.id}/publier`)
 }

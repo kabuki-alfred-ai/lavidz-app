@@ -16,6 +16,8 @@ import { LinkedInPostsSection } from '@/components/social/LinkedInPostsSection'
 import { POST_RECORDING_COPY, KABOU_TOASTS } from '@/lib/kabou-voice'
 
 interface PublishViewProps {
+  projectId: string
+  /** Source session (Project.sessionId). Alimente publish flag, video, LinkedIn. */
   sessionId: string
   themeName: string | null
   topic: { id: string; name: string; pillar: string | null } | null
@@ -26,11 +28,14 @@ interface PublishViewProps {
 }
 
 /**
- * Publish view — the moment after export, reframed as a "launch ritual"
- * instead of a silent download. See project_lavidz_post_recording_analysis.md
- * section Phase 6 / Diffusion for the product intention.
+ * Publish view — rendue sous `/projects/[id]/publier`. La publication est
+ * désormais un attribut de Project (pas Session) : Project peut à terme
+ * aggréger des rushes multi-sessions. Pour V1, la source demeure la
+ * session canonique (`Project.sessionId`) — l'agrégation multi-session
+ * arrive en Task 11.4 (dehors du scope de cette phase).
  */
 export function PublishView({
+  projectId,
   sessionId,
   themeName,
   topic,
@@ -96,41 +101,31 @@ export function PublishView({
   }, [sessionId, hasFinalVideo])
 
   const displayTitle = topic?.name ?? themeName ?? 'Ton contenu'
-  const isDone = status === 'DONE'
+  const isDone = status === 'DONE' || status === 'LIVE'
 
   return (
     <div className="mx-auto w-full max-w-3xl px-4 py-8 sm:py-12">
-      {/* Back link */}
+      {/* Back link — remonte vers le Project (nouvelle archi) */}
       <div className="mb-5">
-        {topic ? (
-          <Link
-            href={`/sujets/${topic.id}`}
-            className="inline-flex items-center gap-1.5 text-sm text-muted-foreground hover:text-foreground"
-          >
-            <ArrowLeft className="h-3.5 w-3.5" /> Retour au sujet
-          </Link>
-        ) : (
-          <Link
-            href="/videos"
-            className="inline-flex items-center gap-1.5 text-sm text-muted-foreground hover:text-foreground"
-          >
-            <ArrowLeft className="h-3.5 w-3.5" /> Mes vidéos
-          </Link>
-        )}
+        <Link
+          href={`/projects/${projectId}`}
+          className="inline-flex items-center gap-1.5 text-sm text-muted-foreground hover:text-foreground"
+        >
+          <ArrowLeft className="h-3.5 w-3.5" /> Retour au projet
+        </Link>
       </div>
 
-      {/* Header — celebration */}
       <header className="mb-8">
         <div className="mb-3 inline-flex items-center gap-2 rounded-full border border-primary/30 bg-primary/10 px-3 py-1 text-xs font-medium text-primary">
           <Sparkles className="h-3 w-3" />
           {isDone ? 'Ton contenu est prêt' : 'Encore quelques minutes'}
         </div>
         <h1 className="text-2xl font-bold tracking-tight sm:text-3xl">
-          {isDone ? 'Ton contenu est prêt — on le lance ?' : 'Presque prêt'}
+          {isDone ? "Ton contenu est prêt — on le lance ?" : 'Presque prêt'}
         </h1>
         <p className="mt-2 text-sm text-muted-foreground">
           {isDone
-            ? 'Tu l\'as bien porté. Voici ta vidéo et trois façons de la raconter en mots — tu choisis comment tu veux la partager.'
+            ? "Tu l'as bien porté. Voici ta vidéo et trois façons de la raconter en mots — tu choisis comment tu veux la partager."
             : 'Ton montage finalise — reviens dans un instant ou continue à préparer tes prochains sujets.'}
         </p>
         <p className="mt-3 text-sm text-muted-foreground">
@@ -143,7 +138,6 @@ export function PublishView({
         </p>
       </header>
 
-      {/* Video */}
       <section className="mb-8 rounded-2xl border border-border/50 bg-black overflow-hidden">
         {loadingVideo && (
           <div className="flex aspect-video items-center justify-center text-sm text-white/60">
@@ -172,7 +166,6 @@ export function PublishView({
         )}
       </section>
 
-      {/* Download + secondary actions */}
       {isDone && videoUrl && (
         <section className="mb-10 flex flex-wrap gap-2">
           <Button asChild size="lg">
@@ -191,7 +184,6 @@ export function PublishView({
         </section>
       )}
 
-      {/* LinkedIn posts */}
       {isDone && (
         <section className="mb-8">
           <div className="mb-4 flex items-center gap-2">
@@ -209,7 +201,6 @@ export function PublishView({
         </section>
       )}
 
-      {/* Publication flag */}
       <section className="mb-8 rounded-2xl border border-border/50 bg-surface-raised/30 p-5">
         {publishedAtLocal ? (
           <div className="flex flex-wrap items-center justify-between gap-3">
@@ -261,7 +252,6 @@ export function PublishView({
         )}
       </section>
 
-      {/* Footer suggestions */}
       <section className="mt-10 border-t border-border/40 pt-6">
         <p className="mb-3 text-xs font-semibold uppercase tracking-widest text-muted-foreground">
           {POST_RECORDING_COPY.nextSteps.heading}
@@ -272,6 +262,9 @@ export function PublishView({
               <Link href={`/sujets/${topic.id}`}>Retour au sujet</Link>
             </Button>
           )}
+          <Button asChild variant="outline" size="sm">
+            <Link href={`/projects/${projectId}`}>Retour au projet</Link>
+          </Button>
           <Button asChild variant="outline" size="sm">
             <Link href="/calendar">Voir le calendrier</Link>
           </Button>

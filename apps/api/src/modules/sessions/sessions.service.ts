@@ -71,22 +71,31 @@ export class SessionsService {
         })
       }
 
-      // Auto-create a Project from this session's recordings
+      // Task 11.2 + F5/F13 — auto-create Project idempotent via sessionId @unique.
+      // Si on submit 2× (reset → retake → submit à nouveau), on ne duplique pas.
+      // Les sessions REPLACED ne sont pas re-submited : leur Project d'origine
+      // reste en place, lié à la session source.
       const recordings = session.recordings ?? []
       if (recordings.length > 0) {
-        await prisma.project.create({
-          data: {
-            title: session.theme?.name ?? 'Sans titre',
-            organizationId,
-            sessionId,
-            clips: {
-              create: recordings.map((rec: any, index: number) => ({
-                recordingId: rec.id,
-                order: index,
-              })),
+        await prisma.project
+          .upsert({
+            where: { sessionId },
+            create: {
+              title: session.theme?.name ?? 'Sans titre',
+              organizationId,
+              sessionId,
+              clips: {
+                create: recordings.map((rec: any, index: number) => ({
+                  recordingId: rec.id,
+                  order: index,
+                })),
+              },
             },
-          },
-        })
+            update: {}, // no-op si déjà existant — l'idempotence est le but
+          })
+          .catch((err) =>
+            this.logger.warn(`Auto-create Project failed for session ${sessionId}: ${String(err)}`),
+          )
       }
     }
 

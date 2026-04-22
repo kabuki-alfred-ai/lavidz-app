@@ -59,6 +59,8 @@ type SubjectSessionRef = {
   createdAt: string
   themeName: string | null
   questionsCount: number
+  /** Project auto-created via Project.sessionId (F5). Null si pas encore submit. */
+  projectId: string | null
 }
 
 type ScheduledRef = {
@@ -172,14 +174,14 @@ function SessionRow({ session, muted = false }: { session: SubjectSessionRef; mu
       )}
       {session.status === 'DONE' && (
         <Button asChild size="sm" variant="outline">
-          <Link href={`/sujets/${session.id}/publier`}>
+          <Link href={session.projectId ? `/projects/${session.projectId}/publier` : `/sujets/${session.id}/publier`}>
             <Sparkles className="h-3 w-3" /> Publier
           </Link>
         </Button>
       )}
       {session.status === 'LIVE' && (
         <Button asChild size="sm" variant="ghost">
-          <Link href={`/sujets/${session.id}/publier`}>
+          <Link href={session.projectId ? `/projects/${session.projectId}/publier` : `/sujets/${session.id}/publier`}>
             <Sparkles className="h-3 w-3" /> En ligne
           </Link>
         </Button>
@@ -413,9 +415,14 @@ export function SubjectWorkspace({
     if (isEmptySeed) return null
 
     if (doneSession) {
+      // Task 11.5 — publication vit désormais sur Project. Fallback legacy
+      // si le Project n'est pas encore créé (ex: session DONE pré-migration).
+      const publishHref = doneSession.projectId
+        ? `/projects/${doneSession.projectId}/publier`
+        : `/sujets/${doneSession.id}/publier`
       return (
         <Button asChild size="lg">
-          <Link href={`/sujets/${doneSession.id}/publier`}>
+          <Link href={publishHref}>
             <Sparkles className="h-4 w-4" />
             Lancer ce contenu
           </Link>
