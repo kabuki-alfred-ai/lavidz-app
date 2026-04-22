@@ -73,6 +73,21 @@ const config: Config = {
           '0%, 100%': { transform: 'translateY(0)' },
           '50%': { transform: 'translateY(-15px)' },
         },
+        // Progressive workspace — atmosphère qui respire 9s sous le contenu.
+        'atmosphere-pulse': {
+          '0%, 100%': { transform: 'scale(1) translateY(0)', opacity: '0.12' },
+          '50%': { transform: 'scale(1.04) translateY(-2%)', opacity: '0.2' },
+        },
+        // Progressive workspace — horizon line du splash de transition.
+        'horizon-grow': {
+          from: { width: '0', opacity: '0' },
+          to: { width: '5rem', opacity: '1' },
+        },
+        // Splash icon : apparition douce scale + fade, pas de bounce.
+        'splash-emerge': {
+          from: { opacity: '0', transform: 'scale(0.92) translateY(4px)' },
+          to: { opacity: '1', transform: 'scale(1) translateY(0)' },
+        },
       },
       animation: {
         'rec-pulse': 'rec-pulse 1.5s ease-in-out infinite',
@@ -80,6 +95,9 @@ const config: Config = {
         'slide-in': 'slide-in 0.3s ease-out',
         'float': 'float 6s ease-in-out infinite',
         'float-delayed': 'float 6s ease-in-out infinite -3s',
+        'atmosphere-pulse': 'atmosphere-pulse 9s ease-in-out infinite',
+        'horizon-grow': 'horizon-grow 1s ease-out forwards',
+        'splash-emerge': 'splash-emerge 0.7s ease-out forwards',
       },
     },
   },

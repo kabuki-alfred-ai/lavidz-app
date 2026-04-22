@@ -32,6 +32,15 @@ import { SubjectHookSection } from '@/components/subject/SubjectHookSection'
 import { SubjectSourcesSection } from '@/components/subject/SubjectSourcesSection'
 import { FormatCardPreview } from '@/components/subject/FormatCardPreview'
 import { FormatCardDrawer } from '@/components/subject/FormatCardDrawer'
+import { TopicAtmosphere } from '@/components/subject/TopicAtmosphere'
+import { StateTransitionSplash } from '@/components/subject/StateTransitionSplash'
+import { MatureMatterSummary } from '@/components/subject/MatureMatterSummary'
+import {
+  hasSeenTransition,
+  markTransitionSeen,
+  clearTransition,
+  isUpwardTransition,
+} from '@/lib/topic-transition-memory'
 import { ThesisBanner } from '@/components/subject/ThesisBanner'
 import { CreativeStateTimeline } from '@/components/subject/CreativeStateTimeline'
 import { SubjectKabouPanel } from './SubjectKabouPanel'
@@ -228,6 +237,61 @@ export function SubjectWorkspace({
   const [toast, setToast] = useState<string | null>(null)
   const [kabouDrawerOpen, setKabouDrawerOpen] = useState(false)
   const kabouInputRef = useRef<HTMLTextAreaElement | null>(null)
+
+  // Progressive workspace — détection transition d'état + splash + stagger.
+  const previousStateRef = useRef<CreativeState | null>(null)
+  const [activeTransition, setActiveTransition] = useState<{
+    from: CreativeState | null
+    to: CreativeState
+  } | null>(null)
+  const [justTransitioned, setJustTransitioned] = useState(false)
+  const [matterExpanded, setMatterExpanded] = useState(false)
+
+  useEffect(() => {
+    const prev = previousStateRef.current
+    // Premier mount : on enregistre l'état courant mais on ne déclenche pas
+    // de splash (l'user ouvre une page déjà dans cet état, pas une bascule).
+    if (prev === null) {
+      previousStateRef.current = creativeState
+      return
+    }
+    if (prev === creativeState) return
+
+    // Transition réelle détectée.
+    const upward = isUpwardTransition(prev, creativeState)
+    if (!upward) {
+      // Redescente : on clear le splash du state d'où on vient, pour qu'il
+      // puisse rejouer si l'user remonte plus tard.
+      clearTransition(topic.id, prev)
+    } else if (!hasSeenTransition(topic.id, creativeState)) {
+      // Bascule vers le haut non encore "témoignée" → on joue le splash.
+      setActiveTransition({ from: prev, to: creativeState })
+      setJustTransitioned(true)
+      // Fin du stagger ~1s après splash (splash dure 3.5s, stagger court).
+      window.setTimeout(() => setJustTransitioned(false), 1200)
+    }
+    previousStateRef.current = creativeState
+  }, [creativeState, topic.id])
+
+  const handleTransitionClose = useCallback(() => {
+    if (activeTransition) {
+      markTransitionSeen(topic.id, activeTransition.to)
+    }
+    setActiveTransition(null)
+  }, [activeTransition, topic.id])
+
+  // Story 4 — stagger reveal des sections après transition. On apply un
+  // animationDelay inline + animate-fade-in Tailwind uniquement quand la
+  // transition vient de se fermer, pour que le reload banal ne ré-anime
+  // pas à chaque fois.
+  const staggerStyle = useCallback(
+    (i: number): React.CSSProperties | undefined =>
+      justTransitioned
+        ? { animationDelay: `${i * 80}ms`, animationFillMode: 'both' }
+        : undefined,
+    [justTransitioned],
+  )
+  const staggerClass = (justTransitioned ? 'animate-fade-in' : '') as string
 
   // Focus feedback visible quand l'user clique "Explorer avec Kabou" sur
   // desktop — le panel aside étant déjà ouvert, l'ancien `if (isDesktop) return`
@@ -546,6 +610,20 @@ export function SubjectWorkspace({
   }, [creativeState, doneSession, handleMarkReady, isArchived, isDesktop, isEmptySeed, isPending, pendingSession, topic.brief, topic.id])
 
   return (
+    <>
+      {/* Progressive workspace — atmosphère ambient derrière tout le contenu,
+         teinte dérivée de creativeState (ambre/émeraude/émeraude profond/muet). */}
+      <TopicAtmosphere state={creativeState} />
+
+      {/* Splash de transition — joué une fois par bascule d'état montante,
+         skippable par click ou Escape, auto-dismiss 3.5s. */}
+      <StateTransitionSplash
+        open={activeTransition !== null}
+        onClose={handleTransitionClose}
+        fromState={activeTransition?.from ?? null}
+        toState={activeTransition?.to ?? creativeState}
+      />
+
     <div className="mx-auto w-full max-w-[1500px] px-4 py-6 sm:py-8">
       {/* Header */}
       <div className="mb-5">
@@ -731,77 +809,123 @@ export function SubjectWorkspace({
             </div>
           )}
 
-          {/* Angle (brief) */}
-          <section className="mb-6 rounded-2xl border border-border/50 bg-surface-raised/30 p-5">
-            <div className="mb-3 flex items-center justify-between">
-              <h2 className="inline-flex items-center gap-2 text-xs font-semibold uppercase tracking-widest text-muted-foreground">
-                <FileText className="h-3.5 w-3.5" />
-                Angle du sujet
-              </h2>
-              {!editingBrief && (
-                <button
-                  type="button"
-                  onClick={() => setEditingBrief(true)}
-                  className="inline-flex items-center gap-1 text-xs text-muted-foreground hover:text-foreground"
-                >
-                  <Pencil className="h-3 w-3" /> Éditer
-                </button>
-              )}
-            </div>
-            {!editingBrief ? (
-              topic.brief ? (
-                <div className="prose prose-sm dark:prose-invert max-w-none prose-p:my-2">
-                  <ReactMarkdown>{topic.brief}</ReactMarkdown>
-                </div>
-              ) : (
-                <p className="text-sm italic text-muted-foreground">
-                  Pas encore d'angle précis. Discute avec Kabou pour en faire émerger un — ou écris-le toi-même en cliquant sur Éditer.
-                </p>
-              )
-            ) : (
-              <div>
-                <textarea
-                  value={briefDraft}
-                  onChange={(e) => setBriefDraft(e.target.value)}
-                  rows={6}
-                  placeholder="Quel est ton angle ? Pour qui ? Quel message veux-tu faire passer ?"
-                  className="w-full resize-y rounded-lg border border-border/40 bg-background px-3 py-2 text-sm leading-relaxed focus:outline-none focus:ring-1 focus:ring-primary/30"
-                />
-                <div className="mt-3 flex gap-2">
-                  <Button size="sm" onClick={handleBriefSave}>
-                    Sauvegarder
-                  </Button>
-                  <Button
-                    size="sm"
-                    variant="ghost"
-                    onClick={() => {
-                      setEditingBrief(false)
-                      setBriefDraft(topic.brief ?? '')
-                    }}
-                  >
-                    Annuler
-                  </Button>
-                </div>
-              </div>
-            )}
-          </section>
-
-          {/* Hooks — two proposed variants (voix native vs marketing) */}
-          {!isArchived && (creativeState === 'MATURE' || creativeState === 'EXPLORING') && (
-            <SubjectHookSection
-              topicId={topic.id}
-              hasBrief={Boolean(topic.brief && topic.brief.trim().length > 20)}
-              onFlashToast={flashToast}
-            />
+          {/* Story 3 & 4 — en MATURE, les sections éditoriales se plient
+             dans un bandeau synthétique "Mon sujet en matière" pour que le
+             focus descende vers les cartes format. Déplié = rendu normal. */}
+          {creativeState === 'MATURE' && !matterExpanded && (
+            <MatureMatterSummary
+              briefLength={topic.brief?.length ?? 0}
+              anchorBulletCount={
+                topic.narrativeAnchor?.bullets.filter((b) => b.trim().length > 0).length ?? 0
+              }
+              hookCount={0}
+              sourcesCount={0}
+              hookDraftHasContent={false}
+              expanded={false}
+              onToggle={() => setMatterExpanded(true)}
+            >
+              {null}
+            </MatureMatterSummary>
           )}
 
-          {/* Sources & facts — credible anchors for HOT_TAKE / fact-heavy formats */}
-          {!isArchived && creativeState !== 'SEED' && (
-            <SubjectSourcesSection
-              topicId={topic.id}
-              hasBrief={Boolean(topic.brief && topic.brief.trim().length > 20)}
-              onFlashToast={flashToast}
-            />
+          {creativeState === 'MATURE' && matterExpanded && (
+            <div className="mb-3 flex items-center justify-between">
+              <h2 className="inline-flex items-center gap-1.5 text-xs font-semibold uppercase tracking-widest text-muted-foreground">
+                <Sparkles className="h-3.5 w-3.5" />
+                Mon sujet en matière
+              </h2>
+              <button
+                type="button"
+                onClick={() => setMatterExpanded(false)}
+                className="inline-flex items-center gap-1 text-xs text-muted-foreground transition hover:text-foreground"
+              >
+                Replier la matière
+              </button>
+            </div>
+          )}
+
+          {(creativeState !== 'MATURE' || matterExpanded) && (
+            <>
+              {/* Angle (brief) */}
+              <section
+                className={`mb-6 rounded-2xl border border-border/50 bg-surface-raised/30 p-5 ${staggerClass}`}
+                style={staggerStyle(0)}
+              >
+                <div className="mb-3 flex items-center justify-between">
+                  <h2 className="inline-flex items-center gap-2 text-xs font-semibold uppercase tracking-widest text-muted-foreground">
+                    <FileText className="h-3.5 w-3.5" />
+                    Angle du sujet
+                  </h2>
+                  {!editingBrief && (
+                    <button
+                      type="button"
+                      onClick={() => setEditingBrief(true)}
+                      className="inline-flex items-center gap-1 text-xs text-muted-foreground hover:text-foreground"
+                    >
+                      <Pencil className="h-3 w-3" /> Éditer
+                    </button>
+                  )}
+                </div>
+                {!editingBrief ? (
+                  topic.brief ? (
+                    <div className="prose prose-sm dark:prose-invert max-w-none prose-p:my-2">
+                      <ReactMarkdown>{topic.brief}</ReactMarkdown>
+                    </div>
+                  ) : (
+                    <p className="text-sm italic text-muted-foreground">
+                      Pas encore d'angle précis. Discute avec Kabou pour en faire émerger un — ou écris-le toi-même en cliquant sur Éditer.
+                    </p>
+                  )
+                ) : (
+                  <div>
+                    <textarea
+                      value={briefDraft}
+                      onChange={(e) => setBriefDraft(e.target.value)}
+                      rows={6}
+                      placeholder="Quel est ton angle ? Pour qui ? Quel message veux-tu faire passer ?"
+                      className="w-full resize-y rounded-lg border border-border/40 bg-background px-3 py-2 text-sm leading-relaxed focus:outline-none focus:ring-1 focus:ring-primary/30"
+                    />
+                    <div className="mt-3 flex gap-2">
+                      <Button size="sm" onClick={handleBriefSave}>
+                        Sauvegarder
+                      </Button>
+                      <Button
+                        size="sm"
+                        variant="ghost"
+                        onClick={() => {
+                          setEditingBrief(false)
+                          setBriefDraft(topic.brief ?? '')
+                        }}
+                      >
+                        Annuler
+                      </Button>
+                    </div>
+                  </div>
+                )}
+              </section>
+
+              {/* Hooks — two proposed variants (voix native vs marketing) */}
+              {!isArchived && (creativeState === 'MATURE' || creativeState === 'EXPLORING') && (
+                <div className={staggerClass} style={staggerStyle(1)}>
+                  <SubjectHookSection
+                    topicId={topic.id}
+                    hasBrief={Boolean(topic.brief && topic.brief.trim().length > 20)}
+                    onFlashToast={flashToast}
+                  />
+                </div>
+              )}
+
+              {/* Sources & facts — credible anchors for HOT_TAKE / fact-heavy formats */}
+              {!isArchived && creativeState !== 'SEED' && (
+                <div className={staggerClass} style={staggerStyle(2)}>
+                  <SubjectSourcesSection
+                    topicId={topic.id}
+                    hasBrief={Boolean(topic.brief && topic.brief.trim().length > 20)}
+                    onFlashToast={flashToast}
+                  />
+                </div>
+              )}
+            </>
           )}
 
           {/* Story 3 (format-card-drawer spec) — le script format-specific ne
@@ -852,11 +976,23 @@ export function SubjectWorkspace({
                 const formatLabel = FORMAT_LABELS[group.format] ?? group.format
                 const canonicalIsActive =
                   canonical && canonical.status !== 'FAILED' && canonical.status !== 'REPLACED'
+                // Story 4 — halo d'attention sur la carte qui porte une session
+                // en cours d'enregistrement / processing. Ring primary + shadow
+                // subtile + pulse via l'atmosphere-pulse keyframe.
+                const isLive =
+                  !!canonical &&
+                  (canonical.status === 'RECORDING' ||
+                    canonical.status === 'SUBMITTED' ||
+                    canonical.status === 'PROCESSING')
                 const expanded = expandedVariants.has(group.format)
                 return (
                   <article
                     key={group.format}
-                    className="overflow-hidden rounded-2xl border border-border/50 bg-surface-raised/30"
+                    className={`overflow-hidden rounded-2xl border bg-surface-raised/30 transition-shadow ${
+                      isLive
+                        ? 'border-primary/30 shadow-lg shadow-primary/10 ring-2 ring-primary/25'
+                        : 'border-border/50'
+                    }`}
                   >
                     <header className="flex items-center gap-3 border-b border-border/30 px-4 py-3">
                       <span className="text-lg" aria-hidden>
@@ -1071,5 +1207,6 @@ export function SubjectWorkspace({
         </div>
       )}
     </div>
+    </>
   )
 }
