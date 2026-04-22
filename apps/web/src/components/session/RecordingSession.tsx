@@ -9,7 +9,10 @@ import TeleprompterOverlay from './TeleprompterOverlay'
 import FreeformGuide from './FreeformGuide'
 import PreRecordingCheck from './PreRecordingCheck'
 import { SubjectRecordingGuide } from '@/components/subject/SubjectRecordingGuide'
+import { NarrativeAnchorSticky } from './NarrativeAnchorSticky'
 import type { RecordingGuide } from '@/lib/recording-guide'
+import type { NarrativeAnchor } from '@/lib/narrative-anchor'
+import type { RecordingScript } from '@/lib/recording-script'
 
 type Phase = 'intro' | 'check' | 'reading' | 'countdown' | 'recording' | 'review' | 'uploading' | 'done'
 
@@ -35,10 +38,15 @@ interface Props {
   contentFormat?: ContentFormat | null
   teleprompterScript?: string | null
   topicId?: string
+  /** Ancre narrative stratégique (Topic.narrativeAnchor) — sticky pendant le tournage. */
+  narrativeAnchor?: NarrativeAnchor | null
+  /** Script format-specific pour cette session (Session.recordingScript). */
+  recordingScript?: RecordingScript | null
+  /** @deprecated — utiliser `narrativeAnchor` + `recordingScript`. Fallback pendant le dual-write. */
   recordingGuide?: RecordingGuide | null
 }
 
-export function RecordingSession({ theme, initialSessionId, mode = 'default', contentFormat, teleprompterScript, topicId, recordingGuide }: Props) {
+export function RecordingSession({ theme, initialSessionId, mode = 'default', contentFormat, teleprompterScript, topicId, narrativeAnchor, recordingScript, recordingGuide }: Props) {
   const router = useRouter()
   const [phase, setPhase] = useState<Phase>('intro')
   const [questionIndex, setQuestionIndex] = useState(0)
@@ -1617,9 +1625,18 @@ export function RecordingSession({ theme, initialSessionId, mode = 'default', co
         />
       )}
 
-      {/* Fil conducteur — sidebar compacte disponible pendant le tournage comme
-         ancre mentale. Toggle via un bouton flottant pour ne pas encombrer. */}
-      {recordingGuide && (isReading || isRecording) && (
+      {/* Task 4.1/4.2 — Ancre narrative sticky pendant la phase recording.
+         Bulle collapsible en bas de l'écran, toujours lisible. Remplace
+         progressivement l'ancien bouton "Mon fil" qui masquait le guide
+         polymorphe derrière un drawer. */}
+      {narrativeAnchor && (isReading || isRecording) && (
+        <NarrativeAnchorSticky anchor={narrativeAnchor} />
+      )}
+
+      {/* Script format-specific — affiché en drawer si présent. Fallback sur
+         le recordingGuide legacy si Session.recordingScript n'a pas encore
+         été généré (dual-write / lazy reshape). */}
+      {!narrativeAnchor && recordingGuide && (isReading || isRecording) && (
         <>
           <button
             type="button"

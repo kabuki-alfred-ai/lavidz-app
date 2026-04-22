@@ -1,6 +1,8 @@
 import { apiClient } from '@/lib/api'
 import { RecordingSession } from '@/components/session/RecordingSession'
 import { isRecordingGuide, type RecordingGuide } from '@/lib/recording-guide'
+import { isNarrativeAnchor, type NarrativeAnchor } from '@/lib/narrative-anchor'
+import { isRecordingScript, type RecordingScript } from '@/lib/recording-script'
 import type { ThemeDto } from '@lavidz/types'
 
 interface Props {
@@ -15,7 +17,8 @@ interface SessionWithTheme {
   contentFormat?: string | null
   teleprompterScript?: string | null
   topicId?: string | null
-  topicEntity?: { recordingGuide?: unknown } | null
+  recordingScript?: unknown
+  topicEntity?: { recordingGuide?: unknown; narrativeAnchor?: unknown } | null
 }
 
 export default async function ShareableSessionPage({ params }: Props) {
@@ -52,6 +55,10 @@ export default async function ShareableSessionPage({ params }: Props) {
 
   const rawGuide = session.topicEntity?.recordingGuide
   const recordingGuide: RecordingGuide | null = isRecordingGuide(rawGuide) ? rawGuide : null
+  const rawAnchor = session.topicEntity?.narrativeAnchor
+  const narrativeAnchor: NarrativeAnchor | null = isNarrativeAnchor(rawAnchor) ? rawAnchor : null
+  const rawScript = session.recordingScript
+  const recordingScript: RecordingScript | null = isRecordingScript(rawScript) ? rawScript : null
 
   return (
     <RecordingSession
@@ -61,6 +68,8 @@ export default async function ShareableSessionPage({ params }: Props) {
       contentFormat={session.contentFormat as any}
       teleprompterScript={session.teleprompterScript}
       topicId={session.topicId ?? undefined}
+      narrativeAnchor={narrativeAnchor}
+      recordingScript={recordingScript}
       recordingGuide={recordingGuide}
     />
   )
