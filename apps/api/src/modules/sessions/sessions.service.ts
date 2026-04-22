@@ -51,9 +51,10 @@ export class SessionsService {
   async submit(sessionId: string): Promise<any> {
     const session = await this.findOne(sessionId)
 
+    const now = new Date()
     const updated = await prisma.session.update({
       where: { id: sessionId },
-      data: { status: 'SUBMITTED', submittedAt: new Date() },
+      data: { status: 'SUBMITTED', submittedAt: now, lastActivityAt: now },
     })
 
     const organizationId = session.theme?.organizationId as string | null | undefined

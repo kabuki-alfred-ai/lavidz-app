@@ -10,9 +10,19 @@ import FreeformGuide from './FreeformGuide'
 import PreRecordingCheck from './PreRecordingCheck'
 import { SubjectRecordingGuide } from '@/components/subject/SubjectRecordingGuide'
 import { NarrativeAnchorSticky } from './NarrativeAnchorSticky'
+import { ResumeBanner } from './ResumeBanner'
+import { saveTake as bufferSaveTake, clearTake as bufferClearTake, purgeExpired } from '@/lib/recording-buffer'
 import type { RecordingGuide } from '@/lib/recording-guide'
 import type { NarrativeAnchor } from '@/lib/narrative-anchor'
 import type { RecordingScript } from '@/lib/recording-script'
+
+type ResumeProps = {
+  lastActivityAt: string | null
+  recordingsCount: number
+  nextQuestionNumber: number | null
+  anchorUpdatedAt: string | null
+  scriptSyncedAt: string | null
+}
 
 type Phase = 'intro' | 'check' | 'reading' | 'countdown' | 'recording' | 'review' | 'uploading' | 'done'
 
@@ -44,9 +54,11 @@ interface Props {
   recordingScript?: RecordingScript | null
   /** @deprecated — utiliser `narrativeAnchor` + `recordingScript`. Fallback pendant le dual-write. */
   recordingGuide?: RecordingGuide | null
+  /** Story 7 — props pour le banner reprise Kabou (3 wordings selon elapsed). */
+  resumeProps?: ResumeProps
 }
 
-export function RecordingSession({ theme, initialSessionId, mode = 'default', contentFormat, teleprompterScript, topicId, narrativeAnchor, recordingScript, recordingGuide }: Props) {
+export function RecordingSession({ theme, initialSessionId, mode = 'default', contentFormat, teleprompterScript, topicId, narrativeAnchor, recordingScript, recordingGuide, resumeProps }: Props) {
   const router = useRouter()
   const [phase, setPhase] = useState<Phase>('intro')
   const [questionIndex, setQuestionIndex] = useState(0)
@@ -95,6 +107,12 @@ export function RecordingSession({ theme, initialSessionId, mode = 'default', co
   const isQuestionBox = recordingMode === 'questions'
 
   const introAnnouncedRef = useRef(false)
+
+  // Task 7.1 — purge des takes IndexedDB expirés (>7j par défaut) au mount.
+  // Policy privacy + limite d'usage du quota storage du navigateur.
+  useEffect(() => {
+    purgeExpired().catch(() => {})
+  }, [])
   const audioContextRef = useRef<AudioContext | null>(null)
   const micRafRef = useRef<number | null>(null)
 
@@ -437,10 +455,25 @@ export function RecordingSession({ theme, initialSessionId, mode = 'default', co
     setUploadError('')
     setUploadProgress(0)
 
-    try {
-      const recordedMimeType = mediaRecorderRef.current?.mimeType ?? 'video/mp4'
-      const blob = new Blob(chunksRef.current, { type: recordedMimeType })
+    const recordedMimeType = mediaRecorderRef.current?.mimeType ?? 'video/mp4'
+    const blob = new Blob(chunksRef.current, { type: recordedMimeType })
 
+    // Task 7.2 — sauvegarde dans IndexedDB AVANT l'upload. En cas de crash
+    // onglet / échec réseau, la prise est récupérable au prochain load.
+    // Silent si quota-low ou IndexedDB indisponible (Safari privé) — on
+    // continue avec l'upload synchrone direct.
+    const bufferResult = await bufferSaveTake(
+      sessionIdRef.current,
+      currentQuestion.id,
+      blob,
+      {
+        duration: elapsed,
+        recordedAt: new Date().toISOString(),
+        mimeType: recordedMimeType,
+      },
+    ).catch(() => ({ takeId: '', saved: false }))
+
+    try {
       // 1. Obtenir la presigned PUT URL (via proxy Next.js → NestJS)
       const urlRes = await fetch(
         `/api/sessions/${sessionIdRef.current}/recordings/${currentQuestion.id}?mimeType=${encodeURIComponent(recordedMimeType)}`,
@@ -473,6 +506,11 @@ export function RecordingSession({ theme, initialSessionId, mode = 'default', co
         body: JSON.stringify({ questionId: currentQuestion.id, key, mimeType: recordedMimeType }),
       })
 
+      // Upload + confirm réussis → on peut clear la copie buffer en toute sécurité.
+      if (bufferResult.saved && bufferResult.takeId) {
+        bufferClearTake(bufferResult.takeId).catch(() => {})
+      }
+
       setReviewVideoUrl(prev => { if (prev) URL.revokeObjectURL(prev); return null })
       chunksRef.current = []
 
@@ -485,6 +523,8 @@ export function RecordingSession({ theme, initialSessionId, mode = 'default', co
         if (mode === 'shared') handleSubmit()
       }
     } catch {
+      // NB : on laisse le blob en buffer IndexedDB si saveTake avait réussi —
+      // permet un retry silencieux à la prochaine ouverture de la session.
       setUploadError('Envoi échoué. Vérifiez votre connexion et réessayez.')
       setPhase('review')
     }
@@ -749,6 +789,31 @@ export function RecordingSession({ theme, initialSessionId, mode = 'default', co
     )
   }
 
+  // Story 7 — banner reprise Kabou : injecté UNIQUEMENT au-dessus du phase intro
+  // (premier écran à l'arrivée). Le composant se dismiss auto dès que l'user
+  // clique "Reprendre" ou sur le X. Pendant les phases suivantes, il n'est
+  // pas re-monté. Auto-reset via /api/sessions/:id/reset si "Repartir à zéro".
+  const resumeBanner = resumeProps ? (
+    <ResumeBanner
+      sessionId={sessionIdRef.current ?? ''}
+      lastActivityAt={resumeProps.lastActivityAt}
+      recordingsCount={resumeProps.recordingsCount}
+      nextQuestionNumber={resumeProps.nextQuestionNumber}
+      anchorUpdatedAt={resumeProps.anchorUpdatedAt}
+      scriptSyncedAt={resumeProps.scriptSyncedAt}
+      onResetZero={async () => {
+        const sid = sessionIdRef.current
+        if (!sid) return
+        try {
+          await fetch(`/api/sessions/${sid}/reset`, { method: 'POST' })
+        } catch {
+          /* silent — page reload will re-fetch */
+        }
+        if (typeof window !== 'undefined') window.location.reload()
+      }}
+    />
+  ) : null
+
   if (phase === 'intro') {
     const noise = (
       <div className="absolute inset-0 opacity-[0.03] pointer-events-none"
@@ -780,6 +845,7 @@ export function RecordingSession({ theme, initialSessionId, mode = 'default', co
           className="fixed inset-0 flex flex-col items-center justify-between px-6 py-12 overflow-hidden"
           style={{ background: '#0a0a0a', animation: 'fadeIn 0.35s ease' }}
         >
+          {resumeBanner}
           {noise}
           {brand}
 

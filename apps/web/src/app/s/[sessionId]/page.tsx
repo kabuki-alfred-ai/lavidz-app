@@ -9,6 +9,12 @@ interface Props {
   params: Promise<{ sessionId: string }>
 }
 
+interface RecordingRef {
+  id: string
+  questionId: string
+  supersededAt?: string | null
+}
+
 interface SessionWithTheme {
   id: string
   status: string
@@ -18,7 +24,12 @@ interface SessionWithTheme {
   teleprompterScript?: string | null
   topicId?: string | null
   recordingScript?: unknown
-  topicEntity?: { recordingGuide?: unknown; narrativeAnchor?: unknown } | null
+  lastActivityAt?: string | null
+  recordings?: RecordingRef[]
+  topicEntity?: {
+    recordingGuide?: unknown
+    narrativeAnchor?: unknown
+  } | null
 }
 
 export default async function ShareableSessionPage({ params }: Props) {
@@ -60,6 +71,21 @@ export default async function ShareableSessionPage({ params }: Props) {
   const rawScript = session.recordingScript
   const recordingScript: RecordingScript | null = isRecordingScript(rawScript) ? rawScript : null
 
+  // Task 7.4 — calcule les props pour ResumeBanner côté server : dernière
+  // question répondue (canonical non-supersededAt), nombre de prises, date
+  // de dernière activité.
+  const canonicalRecordings = (session.recordings ?? []).filter((r) => !r.supersededAt)
+  const answeredQuestionIds = new Set(canonicalRecordings.map((r) => r.questionId))
+  const orderedQuestions = session.theme?.questions ?? []
+  const nextQuestionIndex = orderedQuestions.findIndex((q) => !answeredQuestionIds.has(q.id))
+  const resumeProps = {
+    lastActivityAt: session.lastActivityAt ?? null,
+    recordingsCount: canonicalRecordings.length,
+    nextQuestionNumber: nextQuestionIndex >= 0 ? nextQuestionIndex + 1 : null,
+    anchorUpdatedAt: narrativeAnchor?.updatedAt ?? null,
+    scriptSyncedAt: recordingScript?.anchorSyncedAt ?? null,
+  }
+
   return (
     <RecordingSession
       theme={session.theme}
@@ -71,6 +97,7 @@ export default async function ShareableSessionPage({ params }: Props) {
       narrativeAnchor={narrativeAnchor}
       recordingScript={recordingScript}
       recordingGuide={recordingGuide}
+      resumeProps={resumeProps}
     />
   )
 }
