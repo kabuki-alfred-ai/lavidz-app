@@ -28,7 +28,6 @@ import {
 import { Button } from '@/components/ui/button'
 import type { CreativeState } from '@/lib/creative-state'
 import { KABOU_TOASTS } from '@/lib/kabou-voice'
-import { SubjectHookSection } from '@/components/subject/SubjectHookSection'
 import { SubjectSourcesSection } from '@/components/subject/SubjectSourcesSection'
 import { FormatCardPreview } from '@/components/subject/FormatCardPreview'
 import { FormatCardDrawer } from '@/components/subject/FormatCardDrawer'
@@ -914,16 +913,9 @@ export function SubjectWorkspace({
                 )}
               </section>
 
-              {/* Hooks — two proposed variants (voix native vs marketing) */}
-              {!isArchived && (creativeState === 'MATURE' || creativeState === 'EXPLORING') && (
-                <div className={staggerClass} style={staggerStyle(1)}>
-                  <SubjectHookSection
-                    topicId={topic.id}
-                    hasBrief={Boolean(topic.brief && topic.brief.trim().length > 20)}
-                    onFlashToast={flashToast}
-                  />
-                </div>
-              )}
+              {/* Les hooks ont migré au niveau Session (format-specific) — ils
+                 vivent désormais dans FormatCardDrawer, pas sur le Topic. Le
+                 Topic reste stratégique (angle, narrativeAnchor, sources). */}
 
               {/* Sources & facts — credible anchors for HOT_TAKE / fact-heavy formats */}
               {!isArchived && creativeState !== 'SEED' && (

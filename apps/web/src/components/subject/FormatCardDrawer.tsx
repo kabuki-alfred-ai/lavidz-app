@@ -1,11 +1,12 @@
 'use client'
 
-import { useEffect, useState } from 'react'
+import { useCallback, useEffect, useState } from 'react'
 import Link from 'next/link'
 import { Drawer } from 'vaul'
 import {
   ArrowRight,
   CalendarDays,
+  Check,
   Circle,
   Loader2,
   Play,
@@ -21,6 +22,13 @@ import { StaleAnchorBadge } from '@/components/subject/StaleAnchorBadge'
 import { SchedulePublishModal } from '@/components/subject/SchedulePublishModal'
 import type { RecordingGuide } from '@/lib/recording-guide'
 import type { NarrativeAnchor } from '@/lib/narrative-anchor'
+
+type SessionHooks = {
+  native?: { phrase?: string; reason?: string }
+  marketing?: { phrase?: string; reason?: string }
+  chosen?: 'native' | 'marketing' | null
+  generatedAt?: string
+}
 
 type ScheduleableFormat =
   | 'QUESTION_BOX'
@@ -96,6 +104,11 @@ export function FormatCardDrawer({
 }: FormatCardDrawerProps) {
   const [isDesktop, setIsDesktop] = useState(true)
   const [scheduleOpen, setScheduleOpen] = useState(false)
+  const [hooks, setHooks] = useState<SessionHooks | null>(null)
+  const [hooksLoading, setHooksLoading] = useState(false)
+  const [generatingHooks, setGeneratingHooks] = useState(false)
+  const [choosingHook, setChoosingHook] = useState<'native' | 'marketing' | null>(null)
+
   useEffect(() => {
     const mq = window.matchMedia('(min-width: 1024px)')
     setIsDesktop(mq.matches)
@@ -103,6 +116,68 @@ export function FormatCardDrawer({
     mq.addEventListener('change', handler)
     return () => mq.removeEventListener('change', handler)
   }, [])
+
+  // Charge les hooks Session au mount du drawer quand on a une session canonique.
+  // Le drawer peut s'ouvrir/fermer plusieurs fois — on refetch à chaque ouverture
+  // pour avoir l'état frais après génération/choix depuis une autre vue.
+  useEffect(() => {
+    if (!open || !canonical?.id) return
+    let cancelled = false
+    setHooksLoading(true)
+    fetch(`/api/sessions/${canonical.id}/hooks`, { credentials: 'include', cache: 'no-store' })
+      .then(async (res) => {
+        if (cancelled) return
+        if (!res.ok) {
+          setHooks(null)
+          return
+        }
+        const data = (await res.json()) as SessionHooks | null
+        setHooks(data)
+      })
+      .catch(() => {
+        if (!cancelled) setHooks(null)
+      })
+      .finally(() => {
+        if (!cancelled) setHooksLoading(false)
+      })
+    return () => {
+      cancelled = true
+    }
+  }, [open, canonical?.id])
+
+  const handleGenerateHooks = useCallback(async () => {
+    if (!canonical?.id) return
+    setGeneratingHooks(true)
+    try {
+      const res = await fetch(`/api/sessions/${canonical.id}/hooks/generate`, {
+        method: 'POST',
+        credentials: 'include',
+      })
+      if (res.ok) setHooks(await res.json())
+    } finally {
+      setGeneratingHooks(false)
+    }
+  }, [canonical?.id])
+
+  const handleChooseHook = useCallback(
+    async (chosen: 'native' | 'marketing') => {
+      if (!canonical?.id) return
+      setChoosingHook(chosen)
+      try {
+        const nextChoice = hooks?.chosen === chosen ? null : chosen
+        const res = await fetch(`/api/sessions/${canonical.id}/hooks/chosen`, {
+          method: 'POST',
+          credentials: 'include',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ chosen: nextChoice }),
+        })
+        if (res.ok) setHooks(await res.json())
+      } finally {
+        setChoosingHook(null)
+      }
+    },
+    [canonical?.id, hooks?.chosen],
+  )
 
   const canSchedule = SCHEDULEABLE_FORMATS.has(format as ScheduleableFormat)
 
@@ -173,6 +248,102 @@ export function FormatCardDrawer({
           <p className="text-xs italic text-muted-foreground">
             Pas encore d'angle posé pour ce sujet.
           </p>
+        )}
+
+        {/* Accroches Session format-specific — générées par Kabou via
+           session-hook.service (RAG topic-scoped). Visible uniquement si
+           la carte porte une session canonique (on ne peut pas proposer
+           d'accroches sans une session cible). */}
+        {canonical && (
+          <section className="mt-6 space-y-3">
+            <div className="flex items-center justify-between">
+              <h3 className="inline-flex items-center gap-1.5 text-xs font-semibold uppercase tracking-widest text-muted-foreground">
+                <Sparkles className="h-3 w-3" />
+                Accroches — {formatLabel}
+              </h3>
+              {hooks && (
+                <button
+                  type="button"
+                  onClick={handleGenerateHooks}
+                  disabled={generatingHooks}
+                  className="inline-flex items-center gap-1 text-xs text-muted-foreground transition hover:text-foreground disabled:opacity-60"
+                >
+                  {generatingHooks ? (
+                    <Loader2 className="h-3 w-3 animate-spin" />
+                  ) : (
+                    <RefreshCw className="h-3 w-3" />
+                  )}
+                  En proposer d'autres
+                </button>
+              )}
+            </div>
+
+            {hooksLoading ? (
+              <p className="text-xs text-muted-foreground">
+                <Loader2 className="mr-1 inline h-3 w-3 animate-spin" />
+                Je regarde ce que Kabou a préparé…
+              </p>
+            ) : hooks ? (
+              <div className="space-y-2">
+                {(['native', 'marketing'] as const).map((variant) => {
+                  const entry = hooks[variant]
+                  if (!entry?.phrase) return null
+                  const isChosen = hooks.chosen === variant
+                  const label = variant === 'native' ? 'Ta voix' : 'Version scroll'
+                  return (
+                    <button
+                      key={variant}
+                      type="button"
+                      onClick={() => handleChooseHook(variant)}
+                      disabled={choosingHook === variant}
+                      className={`w-full rounded-xl border p-3 text-left transition ${
+                        isChosen
+                          ? 'border-primary/40 bg-primary/5'
+                          : 'border-border/40 bg-surface-raised/20 hover:border-border/60 hover:bg-surface-raised/30'
+                      }`}
+                    >
+                      <div className="mb-1 flex items-center justify-between text-[10px] font-semibold uppercase tracking-widest text-muted-foreground">
+                        <span>{label}</span>
+                        {isChosen ? (
+                          <span className="inline-flex items-center gap-1 text-primary">
+                            <Check className="h-3 w-3" />
+                            Choisie
+                          </span>
+                        ) : (
+                          <span className="text-muted-foreground/40">Choisir</span>
+                        )}
+                      </div>
+                      <p className="text-sm text-foreground">«&nbsp;{entry.phrase}&nbsp;»</p>
+                      {entry.reason && (
+                        <p className="mt-1.5 text-[11px] italic leading-relaxed text-muted-foreground">
+                          {entry.reason}
+                        </p>
+                      )}
+                    </button>
+                  )
+                })}
+              </div>
+            ) : (
+              <div className="rounded-xl border border-dashed border-border/40 bg-surface-raised/20 p-3">
+                <p className="mb-2 text-xs text-muted-foreground">
+                  Pas encore d'accroches proposées pour ce format.
+                </p>
+                <Button
+                  size="sm"
+                  variant="outline"
+                  onClick={handleGenerateHooks}
+                  disabled={generatingHooks}
+                >
+                  {generatingHooks ? (
+                    <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                  ) : (
+                    <Sparkles className="h-3.5 w-3.5" />
+                  )}
+                  Proposer des accroches
+                </Button>
+              </div>
+            )}
+          </section>
         )}
       </div>
 
