@@ -20,6 +20,9 @@ interface SubjectKabouPanelProps {
   threadId: string
   subjectName: string
   onTopicMutated?: (toolName?: string) => void
+  /** Ref exposé au parent pour lui permettre de focus le champ de saisie
+   *  (ex: bouton "Explorer avec Kabou" sur desktop). */
+  inputRef?: React.RefObject<HTMLTextAreaElement | null>
 }
 
 // Tools qui, une fois complétés, changent des données affichées dans
@@ -42,7 +45,7 @@ const MUTATING_TOOLS = new Set([
  * desktop, as a tab on mobile. Wraps useChat against the topic's dedicated
  * thread so the conversation persists between visits.
  */
-export function SubjectKabouPanel({ topicId, threadId, subjectName, onTopicMutated }: SubjectKabouPanelProps) {
+export function SubjectKabouPanel({ topicId, threadId, subjectName, onTopicMutated, inputRef }: SubjectKabouPanelProps) {
   const threadIdRef = useRef(threadId)
   threadIdRef.current = threadId
 
@@ -180,6 +183,7 @@ export function SubjectKabouPanel({ topicId, threadId, subjectName, onTopicMutat
       <div className="border-t border-border/40 p-3">
         <div className="flex items-end gap-2">
           <textarea
+            ref={inputRef}
             value={input}
             onChange={(e) => setInput(e.target.value)}
             onKeyDown={(e) => {

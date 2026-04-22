@@ -1,6 +1,6 @@
 'use client'
 
-import { useCallback, useEffect, useMemo, useState, useTransition } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState, useTransition } from 'react'
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
 import ReactMarkdown from 'react-markdown'
@@ -227,6 +227,18 @@ export function SubjectWorkspace({
   const [pillarDraft, setPillarDraft] = useState(topic.pillar ?? '')
   const [toast, setToast] = useState<string | null>(null)
   const [kabouDrawerOpen, setKabouDrawerOpen] = useState(false)
+  const kabouInputRef = useRef<HTMLTextAreaElement | null>(null)
+
+  // Focus feedback visible quand l'user clique "Explorer avec Kabou" sur
+  // desktop — le panel aside étant déjà ouvert, l'ancien `if (isDesktop) return`
+  // donnait l'illusion d'un bouton cassé. On focus le textarea + scrollIntoView
+  // pour un feedback immédiat et éventuellement guider l'œil.
+  const focusKabouInput = useCallback(() => {
+    const el = kabouInputRef.current
+    if (!el) return
+    el.focus()
+    el.scrollIntoView({ behavior: 'smooth', block: 'center' })
+  }, [])
   const [openDrawerFormat, setOpenDrawerFormat] = useState<string | null>(null)
   const [resyncingFormat, setResyncingFormat] = useState<string | null>(null)
   const [expandedVariants, setExpandedVariants] = useState<Set<string>>(new Set())
@@ -519,7 +531,10 @@ export function SubjectWorkspace({
       <Button
         size="lg"
         onClick={() => {
-          if (isDesktop) return
+          if (isDesktop) {
+            focusKabouInput()
+            return
+          }
           setKabouDrawerOpen(true)
         }}
         disabled={isPending}
@@ -609,7 +624,10 @@ export function SubjectWorkspace({
               <Button
                 size="lg"
                 onClick={() => {
-                  if (isDesktop) return
+                  if (isDesktop) {
+                    focusKabouInput()
+                    return
+                  }
                   setKabouDrawerOpen(true)
                 }}
                 disabled={isPending}
@@ -998,6 +1016,7 @@ export function SubjectWorkspace({
               threadId={topic.threadId}
               subjectName={topic.name}
               onTopicMutated={handleTopicMutated}
+              inputRef={kabouInputRef}
             />
           </aside>
         )}
