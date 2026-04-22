@@ -28,24 +28,12 @@ import {
   AlertDialogTitle,
   AlertDialogTrigger,
 } from '@/components/ui/alert-dialog'
-import { POST_RECORDING_COPY, KABOU_TOASTS } from '@/lib/kabou-voice'
-
-// Wordings Kabou validés party mode (F19 corrigé : pas de "je garde" qui
-// violerait la règle on/nous).
-const KABOU_RESET_COPY = {
-  title: 'On reprend à zéro ?',
-  body:
-    "On garde ton script et on recommence la prise. Tes anciennes prises restent consultables au montage.",
-  confirm: 'Oui, on recommence',
-  cancel: 'Annuler',
-}
-const KABOU_REPLACE_COPY = {
-  title: 'Tenter un autre angle ?',
-  body:
-    "Ta version précédente reste côté historique, et on repart avec un nouveau script pour ce format.",
-  confirm: 'Nouvelle variante',
-  cancel: 'Annuler',
-}
+import {
+  POST_RECORDING_COPY,
+  KABOU_TOASTS,
+  KABOU_RESET_COPY,
+  KABOU_REPLACE_COPY,
+} from '@/lib/kabou-voice'
 
 type ImprovementPath = {
   path: string

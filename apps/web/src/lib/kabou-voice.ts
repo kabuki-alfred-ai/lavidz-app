@@ -147,6 +147,57 @@ export const KABOU_TOASTS = {
 }
 
 /**
+ * Story 7 — wordings du banner reprise de tournage (3 variantes selon
+ * l'elapsed depuis la dernière activité). Construits côté composant
+ * ResumeBanner à partir du triplet {N prises, Qx, when}. Exposés ici
+ * comme builders pour centraliser la voix.
+ */
+export const KABOU_RESUME_COPY = {
+  recent: (nPrises: number, qLabel: string) =>
+    `Tu avais fait ${nPrises} prise${nPrises > 1 ? 's' : ''}, on reprend à ${qLabel} ?`,
+  pause: (nPrises: number, when: string) =>
+    `Tu as tourné ${nPrises} prise${nPrises > 1 ? 's' : ''} ${when}, on continue ou tu veux tout refaire à tête reposée ?`,
+  longTerm: (unit: string) =>
+    `On se retrouve ! Ça fait ${unit}. Tu veux reprendre ou repartir de zéro ? Ton angle a peut-être évolué.`,
+  resumeButton: "Reprendre où j'en étais",
+  resetButton: 'Repartir à zéro',
+  orphanWarning:
+    'Des prises non synchronisées existent sur un autre appareil — perdues pour celui-ci.',
+  anchorEvolved:
+    '🧭 Ton angle a évolué depuis ton dernier tournage — jette un œil avant de reprendre.',
+} as const
+
+/**
+ * Story 5 — modales du trio reset/variante post-tournage.
+ * Wordings validés party mode + F19 (pas de "je garde" pour respecter on/nous).
+ */
+export const KABOU_RESET_COPY = {
+  title: 'On reprend à zéro ?',
+  body:
+    "On garde ton script et on recommence la prise. Tes anciennes prises restent consultables au montage.",
+  confirm: 'Oui, on recommence',
+  cancel: 'Annuler',
+} as const
+
+export const KABOU_REPLACE_COPY = {
+  title: 'Tenter un autre angle ?',
+  body:
+    "Ta version précédente reste côté historique, et on repart avec un nouveau script pour ce format.",
+  confirm: 'Nouvelle variante',
+  cancel: 'Annuler',
+} as const
+
+/**
+ * Stories 9 + 10 — wordings du take selector dans ProjectDetail.
+ */
+export const KABOU_TAKE_SELECTOR_COPY = {
+  canonicalBadge: 'Kabou',
+  canonicalTooltipFallback: 'Prise recommandée par Kabou',
+  variantLabel: 'Variante',
+  variantsAccordion: (count: number) => `Prises précédentes (${count})`,
+} as const
+
+/**
  * The 10 voice rules injected as a preamble into Kabou's system prompt.
  * Keep this self-contained and in French — the LLM is instructed to
  * answer in French throughout the product.
