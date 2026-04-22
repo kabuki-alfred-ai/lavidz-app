@@ -4,6 +4,7 @@ import { getSessionUser } from '@/lib/auth'
 import { deriveCreativeState } from '@/lib/creative-state'
 import { isRecordingGuide } from '@/lib/recording-guide'
 import { isNarrativeAnchor } from '@/lib/narrative-anchor'
+import { isRecordingScript } from '@/lib/recording-script'
 import { SubjectWorkspace } from './SubjectWorkspace'
 
 export const dynamic = 'force-dynamic'
@@ -115,6 +116,7 @@ export default async function SubjectPage({ params }: PageProps) {
         themeName: s.theme?.name ?? null,
         questionsCount: s.theme?.questions?.length ?? 0,
         projectId: projectBySessionId.get(s.id) ?? null,
+        recordingScript: isRecordingScript(s.recordingScript) ? s.recordingScript : null,
       }))}
     />
   )

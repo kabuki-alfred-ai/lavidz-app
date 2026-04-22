@@ -30,12 +30,15 @@ import type { CreativeState } from '@/lib/creative-state'
 import { KABOU_TOASTS } from '@/lib/kabou-voice'
 import { SubjectHookSection } from '@/components/subject/SubjectHookSection'
 import { SubjectSourcesSection } from '@/components/subject/SubjectSourcesSection'
-import { SubjectRecordingGuide } from '@/components/subject/SubjectRecordingGuide'
+import { FormatCardPreview } from '@/components/subject/FormatCardPreview'
+import { FormatCardDrawer } from '@/components/subject/FormatCardDrawer'
 import { ThesisBanner } from '@/components/subject/ThesisBanner'
 import { CreativeStateTimeline } from '@/components/subject/CreativeStateTimeline'
 import { SubjectKabouPanel } from './SubjectKabouPanel'
 import { isRecordingGuide, type RecordingGuide } from '@/lib/recording-guide'
 import type { NarrativeAnchor } from '@/lib/narrative-anchor'
+import type { RecordingScript } from '@/lib/recording-script'
+import { Eye } from 'lucide-react'
 import { ReadyActions } from '@/components/subject/ReadyActions'
 import { ReadinessHint } from '@/components/subject/ReadinessHint'
 
@@ -61,6 +64,8 @@ type SubjectSessionRef = {
   questionsCount: number
   /** Project auto-created via Project.sessionId (F5). Null si pas encore submit. */
   projectId: string | null
+  /** Script format-specific lu depuis Session.recordingScript. Null tant que pas reshape. */
+  recordingScript: RecordingScript | null
 }
 
 type ScheduledRef = {
@@ -223,6 +228,8 @@ export function SubjectWorkspace({
   const [pillarDraft, setPillarDraft] = useState(topic.pillar ?? '')
   const [toast, setToast] = useState<string | null>(null)
   const [kabouDrawerOpen, setKabouDrawerOpen] = useState(false)
+  const [openDrawerFormat, setOpenDrawerFormat] = useState<string | null>(null)
+  const [resyncingFormat, setResyncingFormat] = useState<string | null>(null)
   const [expandedVariants, setExpandedVariants] = useState<Set<string>>(new Set())
   const toggleVariants = useCallback((format: string) => {
     setExpandedVariants((prev) => {
@@ -408,6 +415,47 @@ export function SubjectWorkspace({
   }, [sessions])
 
   const usedFormats = useMemo(() => new Set(formatGroups.map((g) => g.format)), [formatGroups])
+
+  // isStale = le narrativeAnchor du Topic a été updated après le dernier
+  // reshape du script de cette session (F14). Renderisé en StaleAnchorBadge
+  // dans le drawer + permet de proposer le bouton re-sync.
+  const computeStale = useCallback(
+    (script: RecordingScript | null): boolean => {
+      if (!topic.narrativeAnchor || !script) return false
+      const anchorAt = Date.parse(topic.narrativeAnchor.updatedAt)
+      const syncedAt = Date.parse(script.anchorSyncedAt)
+      if (Number.isNaN(anchorAt) || Number.isNaN(syncedAt)) return false
+      return anchorAt > syncedAt
+    },
+    [topic.narrativeAnchor],
+  )
+
+  // Re-sync via POST /api/sessions/:id/recording-script/reshape.
+  // Le backend lit Topic.narrativeAnchor, reshape vers le format de la
+  // session, enrichit par RAG, écrit Session.recordingScript avec
+  // anchorSyncedAt updated. router.refresh() re-lit le workspace.
+  const handleResync = useCallback(
+    async (format: string, sessionId: string) => {
+      setResyncingFormat(format)
+      try {
+        const res = await fetch(`/api/sessions/${sessionId}/recording-script/reshape`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          credentials: 'include',
+          body: JSON.stringify({ format }),
+        })
+        if (!res.ok) {
+          flashToast(KABOU_TOASTS.oops)
+          return
+        }
+        flashToast('✨ Script re-synchronisé')
+        router.refresh()
+      } finally {
+        setResyncingFormat(null)
+      }
+    },
+    [flashToast, router],
+  )
 
   const primaryCta = useMemo(() => {
     if (isArchived) return null
@@ -748,14 +796,10 @@ export function SubjectWorkspace({
             />
           )}
 
-          {/* Fil conducteur d'enregistrement — affiché dès qu'un guide existe
-             (même en SEED : Kabou peut avoir généré le guide avant que le brief
-             ne signale EXPLORING, il faut briser ce catch-22). */}
-          {!isArchived && topic.recordingGuide && (
-            <div className="mb-6">
-              <SubjectRecordingGuide guide={topic.recordingGuide} />
-            </div>
-          )}
+          {/* Story 3 (format-card-drawer spec) — le script format-specific ne
+             flotte plus au milieu de la page. Il vit désormais dans la carte
+             format correspondante (preview visible) + le drawer "Voir le
+             script complet" plus bas. */}
 
           {/* Next scheduled */}
           {nextScheduled && (
@@ -830,11 +874,35 @@ export function SubjectWorkspace({
                     </header>
 
                     {canonical && (
-                      <SessionRow session={canonical} />
+                      <div className="space-y-2 px-4 py-3">
+                        <SessionRow session={canonical} />
+                        <FormatCardPreview
+                          script={canonical.recordingScript}
+                          anchor={topic.narrativeAnchor}
+                          compact
+                        />
+                        <button
+                          type="button"
+                          onClick={() => setOpenDrawerFormat(group.format)}
+                          className="inline-flex items-center gap-1 text-xs text-muted-foreground transition hover:text-foreground"
+                        >
+                          <Eye className="h-3 w-3" />
+                          Voir le script complet
+                        </button>
+                      </div>
                     )}
-                    {!canonical && variants.length === 0 && (
-                      <div className="px-4 py-3 text-xs italic text-muted-foreground">
-                        Pas encore de tournage dans ce format.
+                    {!canonical && (
+                      <div className="space-y-2 px-4 py-3">
+                        <FormatCardPreview
+                          script={null}
+                          anchor={topic.narrativeAnchor}
+                          compact
+                        />
+                        {variants.length === 0 && (
+                          <p className="text-xs italic text-muted-foreground/70">
+                            Pas encore de tournage dans ce format.
+                          </p>
+                        )}
                       </div>
                     )}
 
@@ -861,6 +929,21 @@ export function SubjectWorkspace({
                         )}
                       </div>
                     )}
+                    <FormatCardDrawer
+                      open={openDrawerFormat === group.format}
+                      onOpenChange={(v) => setOpenDrawerFormat(v ? group.format : null)}
+                      formatLabel={formatLabel}
+                      formatEmoji={formatEmoji}
+                      topicId={topic.id}
+                      format={group.format}
+                      canonical={canonical}
+                      anchor={topic.narrativeAnchor}
+                      isStale={computeStale(canonical?.recordingScript ?? null)}
+                      onResync={() =>
+                        canonical ? handleResync(group.format, canonical.id) : Promise.resolve()
+                      }
+                      resyncing={resyncingFormat === group.format}
+                    />
                   </article>
                 )
               })}
