@@ -29,10 +29,7 @@ type HomeState = {
   thesis: { statement: string; confidence: 'forming' | 'emerging' | 'crystallized'; audienceArchetype: string | null } | null
   hasProfile: boolean
   nextStep: NextStep
-  counts: Record<
-    'SEED' | 'EXPLORING' | 'MATURE' | 'SCHEDULED' | 'PRODUCING' | 'ARCHIVED',
-    number
-  >
+  counts: Record<'SEED' | 'EXPLORING' | 'MATURE' | 'ARCHIVED', number>
   totalActiveSubjects: number
   publishedTotal: number
   lastActivityAt: string | null
@@ -116,12 +113,9 @@ export function HomeBrief() {
     if (state.counts.EXPLORING > 0) {
       bits.push(`${state.counts.EXPLORING} Sujet${state.counts.EXPLORING > 1 ? 's' : ''} en exploration`)
     }
-    if (state.counts.MATURE + state.counts.SCHEDULED > 0) {
-      const n = state.counts.MATURE + state.counts.SCHEDULED
+    if (state.counts.MATURE > 0) {
+      const n = state.counts.MATURE
       bits.push(`${n} prêt${n > 1 ? 's' : ''} à tourner`)
-    }
-    if (state.counts.PRODUCING > 0) {
-      bits.push(`${state.counts.PRODUCING} en production`)
     }
     if (bits.length === 0) return 'Tu pars d\'une page blanche — c\'est un bon point de départ.'
     return `Tu as ${bits.slice(0, 2).join(', ')}.`
@@ -227,7 +221,7 @@ export function HomeBrief() {
           />
           <CountTile
             label="Prêts à tourner"
-            value={state.counts.MATURE + state.counts.SCHEDULED}
+            value={state.counts.MATURE}
             href="/topics?filter=ready"
           />
           <CountTile

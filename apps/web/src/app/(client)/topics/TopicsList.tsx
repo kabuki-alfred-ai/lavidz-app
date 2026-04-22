@@ -11,6 +11,7 @@ import {
 } from 'lucide-react'
 import { deriveCreativeState, type CreativeState } from '@/lib/creative-state'
 import { isRecordingGuide } from '@/lib/recording-guide'
+import { isNarrativeAnchor } from '@/lib/narrative-anchor'
 import { getCreativeStageVisual } from '@/components/subject/CreativeStageIcons'
 
 interface TopicEntry {
@@ -20,6 +21,7 @@ interface TopicEntry {
   status: 'DRAFT' | 'READY' | 'ARCHIVED'
   pillar: string | null
   recordingGuide: unknown
+  narrativeAnchor: unknown
   calendarEntries: { id: string; scheduledDate: string; format: string; status: string }[]
   sessions: { id: string; status: string }[]
   updatedAt: string
@@ -37,34 +39,34 @@ function formatRelative(iso: string) {
   return new Date(iso).toLocaleDateString('fr-FR', { day: 'numeric', month: 'short' })
 }
 
-type StageFilter = 'all' | 'growing' | 'ready' | 'producing' | 'archived'
+type StageFilter = 'all' | 'growing' | 'ready' | 'archived'
 
 // Enrichit chaque topic avec son creativeState dérivé côté front.
 type EnrichedTopic = TopicEntry & { creativeState: CreativeState }
 
 function enrichTopic(topic: TopicEntry): EnrichedTopic {
   const guide = isRecordingGuide(topic.recordingGuide) ? topic.recordingGuide : null
+  const anchor = isNarrativeAnchor(topic.narrativeAnchor) ? topic.narrativeAnchor : null
   return {
     ...topic,
     creativeState: deriveCreativeState({
       topicStatus: topic.status,
       brief: topic.brief,
-      calendarEntriesCount: topic.calendarEntries.length,
-      sessions: topic.sessions.map((s) => ({ status: s.status })),
+      narrativeAnchor: anchor,
       recordingGuide: guide,
     }),
   }
 }
 
-// Mappe un filtre UX → ensemble de creativeState. Garde le cadrage simple :
-// "En germination" regroupe SEED + EXPLORING (l'entrepreneur travaille
-// encore le sujet avec Kabou), "Prêts" = MATURE + SCHEDULED.
+// Mappe un filtre UX → ensemble de creativeState. Avec les 4 états stratégiques,
+// les anciens filtres "ready" (MATURE + SCHEDULED) et "producing" deviennent
+// respectivement juste "MATURE" et "archived" (le bouillon tactique des sessions
+// n'étant plus projeté sur le Topic).
 function matchesFilter(state: CreativeState, filter: StageFilter): boolean {
   switch (filter) {
     case 'all': return true
     case 'growing': return state === 'SEED' || state === 'EXPLORING'
-    case 'ready': return state === 'MATURE' || state === 'SCHEDULED'
-    case 'producing': return state === 'PRODUCING'
+    case 'ready': return state === 'MATURE'
     case 'archived': return state === 'ARCHIVED'
   }
 }
@@ -121,7 +123,6 @@ export function TopicsList() {
           ['all', 'Tous'],
           ['growing', 'En germination'],
           ['ready', 'Prêts'],
-          ['producing', 'En production'],
           ['archived', 'Archivés'],
         ] as const).map(([key, label]) => (
           <button

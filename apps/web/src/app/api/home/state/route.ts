@@ -71,8 +71,6 @@ export async function GET() {
       creativeState: deriveCreativeState({
         topicStatus: t.status,
         brief: t.brief ?? null,
-        calendarEntriesCount: t.calendarEntries.length,
-        sessions: t.sessions,
       }),
     }))
 
@@ -80,14 +78,11 @@ export async function GET() {
       SEED: 0,
       EXPLORING: 0,
       MATURE: 0,
-      SCHEDULED: 0,
-      PRODUCING: 0,
       ARCHIVED: 0,
     }
     for (const t of enriched) counts[t.creativeState]++
 
-    const totalActiveSubjects =
-      counts.SEED + counts.EXPLORING + counts.MATURE + counts.SCHEDULED + counts.PRODUCING
+    const totalActiveSubjects = counts.SEED + counts.EXPLORING + counts.MATURE
     const publishedTotal = enriched.reduce(
       (sum, t) => sum + t.sessions.filter((s) => s.publishedAt || s.status === 'DONE').length,
       0,
@@ -125,10 +120,8 @@ export async function GET() {
       return Response.json(buildResponse(user, profile, counts, totalActiveSubjects, publishedTotal, step, recentSessions))
     }
 
-    // (3) MATURE / SCHEDULED topic (ready, no active session) → prepare recording
-    const matureTopic = enriched.find(
-      (t) => (t.creativeState === 'MATURE' || t.creativeState === 'SCHEDULED'),
-    )
+    // (3) MATURE topic (ready, no active session) → prepare recording
+    const matureTopic = enriched.find((t) => t.creativeState === 'MATURE')
     if (matureTopic) {
       const step: NextStep = {
         kind: 'prepare_recording',

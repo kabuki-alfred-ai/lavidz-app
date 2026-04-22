@@ -33,6 +33,7 @@ import { ThesisBanner } from '@/components/subject/ThesisBanner'
 import { CreativeStateTimeline } from '@/components/subject/CreativeStateTimeline'
 import { SubjectKabouPanel } from './SubjectKabouPanel'
 import { isRecordingGuide, type RecordingGuide } from '@/lib/recording-guide'
+import type { NarrativeAnchor } from '@/lib/narrative-anchor'
 import { ReadyActions } from '@/components/subject/ReadyActions'
 import { ReadinessHint } from '@/components/subject/ReadinessHint'
 
@@ -44,7 +45,9 @@ type Topic = {
   status: 'DRAFT' | 'READY' | 'ARCHIVED'
   threadId: string
   updatedAt: string
+  /** @deprecated utiliser `narrativeAnchor` — dual-write pendant 1 sprint */
   recordingGuide: RecordingGuide | null
+  narrativeAnchor: NarrativeAnchor | null
 }
 
 type SubjectSessionRef = {
@@ -281,7 +284,9 @@ export function SubjectWorkspace({
       )
     }
 
-    if (creativeState === 'PRODUCING' && pendingSession) {
+    // Un tournage est en cours (status tactique Session) → CTA reprise directe.
+    // Le creativeState reste MATURE côté Topic (stratégique, axe orthogonal).
+    if (pendingSession) {
       return (
         <Button asChild size="lg">
           <Link href={`/s/${pendingSession.id}`}>
@@ -292,7 +297,7 @@ export function SubjectWorkspace({
       )
     }
 
-    if (creativeState === 'MATURE' || creativeState === 'SCHEDULED') {
+    if (creativeState === 'MATURE') {
       return (
         <Button asChild size="lg">
           <Link href={`/chat?topicId=${topic.id}&action=record`}>
@@ -544,7 +549,7 @@ export function SubjectWorkspace({
           </section>
 
           {/* Hooks — two proposed variants (voix native vs marketing) */}
-          {!isArchived && (creativeState === 'MATURE' || creativeState === 'SCHEDULED' || creativeState === 'PRODUCING' || creativeState === 'EXPLORING') && (
+          {!isArchived && (creativeState === 'MATURE' || creativeState === 'EXPLORING') && (
             <SubjectHookSection
               topicId={topic.id}
               hasBrief={Boolean(topic.brief && topic.brief.trim().length > 20)}
@@ -564,14 +569,14 @@ export function SubjectWorkspace({
           {/* Fil conducteur d'enregistrement — affiché dès qu'un guide existe
              (même en SEED : Kabou peut avoir généré le guide avant que le brief
              ne signale EXPLORING, il faut briser ce catch-22). */}
-          {!isArchived && topic.recordingGuide && creativeState !== 'PRODUCING' && (
+          {!isArchived && topic.recordingGuide && (
             <div className="mb-6">
               <SubjectRecordingGuide guide={topic.recordingGuide} />
             </div>
           )}
 
           {/* Pre-flight review — only right before tournage */}
-          {!isArchived && (creativeState === 'MATURE' || creativeState === 'SCHEDULED') && (
+          {!isArchived && creativeState === 'MATURE' && (
             <SubjectPreflight topicId={topic.id} />
           )}
 

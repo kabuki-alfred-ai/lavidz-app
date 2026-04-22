@@ -3,6 +3,7 @@ import { prisma } from '@lavidz/database'
 import { getSessionUser } from '@/lib/auth'
 import { deriveCreativeState } from '@/lib/creative-state'
 import { isRecordingGuide } from '@/lib/recording-guide'
+import { isNarrativeAnchor } from '@/lib/narrative-anchor'
 import { SubjectWorkspace } from './SubjectWorkspace'
 
 export const dynamic = 'force-dynamic'
@@ -47,12 +48,12 @@ export default async function SubjectPage({ params }: PageProps) {
   if (!topic) notFound()
 
   const recordingGuide = isRecordingGuide(topic.recordingGuide) ? topic.recordingGuide : null
+  const narrativeAnchor = isNarrativeAnchor(topic.narrativeAnchor) ? topic.narrativeAnchor : null
 
   const creativeState = deriveCreativeState({
     topicStatus: topic.status,
     brief: topic.brief ?? null,
-    calendarEntriesCount: topic.calendarEntries.length,
-    sessions: topic.sessions.map((s) => ({ status: s.status })),
+    narrativeAnchor,
     recordingGuide,
   })
 
@@ -75,6 +76,7 @@ export default async function SubjectPage({ params }: PageProps) {
         threadId: topic.threadId,
         updatedAt: topic.updatedAt.toISOString(),
         recordingGuide,
+        narrativeAnchor,
       }}
       creativeState={creativeState}
       availablePillars={profile?.editorialPillars ?? []}

@@ -83,10 +83,9 @@ export function TreeIcon({ className, active = false }: { className?: string; ac
 }
 
 /**
- * Visuel unifié par état : label FR, illustration, couleurs Tailwind pour le
- * texte et le conteneur. MATURE / SCHEDULED / PRODUCING réutilisent l'arbre
- * mais avec une teinte distincte pour que la progression post-maturité reste
- * lisible d'un coup d'œil.
+ * Visuel unifié par état stratégique Topic (4 états). Les anciens états
+ * tactiques SCHEDULED et PRODUCING ont été retirés — ils vivent désormais
+ * sur Session.status (LIVE, REPLACED, RECORDING, etc.).
  */
 export type CreativeStageVisual = {
   label: string
@@ -125,24 +124,6 @@ export function getCreativeStageVisual(state: CreativeState): CreativeStageVisua
         textColor: 'text-emerald-700 dark:text-emerald-300',
         bgClass: 'bg-emerald-600/15',
         borderClass: 'border-emerald-600/30',
-      }
-    case 'SCHEDULED':
-      return {
-        label: 'Planifié',
-        hint: 'Date calée',
-        Icon: TreeIcon,
-        textColor: 'text-blue-600 dark:text-blue-400',
-        bgClass: 'bg-blue-500/10',
-        borderClass: 'border-blue-500/25',
-      }
-    case 'PRODUCING':
-      return {
-        label: 'En production',
-        hint: 'Tournage en cours',
-        Icon: TreeIcon,
-        textColor: 'text-violet-600 dark:text-violet-400',
-        bgClass: 'bg-violet-500/10',
-        borderClass: 'border-violet-500/25',
       }
     case 'ARCHIVED':
       return {

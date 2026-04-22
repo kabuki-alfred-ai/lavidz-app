@@ -18,16 +18,13 @@ const STAGES: Stage[] = [
   { key: 'MATURE',    label: 'Arbre',        hint: 'Prêt à tourner',    Icon: TreeIcon },
 ]
 
-// Mappe les 6 CreativeState sur la position "timeline" (0/1/2). Les états
-// post-MATURE (SCHEDULED, PRODUCING) considèrent l'arbre comme atteint.
+// Mappe les 4 CreativeState sur la position "timeline" (0/1/2).
 // ARCHIVED désature la timeline entière.
 function getStageIndex(state: CreativeState): number {
   switch (state) {
     case 'SEED':      return 0
     case 'EXPLORING': return 1
-    case 'MATURE':
-    case 'SCHEDULED':
-    case 'PRODUCING': return 2
+    case 'MATURE':    return 2
     case 'ARCHIVED':  return -1
   }
 }
