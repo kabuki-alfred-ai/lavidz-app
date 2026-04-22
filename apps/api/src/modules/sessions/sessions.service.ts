@@ -39,9 +39,9 @@ export class SessionsService {
       include: {
         theme: { include: { questions: { where: { active: true }, orderBy: { order: 'asc' } } } },
         recordings: { orderBy: { createdAt: 'asc' } },
-        // recordingGuide du topic : affiché en sidebar pendant le tournage pour
-        // servir d'ancre mentale (draft ou variant reformatté selon le format).
-        topicEntity: { select: { recordingGuide: true } },
+        // Topic stratégique — narrativeAnchor (nouveau) + recordingGuide
+        // (legacy dual-write) pour la sidebar pendant le tournage.
+        topicEntity: { select: { recordingGuide: true, narrativeAnchor: true } },
       },
     })
     if (!session) throw new NotFoundException(`Session ${id} not found`)
@@ -336,12 +336,26 @@ export class SessionsService {
     return { url, key }
   }
 
-  async confirmRecording(sessionId: string, questionId: string, key: string, mimeType: string): Promise<Recording> {
+  async confirmRecording(sessionId: string, questionId: string, key: string, _mimeType: string): Promise<Recording> {
     await this.findOne(sessionId)
 
-    const recording = await prisma.recording.create({
-      data: { sessionId, questionId, rawVideoKey: key },
-    })
+    // F10 — supersededAt atomique : tout retake sur le même (sessionId, questionId)
+    // doit marquer l'ancien Recording canonique comme superseded avant de créer
+    // le nouveau. Transaction Prisma + index unique partiel DB en defense-in-depth.
+    // Bonus : touch `Session.lastActivityAt` pour le banner reprise Kabou.
+    const [, recording] = await prisma.$transaction([
+      prisma.recording.updateMany({
+        where: { sessionId, questionId, supersededAt: null },
+        data: { supersededAt: new Date() },
+      }),
+      prisma.recording.create({
+        data: { sessionId, questionId, rawVideoKey: key, supersededAt: null },
+      }),
+      prisma.session.update({
+        where: { id: sessionId },
+        data: { lastActivityAt: new Date() },
+      }),
+    ])
 
     this.transcriptionQueue.add('transcribe', {
       recordingId: recording.id,
@@ -349,6 +363,86 @@ export class SessionsService {
     }).catch((err) => this.logger.error('Failed to queue transcription job', err))
 
     return recording
+  }
+
+  /**
+   * Task 5.2 — "On reprend à zéro" : soft-discard de TOUS les recordings
+   * (supersededAt = now), status Session revient en PENDING. Le recordingScript
+   * est préservé, l'analyse déjà produite aussi. Idempotent : si la session
+   * est déjà en PENDING et que rien n'a changé, on noop.
+   */
+  async resetSession(sessionId: string): Promise<any> {
+    const session = await prisma.session.findUnique({
+      where: { id: sessionId },
+      select: { id: true, status: true },
+    })
+    if (!session) throw new NotFoundException(`Session ${sessionId} not found`)
+
+    const now = new Date()
+    await prisma.$transaction([
+      prisma.recording.updateMany({
+        where: { sessionId, supersededAt: null },
+        data: { supersededAt: now },
+      }),
+      prisma.session.update({
+        where: { id: sessionId },
+        data: { status: 'PENDING', lastActivityAt: now },
+      }),
+    ])
+    return this.findOne(sessionId)
+  }
+
+  /**
+   * Task 5.3 — "Tenter un autre angle" : marque la session courante REPLACED,
+   * crée une nouvelle session même (topicId, contentFormat) et clone le
+   * recordingScript avec un nouveau `anchorSyncedAt`. Renvoie la nouvelle
+   * sessionId pour redirection côté client.
+   */
+  async replaceSession(sessionId: string): Promise<{ newSessionId: string }> {
+    const source = await prisma.session.findUnique({
+      where: { id: sessionId },
+      select: {
+        id: true,
+        themeId: true,
+        topicId: true,
+        contentFormat: true,
+        targetPlatforms: true,
+        recordingScript: true,
+        recipientEmail: true,
+        recipientName: true,
+      },
+    })
+    if (!source) throw new NotFoundException(`Session ${sessionId} not found`)
+
+    // Clone `recordingScript` en rafraîchissant `anchorSyncedAt` (F14).
+    const clonedScript =
+      source.recordingScript && typeof source.recordingScript === 'object'
+        ? {
+            ...(source.recordingScript as Record<string, unknown>),
+            anchorSyncedAt: new Date().toISOString(),
+          }
+        : null
+
+    const [, newSession] = await prisma.$transaction([
+      prisma.session.update({
+        where: { id: sessionId },
+        data: { status: 'REPLACED' },
+      }),
+      prisma.session.create({
+        data: {
+          themeId: source.themeId,
+          topicId: source.topicId,
+          contentFormat: source.contentFormat,
+          targetPlatforms: source.targetPlatforms,
+          recipientEmail: source.recipientEmail,
+          recipientName: source.recipientName,
+          recordingScript: clonedScript ?? undefined,
+          status: 'PENDING',
+        },
+      }),
+    ])
+
+    return { newSessionId: newSession.id }
   }
 
   async updateRawKey(recordingId: string, rawVideoKey: string): Promise<any> {

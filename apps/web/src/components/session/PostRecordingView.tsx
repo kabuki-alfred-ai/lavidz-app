@@ -14,9 +14,38 @@ import {
   ArrowRight,
   AlertCircle,
   Mic,
+  Palette,
 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+  AlertDialogTrigger,
+} from '@/components/ui/alert-dialog'
 import { POST_RECORDING_COPY, KABOU_TOASTS } from '@/lib/kabou-voice'
+
+// Wordings Kabou validés party mode (F19 corrigé : pas de "je garde" qui
+// violerait la règle on/nous).
+const KABOU_RESET_COPY = {
+  title: 'On reprend à zéro ?',
+  body:
+    "On garde ton script et on recommence la prise. Tes anciennes prises restent consultables au montage.",
+  confirm: 'Oui, on recommence',
+  cancel: 'Annuler',
+}
+const KABOU_REPLACE_COPY = {
+  title: 'Tenter un autre angle ?',
+  body:
+    "Ta version précédente reste côté historique, et on repart avec un nouveau script pour ce format.",
+  confirm: 'Nouvelle variante',
+  cancel: 'Annuler',
+}
 
 type ImprovementPath = {
   path: string
@@ -222,6 +251,44 @@ export function PostRecordingView({
       return next
     })
   }, [])
+
+  // Task 5.2 + 5.5 — "On reprend à zéro" : soft-discard tous les recordings,
+  // session retourne en PENDING, redirige l'user sur /s/[id] pour retourner.
+  const handleResetSession = useCallback(async () => {
+    setActionPending('reset-session')
+    try {
+      const res = await fetch(`/api/sessions/${sessionId}/reset`, { method: 'POST' })
+      if (res.ok) {
+        // F20 — event tracking ultra-lite
+        console.info('[EVENT] type=session.reset_clicked sessionId=%s', sessionId)
+        router.push(`/s/${sessionId}`)
+      }
+    } finally {
+      setActionPending(null)
+    }
+  }, [sessionId, router])
+
+  // Task 5.3 + 5.5 — "Tenter un autre angle" : marque REPLACED + crée nouvelle
+  // session, redirige vers la nouvelle.
+  const handleReplaceSession = useCallback(async () => {
+    setActionPending('replace-session')
+    try {
+      const res = await fetch(`/api/sessions/${sessionId}/replace`, { method: 'POST' })
+      if (res.ok) {
+        const { newSessionId } = (await res.json()) as { newSessionId: string }
+        console.info('[EVENT] type=session.variant_created sessionId=%s newSessionId=%s', sessionId, newSessionId)
+        router.push(`/s/${newSessionId}`)
+      }
+    } finally {
+      setActionPending(null)
+    }
+  }, [sessionId, router])
+
+  // "Reprendre une question" — raccourci vers la première piste redo disponible.
+  const firstRedoPath = useMemo(
+    () => paths.find((p) => p.actionType === 'redo' && p.targetQuestionId),
+    [paths],
+  )
 
   const visiblePaths = paths
     .map((p, i) => ({ p, i }))
@@ -480,7 +547,8 @@ export function PostRecordingView({
         </section>
       )}
 
-      {/* Strate 5 — Next steps */}
+      {/* Strate 5 — Next steps (Task 5.1 : trio boutons reset/variante +
+         passer au montage comme CTA primaire, conservé). */}
       {(status === 'READY' || status === 'FAILED') && (
         <section className="mt-12 border-t border-border/40 pt-8">
           <h2 className="mb-4 text-xs font-semibold uppercase tracking-widest text-muted-foreground">
@@ -495,7 +563,76 @@ export function PostRecordingView({
                 </Link>
               </Button>
             )}
-            <Button asChild variant="outline" size="lg" className="w-full sm:w-auto">
+
+            {firstRedoPath && firstRedoPath.targetQuestionId && (
+              <Button
+                variant="outline"
+                size="lg"
+                onClick={() =>
+                  handleRedo(
+                    firstRedoPath.targetQuestionId!,
+                    paths.indexOf(firstRedoPath),
+                  )
+                }
+                disabled={actionPending?.startsWith('redo-')}
+                className="w-full sm:w-auto"
+              >
+                <Mic className="h-4 w-4" />
+                🎬 Reprendre une question
+              </Button>
+            )}
+
+            {/* Trio bouton 2 — On reprend à zéro */}
+            <AlertDialog>
+              <AlertDialogTrigger asChild>
+                <Button variant="outline" size="lg" className="w-full sm:w-auto">
+                  <RefreshCw className="h-4 w-4" />
+                  🔄 On reprend à zéro
+                </Button>
+              </AlertDialogTrigger>
+              <AlertDialogContent>
+                <AlertDialogHeader>
+                  <AlertDialogTitle>{KABOU_RESET_COPY.title}</AlertDialogTitle>
+                  <AlertDialogDescription>{KABOU_RESET_COPY.body}</AlertDialogDescription>
+                </AlertDialogHeader>
+                <AlertDialogFooter>
+                  <AlertDialogCancel>{KABOU_RESET_COPY.cancel}</AlertDialogCancel>
+                  <AlertDialogAction onClick={handleResetSession} disabled={actionPending === 'reset-session'}>
+                    {actionPending === 'reset-session' ? (
+                      <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                    ) : null}
+                    {KABOU_RESET_COPY.confirm}
+                  </AlertDialogAction>
+                </AlertDialogFooter>
+              </AlertDialogContent>
+            </AlertDialog>
+
+            {/* Trio bouton 3 — Tenter un autre angle */}
+            <AlertDialog>
+              <AlertDialogTrigger asChild>
+                <Button variant="ghost" size="lg" className="w-full sm:w-auto">
+                  <Palette className="h-4 w-4" />
+                  🎨 Tenter un autre angle
+                </Button>
+              </AlertDialogTrigger>
+              <AlertDialogContent>
+                <AlertDialogHeader>
+                  <AlertDialogTitle>{KABOU_REPLACE_COPY.title}</AlertDialogTitle>
+                  <AlertDialogDescription>{KABOU_REPLACE_COPY.body}</AlertDialogDescription>
+                </AlertDialogHeader>
+                <AlertDialogFooter>
+                  <AlertDialogCancel>{KABOU_REPLACE_COPY.cancel}</AlertDialogCancel>
+                  <AlertDialogAction onClick={handleReplaceSession} disabled={actionPending === 'replace-session'}>
+                    {actionPending === 'replace-session' ? (
+                      <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                    ) : null}
+                    {KABOU_REPLACE_COPY.confirm}
+                  </AlertDialogAction>
+                </AlertDialogFooter>
+              </AlertDialogContent>
+            </AlertDialog>
+
+            <Button asChild variant="ghost" size="lg" className="w-full sm:w-auto">
               <Link href={`/chat?sessionContext=${sessionId}`}>
                 <MessageCircle className="h-4 w-4" />
                 {POST_RECORDING_COPY.nextSteps.discuss}

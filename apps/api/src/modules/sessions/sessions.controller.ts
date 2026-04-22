@@ -31,6 +31,18 @@ export class SessionsController {
     return this.sessionsService.submit(id)
   }
 
+  // Task 5.2 — soft-discard tous les recordings + PENDING (idempotent)
+  @Post(':id/reset')
+  reset(@Param('id') id: string): Promise<any> {
+    return this.sessionsService.resetSession(id)
+  }
+
+  // Task 5.3 — marquer REPLACED + créer une nouvelle session (variante)
+  @Post(':id/replace')
+  replace(@Param('id') id: string): Promise<{ newSessionId: string }> {
+    return this.sessionsService.replaceSession(id)
+  }
+
   @Put(':id/final-video-key')
   @UseGuards(AdminGuard)
   saveFinalVideoKey(@Param('id') id: string, @Body() body: { key: string }): Promise<any> {
