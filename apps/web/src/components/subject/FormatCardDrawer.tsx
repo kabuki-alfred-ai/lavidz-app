@@ -3,13 +3,41 @@
 import { useEffect, useState } from 'react'
 import Link from 'next/link'
 import { Drawer } from 'vaul'
-import { ArrowRight, Circle, Loader2, Play, RefreshCw, Sparkles, Video, X } from 'lucide-react'
+import {
+  ArrowRight,
+  CalendarDays,
+  Circle,
+  Loader2,
+  Play,
+  RefreshCw,
+  Sparkles,
+  Video,
+  X,
+} from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { SubjectRecordingGuide } from '@/components/subject/SubjectRecordingGuide'
 import { SubjectNarrativeAnchor } from '@/components/subject/SubjectNarrativeAnchor'
 import { StaleAnchorBadge } from '@/components/subject/StaleAnchorBadge'
+import { SchedulePublishModal } from '@/components/subject/SchedulePublishModal'
 import type { RecordingGuide } from '@/lib/recording-guide'
 import type { NarrativeAnchor } from '@/lib/narrative-anchor'
+
+type ScheduleableFormat =
+  | 'QUESTION_BOX'
+  | 'TELEPROMPTER'
+  | 'HOT_TAKE'
+  | 'STORYTELLING'
+  | 'DAILY_TIP'
+  | 'MYTH_VS_REALITY'
+
+const SCHEDULEABLE_FORMATS = new Set<ScheduleableFormat>([
+  'QUESTION_BOX',
+  'TELEPROMPTER',
+  'HOT_TAKE',
+  'STORYTELLING',
+  'DAILY_TIP',
+  'MYTH_VS_REALITY',
+])
 
 interface SessionLite {
   id: string
@@ -67,6 +95,7 @@ export function FormatCardDrawer({
   resyncing = false,
 }: FormatCardDrawerProps) {
   const [isDesktop, setIsDesktop] = useState(true)
+  const [scheduleOpen, setScheduleOpen] = useState(false)
   useEffect(() => {
     const mq = window.matchMedia('(min-width: 1024px)')
     setIsDesktop(mq.matches)
@@ -74,6 +103,8 @@ export function FormatCardDrawer({
     mq.addEventListener('change', handler)
     return () => mq.removeEventListener('change', handler)
   }, [])
+
+  const canSchedule = SCHEDULEABLE_FORMATS.has(format as ScheduleableFormat)
 
   const script = canonical?.recordingScript ?? null
   const statusMeta = canonical
@@ -202,7 +233,32 @@ export function FormatCardDrawer({
             Re-synchroniser
           </Button>
         )}
+
+        {/* Planifier — contextualisé au format de la carte. Remplace l'ancien
+           ReadyActions global. Dispo dès qu'une action de publication future
+           a du sens (format autre que OTHER). */}
+        {canSchedule && (
+          <Button
+            size="lg"
+            variant="ghost"
+            onClick={() => setScheduleOpen(true)}
+            className="w-full sm:w-auto"
+          >
+            <CalendarDays className="h-4 w-4" />
+            Planifier la publication
+          </Button>
+        )}
       </footer>
+
+      {canSchedule && (
+        <SchedulePublishModal
+          open={scheduleOpen}
+          onClose={() => setScheduleOpen(false)}
+          topicId={topicId}
+          defaultFormat={format as ScheduleableFormat}
+          onScheduled={() => setScheduleOpen(false)}
+        />
+      )}
     </>
   )
 

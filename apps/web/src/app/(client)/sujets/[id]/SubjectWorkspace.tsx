@@ -39,7 +39,6 @@ import { isRecordingGuide, type RecordingGuide } from '@/lib/recording-guide'
 import type { NarrativeAnchor } from '@/lib/narrative-anchor'
 import type { RecordingScript } from '@/lib/recording-script'
 import { Eye } from 'lucide-react'
-import { ReadyActions } from '@/components/subject/ReadyActions'
 import { ReadinessHint } from '@/components/subject/ReadinessHint'
 
 type Topic = {
@@ -549,15 +548,6 @@ export function SubjectWorkspace({
         <div className="mb-5 rounded-2xl border border-border/40 bg-surface-raised/20 px-4 py-4">
           <CreativeStateTimeline state={creativeState} />
         </div>
-        {topic.status === 'READY' && (
-          <div className="mb-5">
-            <ReadyActions
-              topicId={topic.id}
-              defaultFormat={(topic.recordingGuide as { format?: 'QUESTION_BOX' | 'TELEPROMPTER' | 'HOT_TAKE' | 'STORYTELLING' | 'DAILY_TIP' | 'MYTH_VS_REALITY' } | null | undefined)?.format}
-              onChanged={() => router.refresh()}
-            />
-          </div>
-        )}
         {topic.status === 'DRAFT' && (
           <div className="mb-5">
             <ReadinessHint topicId={topic.id} />
