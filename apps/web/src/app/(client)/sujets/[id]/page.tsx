@@ -66,6 +66,29 @@ export default async function SubjectPage({ params }: PageProps) {
 
   const nextScheduled = topic.calendarEntries[0] ?? null
 
+  // Counts pour MatureMatterSummary — calculés côté server pour que le
+  // bandeau dise la vérité sur la densité éditoriale du sujet.
+  // - hooks : Topic.hooks legacy = { native, marketing, chosen? } ; on compte
+  //   les phrases non-vides (max 2).
+  // - sources : Topic.sources = { sources: [...] } ; array length.
+  // - hookDraft : present dès que Topic.hookDraft existe et non-vide.
+  const hooksRaw = topic.hooks as
+    | {
+        native?: { phrase?: string }
+        marketing?: { phrase?: string }
+      }
+    | null
+  const hookCount =
+    (typeof hooksRaw?.native?.phrase === 'string' && hooksRaw.native.phrase.trim() ? 1 : 0) +
+    (typeof hooksRaw?.marketing?.phrase === 'string' && hooksRaw.marketing.phrase.trim() ? 1 : 0)
+  const sourcesRaw = topic.sources as { sources?: unknown[] } | null
+  const sourcesCount = Array.isArray(sourcesRaw?.sources) ? sourcesRaw!.sources!.length : 0
+  const hookDraftHasContent = (() => {
+    if (!topic.hookDraft || typeof topic.hookDraft !== 'object') return false
+    const notes = (topic.hookDraft as { notes?: string }).notes
+    return typeof notes === 'string' && notes.trim().length > 0
+  })()
+
   // Task 11.5 — on résout côté server le Project auto-créé par session pour
   // que SessionRow linke directement vers `/projects/[projectId]/publier`
   // sans passer par le legacy redirect. Project.sessionId étant @unique (F5),
@@ -108,6 +131,7 @@ export default async function SubjectPage({ params }: PageProps) {
           : null
       }
       calendarCount={topic.calendarEntries.length}
+      matterCounts={{ hookCount, sourcesCount, hookDraftHasContent }}
       sessions={topic.sessions.map((s) => ({
         id: s.id,
         status: s.status,

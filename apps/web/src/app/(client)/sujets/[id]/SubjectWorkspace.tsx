@@ -88,6 +88,11 @@ interface SubjectWorkspaceProps {
   availablePillars: string[]
   nextScheduled: ScheduledRef | null
   calendarCount: number
+  matterCounts: {
+    hookCount: number
+    sourcesCount: number
+    hookDraftHasContent: boolean
+  }
   sessions: SubjectSessionRef[]
 }
 
@@ -224,6 +229,7 @@ export function SubjectWorkspace({
   availablePillars,
   nextScheduled,
   calendarCount,
+  matterCounts,
   sessions,
 }: SubjectWorkspaceProps) {
   const router = useRouter()
@@ -535,6 +541,11 @@ export function SubjectWorkspace({
     if (isArchived) return null
     // Sur un SEED vide on préfère la hero card dédiée, pas un simple bouton.
     if (isEmptySeed) return null
+    // Sur un MATURE sans session, le hero "Choisis ton premier format" est
+    // déjà un format picker complet — un CTA supplémentaire dédouble le
+    // choix et pousse l'user vers le chat alors qu'il vient précisément
+    // d'avoir 6 cartes cliquables.
+    if (isFreshMature) return null
 
     if (doneSession) {
       // Task 11.5 — publication vit désormais sur Project. Fallback legacy
@@ -606,7 +617,7 @@ export function SubjectWorkspace({
         Explorer avec Kabou
       </Button>
     )
-  }, [creativeState, doneSession, handleMarkReady, isArchived, isDesktop, isEmptySeed, isPending, pendingSession, topic.brief, topic.id])
+  }, [creativeState, doneSession, focusKabouInput, handleMarkReady, isArchived, isDesktop, isEmptySeed, isFreshMature, isPending, pendingSession, topic.brief, topic.id])
 
   return (
     <>
@@ -817,9 +828,9 @@ export function SubjectWorkspace({
               anchorBulletCount={
                 topic.narrativeAnchor?.bullets.filter((b) => b.trim().length > 0).length ?? 0
               }
-              hookCount={0}
-              sourcesCount={0}
-              hookDraftHasContent={false}
+              hookCount={matterCounts.hookCount}
+              sourcesCount={matterCounts.sourcesCount}
+              hookDraftHasContent={matterCounts.hookDraftHasContent}
               expanded={false}
               onToggle={() => setMatterExpanded(true)}
             >

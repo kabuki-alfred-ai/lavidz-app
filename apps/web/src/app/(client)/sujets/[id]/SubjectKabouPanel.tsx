@@ -38,6 +38,10 @@ const MUTATING_TOOLS = new Set([
   'reshape_to_recording_script',
   'update_recording_guide_draft',
   'reshape_recording_guide_to_format',
+  // Quand Kabou crée une session depuis le chat, la page Sujet doit re-fetcher
+  // pour afficher la carte format correspondante + halo sur la session
+  // fraîchement PENDING. Sans ça, la workspace reste aveugle au travail de Kabou.
+  'create_recording_session',
 ])
 
 /**
