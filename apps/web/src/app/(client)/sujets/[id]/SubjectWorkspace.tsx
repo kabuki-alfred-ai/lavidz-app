@@ -30,7 +30,6 @@ import type { CreativeState } from '@/lib/creative-state'
 import { KABOU_TOASTS } from '@/lib/kabou-voice'
 import { SubjectHookSection } from '@/components/subject/SubjectHookSection'
 import { SubjectSourcesSection } from '@/components/subject/SubjectSourcesSection'
-import { SubjectPreflight } from '@/components/subject/SubjectPreflight'
 import { SubjectRecordingGuide } from '@/components/subject/SubjectRecordingGuide'
 import { ThesisBanner } from '@/components/subject/ThesisBanner'
 import { CreativeStateTimeline } from '@/components/subject/CreativeStateTimeline'
@@ -749,11 +748,6 @@ export function SubjectWorkspace({
             <div className="mb-6">
               <SubjectRecordingGuide guide={topic.recordingGuide} />
             </div>
-          )}
-
-          {/* Pre-flight review — only right before tournage */}
-          {!isArchived && creativeState === 'MATURE' && (
-            <SubjectPreflight topicId={topic.id} />
           )}
 
           {/* Next scheduled */}
