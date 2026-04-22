@@ -168,6 +168,14 @@ export class SessionsController {
     return this.sessionsService.regenerateAnalysis(id)
   }
 
+  // Task 10.3 — trigger manuel du take-analysis (compare les prises d'une
+  // même question et stocke la kabouRecommendation sur le canonical).
+  @Post(':id/analyze-takes')
+  @HttpCode(202)
+  analyzeTakes(@Param('id') id: string): Promise<void> {
+    return this.sessionsService.analyzeTakes(id)
+  }
+
   @Post(':id/recordings/:questionId/redo')
   @HttpCode(204)
   redoRecording(

@@ -4,6 +4,7 @@ import { Queue } from 'bullmq'
 import { prisma, type Recording } from '@lavidz/database'
 import { StorageService } from '../storage/storage.service'
 import { RecordingAnalysisService } from '../ai/services/recording-analysis.service'
+import { TakeAnalysisService } from '../ai/services/take-analysis.service'
 import { Resend } from 'resend'
 
 @Injectable()
@@ -14,6 +15,7 @@ export class SessionsService {
   constructor(
     private readonly storageService: StorageService,
     private readonly recordingAnalysisService: RecordingAnalysisService,
+    private readonly takeAnalysisService: TakeAnalysisService,
     @InjectQueue('transcription') private readonly transcriptionQueue: Queue,
     @InjectQueue('enrichment') private readonly enrichmentQueue: Queue,
     @InjectQueue('recording-analysis') private readonly recordingAnalysisQueue: Queue,
@@ -105,7 +107,21 @@ export class SessionsService {
       .add('analyze', { sessionId, reason: 'post_submit' as const }, { delay: 500 })
       .catch((err) => this.logger.error('Failed to queue recording analysis', err))
 
+    // Task 10.2 — take-analysis automatique post-submit. Non-bloquant,
+    // fire-and-forget. Ne tourne utilement que sur les groupes avec 2+
+    // recordings par question (retakes). Sinon, le service noop.
+    this.takeAnalysisService
+      .analyzeSessionTakes(sessionId)
+      .catch((err) => this.logger.warn(`take-analysis post-submit failed: ${String(err)}`))
+
     return updated
+  }
+
+  // Task 10.3 — trigger manuel (au cas où l'auto-trigger a raté). Idempotent,
+  // simplement relance la comparaison sur les groupes avec 2+ recordings.
+  async analyzeTakes(sessionId: string): Promise<void> {
+    await this.findOne(sessionId)
+    await this.takeAnalysisService.analyzeSessionTakes(sessionId)
   }
 
   async getAnalysis(sessionId: string): Promise<any> {

@@ -19,6 +19,7 @@ import { NarrativeArcService } from './services/narrative-arc.service'
 import { ThesisService } from './services/thesis.service'
 import { RecordingGuideService } from './services/recording-guide.service'
 import { TopicReadinessService } from './services/topic-readiness.service'
+import { TakeAnalysisService } from './services/take-analysis.service'
 
 @Module({
   controllers: [AiController],
@@ -42,6 +43,7 @@ import { TopicReadinessService } from './services/topic-readiness.service'
     ThesisService,
     RecordingGuideService,
     TopicReadinessService,
+    TakeAnalysisService,
   ],
   exports: [
     ProfileService,
@@ -63,6 +65,7 @@ import { TopicReadinessService } from './services/topic-readiness.service'
     ThesisService,
     RecordingGuideService,
     TopicReadinessService,
+    TakeAnalysisService,
   ],
 })
 export class AiModule {}

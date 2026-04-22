@@ -168,6 +168,9 @@ export class ProjectsService {
           },
         },
       },
+      // Les rushes superseded suivent la canonique dans le même groupe. Ordre
+      // createdAt DESC pour que la plus récente (= canonique par construction
+      // du retake atomique F10) apparaisse en tête du groupe côté client.
       orderBy: { createdAt: 'desc' },
     })
   }

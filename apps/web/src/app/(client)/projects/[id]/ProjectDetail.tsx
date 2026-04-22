@@ -4,7 +4,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import {
   ArrowLeft, Plus, X, GripVertical, Search, Film,
-  Check, ChevronDown, ChevronRight, Play, Pause, Clapperboard,
+  Check, ChevronDown, ChevronRight, Play, Pause, Clapperboard, Star,
 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { FORMAT_CONFIGS, type ContentFormat } from '@lavidz/types'
@@ -19,6 +19,14 @@ interface Rush {
   transcript: string | null
   status: string
   createdAt: string
+  /** F10 — posé quand un retake canonique sur la même (sessionId, questionId) arrive. */
+  supersededAt?: string | null
+  /** Story 10 — recommandation Kabou posée par `take-analysis.service`. */
+  kabouRecommendation?: {
+    score: number
+    reason: string
+    criteria?: { tempo: number; clarity: number; energy: number; tone: number }
+  } | null
   question: { id: string; text: string } | null
   session: {
     id: string
@@ -93,19 +101,28 @@ function RushCard({
   rush,
   isAdded,
   onAdd,
+  variant = 'canonical',
 }: {
   rush: Rush
   isAdded: boolean
   onAdd: () => void
+  /** canonical = carte principale (candidat par défaut au montage). superseded = accordion variantes. */
+  variant?: 'canonical' | 'superseded'
 }) {
   const [showPreview, setShowPreview] = useState(false)
   const fmt = rush.session.contentFormat ? FORMAT_CONFIGS[rush.session.contentFormat] : null
   const preview = rush.transcript?.slice(0, 120) ?? rush.question?.text ?? 'Pas de transcription'
   const hasVideo = !!rush.rawVideoKey
+  const isSuperseded = variant === 'superseded'
+  const hasRecommendation = !!rush.kabouRecommendation
 
   return (
     <div className={`rounded-xl border-2 p-3 transition-all ${
-      isAdded ? 'border-primary/30 bg-primary/5' : 'border-border/50 bg-card hover:border-primary/20'
+      isAdded
+        ? 'border-primary/30 bg-primary/5'
+        : isSuperseded
+          ? 'border-border/30 bg-muted/5 opacity-80'
+          : 'border-border/50 bg-card hover:border-primary/20'
     }`}>
       <div className="flex items-start gap-3">
         {/* Play thumbnail button */}
@@ -122,7 +139,7 @@ function RushCard({
         )}
 
         <div className="flex-1 min-w-0">
-          {/* Format badge + theme */}
+          {/* Format badge + theme + ⭐ (Story 10) */}
           <div className="flex items-center gap-1.5 mb-1.5 flex-wrap">
             {fmt && (
               <span className="inline-flex items-center gap-1 text-[10px] font-semibold text-muted-foreground uppercase tracking-wide">
@@ -135,12 +152,30 @@ function RushCard({
                 {rush.session.theme.name}
               </span>
             )}
+            {hasRecommendation && !isSuperseded && (
+              <span
+                className="inline-flex items-center gap-0.5 rounded-full bg-amber-500/15 px-1.5 py-0.5 text-[10px] font-semibold text-amber-700 dark:text-amber-300"
+                title={rush.kabouRecommendation?.reason ?? 'Prise recommandée par Kabou'}
+              >
+                <Star size={9} className="fill-current" />
+                Kabou
+              </span>
+            )}
+            {isSuperseded && (
+              <span className="text-[10px] italic text-muted-foreground/60">Variante</span>
+            )}
           </div>
 
           {/* Question */}
           {rush.question && (
             <p className="text-xs font-semibold text-foreground mb-1 leading-relaxed line-clamp-1">
               {rush.question.text}
+            </p>
+          )}
+          {/* Reason de la reco Kabou — seulement sur canonical pour éviter bruit */}
+          {hasRecommendation && !isSuperseded && rush.kabouRecommendation?.reason && (
+            <p className="mb-1 text-[11px] italic text-amber-700/80 dark:text-amber-300/80 line-clamp-2">
+              {rush.kabouRecommendation.reason}
             </p>
           )}
 
@@ -412,6 +447,17 @@ export function ProjectDetail({ projectId }: { projectId: string }) {
     })
   }
 
+  // Story 9 — variants accordion par questionId (superseded collapsed).
+  const [expandedQuestionVariants, setExpandedQuestionVariants] = useState<Set<string>>(new Set())
+  const toggleQuestionVariants = (qKey: string) => {
+    setExpandedQuestionVariants(prev => {
+      const next = new Set(prev)
+      if (next.has(qKey)) next.delete(qKey)
+      else next.add(qKey)
+      return next
+    })
+  }
+
   if (loading) {
     return (
       <div className="max-w-7xl mx-auto px-4 py-6 md:py-8 space-y-6">
@@ -642,14 +688,59 @@ export function ProjectDetail({ projectId }: { projectId: string }) {
                     </div>
                     {!collapsed && (
                       <div className="p-2 space-y-2">
-                        {sessionRushes.map((rush) => (
-                          <RushCard
-                            key={rush.id}
-                            rush={rush}
-                            isAdded={addedIds.has(rush.id)}
-                            onAdd={() => handleAddRush(rush.id)}
-                          />
-                        ))}
+                        {/* Story 9 — sub-grouping par questionId avec canonical
+                           en haut + accordion "Prises précédentes" (superseded). */}
+                        {(() => {
+                          const byQuestion = new Map<string, Rush[]>()
+                          // rushes triés createdAt DESC par le backend → first = canonical naturelle
+                          for (const r of sessionRushes) {
+                            const qid = r.question?.id ?? '__no_question__'
+                            const list = byQuestion.get(qid) ?? []
+                            list.push(r)
+                            byQuestion.set(qid, list)
+                          }
+                          return Array.from(byQuestion.entries()).map(([qid, rushesForQ]) => {
+                            const canonical = rushesForQ.find((r) => !r.supersededAt) ?? rushesForQ[0]
+                            const variants = rushesForQ.filter((r) => r.id !== canonical.id)
+                            const qKey = `${session.id}::${qid}`
+                            const expanded = expandedQuestionVariants.has(qKey)
+                            return (
+                              <div key={qKey} className="space-y-1.5">
+                                <RushCard
+                                  rush={canonical}
+                                  isAdded={addedIds.has(canonical.id)}
+                                  onAdd={() => handleAddRush(canonical.id)}
+                                  variant="canonical"
+                                />
+                                {variants.length > 0 && (
+                                  <div className="pl-3">
+                                    <button
+                                      type="button"
+                                      onClick={() => toggleQuestionVariants(qKey)}
+                                      className="flex items-center gap-1 text-[10px] text-muted-foreground hover:text-foreground transition-colors"
+                                    >
+                                      {expanded ? <ChevronDown size={10} /> : <ChevronRight size={10} />}
+                                      Prises précédentes ({variants.length})
+                                    </button>
+                                    {expanded && (
+                                      <div className="mt-1.5 space-y-1.5">
+                                        {variants.map((r) => (
+                                          <RushCard
+                                            key={r.id}
+                                            rush={r}
+                                            isAdded={addedIds.has(r.id)}
+                                            onAdd={() => handleAddRush(r.id)}
+                                            variant="superseded"
+                                          />
+                                        ))}
+                                      </div>
+                                    )}
+                                  </div>
+                                )}
+                              </div>
+                            )
+                          })
+                        })()}
                       </div>
                     )}
                   </div>
