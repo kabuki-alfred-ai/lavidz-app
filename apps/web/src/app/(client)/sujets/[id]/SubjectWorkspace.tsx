@@ -683,10 +683,19 @@ export function SubjectWorkspace({
             </span>
           )}
           {sessions.length > 0 && (
-            <span className="inline-flex items-center gap-1.5 text-xs">
+            <a
+              href="#tournages-par-format"
+              onClick={(e) => {
+                e.preventDefault()
+                const target = document.getElementById('tournages-par-format')
+                target?.scrollIntoView({ behavior: 'smooth', block: 'start' })
+              }}
+              className="inline-flex items-center gap-1.5 text-xs text-muted-foreground transition hover:text-foreground hover:underline underline-offset-2"
+              title="Voir les tournages par format"
+            >
               <Film className="h-3 w-3" />
               {sessions.length} tournage{sessions.length > 1 ? 's' : ''}
-            </span>
+            </a>
           )}
         </div>
       </header>
@@ -966,7 +975,7 @@ export function SubjectWorkspace({
              affiche la session canonique (la plus récente non-REPLACED) plus
              un accordion des variantes précédentes. */}
           {formatGroups.length > 0 && !isArchived && (
-            <section className="mb-6 space-y-3">
+            <section id="tournages-par-format" className="mb-6 space-y-3 scroll-mt-6">
               <h2 className="inline-flex items-center gap-2 text-xs font-semibold uppercase tracking-widest text-muted-foreground">
                 <Film className="h-3.5 w-3.5" />
                 Tournages par format

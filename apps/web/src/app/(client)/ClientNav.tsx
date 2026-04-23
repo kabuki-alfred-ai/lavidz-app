@@ -3,6 +3,7 @@
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
 import { Home, MessageSquare, CalendarDays, Film, User, Clapperboard, Music, Mic, Palette, BarChart3, LifeBuoy, FileText, FolderOpen, Brain, LucideIcon } from 'lucide-react'
+import { ThesisIndicatorDot } from '@/components/nav/ThesisIndicatorDot'
 
 const BASE_ITEMS = [
   { href: '/home', label: 'Accueil', icon: Home },
@@ -44,6 +45,8 @@ interface ClientNavProps {
 function NavLink({ href, label, icon: Icon, iconSize }: { href: string; label: string; icon: LucideIcon; iconSize: number }) {
   const pathname = usePathname()
   const isActive = pathname === href || pathname.startsWith(href + '/')
+  // Indicateur dot uniquement sur "Mon univers" quand la thèse est absente.
+  const showThesisDot = href === '/mon-univers'
 
   return (
     <Link
@@ -56,6 +59,7 @@ function NavLink({ href, label, icon: Icon, iconSize }: { href: string; label: s
     >
       <Icon size={iconSize} className={isActive ? 'text-primary' : ''} />
       <span>{label}</span>
+      {showThesisDot && <ThesisIndicatorDot />}
     </Link>
   )
 }

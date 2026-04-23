@@ -38,17 +38,11 @@ export function ThesisBanner() {
   }, [])
 
   if (!ready) return null
-  if (!thesis) {
-    return (
-      <Link
-        href="/mon-univers/these"
-        className="mb-4 inline-flex items-center gap-1.5 text-xs text-muted-foreground transition hover:text-foreground"
-      >
-        <Waypoints className="h-3 w-3" />
-        Tu n'as pas encore de thèse — elle aidera Kabou à rester cohérent.
-      </Link>
-    )
-  }
+  // Pas de thèse → on ne nag PLUS sur chaque page Topic. Un indicateur discret
+  // (dot sur "Mon univers" dans la nav) s'en charge via ThesisIndicatorDot —
+  // visible depuis n'importe quelle page, non-bloquant, jamais intrusif sur
+  // le focus du sujet courant.
+  if (!thesis) return null
 
   return (
     <Link
