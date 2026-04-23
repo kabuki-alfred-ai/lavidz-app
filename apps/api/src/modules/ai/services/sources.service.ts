@@ -140,6 +140,164 @@ ${rawResults.slice(0, 8).map((r, i) => `${i + 1}. ${r.title}\n   ${r.url}\n   ${
     return topic.sources as unknown as StoredSources
   }
 
+  /**
+   * Ajoute manuellement une source fournie par l'user (title/url obligatoires,
+   * summary/keyTakeaway/relevance optionnels avec fallbacks doux). Append à la
+   * liste existante — déduplique par URL si déjà présente.
+   */
+  async addManualSource(
+    organizationId: string,
+    topicId: string,
+    input: {
+      title: string
+      url: string
+      summary?: string
+      keyTakeaway?: string
+      relevance?: CuratedSource['relevance']
+    },
+  ): Promise<StoredSources> {
+    const topic = await prisma.topic.findFirst({
+      where: { id: topicId, organizationId },
+      select: { id: true, sources: true },
+    })
+    if (!topic) throw new NotFoundException('Sujet introuvable')
+    const title = input.title?.trim()
+    const url = input.url?.trim()
+    if (!title || !url) {
+      throw new Error('title et url requis')
+    }
+    const existing = this.readSources(topic.sources)
+    // Dédup par URL (insensible à la casse du host)
+    const filtered = existing.sources.filter((s) => s.url.trim() !== url)
+    const newSource: CuratedSource = {
+      title,
+      url,
+      summary: input.summary?.trim() || 'Source ajoutée manuellement.',
+      keyTakeaway: input.keyTakeaway?.trim() || title,
+      relevance: input.relevance ?? 'CONTEXT',
+    }
+    const next: StoredSources = {
+      sources: [...filtered, newSource],
+      query: existing.query || 'manual',
+      fetchedAt: new Date().toISOString(),
+    }
+    await this.persist(topic.id, next)
+    return next
+  }
+
+  /**
+   * Relance une recherche Tavily avec une query custom fournie par l'user
+   * (ex: "chiffres échec projets IA PME 2026"). Les sources trouvées sont
+   * curatées par LLM et APPEND à l'existant — déduplique par URL.
+   * Fallback silencieux si Tavily absent ou aucun résultat.
+   */
+  async searchWithQuery(
+    organizationId: string,
+    topicId: string,
+    customQuery: string,
+  ): Promise<StoredSources> {
+    const q = customQuery?.trim()
+    if (!q) throw new Error('query requise')
+
+    const topic = await prisma.topic.findFirst({
+      where: { id: topicId, organizationId },
+      select: { id: true, name: true, brief: true, pillar: true, sources: true },
+    })
+    if (!topic) throw new NotFoundException('Sujet introuvable')
+
+    const existing = this.readSources(topic.sources)
+    const tavilyKey = process.env.TAVILY_API_KEY ?? ''
+    if (!tavilyKey) return existing
+
+    let rawResults: Array<{ title: string; url: string; content: string }> = []
+    try {
+      const res = await fetch('https://api.tavily.com/search', {
+        method: 'POST',
+        headers: { 'content-type': 'application/json', Authorization: `Bearer ${tavilyKey}` },
+        body: JSON.stringify({ query: q, search_depth: 'advanced', max_results: 8 }),
+      })
+      if (res.ok) {
+        const data = (await res.json()) as {
+          results?: Array<{ title: string; url: string; content: string }>
+        }
+        rawResults = (data.results ?? []).map((r) => ({
+          title: r.title,
+          url: r.url,
+          content: r.content,
+        }))
+      }
+    } catch (err) {
+      this.logger.warn(`Tavily error (custom query) topic ${topic.id}: ${String(err)}`)
+    }
+
+    if (rawResults.length === 0) return existing
+
+    const prompt = `Tu es Kabou. L'entrepreneur cherche des sources sur une sous-question précise de son sujet. Le sujet :
+
+Nom : ${topic.name}
+${topic.pillar ? `Domaine : ${topic.pillar}` : ''}
+${topic.brief ? `Angle :\n${topic.brief}` : ''}
+
+### Requête spécifique de l'entrepreneur
+${q}
+
+Voici les résultats bruts — garde 2 à 5 sources MAXIMUM qui répondent précisément à cette requête. Ignore le promotionnel. Pour chaque :
+- "relevance" : FACT / DATA / COUNTERPOINT / CONTEXT (cf. rôle habituel)
+- "keyTakeaway" : 1 phrase citable à l'oral en français naturel
+- "summary" : 2-3 phrases factuelles
+
+Résultats bruts :
+${rawResults.slice(0, 8).map((r, i) => `${i + 1}. ${r.title}\n   ${r.url}\n   ${r.content.slice(0, 500)}`).join('\n\n')}`
+
+    const { object } = await generateObject({
+      model: getDefaultModel(),
+      schema: CuratedSourcesSchema,
+      prompt,
+    })
+
+    // Append en dédupliquant par URL
+    const existingUrls = new Set(existing.sources.map((s) => s.url.trim()))
+    const additions = object.sources.filter((s) => !existingUrls.has(s.url.trim()))
+    const next: StoredSources = {
+      sources: [...existing.sources, ...additions],
+      query: q,
+      fetchedAt: new Date().toISOString(),
+    }
+    await this.persist(topic.id, next)
+    return next
+  }
+
+  async removeSource(
+    organizationId: string,
+    topicId: string,
+    url: string,
+  ): Promise<StoredSources> {
+    const topic = await prisma.topic.findFirst({
+      where: { id: topicId, organizationId },
+      select: { id: true, sources: true },
+    })
+    if (!topic) throw new NotFoundException('Sujet introuvable')
+    const existing = this.readSources(topic.sources)
+    const next: StoredSources = {
+      ...existing,
+      sources: existing.sources.filter((s) => s.url.trim() !== url.trim()),
+    }
+    await this.persist(topic.id, next)
+    return next
+  }
+
+  private readSources(raw: Prisma.JsonValue): StoredSources {
+    if (!raw || typeof raw !== 'object' || Array.isArray(raw)) {
+      return { sources: [], query: '', fetchedAt: new Date().toISOString() }
+    }
+    const v = raw as unknown as Partial<StoredSources>
+    return {
+      sources: Array.isArray(v.sources) ? v.sources : [],
+      query: typeof v.query === 'string' ? v.query : '',
+      fetchedAt: typeof v.fetchedAt === 'string' ? v.fetchedAt : new Date().toISOString(),
+    }
+  }
+
   private async persist(topicId: string, value: StoredSources): Promise<void> {
     await prisma.topic.update({
       where: { id: topicId },

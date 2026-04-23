@@ -541,6 +541,48 @@ export class AiController {
     return this.sourcesService.fetchForTopic(organizationId, topicId)
   }
 
+  @Post('sources/:topicId/add')
+  addManualSource(
+    @Headers('x-organization-id') organizationId: string,
+    @Param('topicId') topicId: string,
+    @Body()
+    body: {
+      title: string
+      url: string
+      summary?: string
+      keyTakeaway?: string
+      relevance?: 'FACT' | 'DATA' | 'COUNTERPOINT' | 'CONTEXT'
+    },
+  ) {
+    if (!organizationId) throw new BadRequestException('Header x-organization-id requis')
+    if (!body?.title?.trim() || !body?.url?.trim()) {
+      throw new BadRequestException('title et url requis')
+    }
+    return this.sourcesService.addManualSource(organizationId, topicId, body)
+  }
+
+  @Post('sources/:topicId/search')
+  searchMoreSources(
+    @Headers('x-organization-id') organizationId: string,
+    @Param('topicId') topicId: string,
+    @Body() body: { query: string },
+  ) {
+    if (!organizationId) throw new BadRequestException('Header x-organization-id requis')
+    if (!body?.query?.trim()) throw new BadRequestException('query requise')
+    return this.sourcesService.searchWithQuery(organizationId, topicId, body.query)
+  }
+
+  @Post('sources/:topicId/remove')
+  removeSource(
+    @Headers('x-organization-id') organizationId: string,
+    @Param('topicId') topicId: string,
+    @Body() body: { url: string },
+  ) {
+    if (!organizationId) throw new BadRequestException('Header x-organization-id requis')
+    if (!body?.url?.trim()) throw new BadRequestException('url requise')
+    return this.sourcesService.removeSource(organizationId, topicId, body.url)
+  }
+
   @Get('narrative-arc')
   narrativeArc(@Headers('x-organization-id') organizationId: string) {
     if (!organizationId) throw new BadRequestException('Header x-organization-id requis')
