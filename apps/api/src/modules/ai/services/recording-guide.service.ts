@@ -5,6 +5,7 @@ import { generateObject } from '../providers/ai-sdk'
 import { getDefaultModel } from '../providers/model.config'
 import { buildReshapeRecordingGuidePrompt } from '../prompts/reshape-recording-guide.prompt'
 import { MemoryService } from './memory.service'
+import { formatTopicSourcesForPrompt } from './sources-context.util'
 
 const SUPPORTED_FORMATS = [
   'MYTH_VS_REALITY',
@@ -119,6 +120,7 @@ export class RecordingGuideService {
             brief: true,
             narrativeAnchor: true,
             recordingGuide: true,
+            sources: true,
           },
         },
       },
@@ -172,11 +174,17 @@ export class RecordingGuideService {
         )
       : []
 
+    // Sources factuelles — ancrent concrètement le script format-specific
+    // (chiffres dans les arguments d'un HOT_TAKE, anecdote dans le setup
+    // d'un STORYTELLING, contre-exemple dans le myth d'un MYTH_VS_REALITY).
+    const sourcesBlock = formatTopicSourcesForPrompt(topic.sources)
+
     const basePrompt = buildReshapeRecordingGuidePrompt({
       subjectName: topic.name,
       brief: topic.brief,
       draftBullets: bullets,
       format: typedFormat,
+      sourcesBlock,
     })
     const voiceBlock = ragHits.length
       ? `\n\n## Tes tournures passées sur ce sujet (mémoire, utilise-les pour coller à la voix native)\n${ragHits

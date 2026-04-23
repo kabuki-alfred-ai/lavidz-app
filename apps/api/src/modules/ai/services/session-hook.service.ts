@@ -5,6 +5,7 @@ import { prisma, Prisma } from '@lavidz/database'
 import { getDefaultModel } from '../providers/model.config'
 import { buildSubjectHooksPrompt } from '../prompts/generate-subject-hooks.prompt'
 import { MemoryService } from './memory.service'
+import { formatTopicSourcesForPrompt } from './sources-context.util'
 
 const SessionHooksSchema = z.object({
   native: z.object({
@@ -59,6 +60,7 @@ export class SessionHookService {
             pillar: true,
             narrativeAnchor: true,
             hookDraft: true,
+            sources: true,
           },
         },
       },
@@ -98,6 +100,11 @@ export class SessionHookService {
 
     const recentSamples = this.extractRecentSamples(ragHits.map((h) => h.content))
 
+    // Sources factuelles — permettent à Kabou d'ancrer une accroche "native"
+    // sur un chiffre concret ou une anecdote plutôt que de rester dans
+    // l'abstrait. Optionnel : si null, le prompt continue sans.
+    const sourcesBlock = formatTopicSourcesForPrompt(topic.sources)
+
     const prompt = this.buildFormatAwarePrompt({
       subjectName: topic.name,
       brief: this.formatBriefWithAnchor(topic.brief, topic.narrativeAnchor, topic.hookDraft),
@@ -106,6 +113,7 @@ export class SessionHookService {
       voiceGuide,
       recentTranscriptSamples: recentSamples,
       contentFormat: session.contentFormat,
+      sourcesBlock,
     })
 
     const { object } = await generateObject({
@@ -245,6 +253,7 @@ export class SessionHookService {
     voiceGuide: string | null
     recentTranscriptSamples: string[]
     contentFormat: string
+    sourcesBlock: string | null
   }): string {
     const base = buildSubjectHooksPrompt({
       subjectName: ctx.subjectName,
@@ -253,7 +262,8 @@ export class SessionHookService {
       communicationStyle: ctx.communicationStyle,
       voiceGuide: ctx.voiceGuide,
       recentTranscriptSamples: ctx.recentTranscriptSamples,
+      sourcesBlock: ctx.sourcesBlock,
     })
-    return `${base}\n\n## Format cible\nContentFormat : ${ctx.contentFormat}\nLes accroches produites doivent matcher le registre du format (ex: HOT_TAKE → thèse contrariante, STORYTELLING → première phrase qui amorce une scène, DAILY_TIP → problème + promesse de solution).`
+    return `${base}\n\n## Format cible\nContentFormat : ${ctx.contentFormat}\nLes accroches produites doivent matcher le registre du format (ex: HOT_TAKE → thèse contrariante, STORYTELLING → première phrase qui amorce une scène, DAILY_TIP → problème + promesse de solution). Si une source factuelle colle (chiffre, contre-exemple), **privilégie-la** dans l'accroche "native" — c'est ce qui distingue une accroche ancrée d'une accroche générique.`
   }
 }

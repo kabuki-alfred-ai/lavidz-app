@@ -3,6 +3,9 @@ type ReshapeContext = {
   brief: string | null
   draftBullets: string[]
   format: 'MYTH_VS_REALITY' | 'QUESTION_BOX' | 'STORYTELLING' | 'HOT_TAKE' | 'DAILY_TIP' | 'TELEPROMPTER'
+  /** Bloc pré-formaté de sources factuelles du Topic — peut ancrer concrètement
+   *  le script (chiffres, anecdotes, contre-exemples). Fourni par le caller. */
+  sourcesBlock?: string | null
 }
 
 const FORMAT_BRIEF: Record<ReshapeContext['format'], string> = {
@@ -22,7 +25,10 @@ const FORMAT_BRIEF: Record<ReshapeContext['format'], string> = {
 
 export function buildReshapeRecordingGuidePrompt(ctx: ReshapeContext): string {
   const briefBlock = ctx.brief ? `\n### Angle du sujet\n${ctx.brief}` : ''
-  const bulletsBlock = ctx.draftBullets.map((b, i) => `- ${b}`).join('\n')
+  const bulletsBlock = ctx.draftBullets.map((b) => `- ${b}`).join('\n')
+  const sourcesBlock = ctx.sourcesBlock
+    ? `\n\n## Sources factuelles du sujet (ancre quand c'est pertinent, n'invente pas)\n${ctx.sourcesBlock}`
+    : ''
 
   return `Tu es Kabou, compagnon créatif d'un entrepreneur. Tu reformates un fil conducteur d'enregistrement existant vers un format précis, SANS perdre la substance.
 
@@ -32,7 +38,7 @@ export function buildReshapeRecordingGuidePrompt(ctx: ReshapeContext): string {
 ${bulletsBlock}
 
 ## Format cible
-${FORMAT_BRIEF[ctx.format]}
+${FORMAT_BRIEF[ctx.format]}${sourcesBlock}
 
 ## Règles
 - Reste fidèle aux idées du fil conducteur — ne rajoute pas d'éléments inventés.
@@ -40,6 +46,7 @@ ${FORMAT_BRIEF[ctx.format]}
 - Vocabulaire Lavidz : Sujet, Angle, Domaine. Jamais Topic/Brief/Pilier.
 - Concision : chaque bloc de texte ≤ 30 mots.
 - Si une bullet ne matche aucun bloc du format cible, fusionne-la avec la plus proche plutôt que de la jeter.
+- Quand une source factuelle est pertinente (chiffre, anecdote, contre-angle) — ancre-la dans le script du format (ex: dans les arguments d'un HOT_TAKE, dans les keyPoints d'une Q/A, dans le setup d'un STORYTELLING). Cite la source de façon naturelle, pas en mode bibliographie.
 
 Produis maintenant la structure demandée en JSON strict selon le schéma fourni.`
 }

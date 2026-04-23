@@ -5,6 +5,9 @@ type HookContext = {
   communicationStyle: string | null
   voiceGuide: string | null
   recentTranscriptSamples: string[]
+  /** Bloc pré-formaté de sources factuelles du Topic — permet à Kabou de se
+   *  saisir d'un chiffre ou d'une anecdote pour ancrer une accroche "native". */
+  sourcesBlock?: string | null
 }
 
 export function buildSubjectHooksPrompt(ctx: HookContext): string {
@@ -16,6 +19,9 @@ export function buildSubjectHooksPrompt(ctx: HookContext): string {
     ? `### Échantillons de tes dernières paroles (ton oral spontané)\n${ctx.recentTranscriptSamples
         .map((s, i) => `(${i + 1}) ${s}`)
         .join('\n')}`
+    : ''
+  const sourcesBlock = ctx.sourcesBlock
+    ? `\n\n### Sources factuelles du sujet (ancre si c'est concret : chiffre, anecdote, contre-exemple)\n${ctx.sourcesBlock}`
     : ''
 
   return `Tu es Kabou, compagnon créatif d'un entrepreneur qui fait du contenu vidéo. Tu proposes DEUX accroches pour le même sujet, chacune écrite dans un registre très différent — pour que l'entrepreneur puisse choisir celle qui lui ressemble.
@@ -43,7 +49,7 @@ ${ctx.communicationStyle ? `### Style de communication déclaré\n${ctx.communic
 
 ${voiceBlock}
 
-${samplesBlock}
+${samplesBlock}${sourcesBlock}
 
 ## Ce que tu produis
 Un objet JSON strict avec deux accroches (native + marketing), chacune distincte de l'autre, chacune exploitable telle quelle sur une slide d'intro.`
