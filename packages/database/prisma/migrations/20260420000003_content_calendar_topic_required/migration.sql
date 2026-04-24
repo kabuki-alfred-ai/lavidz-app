@@ -5,6 +5,9 @@
 -- (case-insensitive) within the same organization, then create a seed Topic
 -- for any remaining row so nothing is lost.
 
+-- 0) Add topicId as nullable if it doesn't exist yet
+ALTER TABLE "ContentCalendar" ADD COLUMN IF NOT EXISTS "topicId" TEXT;
+
 -- 1) Link rows whose "topic" string already matches an existing Topic
 UPDATE "ContentCalendar" cc
 SET "topicId" = t.id
