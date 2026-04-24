@@ -9,7 +9,6 @@ const BASE_ITEMS = [
   { href: '/home', label: 'Accueil', icon: Home },
   { href: '/topics', label: 'Sujets', icon: FileText },
   { href: '/projects', label: 'Projets', icon: FolderOpen },
-  { href: '/videos', label: 'Videos', icon: Film },
   { href: '/brand-kit', label: 'Brand Kit', icon: Palette },
   { href: '/mon-univers', label: 'Mon univers', icon: Brain },
   { href: '/profile', label: 'Compte', icon: User },

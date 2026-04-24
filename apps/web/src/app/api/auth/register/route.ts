@@ -30,7 +30,7 @@ export async function POST(req: Request) {
   const passwordHash = await hashPassword(password)
 
   const org = await prisma.organization.create({
-    data: { name: orgName, slug, status: 'PENDING' },
+    data: { name: orgName, slug, status: 'ACTIVE' },
   })
 
   await prisma.user.create({

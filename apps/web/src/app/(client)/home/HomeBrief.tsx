@@ -4,13 +4,11 @@ import { useCallback, useEffect, useMemo, useState } from 'react'
 import Link from 'next/link'
 import {
   ArrowRight,
-  Brain,
-  CalendarDays,
-  FileText,
   Film,
   Loader2,
   MessageSquare,
   Mic,
+  Plus,
   Sparkles,
   Waypoints,
 } from 'lucide-react'
@@ -47,10 +45,10 @@ const STEP_ICON: Record<NextStep['kind'], typeof Mic> = {
 const STEP_HINT: Record<NextStep['kind'], string> = {
   publish: 'Un contenu est prêt — reste plus qu\'à le mettre en ligne.',
   record: 'Tu as une session prête à tourner.',
-  prepare_recording: 'Un Sujet est mûr — on le prépare pour le tournage avec Kabou ?',
-  continue_exploring: 'On continue à creuser un Sujet qui prend forme.',
+  prepare_recording: 'Un Sujet est mûr — prépare-le pour le tournage.',
+  continue_exploring: 'Un Sujet prend forme — continue à le creuser.',
   seed_exploration: 'Une graine attend d\'être explorée.',
-  first_subject: 'Démarrons ton premier Sujet — raconte-moi.',
+  first_subject: 'Démarre ton premier Sujet — dis-moi sur quoi tu veux parler.',
 }
 
 const CONFIDENCE_META: Record<
@@ -61,6 +59,12 @@ const CONFIDENCE_META: Record<
   emerging: { label: 'qui émerge', tone: 'bg-blue-500/10 text-blue-700 dark:text-blue-400' },
   crystallized: { label: 'cristallisée', tone: 'bg-emerald-500/10 text-emerald-700 dark:text-emerald-400' },
 }
+
+const FIRST_SUBJECT_PROMPTS = [
+  'Ce qui frustre mes clients en ce moment',
+  'Mon meilleur apprentissage récent',
+  'Une idée reçue fausse dans mon secteur',
+]
 
 function getGreeting(): string {
   const h = new Date().getHours()
@@ -123,13 +127,13 @@ export function HomeBrief() {
 
   if (loading) {
     return (
-      <div className="mx-auto max-w-3xl space-y-6 px-4 py-8 md:py-12">
+      <div className="mx-auto max-w-2xl space-y-6 px-4 py-8 md:py-12">
         <div className="h-10 w-48 animate-pulse rounded-lg bg-muted" />
         <div className="h-44 animate-pulse rounded-3xl bg-muted" />
         <div className="grid grid-cols-3 gap-3">
-          <div className="h-24 animate-pulse rounded-2xl bg-muted" />
-          <div className="h-24 animate-pulse rounded-2xl bg-muted" />
-          <div className="h-24 animate-pulse rounded-2xl bg-muted" />
+          {Array.from({ length: 3 }).map((_, i) => (
+            <div key={i} className="h-24 animate-pulse rounded-2xl bg-muted" />
+          ))}
         </div>
       </div>
     )
@@ -146,10 +150,12 @@ export function HomeBrief() {
   const Icon = STEP_ICON[state.nextStep.kind]
   const topicName = 'topicName' in state.nextStep ? state.nextStep.topicName : null
   const confidence = state.thesis?.confidence
+  const isFirstSubject = state.nextStep.kind === 'first_subject'
 
   return (
-    <div className="mx-auto max-w-3xl space-y-8 px-4 py-8 md:py-12">
-      {/* Greeting + thesis banner */}
+    <div className="mx-auto max-w-2xl space-y-6 px-4 py-8 md:py-12">
+
+      {/* Greeting */}
       <header>
         <h1 className="text-2xl font-bold tracking-tight text-foreground sm:text-3xl">
           {getGreeting()} {state.userName}
@@ -158,60 +164,76 @@ export function HomeBrief() {
           {new Date().toLocaleDateString('fr-FR', { weekday: 'long', day: 'numeric', month: 'long' })}
           {state.lastActivityAt && ` · dernière activité ${formatRelativeDate(state.lastActivityAt)}`}
         </p>
-        {state.thesis ? (
-          <Link
-            href="/mon-univers/these"
-            className="mt-4 block rounded-xl border border-primary/20 bg-primary/5 px-4 py-3 transition hover:bg-primary/10"
-          >
-            <div className="mb-1 flex items-center gap-2 text-[11px] uppercase tracking-wider text-primary">
-              <Waypoints className="h-3 w-3" /> Ta thèse
-              {confidence && (
-                <span
-                  className={`ml-auto inline-flex rounded-full px-1.5 py-0.5 text-[10px] font-medium normal-case tracking-normal ${CONFIDENCE_META[confidence].tone}`}
-                >
-                  {CONFIDENCE_META[confidence].label}
-                </span>
-              )}
-            </div>
-            <p className="text-sm italic text-foreground">&laquo;&nbsp;{state.thesis.statement}&nbsp;&raquo;</p>
-          </Link>
-        ) : (
-          <Link
-            href="/mon-univers/these"
-            className="mt-4 inline-flex items-center gap-1.5 text-xs text-muted-foreground transition hover:text-foreground"
-          >
-            <Waypoints className="h-3.5 w-3.5" />
-            Tu n'as pas encore de thèse — Kabou peut t'aider à la formuler.
-            <ArrowRight className="h-3 w-3" />
-          </Link>
-        )}
       </header>
+
+      {/* Thesis banner */}
+      {state.thesis ? (
+        <Link
+          href="/mon-univers/these"
+          className="block rounded-xl border border-primary/20 bg-primary/5 px-4 py-3 transition hover:bg-primary/10"
+        >
+          <div className="mb-1 flex items-center gap-2 text-[11px] uppercase tracking-wider text-primary">
+            <Waypoints className="h-3 w-3" /> Ta thèse
+            {confidence && (
+              <span className={`ml-auto inline-flex rounded-full px-1.5 py-0.5 text-[10px] font-medium normal-case tracking-normal ${CONFIDENCE_META[confidence].tone}`}>
+                {CONFIDENCE_META[confidence].label}
+              </span>
+            )}
+          </div>
+          <p className="text-sm italic text-foreground">&laquo;&nbsp;{state.thesis.statement}&nbsp;&raquo;</p>
+        </Link>
+      ) : (
+        <Link
+          href="/mon-univers/these"
+          className="inline-flex items-center gap-1.5 text-xs text-muted-foreground transition hover:text-foreground"
+        >
+          <Waypoints className="h-3.5 w-3.5" />
+          Tu n'as pas encore de thèse — Kabou peut t'aider à la formuler.
+          <ArrowRight className="h-3 w-3" />
+        </Link>
+      )}
 
       {/* Next step — dominant tile */}
       <section className="rounded-3xl border border-primary/30 bg-gradient-to-br from-primary/10 via-primary/5 to-transparent p-6 sm:p-8">
         <p className="mb-2 text-xs font-semibold uppercase tracking-widest text-primary">
           🎯 Ton prochain pas
         </p>
-        <p className="mb-5 text-sm text-muted-foreground">{contextLine}</p>
-        <div className="mb-4">
-          <p className="text-base leading-snug text-foreground sm:text-lg">
-            {STEP_HINT[state.nextStep.kind]}
+        {!isFirstSubject && (
+          <p className="mb-4 text-sm text-muted-foreground">{contextLine}</p>
+        )}
+        <p className="mb-5 text-base leading-snug text-foreground sm:text-lg">
+          {STEP_HINT[state.nextStep.kind]}
+        </p>
+        {topicName && (
+          <p className="mb-5 text-sm font-semibold text-foreground">
+            &laquo;&nbsp;{topicName}&nbsp;&raquo;
           </p>
-          {topicName && (
-            <p className="mt-2 text-sm font-semibold text-foreground">
-              &laquo;&nbsp;{topicName}&nbsp;&raquo;
-            </p>
-          )}
-        </div>
+        )}
         <Button asChild size="lg">
           <Link href={state.nextStep.href}>
             <Icon className="h-4 w-4" />
             {state.nextStep.label}
           </Link>
         </Button>
+
+        {/* Prompts rapides pour le premier sujet */}
+        {isFirstSubject && (
+          <div className="mt-6 flex flex-wrap gap-2">
+            {FIRST_SUBJECT_PROMPTS.map((prompt) => (
+              <Link
+                key={prompt}
+                href={`/chat?topic=${encodeURIComponent(prompt)}`}
+                className="inline-flex items-center gap-1.5 rounded-full border border-primary/20 bg-background/60 px-3 py-1.5 text-xs text-muted-foreground transition hover:border-primary/40 hover:text-foreground"
+              >
+                <Sparkles className="h-3 w-3 text-primary" />
+                {prompt}
+              </Link>
+            ))}
+          </div>
+        )}
       </section>
 
-      {/* Counts — framed reality */}
+      {/* Counts */}
       {state.totalActiveSubjects > 0 && (
         <section className="grid gap-3 sm:grid-cols-3">
           <CountTile
@@ -232,58 +254,19 @@ export function HomeBrief() {
         </section>
       )}
 
-      {/* Secondary — shortcuts */}
-      <section>
-        <h2 className="mb-3 inline-flex items-center gap-1.5 text-xs font-semibold uppercase tracking-widest text-muted-foreground">
-          Aller à
-        </h2>
-        <div className="grid gap-2 sm:grid-cols-2">
+      {/* Nouveau sujet — accès discret pour users actifs */}
+      {!isFirstSubject && (
+        <div className="flex justify-center pt-2">
           <Link
             href="/chat"
-            className="flex items-center gap-3 rounded-xl border border-border/40 bg-surface-raised/30 p-4 transition hover:bg-surface-raised/50"
+            className="inline-flex items-center gap-2 rounded-full border border-border px-4 py-2 text-sm text-muted-foreground transition hover:border-primary/30 hover:text-foreground"
           >
-            <MessageSquare className="h-4 w-4 text-muted-foreground" />
-            <div className="flex-1">
-              <p className="text-sm font-medium text-foreground">Discuter avec Kabou</p>
-              <p className="text-xs text-muted-foreground">Idées, débat, inspiration</p>
-            </div>
-            <ArrowRight className="h-3.5 w-3.5 text-muted-foreground" />
-          </Link>
-          <Link
-            href="/calendar"
-            className="flex items-center gap-3 rounded-xl border border-border/40 bg-surface-raised/30 p-4 transition hover:bg-surface-raised/50"
-          >
-            <CalendarDays className="h-4 w-4 text-muted-foreground" />
-            <div className="flex-1">
-              <p className="text-sm font-medium text-foreground">Calendrier</p>
-              <p className="text-xs text-muted-foreground">La semaine en vue d'action</p>
-            </div>
-            <ArrowRight className="h-3.5 w-3.5 text-muted-foreground" />
-          </Link>
-          <Link
-            href="/topics"
-            className="flex items-center gap-3 rounded-xl border border-border/40 bg-surface-raised/30 p-4 transition hover:bg-surface-raised/50"
-          >
-            <FileText className="h-4 w-4 text-muted-foreground" />
-            <div className="flex-1">
-              <p className="text-sm font-medium text-foreground">Mes Sujets</p>
-              <p className="text-xs text-muted-foreground">Tous tes angles en cours</p>
-            </div>
-            <ArrowRight className="h-3.5 w-3.5 text-muted-foreground" />
-          </Link>
-          <Link
-            href="/mon-univers/memoire"
-            className="flex items-center gap-3 rounded-xl border border-border/40 bg-surface-raised/30 p-4 transition hover:bg-surface-raised/50"
-          >
-            <Brain className="h-4 w-4 text-muted-foreground" />
-            <div className="flex-1">
-              <p className="text-sm font-medium text-foreground">Mon univers</p>
-              <p className="text-xs text-muted-foreground">Ce que Kabou a retenu de toi</p>
-            </div>
-            <ArrowRight className="h-3.5 w-3.5 text-muted-foreground" />
+            <Plus className="h-3.5 w-3.5" />
+            Nouveau sujet
           </Link>
         </div>
-      </section>
+      )}
+
     </div>
   )
 }
