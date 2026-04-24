@@ -1,5 +1,9 @@
--- CreateEnum
-CREATE TYPE IF NOT EXISTS "TopicStatus" AS ENUM ('DRAFT', 'READY', 'ARCHIVED');
+-- CreateEnum (idempotent)
+DO $$ BEGIN
+  IF NOT EXISTS (SELECT 1 FROM pg_type WHERE typname = 'TopicStatus') THEN
+    CREATE TYPE "TopicStatus" AS ENUM ('DRAFT', 'READY', 'ARCHIVED');
+  END IF;
+END $$;
 
 -- CreateTable
 CREATE TABLE IF NOT EXISTS "Topic" (
