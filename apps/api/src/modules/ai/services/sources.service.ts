@@ -16,13 +16,29 @@ const CuratedSourcesSchema = z.object({
           .describe(
             "FACT = source qui confirme un fait | DATA = chiffres, étude | COUNTERPOINT = angle opposé à contester | CONTEXT = mise en contexte historique / sectorielle",
           ),
+        /**
+         * `kind` = nature éditoriale de la source, orthogonale à `relevance`.
+         * ANCRAGE = source externe vérifiable avec lien (article, étude, site)
+         * RÉFÉRENCE = livre, auteur, cadre intellectuel (souvent sans URL propre)
+         * VÉCU = anecdote/donnée personnelle de l'entrepreneur (pas d'URL externe)
+         * Optionnel : dérivé côté UI si absent.
+         */
+        kind: z.enum(['ANCRAGE', 'REFERENCE', 'VECU']).optional(),
+        /**
+         * `selected` = source ancrée par l'entrepreneur (elle va dans la
+         * mémoire IA et sert de référence à Kabou). Les sources trouvées par
+         * Tavily/Kabou arrivent en `selected: false` (candidates), celles
+         * ajoutées manuellement arrivent en `selected: true`. Toggle via le
+         * pin dans l'UI. `undefined` traité comme `true` pour compat.
+         */
+        selected: z.boolean().optional(),
         keyTakeaway: z
           .string()
           .describe("Le point à retenir en 1 phrase — ce que l'entrepreneur peut citer à l'oral"),
       }),
     )
     .min(0)
-    .max(5),
+    .max(12),
 })
 
 export type CuratedSource = z.infer<typeof CuratedSourcesSchema>['sources'][number]
@@ -121,8 +137,9 @@ ${rawResults.slice(0, 8).map((r, i) => `${i + 1}. ${r.title}\n   ${r.url}\n   ${
       prompt,
     })
 
+    // Nouvelles sources = candidates par défaut, l'user les sélectionne après.
     const stored: StoredSources = {
-      sources: object.sources,
+      sources: object.sources.map((s) => ({ ...s, selected: false })),
       query,
       fetchedAt: new Date().toISOString(),
     }
@@ -154,6 +171,7 @@ ${rawResults.slice(0, 8).map((r, i) => `${i + 1}. ${r.title}\n   ${r.url}\n   ${
       summary?: string
       keyTakeaway?: string
       relevance?: CuratedSource['relevance']
+      kind?: CuratedSource['kind']
     },
   ): Promise<StoredSources> {
     const topic = await prisma.topic.findFirst({
@@ -167,7 +185,6 @@ ${rawResults.slice(0, 8).map((r, i) => `${i + 1}. ${r.title}\n   ${r.url}\n   ${
       throw new Error('title et url requis')
     }
     const existing = this.readSources(topic.sources)
-    // Dédup par URL (insensible à la casse du host)
     const filtered = existing.sources.filter((s) => s.url.trim() !== url)
     const newSource: CuratedSource = {
       title,
@@ -175,6 +192,9 @@ ${rawResults.slice(0, 8).map((r, i) => `${i + 1}. ${r.title}\n   ${r.url}\n   ${
       summary: input.summary?.trim() || 'Source ajoutée manuellement.',
       keyTakeaway: input.keyTakeaway?.trim() || title,
       relevance: input.relevance ?? 'CONTEXT',
+      kind: input.kind,
+      // Ajout manuel = l'entrepreneur choisit activement → sélectionnée d'emblée.
+      selected: true,
     }
     const next: StoredSources = {
       sources: [...filtered, newSource],
@@ -255,13 +275,45 @@ ${rawResults.slice(0, 8).map((r, i) => `${i + 1}. ${r.title}\n   ${r.url}\n   ${
       prompt,
     })
 
-    // Append en dédupliquant par URL
+    // Append en dédupliquant par URL ; les nouvelles entrent en candidates.
     const existingUrls = new Set(existing.sources.map((s) => s.url.trim()))
-    const additions = object.sources.filter((s) => !existingUrls.has(s.url.trim()))
+    const additions = object.sources
+      .filter((s) => !existingUrls.has(s.url.trim()))
+      .map((s) => ({ ...s, selected: false }))
     const next: StoredSources = {
       sources: [...existing.sources, ...additions],
       query: q,
       fetchedAt: new Date().toISOString(),
+    }
+    await this.persist(topic.id, next)
+    return next
+  }
+
+  /**
+   * Bascule l'état `selected` d'une source identifiée par URL. Pas de flag
+   * fourni → toggle ; flag explicite → force la valeur. Une source sans champ
+   * `selected` est traitée comme déjà sélectionnée (compat existants).
+   */
+  async toggleSelected(
+    organizationId: string,
+    topicId: string,
+    url: string,
+    force?: boolean,
+  ): Promise<StoredSources> {
+    const topic = await prisma.topic.findFirst({
+      where: { id: topicId, organizationId },
+      select: { id: true, sources: true },
+    })
+    if (!topic) throw new NotFoundException('Sujet introuvable')
+    const existing = this.readSources(topic.sources)
+    const next: StoredSources = {
+      ...existing,
+      sources: existing.sources.map((s) => {
+        if (s.url.trim() !== url.trim()) return s
+        const current = s.selected === false ? false : true
+        const nextSelected = typeof force === 'boolean' ? force : !current
+        return { ...s, selected: nextSelected }
+      }),
     }
     await this.persist(topic.id, next)
     return next

@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useState } from 'react'
 import Link from 'next/link'
+import { useRouter } from 'next/navigation'
 import { Drawer } from 'vaul'
 import {
   ArrowRight,
@@ -102,12 +103,15 @@ export function FormatCardDrawer({
   onResync,
   resyncing = false,
 }: FormatCardDrawerProps) {
+  const router = useRouter()
   const [isDesktop, setIsDesktop] = useState(true)
   const [scheduleOpen, setScheduleOpen] = useState(false)
   const [hooks, setHooks] = useState<SessionHooks | null>(null)
   const [hooksLoading, setHooksLoading] = useState(false)
   const [generatingHooks, setGeneratingHooks] = useState(false)
   const [choosingHook, setChoosingHook] = useState<'native' | 'marketing' | null>(null)
+  const [startingRecording, setStartingRecording] = useState(false)
+  const [startError, setStartError] = useState<string | null>(null)
 
   useEffect(() => {
     const mq = window.matchMedia('(min-width: 1024px)')
@@ -158,6 +162,41 @@ export function FormatCardDrawer({
       setGeneratingHooks(false)
     }
   }, [canonical?.id])
+
+  // Lancer le tournage immédiatement — crée la Session côté API via
+  // /record-now, puis redirige vers /s/:sessionId pour enchaîner direct sur
+  // l'écran tournage. C'est le chemin "maintenant" du choix Lancer/Planifier.
+  const handleStartRecording = useCallback(async () => {
+    if (startingRecording) return
+    setStartingRecording(true)
+    setStartError(null)
+    try {
+      const res = await fetch(`/api/topics/${topicId}/record-now`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        credentials: 'include',
+        body: JSON.stringify({ format }),
+      })
+      if (!res.ok) {
+        const text = await res.text().catch(() => '')
+        setStartError(text || "Impossible de créer le tournage — on réessaie ?")
+        return
+      }
+      const data = (await res.json()) as { sessionId?: string }
+      if (data.sessionId) {
+        router.push(`/s/${data.sessionId}`)
+      } else {
+        // Fallback improbable : pas de sessionId retourné. On ferme le drawer
+        // et on laisse l'user rafraîchir — une session vient d'exister en base.
+        router.refresh()
+        onOpenChange(false)
+      }
+    } catch {
+      setStartError('Problème réseau — on réessaie ?')
+    } finally {
+      setStartingRecording(false)
+    }
+  }, [startingRecording, topicId, format, router, onOpenChange])
 
   const handleChooseHook = useCallback(
     async (chosen: 'native' | 'marketing') => {
@@ -380,12 +419,36 @@ export function FormatCardDrawer({
           </Button>
         )}
         {!canonical && (
-          <Button asChild size="lg" className="w-full sm:flex-1">
-            <Link href={`/chat?topicId=${topicId}&action=record&format=${format}`}>
-              <Sparkles className="h-4 w-4" />
-              Adapter l'angle avec Kabou
-            </Link>
-          </Button>
+          <div className="flex w-full flex-col gap-2 sm:flex-1">
+            <Button
+              size="lg"
+              onClick={handleStartRecording}
+              disabled={startingRecording}
+              className="w-full"
+            >
+              {startingRecording ? (
+                <Loader2 className="h-4 w-4 animate-spin" />
+              ) : (
+                <Play className="h-4 w-4" />
+              )}
+              Lancer le tournage maintenant
+              {!startingRecording && <ArrowRight className="h-4 w-4" />}
+            </Button>
+            {startError && (
+              <p className="text-xs text-destructive">{startError}</p>
+            )}
+            <Button
+              asChild
+              size="sm"
+              variant="ghost"
+              className="w-full justify-center text-muted-foreground hover:text-foreground"
+            >
+              <Link href={`/chat?topicId=${topicId}&action=record&format=${format}`}>
+                <Sparkles className="h-3.5 w-3.5" />
+                Adapter l'angle avec Kabou d'abord
+              </Link>
+            </Button>
+          </div>
         )}
 
         {canonical && scriptAsGuide && (
@@ -407,11 +470,12 @@ export function FormatCardDrawer({
 
         {/* Planifier — contextualisé au format de la carte. Remplace l'ancien
            ReadyActions global. Dispo dès qu'une action de publication future
-           a du sens (format autre que OTHER). */}
+           a du sens (format autre que OTHER). Variant outline pour être
+           vraiment visible en parallèle du CTA primaire "Lancer maintenant". */}
         {canSchedule && (
           <Button
             size="lg"
-            variant="ghost"
+            variant="outline"
             onClick={() => setScheduleOpen(true)}
             className="w-full sm:w-auto"
           >

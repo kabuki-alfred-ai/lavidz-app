@@ -402,11 +402,36 @@ model Topic {
   sessions        Session[]
   generatedPosts  GeneratedPost[]
   memories        ConversationMemory[]
+  events          SubjectEvent[]
   createdAt       DateTime              @default(now())
   updatedAt       DateTime              @updatedAt
 
   @@unique([organizationId, slug])
   @@index([organizationId])
+}
+
+/**
+ * SubjectEvent — fil du sujet (§05 sur la page Sujet detail).
+ *
+ * Chaque ligne = 1 décision ou mutation tracée : création de sujet, édition
+ * d'angle, ajout de source, lancement de tournage, enrichissement par Kabou.
+ * Source de vérité pour la timeline lisible par l'user ; les writes sont faits
+ * par les services/tools qui mutent le Topic.
+ *
+ * `type` est libre (string) pour ne pas contraindre le domaine — on enregistre
+ * ici ce qui vaut la peine d'être relu plus tard, côté UI on filtre/formate.
+ * `actor` = 'user' | 'kabou' | 'system' pour colorer différemment côté UI.
+ */
+model SubjectEvent {
+  id        String   @id @default(cuid())
+  topicId   String
+  topic     Topic    @relation(fields: [topicId], references: [id], onDelete: Cascade)
+  type      String   // 'topic_created' | 'brief_edited' | 'status_changed' | 'pillar_changed' | 'narrative_anchor_edited' | 'source_added' | 'source_removed' | 'sources_searched' | 'session_created' | 'recording_added' | 'schedule_published' | etc.
+  actor     String   @default("user") // 'user' | 'kabou' | 'system'
+  metadata  Json?    // payload libre selon le type : { from, to, label, count, ... }
+  createdAt DateTime @default(now())
+
+  @@index([topicId, createdAt])
 }
 
 model ContentCalendar {

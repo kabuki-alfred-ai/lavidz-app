@@ -17,23 +17,33 @@ export async function POST(req: Request, ctx: RouteContext) {
     const body = await req.json().catch(() => null)
     const url = typeof body?.url === 'string' ? body.url.trim() : ''
     if (!url) return new Response('url requise', { status: 400 })
+    const selected = typeof body?.selected === 'boolean' ? body.selected : undefined
 
-    const res = await fetch(apiUrl(`/ai/sources/${id}/remove`), {
+    const res = await fetch(apiUrl(`/ai/sources/${id}/toggle`), {
       method: 'POST',
+      credentials: 'include',
       headers: { ...auth.headers, 'Content-Type': 'application/json' },
-      body: JSON.stringify({ url }),
+      body: JSON.stringify({ url, selected }),
     })
     if (!res.ok) return new Response(await res.text(), { status: res.status })
-    const payload = await res.json()
+    const payload = (await res.json()) as {
+      sources?: Array<{ url?: string; selected?: boolean }>
+    }
+
+    // Retrouve l'état final de la source toggle pour typer l'event.
+    const updated = Array.isArray(payload.sources)
+      ? payload.sources.find((s) => s.url?.trim() === url)
+      : undefined
+    const nowSelected = updated?.selected !== false
     await recordSubjectEvent({
       topicId: id,
-      type: 'source_removed',
+      type: nowSelected ? 'source_selected' : 'source_deselected',
       actor: 'user',
-      metadata: { url },
+      metadata: { url, selected: nowSelected },
     })
     return Response.json(payload)
   } catch (err) {
-    console.error('[sources remove]', err)
-    return new Response('Impossible de retirer la source', { status: 500 })
+    console.error('[sources toggle]', err)
+    return new Response('Impossible de basculer la source', { status: 500 })
   }
 }

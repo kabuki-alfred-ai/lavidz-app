@@ -552,6 +552,7 @@ export class AiController {
       summary?: string
       keyTakeaway?: string
       relevance?: 'FACT' | 'DATA' | 'COUNTERPOINT' | 'CONTEXT'
+      kind?: 'ANCRAGE' | 'REFERENCE' | 'VECU'
     },
   ) {
     if (!organizationId) throw new BadRequestException('Header x-organization-id requis')
@@ -559,6 +560,17 @@ export class AiController {
       throw new BadRequestException('title et url requis')
     }
     return this.sourcesService.addManualSource(organizationId, topicId, body)
+  }
+
+  @Post('sources/:topicId/toggle')
+  toggleSourceSelection(
+    @Headers('x-organization-id') organizationId: string,
+    @Param('topicId') topicId: string,
+    @Body() body: { url: string; selected?: boolean },
+  ) {
+    if (!organizationId) throw new BadRequestException('Header x-organization-id requis')
+    if (!body?.url?.trim()) throw new BadRequestException('url requise')
+    return this.sourcesService.toggleSelected(organizationId, topicId, body.url, body.selected)
   }
 
   @Post('sources/:topicId/search')

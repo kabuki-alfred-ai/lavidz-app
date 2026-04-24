@@ -4,8 +4,12 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { useChat } from '@ai-sdk/react'
 import { lastAssistantMessageIsCompleteWithToolCalls, DefaultChatTransport } from 'ai'
 import ReactMarkdown from 'react-markdown'
-import { Loader2, Send, Sparkles } from 'lucide-react'
+import { Loader2, MoreHorizontal, Paperclip, Mic, Send, Square } from 'lucide-react'
 import { ChatLink, ChatParagraph } from '@/components/chat/ChatLink'
+import { KabouContextCard } from '@/components/subject/kabou/KabouContextCard'
+import { KabouSuggestedReplies } from '@/components/subject/kabou/KabouSuggestedReplies'
+import type { CreativeState } from '@/lib/creative-state'
+import type { NarrativeAnchor } from '@/lib/narrative-anchor'
 
 const MARKDOWN_COMPONENTS = { a: ChatLink, p: ChatParagraph } as const
 
@@ -19,37 +23,44 @@ interface SubjectKabouPanelProps {
   topicId: string
   threadId: string
   subjectName: string
+  /** Contexte chargé affiché en tête du scroll. */
+  contextBrief?: string | null
+  contextPillarsCount?: number
+  contextSourcesCount?: number
+  contextSessionsSummary?: string | null
+  /** Inputs pour les amorces de conversation contextuelles. */
+  creativeState?: CreativeState
+  narrativeAnchor?: NarrativeAnchor | null
+  hasPendingSession?: boolean
   onTopicMutated?: (toolName?: string) => void
-  /** Ref exposé au parent pour lui permettre de focus le champ de saisie
-   *  (ex: bouton "Explorer avec Kabou" sur desktop). */
   inputRef?: React.RefObject<HTMLTextAreaElement | null>
 }
 
-// Tools qui, une fois complétés, changent des données affichées dans
-// SubjectWorkspace (status, brief, calendrier). Détectés dans les messages
-// pour déclencher un refetch automatique côté parent.
 const MUTATING_TOOLS = new Set([
   'update_topic_brief',
   'mark_topic_ready',
   'commit_editorial_plan',
-  // Nouveaux noms (Task 2.4) + legacy aliases — tant que le dual-write tourne,
-  // les 4 clés coexistent et doivent toutes déclencher un refetch du Topic.
   'update_narrative_anchor',
   'reshape_to_recording_script',
   'update_recording_guide_draft',
   'reshape_recording_guide_to_format',
-  // Quand Kabou crée une session depuis le chat, la page Sujet doit re-fetcher
-  // pour afficher la carte format correspondante + halo sur la session
-  // fraîchement PENDING. Sans ça, la workspace reste aveugle au travail de Kabou.
   'create_recording_session',
 ])
 
-/**
- * Inline Kabou panel — rendered to the right of the SubjectWorkspace on
- * desktop, as a tab on mobile. Wraps useChat against the topic's dedicated
- * thread so the conversation persists between visits.
- */
-export function SubjectKabouPanel({ topicId, threadId, subjectName, onTopicMutated, inputRef }: SubjectKabouPanelProps) {
+export function SubjectKabouPanel({
+  topicId,
+  threadId,
+  subjectName,
+  contextBrief,
+  contextPillarsCount = 0,
+  contextSourcesCount = 0,
+  contextSessionsSummary,
+  creativeState,
+  narrativeAnchor,
+  hasPendingSession = false,
+  onTopicMutated,
+  inputRef,
+}: SubjectKabouPanelProps) {
   const threadIdRef = useRef(threadId)
   threadIdRef.current = threadId
 
@@ -133,59 +144,194 @@ export function SubjectKabouPanel({ topicId, threadId, subjectName, onTopicMutat
     setInput('')
   }, [input, isBusy, sendMessage])
 
-  const renderMessage = (m: ChatMessage) => {
-    const text = m.parts.map((p) => ('text' in p ? p.text : '')).join('')
-    return (
-      <div
-        key={m.id}
-        className={
-          m.role === 'user'
-            ? 'ml-auto max-w-[85%] rounded-2xl rounded-tr-sm bg-primary px-4 py-2 text-sm text-primary-foreground'
-            : 'mr-auto max-w-[85%] rounded-2xl rounded-tl-sm bg-surface-raised/40 px-4 py-2 text-sm leading-relaxed'
+  const handlePickSuggestion = useCallback(
+    (text: string) => {
+      if (isBusy) return
+      sendMessage({ text } as any)
+    },
+    [isBusy, sendMessage],
+  )
+
+  // Enregistrement vocal — aligné sur le flux /chat : MediaRecorder webm/opus,
+  // POST /api/chat/transcribe, le texte transcrit est envoyé direct dans le
+  // thread. Best-effort : si le mic est refusé, silencieux.
+  const [recording, setRecording] = useState(false)
+  const [transcribing, setTranscribing] = useState(false)
+  const mediaRecorderRef = useRef<MediaRecorder | null>(null)
+  const audioChunksRef = useRef<Blob[]>([])
+
+  const startRecording = useCallback(async () => {
+    try {
+      const stream = await navigator.mediaDevices.getUserMedia({ audio: true })
+      const mr = new MediaRecorder(stream, { mimeType: 'audio/webm;codecs=opus' })
+      mediaRecorderRef.current = mr
+      audioChunksRef.current = []
+      mr.ondataavailable = (e) => {
+        if (e.data.size > 0) audioChunksRef.current.push(e.data)
+      }
+      mr.onstop = async () => {
+        stream.getTracks().forEach((t) => t.stop())
+        const blob = new Blob(audioChunksRef.current, { type: 'audio/webm' })
+        if (blob.size < 1000) return
+        setTranscribing(true)
+        try {
+          const fd = new FormData()
+          fd.append('audio', blob)
+          const res = await fetch('/api/chat/transcribe', { method: 'POST', body: fd })
+          if (res.ok) {
+            const { text } = (await res.json()) as { text?: string }
+            if (text?.trim()) sendMessage({ text: text.trim() } as any)
+          }
+        } catch {
+          /* silencieux */
+        } finally {
+          setTranscribing(false)
         }
-      >
-        {m.role === 'assistant' ? (
-          <div className="prose prose-sm dark:prose-invert max-w-none prose-p:my-1 prose-a:no-underline">
-            <ReactMarkdown components={MARKDOWN_COMPONENTS}>{text}</ReactMarkdown>
-          </div>
-        ) : (
-          <p className="whitespace-pre-wrap">{text}</p>
-        )}
-      </div>
-    )
-  }
+      }
+      mr.start()
+      setRecording(true)
+    } catch {
+      /* mic refusé */
+    }
+  }, [sendMessage])
+
+  const stopRecording = useCallback(() => {
+    mediaRecorderRef.current?.stop()
+    setRecording(false)
+  }, [])
+
+  // Amorces visibles seulement quand l'user n'est pas déjà engagé dans un tour
+  // (pas de message en cours de frappe et pas de stream en route) — sinon elles
+  // distraient. Elles s'affichent en bas du scroll, juste avant le composer,
+  // pour guider sans jamais masquer la conversation.
+  const showSuggestions =
+    !isBusy && input.trim().length === 0 && creativeState !== undefined
 
   return (
-    <div className="flex h-full flex-col rounded-2xl border border-border/50 bg-card">
-      <header className="flex items-center gap-2 border-b border-border/40 px-4 py-3">
-        <Sparkles className="h-4 w-4 text-primary" />
-        <div className="flex-1 min-w-0">
-          <p className="text-xs font-semibold">Kabou sur ce sujet</p>
-          <p className="text-xs text-muted-foreground truncate">{subjectName}</p>
+    <div className="flex h-full flex-col rounded-2xl border border-border bg-card overflow-hidden">
+      {/* Header */}
+      <div className="flex items-center gap-3 border-b border-border px-4 py-3">
+        <div className="relative h-9 w-9 rounded-full overflow-hidden border border-primary/30 shrink-0">
+          {/* eslint-disable-next-line @next/next/no-img-element */}
+          <img src="/lavi-robot.png" alt="Kabou" className="w-full h-full object-cover" />
         </div>
-      </header>
+        <div className="flex-1 min-w-0">
+          <p className="text-[14px] font-semibold leading-tight">Kabou</p>
+          <p className="text-[11px] text-muted-foreground mt-0.5 flex items-center gap-1.5">
+            <span className="h-1.5 w-1.5 rounded-full bg-primary" />
+            Sur ce sujet · écoute active
+          </p>
+        </div>
+        <button
+          type="button"
+          className="inline-flex h-8 w-8 items-center justify-center rounded-md text-muted-foreground hover:bg-surface-raised hover:text-foreground transition"
+          aria-label="Options"
+          title={subjectName}
+        >
+          <MoreHorizontal className="h-4 w-4" />
+        </button>
+      </div>
 
-      <div ref={scrollRef} className="flex-1 space-y-3 overflow-y-auto px-4 py-4">
+      {/* Messages scroll */}
+      <div ref={scrollRef} className="flex-1 overflow-y-auto px-4 py-4 space-y-4">
+        <KabouContextCard
+          angle={contextBrief ?? null}
+          pillarsCount={contextPillarsCount}
+          sourcesCount={contextSourcesCount}
+          sessionsSummary={contextSessionsSummary ?? null}
+        />
+
         {!hydrated && (
-          <div className="flex items-center gap-2 text-xs text-muted-foreground">
+          <div className="inline-flex items-center gap-2 text-[12px] text-muted-foreground">
             <Loader2 className="h-3 w-3 animate-spin" /> Je relis nos échanges…
           </div>
         )}
+
         {hydrated && messages.length === 0 && (
-          <div className="rounded-xl border border-dashed border-border/60 bg-surface-raised/30 px-4 py-3 text-xs leading-relaxed text-muted-foreground">
+          <div className="rounded-xl border border-dashed border-border bg-surface-raised/30 px-4 py-3 text-[12.5px] leading-relaxed text-muted-foreground">
             On peut creuser ce sujet ensemble — raconte-moi pourquoi tu veux en parler et à qui ça s'adresse.
           </div>
         )}
-        {(messages as unknown as ChatMessage[]).map(renderMessage)}
+
+        {(messages as unknown as ChatMessage[]).map((m) => {
+          const text = m.parts.map((p) => ('text' in p ? p.text : '')).join('')
+          if (m.role === 'user') {
+            return (
+              <div key={m.id} className="flex gap-2.5 justify-end">
+                <div className="bubble-me rounded-2xl rounded-tr-sm px-3.5 py-2.5 text-[13.5px] leading-relaxed max-w-[88%] whitespace-pre-wrap">
+                  {text}
+                </div>
+              </div>
+            )
+          }
+          return (
+            <div key={m.id} className="flex gap-2.5">
+              <div className="h-7 w-7 rounded-full overflow-hidden shrink-0 mt-1">
+                {/* eslint-disable-next-line @next/next/no-img-element */}
+                <img src="/lavi-robot.png" alt="Kabou" className="w-full h-full object-cover" />
+              </div>
+              <div className="bubble-kabou rounded-2xl rounded-tl-sm px-3.5 py-2.5 max-w-[88%]">
+                <div className="prose prose-sm dark:prose-invert max-w-none text-[13.5px] leading-relaxed prose-p:my-1 prose-a:no-underline">
+                  <ReactMarkdown components={MARKDOWN_COMPONENTS}>{text}</ReactMarkdown>
+                </div>
+              </div>
+            </div>
+          )
+        })}
+
         {isBusy && (
-          <div className="flex items-center gap-2 text-xs text-muted-foreground">
-            <Loader2 className="h-3 w-3 animate-spin" /> Je réfléchis…
+          <div className="flex gap-2.5 items-end">
+            <div className="h-7 w-7 rounded-full overflow-hidden shrink-0">
+              {/* eslint-disable-next-line @next/next/no-img-element */}
+              <img src="/lavi-robot.png" alt="Kabou" className="w-full h-full object-cover" />
+            </div>
+            <div className="bubble-kabou rounded-2xl rounded-tl-sm px-3.5 py-2.5">
+              <span className="typing-dot" />
+              <span className="typing-dot" />
+              <span className="typing-dot" />
+            </div>
           </div>
+        )}
+
+        {showSuggestions && creativeState && (
+          <KabouSuggestedReplies
+            brief={contextBrief ?? null}
+            narrativeAnchor={narrativeAnchor ?? null}
+            creativeState={creativeState}
+            hasPendingSession={hasPendingSession}
+            onPick={handlePickSuggestion}
+          />
         )}
       </div>
 
-      <div className="border-t border-border/40 p-3">
-        <div className="flex items-end gap-2">
+      {/* Composer */}
+      <div className="border-t border-border p-3 bg-background/40">
+        <div className="flex items-end gap-2 rounded-xl border border-border bg-background p-2">
+          {transcribing ? (
+            <div className="shrink-0 h-9 w-9 rounded-lg bg-surface-raised flex items-center justify-center">
+              <Loader2 className="h-4 w-4 animate-spin text-primary" />
+            </div>
+          ) : recording ? (
+            <button
+              type="button"
+              onClick={stopRecording}
+              className="shrink-0 h-9 w-9 rounded-lg bg-red-500 text-white flex items-center justify-center hover:bg-red-600 transition animate-pulse"
+              aria-label="Arrêter l'enregistrement"
+            >
+              <Square className="h-3.5 w-3.5" />
+            </button>
+          ) : (
+            <button
+              type="button"
+              onClick={startRecording}
+              disabled={isBusy}
+              className="shrink-0 h-9 w-9 rounded-lg bg-surface-raised text-muted-foreground hover:text-foreground hover:bg-muted transition disabled:opacity-40 flex items-center justify-center"
+              aria-label="Dicter"
+              title="Dicter"
+            >
+              <Mic className="h-4 w-4" />
+            </button>
+          )}
           <textarea
             ref={inputRef}
             value={input}
@@ -197,18 +343,33 @@ export function SubjectKabouPanel({ topicId, threadId, subjectName, onTopicMutat
               }
             }}
             rows={1}
-            placeholder="Parle-moi de ce sujet…"
-            className="flex-1 resize-none rounded-xl border border-border/40 bg-background px-3 py-2 text-sm focus:outline-none focus:ring-1 focus:ring-primary/30"
+            placeholder={recording ? 'Écoute en cours…' : 'Parle-moi de ce sujet…'}
+            disabled={recording || transcribing}
+            className="flex-1 resize-none bg-transparent text-[14px] outline-none px-2 py-1.5 placeholder:text-muted-foreground/60 disabled:opacity-60"
           />
           <button
             type="button"
             onClick={handleSend}
-            disabled={isBusy || !input.trim()}
-            className="inline-flex h-9 w-9 items-center justify-center rounded-xl bg-primary text-primary-foreground transition hover:bg-primary/90 disabled:opacity-40"
+            disabled={isBusy || !input.trim() || recording || transcribing}
+            className="inline-flex h-9 w-9 items-center justify-center rounded-lg bg-primary text-primary-foreground transition hover:bg-primary/90 disabled:opacity-40"
             aria-label="Envoyer"
           >
             {isBusy ? <Loader2 className="h-4 w-4 animate-spin" /> : <Send className="h-4 w-4" />}
           </button>
+        </div>
+        <div className="flex items-center gap-3 mt-2 px-1">
+          <button
+            type="button"
+            className="text-[11px] text-muted-foreground hover:text-foreground inline-flex items-center gap-1 transition disabled:opacity-50"
+            disabled
+            title="Bientôt"
+          >
+            <Paperclip className="h-3 w-3" />
+            Joindre
+          </button>
+          <span className="ml-auto text-[10px] font-mono text-muted-foreground/70">
+            ↵ pour envoyer
+          </span>
         </div>
       </div>
     </div>

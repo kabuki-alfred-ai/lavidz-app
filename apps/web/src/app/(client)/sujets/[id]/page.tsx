@@ -5,6 +5,7 @@ import { deriveCreativeState } from '@/lib/creative-state'
 import { isRecordingGuide } from '@/lib/recording-guide'
 import { isNarrativeAnchor } from '@/lib/narrative-anchor'
 import { isRecordingScript } from '@/lib/recording-script'
+import { readSubjectEvents } from '@/lib/subject-events'
 import { SubjectWorkspace } from './SubjectWorkspace'
 
 export const dynamic = 'force-dynamic'
@@ -105,6 +106,11 @@ export default async function SubjectPage({ params }: PageProps) {
     if (p.sessionId) projectBySessionId.set(p.sessionId, p.id)
   }
 
+  // §05 Fil du sujet — on charge les events SSR pour éviter un round-trip.
+  // Dégradation gracieuse : si la table n'existe pas encore (migration pas
+  // jouée), la fonction attrape et on passe un tableau vide.
+  const events = await readSubjectEvents(topic.id, 50).catch(() => [])
+
   return (
     <SubjectWorkspace
       initial={{
@@ -114,6 +120,7 @@ export default async function SubjectPage({ params }: PageProps) {
         pillar: topic.pillar,
         status: topic.status,
         threadId: topic.threadId,
+        createdAt: topic.createdAt.toISOString(),
         updatedAt: topic.updatedAt.toISOString(),
         recordingGuide,
         narrativeAnchor,
@@ -142,6 +149,7 @@ export default async function SubjectPage({ params }: PageProps) {
         projectId: projectBySessionId.get(s.id) ?? null,
         recordingScript: isRecordingScript(s.recordingScript) ? s.recordingScript : null,
       }))}
+      events={events}
     />
   )
 }

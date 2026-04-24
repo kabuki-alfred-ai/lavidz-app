@@ -198,6 +198,46 @@ export const KABOU_TAKE_SELECTOR_COPY = {
 } as const
 
 /**
+ * Session status vocabulary — mapping unique vers le libellé entrepreneur-facing.
+ * "On ne parle pas status technique, on parle de l'état de son tournage."
+ * Utilisé par SessionStatusBadge et FormatCard pour garder une voix cohérente.
+ */
+export type SessionStatus =
+  | 'PENDING'
+  | 'RECORDING'
+  | 'SUBMITTED'
+  | 'PROCESSING'
+  | 'DONE'
+  | 'LIVE'
+  | 'REPLACED'
+  | 'FAILED'
+
+export const SESSION_STATUS_COPY: Record<SessionStatus, string> = {
+  PENDING: 'À enregistrer',
+  RECORDING: 'En cours',
+  SUBMITTED: 'Soumise',
+  PROCESSING: 'En traitement',
+  DONE: 'Terminée',
+  LIVE: 'En ligne',
+  REPLACED: 'Variante remplacée',
+  FAILED: 'Raté',
+}
+
+/**
+ * Wording du header de format card — formulé côté "ce format a un tournage
+ * dans tel état" plutôt que status technique. Évite le flou "Tournage actif"
+ * qui ne renseigne ni sur l'action attendue ni sur la temporalité.
+ */
+export const FORMAT_CARD_HEADER_STATE: Partial<Record<SessionStatus, string>> = {
+  PENDING: 'Tournage prévu',
+  RECORDING: 'Tournage en cours',
+  SUBMITTED: 'Prise soumise',
+  PROCESSING: 'Prise en traitement',
+  DONE: 'Prêt à publier',
+  LIVE: 'En ligne',
+}
+
+/**
  * The 10 voice rules injected as a preamble into Kabou's system prompt.
  * Keep this self-contained and in French — the LLM is instructed to
  * answer in French throughout the product.

@@ -2,6 +2,7 @@ export const runtime = 'nodejs'
 
 import { getSessionUser } from '@/lib/auth'
 import { apiUrl, getAuthHeaders, unauthorized, noOrg } from '@/lib/api-proxy'
+import { recordSubjectEvent } from '@/lib/subject-events'
 
 type RouteContext = { params: Promise<{ id: string }> }
 
@@ -24,7 +25,18 @@ export async function POST(req: Request, ctx: RouteContext) {
       body: JSON.stringify(body),
     })
     if (!res.ok) return new Response(await res.text(), { status: res.status })
-    return Response.json(await res.json())
+    const payload = await res.json()
+    await recordSubjectEvent({
+      topicId: id,
+      type: 'source_added',
+      actor: 'user',
+      metadata: {
+        title: body.title,
+        url: body.url,
+        relevance: body.relevance ?? null,
+      },
+    })
+    return Response.json(payload)
   } catch (err) {
     console.error('[sources add]', err)
     return new Response("Impossible d'ajouter la source", { status: 500 })

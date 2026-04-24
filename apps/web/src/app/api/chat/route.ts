@@ -4,6 +4,25 @@ import { z } from 'zod'
 import { getSessionUser } from '@/lib/auth'
 import { prisma } from '@lavidz/database'
 import { KABOU_SYSTEM_PREAMBLE } from '@/lib/kabou-voice'
+import { recordSubjectEvent } from '@/lib/subject-events'
+
+/**
+ * Map entre le nom d'un tool Kabou et la signature d'event à écrire dans
+ * SubjectEvent. Permet au fil du sujet (§05) d'afficher « Kabou a enrichi
+ * tes piliers », « Kabou a posé l'angle », etc. avec un libellé lisible.
+ * Les tools non-mutants ou qui ne ciblent pas un topic ne sont pas ici.
+ */
+const KABOU_TOOL_EVENT: Record<string, { type: string; label?: string }> = {
+  create_topic: { type: 'topic_created', label: "Kabou a proposé le sujet" },
+  update_topic_brief: { type: 'brief_edited', label: "Kabou a retravaillé l'angle" },
+  mark_topic_ready: { type: 'status_changed', label: 'Kabou a marqué le sujet prêt' },
+  update_narrative_anchor: { type: 'narrative_anchor_edited', label: 'Kabou a enrichi les piliers' },
+  update_recording_guide_draft: { type: 'narrative_anchor_edited', label: 'Kabou a enrichi les piliers' },
+  reshape_to_recording_script: { type: 'kabou_enriched', label: 'Kabou a reshape le script' },
+  reshape_recording_guide_to_format: { type: 'kabou_enriched', label: 'Kabou a reshape le script' },
+  create_recording_session: { type: 'session_created', label: 'Kabou a préparé un tournage' },
+  commit_editorial_plan: { type: 'schedule_published', label: 'Kabou a calé le plan éditorial' },
+}
 
 export const runtime = 'nodejs'
 export const maxDuration = 60
@@ -299,7 +318,10 @@ export async function POST(req: Request) {
         }
       }
 
-      // Sources — ancrages factuels (3-5 idéalement). Chaque source a un "keyTakeaway" déjà formulé à l'oral.
+      // Sources — ancrages factuels. On n'injecte QUE les sources sélectionnées
+      // (pinnées par l'entrepreneur). Les candidates trouvées par Tavily/Kabou
+      // mais pas encore choisies ne polluent pas le contexte — l'user garde la
+      // main sur ce qui entre en mémoire IA.
       const sourcesRaw = currentTopic.sources as {
         sources?: Array<{
           title?: string
@@ -307,11 +329,15 @@ export async function POST(req: Request) {
           summary?: string
           relevance?: string
           keyTakeaway?: string
+          selected?: boolean
         }>
       } | null
-      if (sourcesRaw && Array.isArray(sourcesRaw.sources) && sourcesRaw.sources.length > 0) {
+      const selectedSources = Array.isArray(sourcesRaw?.sources)
+        ? sourcesRaw!.sources!.filter((s) => s.selected !== false)
+        : []
+      if (selectedSources.length > 0) {
         const lines = ['\nSources ancrées sur ce sujet (utilise-les pour muscler l\'angle, proposer un fait ou un contre-angle) :']
-        sourcesRaw.sources.slice(0, 5).forEach((s, i) => {
+        selectedSources.slice(0, 8).forEach((s, i) => {
           const title = typeof s.title === 'string' ? s.title : 'Source'
           const relevance = typeof s.relevance === 'string' ? ` [${s.relevance}]` : ''
           const takeaway = typeof s.keyTakeaway === 'string' && s.keyTakeaway.trim().length > 0
@@ -415,6 +441,29 @@ Tu as acces a un outil de recherche web (webSearch). Utilise-le quand c'est pert
               toolCalls: toolCalls?.length ? JSON.parse(JSON.stringify(toolCalls)) : undefined,
             },
           }).catch(() => {})
+        }
+
+        // Fil du sujet — chaque tool Kabou qui mute un Topic laisse une trace.
+        // On ne se fie pas au topicId du request (il peut dériver vers un autre
+        // sujet au fil des tools) : on lit le topicId DANS l'input du tool.
+        if (toolCalls?.length) {
+          for (const call of toolCalls) {
+            const meta = KABOU_TOOL_EVENT[call.toolName]
+            if (!meta) continue
+            const input = call.input as Record<string, unknown> | undefined
+            const tid =
+              typeof input?.topicId === 'string' ? input.topicId : topicId ?? null
+            if (!tid) continue
+            await recordSubjectEvent({
+              topicId: tid,
+              type: meta.type,
+              actor: 'kabou',
+              metadata: {
+                tool: call.toolName,
+                label: meta.label,
+              },
+            })
+          }
         }
       },
       tools: {
