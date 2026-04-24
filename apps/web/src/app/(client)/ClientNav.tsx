@@ -2,14 +2,12 @@
 
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
-import { Home, MessageSquare, CalendarDays, Film, User, Clapperboard, Music, Mic, Palette, BarChart3, LifeBuoy, FileText, FolderOpen, Brain, LucideIcon } from 'lucide-react'
+import { Home, MessageSquare, Film, User, Clapperboard, Music, Mic, Palette, BarChart3, LifeBuoy, FileText, FolderOpen, Brain, LucideIcon } from 'lucide-react'
 import { ThesisIndicatorDot } from '@/components/nav/ThesisIndicatorDot'
 
 const BASE_ITEMS = [
   { href: '/home', label: 'Accueil', icon: Home },
-  { href: '/chat', label: 'Kabou', icon: MessageSquare },
   { href: '/topics', label: 'Sujets', icon: FileText },
-  { href: '/calendar', label: 'Calendrier', icon: CalendarDays },
   { href: '/projects', label: 'Projets', icon: FolderOpen },
   { href: '/videos', label: 'Videos', icon: Film },
   { href: '/brand-kit', label: 'Brand Kit', icon: Palette },

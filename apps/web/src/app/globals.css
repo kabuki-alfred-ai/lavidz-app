@@ -273,4 +273,10 @@
     from { opacity: 0; transform: translateY(-4px); }
     to   { opacity: 1; transform: translateY(0); }
   }
+
+  /* Sujet detail page — masque le bottom nav global et retire son padding
+     compensatoire sur le scroll container. Le bottom nav custom 2 onglets
+     (Sujet / Kabou) prend le relais sur mobile. */
+  body[data-sujet-detail] [data-bottom-nav] { display: none !important; }
+  body[data-sujet-detail] .layout-scroll-main { padding-bottom: 0 !important; }
 }

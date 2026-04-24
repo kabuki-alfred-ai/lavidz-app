@@ -4,7 +4,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { useChat } from '@ai-sdk/react'
 import { lastAssistantMessageIsCompleteWithToolCalls, DefaultChatTransport } from 'ai'
 import ReactMarkdown from 'react-markdown'
-import { Loader2, MoreHorizontal, Paperclip, Mic, Send, Square } from 'lucide-react'
+import { ArrowLeft, Loader2, MoreHorizontal, Paperclip, Mic, Send, Square } from 'lucide-react'
 import { ChatLink, ChatParagraph } from '@/components/chat/ChatLink'
 import { KabouContextCard } from '@/components/subject/kabou/KabouContextCard'
 import { KabouSuggestedReplies } from '@/components/subject/kabou/KabouSuggestedReplies'
@@ -34,6 +34,8 @@ interface SubjectKabouPanelProps {
   hasPendingSession?: boolean
   onTopicMutated?: (toolName?: string) => void
   inputRef?: React.RefObject<HTMLTextAreaElement | null>
+  /** Sur mobile, affiche un bouton retour dans le header et retire les coins arrondis/bordures. */
+  onBack?: () => void
 }
 
 const MUTATING_TOOLS = new Set([
@@ -60,6 +62,7 @@ export function SubjectKabouPanel({
   hasPendingSession = false,
   onTopicMutated,
   inputRef,
+  onBack,
 }: SubjectKabouPanelProps) {
   const threadIdRef = useRef(threadId)
   threadIdRef.current = threadId
@@ -208,9 +211,19 @@ export function SubjectKabouPanel({
     !isBusy && input.trim().length === 0 && creativeState !== undefined
 
   return (
-    <div className="flex h-full flex-col rounded-2xl border border-border bg-card overflow-hidden">
+    <div className={`flex h-full flex-col bg-card overflow-hidden ${onBack ? '' : 'rounded-2xl border border-border'}`}>
       {/* Header */}
       <div className="flex items-center gap-3 border-b border-border px-4 py-3">
+        {onBack && (
+          <button
+            type="button"
+            onClick={onBack}
+            className="inline-flex h-8 w-8 items-center justify-center rounded-md text-muted-foreground hover:bg-surface-raised hover:text-foreground transition shrink-0"
+            aria-label="Retour au sujet"
+          >
+            <ArrowLeft className="h-4 w-4" />
+          </button>
+        )}
         <div className="relative h-9 w-9 rounded-full overflow-hidden border border-primary/30 shrink-0">
           {/* eslint-disable-next-line @next/next/no-img-element */}
           <img src="/lavi-robot.png" alt="Kabou" className="w-full h-full object-cover" />
@@ -222,14 +235,16 @@ export function SubjectKabouPanel({
             Sur ce sujet · écoute active
           </p>
         </div>
-        <button
-          type="button"
-          className="inline-flex h-8 w-8 items-center justify-center rounded-md text-muted-foreground hover:bg-surface-raised hover:text-foreground transition"
-          aria-label="Options"
-          title={subjectName}
-        >
-          <MoreHorizontal className="h-4 w-4" />
-        </button>
+        {!onBack && (
+          <button
+            type="button"
+            className="inline-flex h-8 w-8 items-center justify-center rounded-md text-muted-foreground hover:bg-surface-raised hover:text-foreground transition"
+            aria-label="Options"
+            title={subjectName}
+          >
+            <MoreHorizontal className="h-4 w-4" />
+          </button>
+        )}
       </div>
 
       {/* Messages scroll */}

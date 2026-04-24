@@ -6,7 +6,6 @@ import { useRouter } from 'next/navigation'
 import { Drawer } from 'vaul'
 import {
   ArrowRight,
-  CalendarDays,
   Check,
   Circle,
   Loader2,
@@ -20,7 +19,6 @@ import { Button } from '@/components/ui/button'
 import { SubjectRecordingGuide } from '@/components/subject/SubjectRecordingGuide'
 import { SubjectNarrativeAnchor } from '@/components/subject/SubjectNarrativeAnchor'
 import { StaleAnchorBadge } from '@/components/subject/StaleAnchorBadge'
-import { SchedulePublishModal } from '@/components/subject/SchedulePublishModal'
 import type { RecordingGuide } from '@/lib/recording-guide'
 import type { NarrativeAnchor } from '@/lib/narrative-anchor'
 
@@ -31,22 +29,6 @@ type SessionHooks = {
   generatedAt?: string
 }
 
-type ScheduleableFormat =
-  | 'QUESTION_BOX'
-  | 'TELEPROMPTER'
-  | 'HOT_TAKE'
-  | 'STORYTELLING'
-  | 'DAILY_TIP'
-  | 'MYTH_VS_REALITY'
-
-const SCHEDULEABLE_FORMATS = new Set<ScheduleableFormat>([
-  'QUESTION_BOX',
-  'TELEPROMPTER',
-  'HOT_TAKE',
-  'STORYTELLING',
-  'DAILY_TIP',
-  'MYTH_VS_REALITY',
-])
 
 interface SessionLite {
   id: string
@@ -105,7 +87,6 @@ export function FormatCardDrawer({
 }: FormatCardDrawerProps) {
   const router = useRouter()
   const [isDesktop, setIsDesktop] = useState(true)
-  const [scheduleOpen, setScheduleOpen] = useState(false)
   const [hooks, setHooks] = useState<SessionHooks | null>(null)
   const [hooksLoading, setHooksLoading] = useState(false)
   const [generatingHooks, setGeneratingHooks] = useState(false)
@@ -218,7 +199,6 @@ export function FormatCardDrawer({
     [canonical?.id, hooks?.chosen],
   )
 
-  const canSchedule = SCHEDULEABLE_FORMATS.has(format as ScheduleableFormat)
 
   const script = canonical?.recordingScript ?? null
   const statusMeta = canonical
@@ -468,32 +448,7 @@ export function FormatCardDrawer({
           </Button>
         )}
 
-        {/* Planifier — contextualisé au format de la carte. Remplace l'ancien
-           ReadyActions global. Dispo dès qu'une action de publication future
-           a du sens (format autre que OTHER). Variant outline pour être
-           vraiment visible en parallèle du CTA primaire "Lancer maintenant". */}
-        {canSchedule && (
-          <Button
-            size="lg"
-            variant="outline"
-            onClick={() => setScheduleOpen(true)}
-            className="w-full sm:w-auto"
-          >
-            <CalendarDays className="h-4 w-4" />
-            Planifier la publication
-          </Button>
-        )}
       </footer>
-
-      {canSchedule && (
-        <SchedulePublishModal
-          open={scheduleOpen}
-          onClose={() => setScheduleOpen(false)}
-          topicId={topicId}
-          defaultFormat={format as ScheduleableFormat}
-          onScheduled={() => setScheduleOpen(false)}
-        />
-      )}
     </>
   )
 

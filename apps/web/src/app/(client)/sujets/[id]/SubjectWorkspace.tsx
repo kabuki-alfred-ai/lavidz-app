@@ -1,9 +1,8 @@
 'use client'
 
-import { useCallback, useEffect, useMemo, useRef, useState, useTransition } from 'react'
+import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState, useTransition } from 'react'
 import { useRouter } from 'next/navigation'
-import { Drawer } from 'vaul'
-import { CheckCircle2, Loader2, MessageCircle, Mic, Play, Sparkles } from 'lucide-react'
+import { CheckCircle2, FileText, Loader2, MessageCircle, Mic, Play, Sparkles } from 'lucide-react'
 import Link from 'next/link'
 import { Button } from '@/components/ui/button'
 import type { CreativeState } from '@/lib/creative-state'
@@ -122,10 +121,6 @@ const KABOU_MUTATION_TOAST: Record<string, string> = {
   commit_editorial_plan: '📅 Plan éditorial calé avec Kabou',
 }
 
-function formatDate(iso: string): string {
-  const d = new Date(iso)
-  return d.toLocaleDateString('fr-FR', { weekday: 'long', day: 'numeric', month: 'long' })
-}
 
 /**
  * Page canonique d'un Sujet. Layout 2 colonnes (desktop) / FAB+Drawer (mobile).
@@ -138,7 +133,6 @@ export function SubjectWorkspace({
   initial,
   creativeState,
   availablePillars,
-  nextScheduled,
   matterCounts,
   sessions,
   events = [],
@@ -147,8 +141,14 @@ export function SubjectWorkspace({
   const [topic, setTopic] = useState<Topic>(initial)
   const [isPending, startTransition] = useTransition()
   const [toast, setToast] = useState<string | null>(null)
-  const [kabouDrawerOpen, setKabouDrawerOpen] = useState(false)
+  const [mobileTab, setMobileTab] = useState<'sujet' | 'kabou'>('sujet')
   const kabouInputRef = useRef<HTMLTextAreaElement | null>(null)
+
+  // Cache le bottom nav global du layout sur mobile pendant qu'on est sur cette page.
+  useLayoutEffect(() => {
+    document.body.setAttribute('data-sujet-detail', '1')
+    return () => document.body.removeAttribute('data-sujet-detail')
+  }, [])
 
   // Pillar editor (modal inline)
   const [editingPillar, setEditingPillar] = useState(false)
@@ -401,11 +401,15 @@ export function SubjectWorkspace({
   }, [])
 
   const focusKabouInput = useCallback(() => {
+    if (!isDesktop) {
+      setMobileTab('kabou')
+      return
+    }
     const el = kabouInputRef.current
     if (!el) return
     el.focus()
     el.scrollIntoView({ behavior: 'smooth', block: 'center' })
-  }, [])
+  }, [isDesktop])
 
   // Primary CTA context-aware
   const pendingSession = useMemo(
@@ -526,10 +530,7 @@ export function SubjectWorkspace({
     return (
       <Button
         size="lg"
-        onClick={() => {
-          if (isDesktop) focusKabouInput()
-          else setKabouDrawerOpen(true)
-        }}
+        onClick={focusKabouInput}
         disabled={isPending}
       >
         <Sparkles className="h-4 w-4" />
@@ -557,8 +558,6 @@ export function SubjectWorkspace({
     const target = document.getElementById('tournages-section')
     target?.scrollIntoView({ behavior: 'smooth', block: 'start' })
   }, [])
-
-  const nextScheduledLabel = nextScheduled ? formatDate(nextScheduled.scheduledDate) : null
 
   const scrollToSection = useCallback((id: string) => {
     const target = document.getElementById(id)
@@ -623,11 +622,6 @@ export function SubjectWorkspace({
     return latest.actor === 'kabou' ? latest.createdAt : null
   }, [events])
 
-  function scrollToSections() {
-    const target = document.getElementById('tournages-section')
-    target?.scrollIntoView({ behavior: 'smooth', block: 'start' })
-  }
-
   return (
     <>
       <TopicAtmosphere state={creativeState} />
@@ -648,8 +642,6 @@ export function SubjectWorkspace({
               title={topic.name}
               pillar={topic.pillar}
               onEditPillar={() => setEditingPillar(true)}
-              nextScheduledDate={nextScheduled?.scheduledDate ?? null}
-              nextScheduledLabel={nextScheduledLabel}
               sessionsCount={sessions.length}
               onScrollToSessions={scrollToSessions}
               primaryCta={primaryCta}
@@ -795,55 +787,60 @@ export function SubjectWorkspace({
           )}
         </div>
 
+        {/* Overlay Kabou — mobile uniquement, plein écran sous le bottom nav */}
+        {!isDesktop && mobileTab === 'kabou' && (
+          <div className="fixed inset-x-0 top-0 bottom-16 z-30 bg-card flex flex-col lg:hidden">
+            <SubjectKabouPanel
+              topicId={topic.id}
+              threadId={topic.threadId}
+              subjectName={topic.name}
+              contextBrief={topic.brief}
+              contextPillarsCount={pillarsCount}
+              contextSourcesCount={sourcesCount}
+              contextSessionsSummary={sessionsSummary}
+              creativeState={creativeState}
+              narrativeAnchor={topic.narrativeAnchor}
+              hasPendingSession={Boolean(pendingSession)}
+              onTopicMutated={handleTopicMutated}
+              onBack={() => setMobileTab('sujet')}
+            />
+          </div>
+        )}
+
+        {/* Bottom nav 2 onglets — mobile uniquement */}
         {!isDesktop && (
-          <>
+          <nav
+            aria-label="Navigation sujet"
+            className="fixed bottom-0 inset-x-0 z-40 h-16 bg-background/95 backdrop-blur-lg border-t border-border flex lg:hidden"
+          >
             <button
               type="button"
-              onClick={() => setKabouDrawerOpen(true)}
-              className="fixed bottom-6 right-5 z-40 inline-flex h-14 items-center gap-2 rounded-full bg-primary px-5 text-sm font-semibold text-primary-foreground shadow-xl shadow-primary/30 transition active:scale-95 lg:hidden"
-              aria-label="Ouvrir Kabou"
+              onClick={() => setMobileTab('sujet')}
+              className={`flex-1 flex flex-col items-center justify-center gap-1 text-[11px] font-medium transition-colors ${
+                mobileTab === 'sujet' ? 'text-primary' : 'text-muted-foreground'
+              }`}
+            >
+              <FileText className="h-5 w-5" />
+              Sujet
+            </button>
+            <div className="w-px bg-border my-3" aria-hidden />
+            <button
+              type="button"
+              onClick={() => setMobileTab('kabou')}
+              className={`flex-1 flex flex-col items-center justify-center gap-1 text-[11px] font-medium transition-colors ${
+                mobileTab === 'kabou' ? 'text-primary' : 'text-muted-foreground'
+              }`}
             >
               <MessageCircle className="h-5 w-5" />
               Kabou
             </button>
-            <Drawer.Root
-              open={kabouDrawerOpen}
-              onOpenChange={setKabouDrawerOpen}
-              snapPoints={[0.6, 0.92]}
-            >
-              <Drawer.Portal>
-                <Drawer.Overlay className="fixed inset-0 z-40 bg-black/50 backdrop-blur-sm" />
-                <Drawer.Content className="fixed inset-x-0 bottom-0 z-50 mt-24 flex h-full max-h-[92vh] flex-col rounded-t-2xl border border-b-0 border-border bg-card focus:outline-none">
-                  <div className="mx-auto mt-2 h-1.5 w-12 flex-none rounded-full bg-muted" />
-                  <Drawer.Title className="sr-only">Kabou sur {topic.name}</Drawer.Title>
-                  <Drawer.Description className="sr-only">
-                    Discute avec Kabou sans quitter ton sujet.
-                  </Drawer.Description>
-                  <div className="flex-1 overflow-hidden p-2">
-                    <SubjectKabouPanel
-                      topicId={topic.id}
-                      threadId={topic.threadId}
-                      subjectName={topic.name}
-                      contextBrief={topic.brief}
-                      contextPillarsCount={pillarsCount}
-                      contextSourcesCount={sourcesCount}
-                      contextSessionsSummary={sessionsSummary}
-                      creativeState={creativeState}
-                      narrativeAnchor={topic.narrativeAnchor}
-                      hasPendingSession={Boolean(pendingSession)}
-                      onTopicMutated={handleTopicMutated}
-                    />
-                  </div>
-                </Drawer.Content>
-              </Drawer.Portal>
-            </Drawer.Root>
-          </>
+          </nav>
         )}
 
         {toast && (
           <div
             role="status"
-            className="fixed bottom-24 left-1/2 z-[60] -translate-x-1/2 rounded-full border border-border bg-card px-4 py-2 text-xs shadow-lg lg:bottom-6"
+            className="fixed bottom-20 left-1/2 z-[60] -translate-x-1/2 rounded-full border border-border bg-card px-4 py-2 text-xs shadow-lg lg:bottom-6"
           >
             {toast}
           </div>

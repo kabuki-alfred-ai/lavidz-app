@@ -1,7 +1,7 @@
 'use client'
 
 import type { ReactNode } from 'react'
-import { Clock, Film, Pencil, Target, RotateCcw } from 'lucide-react'
+import { Film, Pencil, Target, RotateCcw } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import type { CreativeState } from '@/lib/creative-state'
 import { SubjectStageTimeline } from './SubjectStageTimeline'
@@ -13,8 +13,6 @@ interface SubjectHeaderProps {
   subtitle?: string | null
   pillar: string | null
   onEditPillar: () => void
-  nextScheduledDate?: string | null
-  nextScheduledLabel?: string | null
   sessionsCount: number
   onScrollToSessions: () => void
   primaryCta?: ReactNode
@@ -31,8 +29,6 @@ export function SubjectHeader({
   subtitle,
   pillar,
   onEditPillar,
-  nextScheduledDate,
-  nextScheduledLabel,
   sessionsCount,
   onScrollToSessions,
   primaryCta,
@@ -73,12 +69,6 @@ export function SubjectHeader({
             <Pencil className="h-3 w-3" />
             Lier à un domaine
           </button>
-        )}
-        {nextScheduledLabel && (
-          <span className="inline-flex items-center gap-1.5 px-2.5 py-1 text-[11.5px] border border-border rounded-full text-muted-foreground bg-surface-raised/50">
-            <Clock className="h-3 w-3" />
-            {nextScheduledLabel}
-          </span>
         )}
         {sessionsCount > 0 && (
           <button

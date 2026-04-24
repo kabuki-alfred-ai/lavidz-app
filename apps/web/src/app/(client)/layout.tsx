@@ -43,7 +43,7 @@ export default async function ClientLayout({ children }: { children: React.React
 
       {/* Main content */}
       <div className="flex-1 flex flex-col overflow-hidden">
-        <main className="flex-1 overflow-y-auto pb-20 md:pb-0">
+        <main className="layout-scroll-main flex-1 overflow-y-auto pb-20 md:pb-0">
           {children}
         </main>
       </div>
