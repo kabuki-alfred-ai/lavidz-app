@@ -14,6 +14,7 @@ services:
       timeout: 5s
       retries: 5
     networks:
+      - internal
       - coolify
 
   redis:
@@ -28,7 +29,7 @@ services:
       timeout: 5s
       retries: 5
     networks:
-      - coolify
+      - internal
 
   minio:
     image: minio/minio:latest
@@ -46,6 +47,7 @@ services:
       timeout: 5s
       retries: 5
     networks:
+      - internal
       - coolify
 
   minio-init:
@@ -66,7 +68,7 @@ services:
         echo 'MinIO init done'
       "
     networks:
-      - coolify
+      - internal
 
   api:
     build:
@@ -96,6 +98,7 @@ services:
       minio:
         condition: service_healthy
     networks:
+      - internal
       - coolify
 
   web:
@@ -121,6 +124,7 @@ services:
       - api
       - redis
     networks:
+      - internal
       - coolify
 
 volumes:
@@ -129,5 +133,7 @@ volumes:
   minio_data:
 
 networks:
+  internal:
+    driver: bridge
   coolify:
     external: true
