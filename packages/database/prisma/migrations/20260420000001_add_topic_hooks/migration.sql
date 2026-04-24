@@ -1,2 +1,2 @@
 -- AlterTable
-ALTER TABLE "Topic" ADD COLUMN "hooks" JSONB;
+ALTER TABLE "Topic" ADD COLUMN IF NOT EXISTS "hooks" JSONB;
