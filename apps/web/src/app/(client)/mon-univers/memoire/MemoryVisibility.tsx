@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useState } from 'react'
 import Link from 'next/link'
 import { useRef } from 'react'
+import ReactMarkdown from 'react-markdown'
 import {
   AlertTriangle,
   ArrowLeft,
@@ -12,8 +13,11 @@ import {
   ExternalLink,
   FileText,
   Loader2,
+  Mic,
   Pencil,
+  RefreshCw,
   Sparkles,
+  Square,
   Trash2,
   Upload,
   Waypoints,
@@ -216,7 +220,163 @@ function stringifySummary(businessContext: Record<string, unknown> | null): stri
     }
   }
 
-  return parts.join('\n')
+  return parts.join('\n\n')
+}
+
+function normalizeMarkdown(text: string): string {
+  // Converts single \n to \n\n so react-markdown creates paragraph breaks
+  return text.replace(/\n{1,}/g, '\n\n')
+}
+
+type VoiceState = 'idle' | 'recording' | 'transcribing' | 'formatting' | 'preview' | 'saving'
+
+type VoiceFieldEditorProps = {
+  field: 'editorialPillars' | 'communicationStyle'
+  onSave: (value: string[] | string) => Promise<void>
+  onCancel: () => void
+}
+
+function VoiceFieldEditor({ field, onSave, onCancel }: VoiceFieldEditorProps) {
+  const [state, setState] = useState<VoiceState>('idle')
+  const [preview, setPreview] = useState<string[] | string | null>(null)
+  const mediaRecorderRef = useRef<MediaRecorder | null>(null)
+  const audioChunksRef = useRef<Blob[]>([])
+
+  const startRecording = useCallback(async () => {
+    try {
+      const stream = await navigator.mediaDevices.getUserMedia({ audio: true })
+      const mimeType = MediaRecorder.isTypeSupported('audio/webm;codecs=opus')
+        ? 'audio/webm;codecs=opus'
+        : 'audio/mp4'
+      const mediaRecorder = new MediaRecorder(stream, { mimeType })
+      mediaRecorderRef.current = mediaRecorder
+      audioChunksRef.current = []
+      mediaRecorder.ondataavailable = (e) => {
+        if (e.data.size > 0) audioChunksRef.current.push(e.data)
+      }
+      mediaRecorder.onstop = async () => {
+        stream.getTracks().forEach((t) => t.stop())
+        const blob = new Blob(audioChunksRef.current, { type: mimeType })
+        if (blob.size < 1000) { setState('idle'); return }
+        setState('transcribing')
+        try {
+          const fd = new FormData()
+          fd.append('audio', blob)
+          const transcribeRes = await fetch('/api/chat/transcribe', { method: 'POST', body: fd })
+          if (!transcribeRes.ok) { setState('idle'); return }
+          const { text } = await transcribeRes.json()
+          if (!text?.trim()) { setState('idle'); return }
+
+          setState('formatting')
+          const fmtRes = await fetch('/api/mon-univers/voice-format', {
+            method: 'POST',
+            headers: { 'content-type': 'application/json' },
+            body: JSON.stringify({ field, transcript: text.trim() }),
+          })
+          if (!fmtRes.ok) { setState('idle'); return }
+          const { value } = await fmtRes.json()
+          setPreview(value)
+          setState('preview')
+        } catch {
+          setState('idle')
+        }
+      }
+      mediaRecorder.start()
+      setState('recording')
+    } catch { /* mic denied */ }
+  }, [field])
+
+  const stopRecording = useCallback(() => {
+    mediaRecorderRef.current?.stop()
+  }, [])
+
+  const confirm = useCallback(async () => {
+    if (preview === null) return
+    setState('saving')
+    await onSave(preview)
+  }, [preview, onSave])
+
+  const redo = useCallback(() => {
+    setPreview(null)
+    setState('idle')
+  }, [])
+
+  return (
+    <div className="flex flex-col items-center gap-4 py-2">
+      {state === 'idle' && (
+        <>
+          <button
+            onClick={startRecording}
+            className="group relative flex h-16 w-16 items-center justify-center rounded-full bg-primary/10 text-primary transition-all hover:scale-105 hover:bg-primary/20 active:scale-95"
+          >
+            <Mic size={24} className="transition-transform group-hover:scale-110" />
+          </button>
+          <p className="text-xs text-muted-foreground">Appuie pour parler</p>
+          <button
+            onClick={onCancel}
+            className="text-xs text-muted-foreground hover:text-foreground"
+          >
+            Annuler
+          </button>
+        </>
+      )}
+
+      {state === 'recording' && (
+        <>
+          <button
+            onClick={stopRecording}
+            className="relative flex h-16 w-16 items-center justify-center rounded-full bg-red-500 text-white transition-all hover:bg-red-600 active:scale-95"
+          >
+            <span className="absolute inset-0 animate-ping rounded-full bg-red-400 opacity-30" />
+            <Square size={20} fill="white" />
+          </button>
+          <p className="animate-pulse text-xs text-muted-foreground">En écoute…</p>
+        </>
+      )}
+
+      {(state === 'transcribing' || state === 'formatting' || state === 'saving') && (
+        <>
+          <div className="flex h-16 w-16 items-center justify-center rounded-full bg-muted">
+            <Loader2 size={22} className="animate-spin text-primary" />
+          </div>
+          <p className="text-xs text-muted-foreground">
+            {state === 'transcribing' && 'Transcription…'}
+            {state === 'formatting' && 'Mise en forme IA…'}
+            {state === 'saving' && 'Sauvegarde…'}
+          </p>
+        </>
+      )}
+
+      {state === 'preview' && preview !== null && (
+        <div className="w-full space-y-4">
+          <div className="rounded-xl border border-border/50 bg-background/40 p-4">
+            <p className="mb-2 text-[10px] uppercase tracking-widest text-muted-foreground">
+              Ce que j'ai compris
+            </p>
+            {Array.isArray(preview) ? (
+              <div className="flex flex-wrap gap-2">
+                {(preview as string[]).map((p, i) => (
+                  <span key={i} className="rounded-full bg-primary/10 px-2.5 py-1 text-xs text-primary">
+                    {p}
+                  </span>
+                ))}
+              </div>
+            ) : (
+              <p className="text-sm leading-relaxed text-foreground">{preview as string}</p>
+            )}
+          </div>
+          <div className="flex gap-2">
+            <Button size="sm" onClick={confirm} className="flex-1">
+              <Check className="h-3 w-3" /> Valider
+            </Button>
+            <Button size="sm" variant="outline" onClick={redo}>
+              <RefreshCw className="h-3 w-3" /> Recommencer
+            </Button>
+          </div>
+        </div>
+      )}
+    </div>
+  )
 }
 
 export function MemoryVisibility() {
@@ -224,7 +384,6 @@ export function MemoryVisibility() {
   const [memories, setMemories] = useState<Memory[]>([])
   const [loading, setLoading] = useState(true)
   const [editingField, setEditingField] = useState<string | null>(null)
-  const [drafts, setDrafts] = useState<Partial<Profile>>({})
   const [toast, setToast] = useState<string | null>(null)
   const [deletingMemory, setDeletingMemory] = useState<string | null>(null)
   const [showResetConfirm, setShowResetConfirm] = useState(false)
@@ -380,9 +539,9 @@ export function MemoryVisibility() {
           </h2>
         </div>
         {summaryText ? (
-          <pre className="whitespace-pre-wrap text-sm leading-relaxed text-foreground">
-            {summaryText}
-          </pre>
+          <div className="text-sm leading-relaxed text-foreground [&_strong]:font-semibold [&_p]:my-0.5 [&_ul]:list-disc [&_ul]:pl-4 [&_li]:my-0.5">
+            <ReactMarkdown>{normalizeMarkdown(summaryText)}</ReactMarkdown>
+          </div>
         ) : (
           <p className="text-sm italic text-muted-foreground">
             Kabou ne connaît pas encore ton activité. Discute avec lui dans le chat pour
@@ -400,10 +559,7 @@ export function MemoryVisibility() {
           {editingField !== 'pillars' && (
             <button
               type="button"
-              onClick={() => {
-                setEditingField('pillars')
-                setDrafts({ editorialPillars: profile?.editorialPillars ?? [] })
-              }}
+              onClick={() => setEditingField('pillars')}
               className="inline-flex items-center gap-1 text-xs text-muted-foreground hover:text-foreground"
             >
               <Pencil className="h-3 w-3" /> Éditer
@@ -429,45 +585,14 @@ export function MemoryVisibility() {
             </p>
           )
         ) : (
-          <div>
-            <textarea
-              value={(drafts.editorialPillars ?? []).join('\n')}
-              onChange={(e) =>
-                setDrafts({
-                  editorialPillars: e.target.value
-                    .split('\n')
-                    .map((s) => s.trim())
-                    .filter(Boolean),
-                })
-              }
-              rows={4}
-              placeholder="Un domaine par ligne (ex: validation produit, recrutement tech, levée)"
-              className="w-full rounded-lg border border-border/40 bg-background px-3 py-2 text-sm"
-            />
-            <div className="mt-3 flex gap-2">
-              <Button
-                size="sm"
-                onClick={async () => {
-                  const ok = await savePatch({
-                    editorialPillars: drafts.editorialPillars,
-                  } as Partial<Profile>)
-                  if (ok) setEditingField(null)
-                }}
-              >
-                <Check className="h-3 w-3" /> Sauvegarder
-              </Button>
-              <Button
-                size="sm"
-                variant="ghost"
-                onClick={() => {
-                  setEditingField(null)
-                  setDrafts({})
-                }}
-              >
-                Annuler
-              </Button>
-            </div>
-          </div>
+          <VoiceFieldEditor
+            field="editorialPillars"
+            onSave={async (value) => {
+              const ok = await savePatch({ editorialPillars: value as string[] })
+              if (ok) setEditingField(null)
+            }}
+            onCancel={() => setEditingField(null)}
+          />
         )}
         {profile?.editorialTone && (
           <p className="mt-4 text-xs text-muted-foreground">
@@ -497,10 +622,7 @@ export function MemoryVisibility() {
           {editingField !== 'style' && (
             <button
               type="button"
-              onClick={() => {
-                setEditingField('style')
-                setDrafts({ communicationStyle: profile?.communicationStyle ?? '' })
-              }}
+              onClick={() => setEditingField('style')}
               className="inline-flex items-center gap-1 text-xs text-muted-foreground hover:text-foreground"
             >
               <Pencil className="h-3 w-3" /> Éditer
@@ -509,9 +631,9 @@ export function MemoryVisibility() {
         </div>
         {editingField !== 'style' ? (
           profile?.communicationStyle ? (
-            <pre className="whitespace-pre-wrap text-sm leading-relaxed text-foreground">
-              {profile.communicationStyle}
-            </pre>
+            <div className="text-sm leading-relaxed text-foreground [&_strong]:font-semibold [&_p]:my-0.5 [&_ul]:list-disc [&_ul]:pl-4 [&_li]:my-0.5">
+              <ReactMarkdown>{normalizeMarkdown(profile.communicationStyle)}</ReactMarkdown>
+            </div>
           ) : (
             <p className="text-sm italic text-muted-foreground">
               Kabou apprend ton style au fur et à mesure que tu enregistres des vidéos —
@@ -519,38 +641,14 @@ export function MemoryVisibility() {
             </p>
           )
         ) : (
-          <div>
-            <textarea
-              value={drafts.communicationStyle ?? ''}
-              onChange={(e) => setDrafts({ communicationStyle: e.target.value })}
-              rows={5}
-              placeholder="Comment tu parles habituellement ? (Kabou complète aussi ça tout seul après chaque tournage)"
-              className="w-full rounded-lg border border-border/40 bg-background px-3 py-2 text-sm"
-            />
-            <div className="mt-3 flex gap-2">
-              <Button
-                size="sm"
-                onClick={async () => {
-                  const ok = await savePatch({
-                    communicationStyle: drafts.communicationStyle ?? null,
-                  })
-                  if (ok) setEditingField(null)
-                }}
-              >
-                <Check className="h-3 w-3" /> Sauvegarder
-              </Button>
-              <Button
-                size="sm"
-                variant="ghost"
-                onClick={() => {
-                  setEditingField(null)
-                  setDrafts({})
-                }}
-              >
-                Annuler
-              </Button>
-            </div>
-          </div>
+          <VoiceFieldEditor
+            field="communicationStyle"
+            onSave={async (value) => {
+              const ok = await savePatch({ communicationStyle: value as string })
+              if (ok) setEditingField(null)
+            }}
+            onCancel={() => setEditingField(null)}
+          />
         )}
       </section>
 

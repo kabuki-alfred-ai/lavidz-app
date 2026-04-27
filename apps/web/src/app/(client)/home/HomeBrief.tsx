@@ -128,7 +128,10 @@ export function HomeBrief() {
   if (loading) {
     return (
       <div className="mx-auto max-w-2xl space-y-6 px-4 py-8 md:py-12">
-        <div className="h-10 w-48 animate-pulse rounded-lg bg-muted" />
+        <div className="flex items-start justify-between">
+          <div className="h-10 w-48 animate-pulse rounded-lg bg-muted" />
+          <div className="h-10 w-10 animate-pulse rounded-full bg-muted md:hidden" />
+        </div>
         <div className="h-44 animate-pulse rounded-3xl bg-muted" />
         <div className="grid grid-cols-3 gap-3">
           {Array.from({ length: 3 }).map((_, i) => (
@@ -156,42 +159,64 @@ export function HomeBrief() {
     <div className="mx-auto max-w-2xl space-y-6 px-4 py-8 md:py-12">
 
       {/* Greeting */}
-      <header>
-        <h1 className="text-2xl font-bold tracking-tight text-foreground sm:text-3xl">
-          {getGreeting()} {state.userName}
-        </h1>
-        <p className="mt-1 text-sm text-muted-foreground">
-          {new Date().toLocaleDateString('fr-FR', { weekday: 'long', day: 'numeric', month: 'long' })}
-          {state.lastActivityAt && ` · dernière activité ${formatRelativeDate(state.lastActivityAt)}`}
-        </p>
+      <header className="flex items-start justify-between gap-4">
+        <div>
+          <h1 className="text-2xl font-bold tracking-tight text-foreground sm:text-3xl">
+            {getGreeting()} {state.userName}
+          </h1>
+          <p className="mt-1 text-sm text-muted-foreground">
+            {new Date().toLocaleDateString('fr-FR', { weekday: 'long', day: 'numeric', month: 'long' })}
+            {state.lastActivityAt && ` · dernière activité ${formatRelativeDate(state.lastActivityAt)}`}
+          </p>
+        </div>
+
+        {/* Avatar — mobile only, links to /moi */}
+        <Link
+          href="/moi"
+          aria-label="Mon profil"
+          className="md:hidden shrink-0 w-10 h-10 rounded-full bg-primary/10 flex items-center justify-center text-sm font-bold text-primary hover:bg-primary/20 transition-colors"
+        >
+          {state.userName[0]?.toUpperCase() ?? '?'}
+        </Link>
       </header>
 
-      {/* Thesis banner */}
-      {state.thesis ? (
-        <Link
-          href="/mon-univers/these"
-          className="block rounded-xl border border-primary/20 bg-primary/5 px-4 py-3 transition hover:bg-primary/10"
-        >
-          <div className="mb-1 flex items-center gap-2 text-[11px] uppercase tracking-wider text-primary">
-            <Waypoints className="h-3 w-3" /> Ta thèse
-            {confidence && (
-              <span className={`ml-auto inline-flex rounded-full px-1.5 py-0.5 text-[10px] font-medium normal-case tracking-normal ${CONFIDENCE_META[confidence].tone}`}>
-                {CONFIDENCE_META[confidence].label}
-              </span>
+      {/* Mon Univers */}
+      <Link
+        href="/mon-univers"
+        className="group block rounded-2xl border border-border/60 bg-surface/50 px-4 py-4 transition-colors hover:bg-surface-raised/60"
+      >
+        <div className="mb-3 flex items-center justify-between">
+          <div className="flex items-center gap-2 text-xs font-semibold uppercase tracking-widest text-muted-foreground">
+            <Waypoints className="h-3.5 w-3.5" />
+            Mon Univers
+          </div>
+          <ArrowRight className="h-4 w-4 text-muted-foreground/40 transition-colors group-hover:text-muted-foreground" />
+        </div>
+
+        {state.thesis ? (
+          <div className="flex flex-col gap-2">
+            <div className="flex items-start gap-2">
+              <p className="flex-1 text-sm italic leading-snug text-foreground">
+                &laquo;&nbsp;{state.thesis.statement}&nbsp;&raquo;
+              </p>
+              {confidence && (
+                <span className={`shrink-0 mt-0.5 inline-flex rounded-full px-2 py-0.5 text-[10px] font-medium ${CONFIDENCE_META[confidence].tone}`}>
+                  {CONFIDENCE_META[confidence].label}
+                </span>
+              )}
+            </div>
+            {state.thesis.audienceArchetype && (
+              <p className="text-xs text-muted-foreground">
+                Pour&nbsp;<span className="font-medium text-foreground">{state.thesis.audienceArchetype}</span>
+              </p>
             )}
           </div>
-          <p className="text-sm italic text-foreground">&laquo;&nbsp;{state.thesis.statement}&nbsp;&raquo;</p>
-        </Link>
-      ) : (
-        <Link
-          href="/mon-univers/these"
-          className="inline-flex items-center gap-1.5 text-xs text-muted-foreground transition hover:text-foreground"
-        >
-          <Waypoints className="h-3.5 w-3.5" />
-          Tu n'as pas encore de thèse — Kabou peut t'aider à la formuler.
-          <ArrowRight className="h-3 w-3" />
-        </Link>
-      )}
+        ) : (
+          <p className="text-sm text-muted-foreground">
+            Définis ta thèse et tes piliers de contenu avec Kabou.
+          </p>
+        )}
+      </Link>
 
       {/* Next step — dominant tile */}
       <section className="rounded-3xl border border-primary/30 bg-gradient-to-br from-primary/10 via-primary/5 to-transparent p-6 sm:p-8">

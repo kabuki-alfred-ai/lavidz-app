@@ -41,7 +41,16 @@ export default async function PostRecordingPage({ params }: PageProps) {
       },
       recordings: {
         orderBy: { createdAt: 'asc' },
-        select: { wordTimestamps: true, status: true },
+        select: {
+          id: true,
+          questionId: true,
+          status: true,
+          supersededAt: true,
+          rawVideoKey: true,
+          finalVideoKey: true,
+          processedVideoKey: true,
+          wordTimestamps: true,
+        },
       },
     },
   })
@@ -53,12 +62,23 @@ export default async function PostRecordingPage({ params }: PageProps) {
     0,
   )
 
-  const activeRecordings = session.recordings.filter((r) => r.status !== 'FAILED').length
+  // Canonical recordings only: not superseded, not failed, with at least one video key
+  const canonicalRecordings = session.recordings.filter(
+    (r) => !r.supersededAt && r.status !== 'FAILED',
+  )
+
+  const activeRecordings = canonicalRecordings.length
 
   const questions = session.theme.questions.map((q, index) => ({
     id: q.id,
     order: index,
     text: q.text,
+  }))
+
+  const recordingRefs = canonicalRecordings.map((r) => ({
+    id: r.id,
+    questionId: r.questionId,
+    hasVideo: !!(r.processedVideoKey ?? r.finalVideoKey ?? r.rawVideoKey),
   }))
 
   return (
@@ -69,6 +89,8 @@ export default async function PostRecordingPage({ params }: PageProps) {
       recordingsCount={activeRecordings}
       totalDurationMs={totalDurationMs}
       montageHref={`/process/${sessionId}`}
+      topicId={session.topicId ?? null}
+      recordingRefs={recordingRefs}
     />
   )
 }

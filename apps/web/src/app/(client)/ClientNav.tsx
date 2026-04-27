@@ -2,13 +2,21 @@
 
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
-import { Home, MessageSquare, Film, User, Clapperboard, Music, Mic, Palette, BarChart3, LifeBuoy, FileText, FolderOpen, LucideIcon } from 'lucide-react'
+import { Home, MessageSquare, Film, User, Clapperboard, Music, Mic, Palette, BarChart3, LifeBuoy, FileText, FolderOpen, Video, LucideIcon } from 'lucide-react'
 
 const BASE_ITEMS = [
   { href: '/home', label: 'Accueil', icon: Home },
   { href: '/topics', label: 'Sujets', icon: FileText },
   { href: '/projects', label: 'Projets', icon: FolderOpen },
+  { href: '/tournages', label: 'Tournages', icon: Video },
   { href: '/moi', label: 'Moi', icon: User },
+]
+
+const BOTTOM_ITEMS = [
+  { href: '/home', label: 'Accueil', icon: Home },
+  { href: '/topics', label: 'Sujets', icon: FileText },
+  { href: '/projects', label: 'Projets', icon: FolderOpen },
+  { href: '/tournages', label: 'Tournages', icon: Video },
 ]
 
 const ADMIN_SECTIONS: { label: string; items: { href: string; label: string; icon: LucideIcon }[] }[] = [
@@ -98,10 +106,10 @@ export function ClientNav({ variant, userRole }: ClientNavProps) {
     )
   }
 
-  // Bottom variant — only base items
+  // Bottom variant — 3 items (Accueil · Sujets · Tournages)
   return (
     <nav aria-label="Navigation principale" className="flex items-center justify-around py-2">
-      {BASE_ITEMS.map((item) => {
+      {BOTTOM_ITEMS.map((item) => {
         const isActive = pathname === item.href || pathname.startsWith(item.href + '/')
         const Icon = item.icon
         return (
@@ -110,7 +118,7 @@ export function ClientNav({ variant, userRole }: ClientNavProps) {
             href={item.href}
             aria-current={isActive ? 'page' : undefined}
             onClick={() => navigator.vibrate?.(10)}
-            className={`flex flex-col items-center gap-1 px-4 py-1.5 rounded-lg transition-all ${
+            className={`flex flex-col items-center gap-1 px-6 py-1.5 rounded-lg transition-all ${
               isActive ? 'text-foreground' : 'text-muted-foreground hover:text-foreground'
             }`}
           >
