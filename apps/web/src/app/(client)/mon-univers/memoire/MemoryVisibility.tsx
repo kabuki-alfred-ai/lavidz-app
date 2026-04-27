@@ -198,6 +198,24 @@ function stringifySummary(businessContext: Record<string, unknown> | null): stri
       parts.push(`**${label}** : ${value}`)
     }
   }
+
+  // Fallback : données brutes de l'onboarding si aucun résumé structuré n'existe encore
+  if (parts.length === 0) {
+    const onboarding = businessContext.onboarding as Record<string, unknown> | undefined
+    if (onboarding) {
+      if (typeof onboarding.activity === 'string' && onboarding.activity.trim())
+        parts.push(`**Activité** : ${onboarding.activity.trim()}`)
+      if (typeof onboarding.audience === 'string' && onboarding.audience.trim())
+        parts.push(`**Audience** : ${onboarding.audience.trim()}`)
+      if (typeof onboarding.differentiator === 'string' && onboarding.differentiator.trim())
+        parts.push(`**Ce qui me distingue** : ${onboarding.differentiator.trim()}`)
+    }
+    // Fallback ultime : conversationSummary texte brut
+    if (parts.length === 0 && typeof businessContext.conversationSummary === 'string' && businessContext.conversationSummary.trim()) {
+      return businessContext.conversationSummary.trim()
+    }
+  }
+
   return parts.join('\n')
 }
 
