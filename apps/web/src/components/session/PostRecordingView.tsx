@@ -274,8 +274,8 @@ export function PostRecordingView({
 
   // "Reprendre une question" — raccourci vers la première piste redo disponible.
   const firstRedoPath = useMemo(
-    () => paths.find((p) => p.actionType === 'redo' && p.targetQuestionId),
-    [paths],
+    () => paths.find((p) => p.actionType === 'redo' && p.targetQuestionId && questionsById.has(p.targetQuestionId)),
+    [paths, questionsById],
   )
 
   const visiblePaths = paths
@@ -495,7 +495,7 @@ export function PostRecordingView({
                     <p className="mt-2 text-xs text-muted-foreground">{p.reason}</p>
                   )}
                   <div className="mt-4 flex flex-wrap gap-2">
-                    {p.actionType === 'redo' && p.targetQuestionId && (
+                    {p.actionType === 'redo' && p.targetQuestionId && questionsById.has(p.targetQuestionId) && (
                       <Button
                         size="sm"
                         onClick={() => handleRedo(p.targetQuestionId!, i)}
@@ -552,7 +552,7 @@ export function PostRecordingView({
               </Button>
             )}
 
-            {firstRedoPath && firstRedoPath.targetQuestionId && (
+            {firstRedoPath && firstRedoPath.targetQuestionId && questionsById.has(firstRedoPath.targetQuestionId) && (
               <Button
                 variant="outline"
                 size="lg"

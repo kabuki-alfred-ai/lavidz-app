@@ -205,6 +205,14 @@ export function SubjectWorkspace({
     return () => mq.removeEventListener('change', handler)
   }, [])
 
+  // Ferme le panneau Kabou au clavier (Escape)
+  useEffect(() => {
+    if (mobileTab !== 'kabou' || isDesktop) return
+    const handler = (e: KeyboardEvent) => { if (e.key === 'Escape') setMobileTab('sujet') }
+    window.addEventListener('keydown', handler)
+    return () => window.removeEventListener('keydown', handler)
+  }, [mobileTab, isDesktop])
+
   // Refresh topic when server-side updates propagate.
   useEffect(() => {
     setTopic(initial)
@@ -811,7 +819,8 @@ export function SubjectWorkspace({
         <AnimatePresence>
           {!isDesktop && mobileTab === 'kabou' && (
             <motion.div
-              className="fixed inset-x-0 top-0 bottom-16 z-30 bg-card flex flex-col lg:hidden"
+              className="fixed inset-x-0 top-0 z-30 bg-card flex flex-col lg:hidden"
+              style={{ bottom: 'calc(4rem + env(safe-area-inset-bottom))' }}
               initial={prefersReducedMotion ? { opacity: 0 } : { x: '100%' }}
               animate={prefersReducedMotion ? { opacity: 1 } : { x: 0 }}
               exit={prefersReducedMotion ? { opacity: 0 } : { x: '100%' }}
@@ -842,29 +851,34 @@ export function SubjectWorkspace({
         {!isDesktop && (
           <nav
             aria-label="Navigation sujet"
-            className="fixed bottom-0 inset-x-0 z-40 h-16 bg-background/95 backdrop-blur-lg border-t border-border flex lg:hidden"
+            className="fixed bottom-0 inset-x-0 z-40 bg-background/95 backdrop-blur-lg border-t border-border lg:hidden"
+            style={{ paddingBottom: 'env(safe-area-inset-bottom)' }}
           >
-            <button
-              type="button"
-              onClick={() => { navigator.vibrate?.(10); setMobileTab('sujet') }}
-              className={`flex-1 flex flex-col items-center justify-center gap-1 text-[11px] font-medium transition-colors ${
-                mobileTab === 'sujet' ? 'text-primary' : 'text-muted-foreground'
-              }`}
-            >
-              <FileText className="h-5 w-5" />
-              Sujet
-            </button>
-            <div className="w-px bg-border my-3" aria-hidden />
-            <button
-              type="button"
-              onClick={() => { navigator.vibrate?.(10); setMobileTab('kabou') }}
-              className={`flex-1 flex flex-col items-center justify-center gap-1 text-[11px] font-medium transition-colors ${
-                mobileTab === 'kabou' ? 'text-primary' : 'text-muted-foreground'
-              }`}
-            >
-              <MessageCircle className="h-5 w-5" />
-              Kabou
-            </button>
+            <div className="flex h-16">
+              <button
+                type="button"
+                aria-current={mobileTab === 'sujet' ? 'true' : undefined}
+                onClick={() => { navigator.vibrate?.(10); setMobileTab('sujet') }}
+                className={`flex-1 flex flex-col items-center justify-center gap-1 text-[11px] font-medium transition-colors ${
+                  mobileTab === 'sujet' ? 'text-foreground' : 'text-muted-foreground'
+                }`}
+              >
+                <FileText className={`h-5 w-5 ${mobileTab === 'sujet' ? 'text-primary' : ''}`} />
+                Sujet
+              </button>
+              <div className="w-px bg-border my-3" aria-hidden />
+              <button
+                type="button"
+                aria-current={mobileTab === 'kabou' ? 'true' : undefined}
+                onClick={() => { navigator.vibrate?.(10); setMobileTab('kabou') }}
+                className={`flex-1 flex flex-col items-center justify-center gap-1 text-[11px] font-medium transition-colors ${
+                  mobileTab === 'kabou' ? 'text-foreground' : 'text-muted-foreground'
+                }`}
+              >
+                <MessageCircle className={`h-5 w-5 ${mobileTab === 'kabou' ? 'text-primary' : ''}`} />
+                Kabou
+              </button>
+            </div>
           </nav>
         )}
 

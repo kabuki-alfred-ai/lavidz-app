@@ -46,9 +46,9 @@ export default async function ShareableSessionPage({ params }: Props) {
     return (
       <div
         className="fixed inset-0 flex flex-col items-center justify-center gap-4 px-8"
-        style={{ background: '#0a0a0a' }}
+        style={{ background: '#FAF8F5' }}
       >
-        <p className="text-white/60 text-sm font-mono">Lien introuvable ou expiré.</p>
+        <p className="text-[rgba(26,23,20,0.55)] text-sm font-mono">Lien introuvable ou expiré.</p>
       </div>
     )
   }
@@ -57,9 +57,9 @@ export default async function ShareableSessionPage({ params }: Props) {
     return (
       <div
         className="fixed inset-0 flex flex-col items-center justify-center gap-4 px-8"
-        style={{ background: '#0a0a0a' }}
+        style={{ background: '#FAF8F5' }}
       >
-        <p className="text-white/60 text-sm font-mono">Ce lien n'est plus disponible.</p>
+        <p className="text-[rgba(26,23,20,0.55)] text-sm font-mono">Ce lien n'est plus disponible.</p>
       </div>
     )
   }

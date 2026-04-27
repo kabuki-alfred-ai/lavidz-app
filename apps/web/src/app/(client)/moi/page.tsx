@@ -47,7 +47,7 @@ export default function MoiPage() {
                 <span className="text-sm font-medium text-foreground">{label}</span>
                 {showThesisDot && <ThesisIndicatorDot />}
               </div>
-              <p className="text-xs text-muted-foreground mt-0.5 truncate">{description}</p>
+              <p className="text-xs text-muted-foreground mt-0.5 line-clamp-2">{description}</p>
             </div>
             <ChevronRight size={16} className="text-muted-foreground shrink-0" />
           </Link>

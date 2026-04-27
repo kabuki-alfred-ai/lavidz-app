@@ -61,7 +61,7 @@ export function ClientNav({ variant, userRole }: ClientNavProps) {
 
   if (variant === 'sidebar') {
     return (
-      <nav className="flex-1 flex flex-col gap-0.5 px-3 py-2 overflow-y-auto custom-scrollbar">
+      <nav aria-label="Barre latérale" className="flex-1 flex flex-col gap-0.5 px-3 py-2 overflow-y-auto custom-scrollbar">
         {BASE_ITEMS.map((item) => (
           <NavLink key={item.href} {...item} iconSize={18} />
         ))}
@@ -100,7 +100,7 @@ export function ClientNav({ variant, userRole }: ClientNavProps) {
 
   // Bottom variant — only base items
   return (
-    <nav className="flex items-center justify-around py-2">
+    <nav aria-label="Navigation principale" className="flex items-center justify-around py-2">
       {BASE_ITEMS.map((item) => {
         const isActive = pathname === item.href || pathname.startsWith(item.href + '/')
         const Icon = item.icon
@@ -108,13 +108,14 @@ export function ClientNav({ variant, userRole }: ClientNavProps) {
           <Link
             key={item.href}
             href={item.href}
+            aria-current={isActive ? 'page' : undefined}
             onClick={() => navigator.vibrate?.(10)}
             className={`flex flex-col items-center gap-1 px-4 py-1.5 rounded-lg transition-all ${
-              isActive ? 'text-primary' : 'text-muted-foreground hover:text-foreground'
+              isActive ? 'text-foreground' : 'text-muted-foreground hover:text-foreground'
             }`}
           >
-            <Icon size={20} />
-            <span className={`text-[10px] ${isActive ? 'font-medium' : ''}`}>{item.label}</span>
+            <Icon size={20} className={isActive ? 'text-primary' : ''} />
+            <span className={`text-[10px] ${isActive ? 'font-semibold' : ''}`}>{item.label}</span>
           </Link>
         )
       })}

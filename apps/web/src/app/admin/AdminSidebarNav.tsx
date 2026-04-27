@@ -24,7 +24,8 @@ export function AdminSidebarNav({ userRole, activeOrgId }: AdminSidebarNavProps)
             </p>
             <AdminNavItem href="/admin" label="Vue d'ensemble" icon={Activity} />
             <AdminNavItem href="/admin/organizations" label="Organisations" icon={Building2} />
-            <AdminNavItem href="/admin/team" label="Utilisateurs" icon={Users} />
+            <AdminNavItem href="/admin/users" label="Utilisateurs" icon={Users} />
+            <AdminNavItem href="/admin/team" label="Super-admins" icon={Users} />
             <div className="my-3" />
           </>
         )}

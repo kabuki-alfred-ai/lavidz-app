@@ -85,7 +85,7 @@ ${format ? `Format : ${format}` : ''}
 ${plannedHook ? `Hook prévu au départ : "${plannedHook}"` : ''}
 
 Questions posées :
-${plannedQuestions.map((q, i) => `${i + 1}. ${q.text}`).join('\n')}
+${plannedQuestions.map((q, i) => `${i + 1}. [id:${q.id}] ${q.text}`).join('\n')}
 
 ## Prises réalisées
 
@@ -126,7 +126,7 @@ Renvoie un objet JSON strict avec cette structure :
       "path": "La piste formulée comme opportunité, tutoiement, explique le pourquoi",
       "reason": "Une phrase courte qui justifie la piste pour l'entrepreneur",
       "actionType": "redo" | "montage_hint" | "none",
-      "targetQuestionId": "id de la question concernée si actionType=redo, sinon null",
+      "targetQuestionId": "valeur exacte du [id:xxx] de la question concernée si actionType=redo, sinon null",
       "montageHint": { "type": "remove_fillers", "count": 3 } | null
     }
   ]

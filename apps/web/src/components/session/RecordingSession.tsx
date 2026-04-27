@@ -763,7 +763,7 @@ export function RecordingSession({ theme, initialSessionId, mode = 'default', co
       ? 'Cliquez sur l\'icône cadenas dans la barre d\'adresse → autorisez caméra et micro.'
       : 'Cliquez sur l\'icône caméra dans la barre d\'adresse → autorisez caméra et micro.'
     return (
-      <div className="fixed inset-0 flex flex-col items-center justify-center px-8 gap-6" style={{ background: '#0a0a0a' }}>
+      <div className="fixed inset-0 flex flex-col items-center justify-center px-8 gap-6" style={{ background: '#FAF8F5' }}>
         <div
           className="w-14 h-14 rounded-2xl flex items-center justify-center"
           style={{ background: 'rgba(239,68,68,0.12)', border: '1px solid rgba(239,68,68,0.25)' }}
@@ -775,13 +775,13 @@ export function RecordingSession({ theme, initialSessionId, mode = 'default', co
           </svg>
         </div>
         <div className="text-center">
-          <h2 className="text-xl font-black text-white mb-3">Accès refusé</h2>
-          <p className="text-sm text-white/50 leading-relaxed max-w-xs">{instructions}</p>
+          <h2 className="text-xl font-black text-[#1A1714] mb-3">Accès refusé</h2>
+          <p className="text-sm text-[rgba(26,23,20,0.50)] leading-relaxed max-w-xs">{instructions}</p>
         </div>
         <button
           onClick={() => { setPermissionDenied(null); setCheckError('') }}
           className="mt-2 text-sm font-semibold px-6 py-3 rounded-2xl transition-all active:scale-95"
-          style={{ background: 'rgba(255,255,255,0.08)', color: 'rgba(255,255,255,0.7)', border: '1px solid rgba(255,255,255,0.12)' }}
+          style={{ background: 'rgba(0,0,0,0.06)', color: '#1A1714', border: '1px solid rgba(0,0,0,0.10)' }}
         >
           J&apos;ai autorisé — Réessayer
         </button>
@@ -815,11 +815,7 @@ export function RecordingSession({ theme, initialSessionId, mode = 'default', co
   ) : null
 
   if (phase === 'intro') {
-    const noise = (
-      <div className="absolute inset-0 opacity-[0.03] pointer-events-none"
-        style={{ backgroundImage: 'url("data:image/svg+xml,%3Csvg viewBox=\'0 0 256 256\' xmlns=\'http://www.w3.org/2000/svg\'%3E%3Cfilter id=\'noise\'%3E%3CfeTurbulence type=\'fractalNoise\' baseFrequency=\'0.9\' numOctaves=\'4\' stitchTiles=\'stitch\'/%3E%3C/filter%3E%3Crect width=\'100%25\' height=\'100%25\' filter=\'url(%23noise)\'/%3E%3C/svg%3E")' }}
-      />
-    )
+
 
     const brand = (
       <div className="flex flex-col items-center gap-3 z-10">
@@ -830,7 +826,7 @@ export function RecordingSession({ theme, initialSessionId, mode = 'default', co
             <div className="relative w-6 h-6 flex items-center justify-center">
               <span className="block w-3 h-3 bg-primary animate-logo-morph shadow-[0_0_10px_rgba(var(--primary),0.2)]" />
             </div>
-            <span className="font-sans font-black text-lg tracking-tighter text-white uppercase">
+            <span className="font-sans font-black text-lg tracking-tighter text-[#1A1714] uppercase">
               {theme.brandName ?? 'LAVIDZ'}
             </span>
           </div>
@@ -843,32 +839,31 @@ export function RecordingSession({ theme, initialSessionId, mode = 'default', co
       return (
         <div
           className="fixed inset-0 flex flex-col items-center justify-between px-6 py-12 overflow-hidden"
-          style={{ background: '#0a0a0a', animation: 'fadeIn 0.35s ease' }}
+          style={{ background: '#FAF8F5', animation: 'fadeIn 0.35s ease' }}
         >
           {resumeBanner}
-          {noise}
           {brand}
 
           <div className="flex flex-col items-center gap-8 z-10 text-center max-w-sm w-full">
             <div className="flex flex-col gap-4">
-              <h1 className="text-4xl font-black text-white leading-tight tracking-tight">
+              <h1 className="text-4xl font-black text-[#1A1714] leading-tight tracking-tight">
                 {theme.name}
               </h1>
               {theme.description && (
-                <p className="text-base text-white/70 leading-relaxed">
+                <p className="text-base text-[rgba(26,23,20,0.65)] leading-relaxed">
                   {theme.description}
                 </p>
               )}
             </div>
 
-            <p className="text-base text-white/60 leading-relaxed">
+            <p className="text-base text-[rgba(26,23,20,0.55)] leading-relaxed">
               {isTeleprompter
                 ? 'Vous allez lire un script face caméra. Le texte défilera à l\'écran pendant l\'enregistrement.'
                 : isFreeform
                   ? questions.length > 0
-                    ? <>Vous allez enregistrer <span className="text-white font-semibold">{questions.length} segment{questions.length > 1 ? 's' : ''}</span> face caméra. Parlez librement sur chaque thème.</>
+                    ? <>Vous allez enregistrer <span className="text-[#1A1714] font-semibold">{questions.length} segment{questions.length > 1 ? 's' : ''}</span> face caméra. Parlez librement sur chaque thème.</>
                     : 'Vous allez enregistrer une vidéo libre face caméra.'
-                  : <>Vous allez répondre à{' '}<span className="text-white font-semibold">{questions.length} question{questions.length > 1 ? 's' : ''}</span>{' '}face caméra. Chaque réponse sera enregistrée en vidéo.</>
+                  : <>Vous allez répondre à{' '}<span className="text-[#1A1714] font-semibold">{questions.length} question{questions.length > 1 ? 's' : ''}</span>{' '}face caméra. Chaque réponse sera enregistrée en vidéo.</>
               }
             </p>
           </div>
@@ -895,17 +890,16 @@ export function RecordingSession({ theme, initialSessionId, mode = 'default', co
       return (
         <div
           className="fixed inset-0 flex flex-col items-center justify-between px-6 py-12 overflow-hidden"
-          style={{ background: '#0a0a0a', animation: 'fadeIn 0.35s ease' }}
+          style={{ background: '#FAF8F5', animation: 'fadeIn 0.35s ease' }}
         >
-          {noise}
           {/* Back button — top left */}
           <button
             onClick={() => setIntroStep(2)}
             className="absolute top-4 left-4 z-20 flex items-center justify-center rounded-full transition-all active:scale-90"
-            style={{ width: 44, height: 44, background: 'rgba(255,255,255,0.07)', border: '1px solid rgba(255,255,255,0.1)' }}
+            style={{ width: 44, height: 44, background: 'rgba(0,0,0,0.06)', border: '1px solid rgba(0,0,0,0.08)' }}
             aria-label="Retour"
           >
-            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#1A1714" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
               <path d="M15 18l-6-6 6-6" />
             </svg>
           </button>
@@ -913,7 +907,7 @@ export function RecordingSession({ theme, initialSessionId, mode = 'default', co
           <div />
 
           <div className="w-full max-w-sm px-6 z-10 text-center">
-            <p className="text-2xl font-semibold text-white leading-snug tracking-tight">{theme.introduction}</p>
+            <p className="text-2xl font-semibold text-[#1A1714] leading-snug tracking-tight">{theme.introduction}</p>
           </div>
 
           <div className="flex flex-col items-center gap-4 z-10 w-full max-w-sm">
@@ -937,27 +931,26 @@ export function RecordingSession({ theme, initialSessionId, mode = 'default', co
       return (
         <div
           className="fixed inset-0 flex flex-col px-6 overflow-hidden"
-          style={{ background: '#0a0a0a', animation: 'fadeIn 0.35s ease', paddingTop: 'max(3rem, env(safe-area-inset-top))', paddingBottom: 'max(2rem, env(safe-area-inset-bottom))' }}
+          style={{ background: '#FAF8F5', animation: 'fadeIn 0.35s ease', paddingTop: 'max(3rem, env(safe-area-inset-top))', paddingBottom: 'max(2rem, env(safe-area-inset-bottom))' }}
         >
-          {noise}
           {/* Back button */}
           <button
             onClick={() => theme.introduction ? setIntroStep(4) : setIntroStep(2)}
             className="absolute top-4 left-4 z-20 flex items-center justify-center rounded-full transition-all active:scale-90"
-            style={{ width: 44, height: 44, background: 'rgba(255,255,255,0.07)', border: '1px solid rgba(255,255,255,0.1)' }}
+            style={{ width: 44, height: 44, background: 'rgba(0,0,0,0.06)', border: '1px solid rgba(0,0,0,0.08)' }}
             aria-label="Retour"
           >
-            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#1A1714" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
               <path d="M15 18l-6-6 6-6" />
             </svg>
           </button>
 
           {/* Header */}
           <div className="flex flex-col gap-1 z-10 mt-4 mb-6">
-            <h2 className="text-2xl font-black text-white">
+            <h2 className="text-2xl font-black text-[#1A1714]">
               {isTeleprompter ? 'Vos points clés' : isFreeform ? 'Vos thèmes' : 'Vos questions'}
             </h2>
-            <p className="text-sm text-white/40">
+            <p className="text-sm text-[rgba(26,23,20,0.38)]">
               {isTeleprompter
                 ? 'Ces notes vous guideront pendant l\'enregistrement — parlez avec vos propres mots'
                 : isFreeform
@@ -1008,7 +1001,7 @@ export function RecordingSession({ theme, initialSessionId, mode = 'default', co
                               className="mt-2 w-2 h-2 rounded-full shrink-0"
                               style={{ background: accent }}
                             />
-                            <p className="text-lg font-semibold text-white leading-snug">{bullet}</p>
+                            <p className="text-lg font-semibold text-[#1A1714] leading-snug">{bullet}</p>
                           </div>
                         ))}
                       </div>
@@ -1024,13 +1017,13 @@ export function RecordingSession({ theme, initialSessionId, mode = 'default', co
                     >
                       {String(i + 1).padStart(2, '0')}
                     </span>
-                    <p className="text-xl font-semibold text-white leading-snug tracking-tight">{q.text}</p>
+                    <p className="text-xl font-semibold text-[#1A1714] leading-snug tracking-tight">{q.text}</p>
                   </div>
                 ))
               )}
             </div>
             {/* Bottom fade */}
-            <div className="absolute bottom-0 inset-x-0 h-20 pointer-events-none" style={{ background: 'linear-gradient(to bottom, transparent, #0a0a0a)' }} />
+            <div className="absolute bottom-0 inset-x-0 h-20 pointer-events-none" style={{ background: 'linear-gradient(to bottom, transparent, #FAF8F5)' }} />
           </div>
 
           {/* CTA */}
@@ -1075,17 +1068,16 @@ export function RecordingSession({ theme, initialSessionId, mode = 'default', co
     return (
       <div
         className="fixed inset-0 flex flex-col items-center justify-between px-6 py-12 overflow-hidden"
-        style={{ background: '#0a0a0a', animation: 'fadeIn 0.35s ease' }}
+        style={{ background: '#FAF8F5', animation: 'fadeIn 0.35s ease' }}
       >
-        {noise}
         {/* Back button — top left */}
         <button
           onClick={() => setIntroStep(1)}
           className="absolute top-4 left-4 z-20 flex items-center justify-center rounded-full transition-all active:scale-90"
-          style={{ width: 44, height: 44, background: 'rgba(255,255,255,0.07)', border: '1px solid rgba(255,255,255,0.1)' }}
+          style={{ width: 44, height: 44, background: 'rgba(0,0,0,0.06)', border: '1px solid rgba(0,0,0,0.08)' }}
           aria-label="Retour"
         >
-          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#1A1714" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
             <path d="M15 18l-6-6 6-6" />
           </svg>
         </button>
@@ -1093,8 +1085,8 @@ export function RecordingSession({ theme, initialSessionId, mode = 'default', co
 
         <div className="flex flex-col gap-8 z-10 w-full max-w-sm flex-1 min-h-0 pt-8">
           <div className="shrink-0">
-            <h2 className="text-3xl font-black text-white mb-2">Avant de commencer</h2>
-            <p className="text-base text-white/40">Quelques conseils pour une vidéo de qualité</p>
+            <h2 className="text-3xl font-black text-[#1A1714] mb-2">Avant de commencer</h2>
+            <p className="text-base text-[rgba(26,23,20,0.38)]">Quelques conseils pour une vidéo de qualité</p>
           </div>
           
           <div className="relative flex-1 min-h-0">
@@ -1103,19 +1095,19 @@ export function RecordingSession({ theme, initialSessionId, mode = 'default', co
                 <div key={tip.title} className="flex items-start gap-5">
                   <div 
                     className="w-12 h-12 rounded-2xl flex items-center justify-center shrink-0 text-2xl"
-                    style={{ background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.08)' }}
+                    style={{ background: 'rgba(0,0,0,0.04)', border: '1px solid rgba(0,0,0,0.08)' }}
                   >
                     {tip.icon}
                   </div>
                   <div>
-                    <p className="text-lg font-bold text-white leading-tight mb-1">{tip.title}</p>
-                    <p className="text-sm text-white/50 leading-relaxed">{tip.desc}</p>
+                    <p className="text-lg font-bold text-[#1A1714] leading-tight mb-1">{tip.title}</p>
+                    <p className="text-sm text-[rgba(26,23,20,0.50)] leading-relaxed">{tip.desc}</p>
                   </div>
                 </div>
               ))}
             </div>
             {/* Gradient sombre vers le bouton */}
-            <div className="absolute bottom-0 inset-x-0 h-40 pointer-events-none bg-gradient-to-t from-[#0a0a0a] via-[#0a0a0a]/90 to-transparent z-10" />
+            <div className="absolute bottom-0 inset-x-0 h-40 pointer-events-none bg-gradient-to-t from-[#FAF8F5] via-[#FAF8F5]/90 to-transparent z-10" />
           </div>
         </div>
 
@@ -1171,7 +1163,7 @@ export function RecordingSession({ theme, initialSessionId, mode = 'default', co
         return (
           <div
             className="fixed inset-0 flex flex-col items-center justify-center gap-8 px-8"
-            style={{ background: '#0a0a0a' }}
+            style={{ background: '#FAF8F5' }}
           >
             <style>{`
               @keyframes fadeSlideIn { from { opacity: 0; transform: translateY(12px); } to { opacity: 1; transform: translateY(0); } }
@@ -1186,8 +1178,8 @@ export function RecordingSession({ theme, initialSessionId, mode = 'default', co
               </svg>
             </div>
             <div className="text-center" style={{ opacity: 0, animation: 'fadeSlideIn 0.5s ease 0.3s forwards' }}>
-              <h1 className="text-4xl font-black text-white mb-3">Merci !</h1>
-              <p className="text-base text-white/40 leading-relaxed">Vos réponses et votre retour<br />ont bien été reçus.</p>
+              <h1 className="text-4xl font-black text-[#1A1714] mb-3">Merci !</h1>
+              <p className="text-base text-[rgba(26,23,20,0.38)] leading-relaxed">Vos réponses et votre retour<br />ont bien été reçus.</p>
             </div>
             {topicId && (
               <div
@@ -1209,9 +1201,9 @@ export function RecordingSession({ theme, initialSessionId, mode = 'default', co
                   onClick={() => router.push(`/sujets/${topicId}`)}
                   className="w-full font-medium text-sm transition-all active:scale-[0.97]"
                   style={{
-                    background: 'rgba(255,255,255,0.06)',
-                    border: '1px solid rgba(255,255,255,0.12)',
-                    color: 'rgba(255,255,255,0.85)',
+                    background: 'rgba(0,0,0,0.04)',
+                    border: '1px solid rgba(0,0,0,0.10)',
+                    color: '#1A1714',
                     padding: '14px 24px',
                     borderRadius: 14,
                   }}
@@ -1229,7 +1221,7 @@ export function RecordingSession({ theme, initialSessionId, mode = 'default', co
         <div
           className="fixed inset-0 flex flex-col"
           style={{
-            background: '#0a0a0a',
+            background: '#FAF8F5',
             paddingTop: 'env(safe-area-inset-top)',
             paddingBottom: 'env(safe-area-inset-bottom)',
           }}
@@ -1245,8 +1237,8 @@ export function RecordingSession({ theme, initialSessionId, mode = 'default', co
               </svg>
             </div>
             <div className="text-center">
-              <h1 className="text-2xl font-black text-white">Envoyé !</h1>
-              <p className="text-sm text-white/40 mt-1">Quelques secondes pour nous aider à m&apos;améliorer&nbsp;?</p>
+              <h1 className="text-2xl font-black text-[#1A1714]">Envoyé !</h1>
+              <p className="text-sm text-[rgba(26,23,20,0.38)] mt-1">Quelques secondes pour nous aider à m&apos;améliorer&nbsp;?</p>
             </div>
           </div>
 
@@ -1257,9 +1249,9 @@ export function RecordingSession({ theme, initialSessionId, mode = 'default', co
               {/* Note globale */}
               <div
                 className="flex flex-col gap-4 rounded-2xl p-5"
-                style={{ background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.08)' }}
+                style={{ background: 'rgba(0,0,0,0.04)', border: '1px solid rgba(0,0,0,0.08)' }}
               >
-                <p className="text-sm font-bold text-white">Comment s&apos;est passée l&apos;expérience globale ?</p>
+                <p className="text-sm font-bold text-[#1A1714]">Comment s&apos;est passée l&apos;expérience globale ?</p>
                 <div className="flex justify-between gap-2">
                   {[1, 2, 3, 4, 5].map(star => (
                     <button
@@ -1268,12 +1260,12 @@ export function RecordingSession({ theme, initialSessionId, mode = 'default', co
                       onClick={() => setFeedbackOverall(star)}
                       className="flex-1 flex flex-col items-center gap-1.5 py-3 rounded-xl transition-all active:scale-90"
                       style={{
-                        background: feedbackOverall === star ? 'rgba(250,204,21,0.12)' : 'rgba(255,255,255,0.04)',
-                        border: `1px solid ${feedbackOverall === star ? 'rgba(250,204,21,0.4)' : 'rgba(255,255,255,0.08)'}`,
+                        background: feedbackOverall === star ? 'rgba(250,204,21,0.12)' : 'rgba(0,0,0,0.04)',
+                        border: `1px solid ${feedbackOverall === star ? 'rgba(250,204,21,0.4)' : 'rgba(0,0,0,0.08)'}`,
                       }}
                     >
-                      <span style={{ fontSize: 32, lineHeight: 1, color: feedbackOverall >= star ? '#facc15' : 'rgba(255,255,255,0.15)' }}>★</span>
-                      <span className="text-[10px] font-mono" style={{ color: feedbackOverall === star ? '#facc15' : 'rgba(255,255,255,0.25)' }}>
+                      <span style={{ fontSize: 32, lineHeight: 1, color: feedbackOverall >= star ? '#facc15' : 'rgba(0,0,0,0.12)' }}>★</span>
+                      <span className="text-[10px] font-mono" style={{ color: feedbackOverall === star ? '#facc15' : 'rgba(26,23,20,0.35)' }}>
                         {star === 1 ? 'Mauvais' : star === 2 ? 'Moyen' : star === 3 ? 'Bien' : star === 4 ? 'Super' : 'Parfait'}
                       </span>
                     </button>
@@ -1284,9 +1276,9 @@ export function RecordingSession({ theme, initialSessionId, mode = 'default', co
               {/* Qualité des questions */}
               <div
                 className="flex flex-col gap-4 rounded-2xl p-5"
-                style={{ background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.08)' }}
+                style={{ background: 'rgba(0,0,0,0.04)', border: '1px solid rgba(0,0,0,0.08)' }}
               >
-                <p className="text-sm font-bold text-white">Les questions étaient pertinentes ?</p>
+                <p className="text-sm font-bold text-[#1A1714]">Les questions étaient pertinentes ?</p>
                 <div className="flex justify-between gap-2">
                   {[1, 2, 3, 4, 5].map(star => (
                     <button
@@ -1295,12 +1287,12 @@ export function RecordingSession({ theme, initialSessionId, mode = 'default', co
                       onClick={() => setFeedbackQuestion(star)}
                       className="flex-1 flex flex-col items-center gap-1.5 py-3 rounded-xl transition-all active:scale-90"
                       style={{
-                        background: feedbackQuestion === star ? 'rgba(250,204,21,0.12)' : 'rgba(255,255,255,0.04)',
-                        border: `1px solid ${feedbackQuestion === star ? 'rgba(250,204,21,0.4)' : 'rgba(255,255,255,0.08)'}`,
+                        background: feedbackQuestion === star ? 'rgba(250,204,21,0.12)' : 'rgba(0,0,0,0.04)',
+                        border: `1px solid ${feedbackQuestion === star ? 'rgba(250,204,21,0.4)' : 'rgba(0,0,0,0.08)'}`,
                       }}
                     >
-                      <span style={{ fontSize: 32, lineHeight: 1, color: feedbackQuestion >= star ? '#facc15' : 'rgba(255,255,255,0.15)' }}>★</span>
-                      <span className="text-[10px] font-mono" style={{ color: feedbackQuestion === star ? '#facc15' : 'rgba(255,255,255,0.25)' }}>
+                      <span style={{ fontSize: 32, lineHeight: 1, color: feedbackQuestion >= star ? '#facc15' : 'rgba(0,0,0,0.12)' }}>★</span>
+                      <span className="text-[10px] font-mono" style={{ color: feedbackQuestion === star ? '#facc15' : 'rgba(26,23,20,0.35)' }}>
                         {star === 1 ? 'Non' : star === 2 ? 'Peu' : star === 3 ? 'Oui' : star === 4 ? 'Très' : 'Top !'}
                       </span>
                     </button>
@@ -1311,18 +1303,18 @@ export function RecordingSession({ theme, initialSessionId, mode = 'default', co
               {/* Commentaire */}
               <div
                 className="flex flex-col gap-3 rounded-2xl p-5"
-                style={{ background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.08)' }}
+                style={{ background: 'rgba(0,0,0,0.04)', border: '1px solid rgba(0,0,0,0.08)' }}
               >
-                <p className="text-sm font-bold text-white">Un commentaire ? <span className="font-normal text-white/40">(optionnel)</span></p>
+                <p className="text-sm font-bold text-[#1A1714]">Un commentaire ? <span className="font-normal text-[rgba(26,23,20,0.38)]">(optionnel)</span></p>
                 <textarea
                   value={feedbackComment}
                   onChange={e => setFeedbackComment(e.target.value)}
                   placeholder="Des suggestions pour améliorer…"
                   rows={4}
-                  className="w-full rounded-xl px-4 py-3 text-base text-white placeholder-white/25 resize-none focus:outline-none"
+                  className="w-full rounded-xl px-4 py-3 text-base text-[#1A1714] placeholder-[rgba(26,23,20,0.30)] resize-none focus:outline-none"
                   style={{
-                    background: 'rgba(255,255,255,0.06)',
-                    border: '1px solid rgba(255,255,255,0.12)',
+                    background: 'rgba(0,0,0,0.04)',
+                    border: '1px solid rgba(0,0,0,0.10)',
                     fontSize: 16, // évite le zoom iOS
                   }}
                 />
@@ -1334,7 +1326,7 @@ export function RecordingSession({ theme, initialSessionId, mode = 'default', co
           {/* CTA fixe en bas */}
           <div
             className="px-6 pt-4 pb-6 flex flex-col gap-3"
-            style={{ borderTop: '1px solid rgba(255,255,255,0.06)', background: 'rgba(10,10,10,0.9)', backdropFilter: 'blur(12px)' }}
+            style={{ borderTop: '1px solid rgba(0,0,0,0.08)', background: 'rgba(250,248,245,0.9)', backdropFilter: 'blur(12px)' }}
           >
             <div className="max-w-sm mx-auto w-full flex flex-col gap-3">
               <button
@@ -1348,7 +1340,7 @@ export function RecordingSession({ theme, initialSessionId, mode = 'default', co
               <button
                 onClick={() => setFeedbackSent(true)}
                 className="w-full font-medium text-sm transition-all active:scale-[0.97]"
-                style={{ color: 'rgba(255,255,255,0.25)', padding: '14px 24px' }}
+                style={{ color: 'rgba(26,23,20,0.35)', padding: '14px 24px' }}
               >
                 Passer
               </button>
@@ -1361,7 +1353,7 @@ export function RecordingSession({ theme, initialSessionId, mode = 'default', co
     return (
       <div
         className="fixed inset-0 flex flex-col items-center justify-center gap-8 px-8"
-        style={{ background: '#0a0a0a' }}
+        style={{ background: '#FAF8F5' }}
       >
         <div
           className="w-16 h-16 rounded-2xl flex items-center justify-center"
@@ -1372,8 +1364,8 @@ export function RecordingSession({ theme, initialSessionId, mode = 'default', co
           </svg>
         </div>
         <div className="text-center" style={{ opacity: 0, animation: 'fadeSlideIn 0.5s ease 0.3s forwards' }}>
-          <h1 className="text-3xl font-black text-white mb-2">Dans la boîte.</h1>
-          <p className="text-sm text-white/40">Toutes vos réponses ont été enregistrées.</p>
+          <h1 className="text-3xl font-black text-[#1A1714] mb-2">Dans la boîte.</h1>
+          <p className="text-sm text-[rgba(26,23,20,0.38)]">Toutes vos réponses ont été enregistrées.</p>
         </div>
         {mode === 'shared' ? (
           <div className="flex items-center gap-3">
@@ -1381,7 +1373,7 @@ export function RecordingSession({ theme, initialSessionId, mode = 'default', co
               className="w-4 h-4 rounded-full border-2 shrink-0"
               style={{ borderColor: `${accent} transparent ${accent} transparent`, animation: 'spin 0.8s linear infinite' }}
             />
-            <span className="text-white/40 text-sm font-mono">Envoi en cours…</span>
+            <span className="text-[rgba(26,23,20,0.38)] text-sm font-mono">Envoi en cours…</span>
           </div>
         ) : (
           <div className="flex flex-col items-center gap-3">
@@ -1397,7 +1389,7 @@ export function RecordingSession({ theme, initialSessionId, mode = 'default', co
             <button
               onClick={() => router.push(`/session/${theme.slug}/result?session=${sessionId}`)}
               className="px-8 py-3 rounded-xl font-semibold text-sm transition-all active:scale-95"
-              style={{ background: 'rgba(255,255,255,0.08)', color: 'rgba(255,255,255,0.8)' }}
+              style={{ background: 'rgba(0,0,0,0.06)', color: '#1A1714' }}
             >
               Voir les résultats
             </button>
@@ -1415,7 +1407,7 @@ export function RecordingSession({ theme, initialSessionId, mode = 'default', co
     return (
       <div
         className="fixed inset-0 flex flex-col"
-        style={{ background: '#0a0a0a', animation: 'fadeIn 0.35s ease', paddingTop: 'env(safe-area-inset-top)', paddingBottom: 'env(safe-area-inset-bottom)' }}
+        style={{ background: '#FAF8F5', animation: 'fadeIn 0.35s ease', paddingTop: 'env(safe-area-inset-top)', paddingBottom: 'env(safe-area-inset-bottom)' }}
         onClick={() => setOpenPicker(null)}
       >
         {/* Back button */}
@@ -1428,10 +1420,10 @@ export function RecordingSession({ theme, initialSessionId, mode = 'default', co
             setPhase('intro')
           }}
           className="absolute z-30 flex items-center justify-center rounded-full transition-all active:scale-90"
-          style={{ top: 'max(1rem, env(safe-area-inset-top))', left: '1rem', width: 44, height: 44, background: 'rgba(0,0,0,0.5)', backdropFilter: 'blur(8px)', border: '1px solid rgba(255,255,255,0.12)' }}
+          style={{ top: 'max(1rem, env(safe-area-inset-top))', left: '1rem', width: 44, height: 44, background: 'rgba(0,0,0,0.06)', border: '1px solid rgba(0,0,0,0.08)' }}
           aria-label="Retour"
         >
-          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#1A1714" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
             <path d="M15 18l-6-6 6-6" />
           </svg>
         </button>
@@ -1612,16 +1604,16 @@ export function RecordingSession({ theme, initialSessionId, mode = 'default', co
           {/* Blocking reason hint */}
           {(() => {
             if (!streamRef.current)
-              return <p className="text-center text-xs text-red-400/80">Caméra ou micro inaccessible — vérifiez les autorisations</p>
+              return <p className="text-center text-xs text-red-600">Caméra ou micro inaccessible — vérifiez les autorisations</p>
             if (!micDetected)
-              return <p className="text-center text-xs text-white/40">Parlez quelques mots pour valider votre micro</p>
+              return <p className="text-center text-xs text-[rgba(26,23,20,0.45)]">Parlez quelques mots pour valider votre micro</p>
             if (connectionQuality === 'poor')
               return (
                 <div className="flex items-center justify-center gap-2">
-                  <span className="text-xs text-amber-400/80">Connexion faible détectée</span>
+                  <span className="text-xs text-amber-700">Connexion faible détectée</span>
                   <button
                     onClick={() => setPoorConnectionAcknowledged(true)}
-                    className="text-xs text-white/30 underline underline-offset-2"
+                    className="text-xs text-[rgba(26,23,20,0.40)] underline underline-offset-2"
                   >
                     Continuer quand même
                   </button>

@@ -63,8 +63,8 @@
     --destructive: 0 80% 56%;
     --destructive-foreground: 0 0% 100%;
 
-    --border: 0 0% 10%;
-    --input: 0 0% 10%;
+    --border: 0 0% 14%;
+    --input: 0 0% 14%;
     --ring: 14 100% 55%;
   }
 }
@@ -280,4 +280,20 @@
      (Sujet / Kabou) prend le relais sur mobile. */
   body[data-sujet-detail] [data-bottom-nav] { display: none !important; }
   body[data-sujet-detail] .layout-scroll-main { padding-bottom: 0 !important; }
+
+  @media (prefers-reduced-motion: reduce) {
+    .animate-logo-morph,
+    .animate-seed-pulse,
+    .animate-sprout-sway,
+    .animate-tree-rustle,
+    .animate-leaf-flutter,
+    .animate-leaf-flutter-delayed,
+    .animate-leaf-flutter-slow,
+    .animate-wind-gust,
+    .animate-wind-gust-delayed,
+    .live-dot,
+    .typing-dot {
+      animation: none !important;
+    }
+  }
 }
