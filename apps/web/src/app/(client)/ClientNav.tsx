@@ -2,16 +2,13 @@
 
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
-import { Home, MessageSquare, Film, User, Clapperboard, Music, Mic, Palette, BarChart3, LifeBuoy, FileText, FolderOpen, Brain, LucideIcon } from 'lucide-react'
-import { ThesisIndicatorDot } from '@/components/nav/ThesisIndicatorDot'
+import { Home, MessageSquare, Film, User, Clapperboard, Music, Mic, Palette, BarChart3, LifeBuoy, FileText, FolderOpen, LucideIcon } from 'lucide-react'
 
 const BASE_ITEMS = [
   { href: '/home', label: 'Accueil', icon: Home },
   { href: '/topics', label: 'Sujets', icon: FileText },
   { href: '/projects', label: 'Projets', icon: FolderOpen },
-  { href: '/brand-kit', label: 'Brand Kit', icon: Palette },
-  { href: '/mon-univers', label: 'Mon univers', icon: Brain },
-  { href: '/profile', label: 'Compte', icon: User },
+  { href: '/moi', label: 'Moi', icon: User },
 ]
 
 const ADMIN_SECTIONS: { label: string; items: { href: string; label: string; icon: LucideIcon }[] }[] = [
@@ -42,8 +39,6 @@ interface ClientNavProps {
 function NavLink({ href, label, icon: Icon, iconSize }: { href: string; label: string; icon: LucideIcon; iconSize: number }) {
   const pathname = usePathname()
   const isActive = pathname === href || pathname.startsWith(href + '/')
-  // Indicateur dot uniquement sur "Mon univers" quand la thèse est absente.
-  const showThesisDot = href === '/mon-univers'
 
   return (
     <Link
@@ -56,7 +51,6 @@ function NavLink({ href, label, icon: Icon, iconSize }: { href: string; label: s
     >
       <Icon size={iconSize} className={isActive ? 'text-primary' : ''} />
       <span>{label}</span>
-      {showThesisDot && <ThesisIndicatorDot />}
     </Link>
   )
 }
@@ -114,6 +108,7 @@ export function ClientNav({ variant, userRole }: ClientNavProps) {
           <Link
             key={item.href}
             href={item.href}
+            onClick={() => navigator.vibrate?.(10)}
             className={`flex flex-col items-center gap-1 px-4 py-1.5 rounded-lg transition-all ${
               isActive ? 'text-primary' : 'text-muted-foreground hover:text-foreground'
             }`}

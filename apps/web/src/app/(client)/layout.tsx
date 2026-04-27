@@ -43,13 +43,17 @@ export default async function ClientLayout({ children }: { children: React.React
 
       {/* Main content */}
       <div className="flex-1 flex flex-col overflow-hidden">
-        <main className="layout-scroll-main flex-1 overflow-y-auto pb-20 md:pb-0">
+        <main className="layout-scroll-main flex-1 overflow-y-auto pb-[calc(var(--nav-height)+env(safe-area-inset-bottom))] md:pb-0">
           {children}
         </main>
       </div>
 
       {/* Bottom nav — mobile only */}
-      <div data-bottom-nav className="md:hidden fixed bottom-0 inset-x-0 bg-background/95 backdrop-blur-lg z-40">
+      <div
+        data-bottom-nav
+        className="md:hidden fixed bottom-0 inset-x-0 bg-background/95 backdrop-blur-lg z-40"
+        style={{ paddingBottom: 'env(safe-area-inset-bottom)' }}
+      >
         <ClientNav variant="bottom" userRole={user.role} />
       </div>
     </div>

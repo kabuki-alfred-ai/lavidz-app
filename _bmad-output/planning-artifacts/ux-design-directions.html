@@ -1,0 +1,703 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Lavidz — Direction A : Épuré & Lumineux</title>
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { font-family: -apple-system, 'Inter', sans-serif; background: #0a0a0a; color: #fff; min-height: 100vh; }
+
+  .page-header { padding: 56px 32px 40px; text-align: center; }
+  .page-header .tag { display: inline-block; background: #FF5722; color: #fff; font-size: 10px; font-weight: 700; letter-spacing: 2px; text-transform: uppercase; padding: 5px 14px; border-radius: 100px; margin-bottom: 16px; }
+  .page-header h1 { font-size: 32px; font-weight: 800; letter-spacing: -1px; color: #fff; }
+  .page-header p { font-size: 14px; color: #555; margin-top: 8px; }
+
+  .phones-row {
+    display: flex;
+    gap: 48px;
+    flex-wrap: wrap;
+    justify-content: center;
+    padding: 40px 48px 80px;
+  }
+
+  .phone-col { display: flex; flex-direction: column; gap: 12px; align-items: center; }
+  .phone-col-label { font-size: 11px; font-weight: 600; letter-spacing: 2px; text-transform: uppercase; color: #333; }
+  .phone-col-desc { font-size: 12px; color: #444; text-align: center; max-width: 280px; line-height: 1.5; }
+
+  .phone {
+    width: 320px;
+    height: 660px;
+    border-radius: 48px;
+    overflow: hidden;
+    box-shadow: 0 40px 100px rgba(0,0,0,0.7), 0 0 0 1px rgba(255,255,255,0.06), inset 0 0 0 1px rgba(255,255,255,0.04);
+    flex-shrink: 0;
+    position: relative;
+  }
+
+  .phone-inner { width: 100%; height: 100%; display: flex; flex-direction: column; background: #fff; }
+
+  /* STATUS BAR */
+  .status-bar {
+    height: 50px;
+    padding: 16px 24px 0;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    flex-shrink: 0;
+  }
+  .status-time { font-size: 13px; font-weight: 700; color: #000; letter-spacing: -0.3px; }
+  .status-icons { display: flex; align-items: center; gap: 5px; }
+  .status-icons svg { color: #000; }
+
+  /* SCROLL CONTENT */
+  .scroll-content { flex: 1; overflow: hidden; display: flex; flex-direction: column; }
+
+  /* PAGE HEADER */
+  .page-top { padding: 20px 20px 0; flex-shrink: 0; }
+  .page-top-title { font-size: 24px; font-weight: 800; color: #0a0a0a; letter-spacing: -0.8px; }
+  .page-top-sub { font-size: 13px; color: #aaa; margin-top: 3px; font-weight: 400; }
+
+  /* FILTER PILLS */
+  .filter-row { display: flex; gap: 6px; padding: 14px 20px 0; overflow-x: auto; flex-shrink: 0; }
+  .filter-row::-webkit-scrollbar { display: none; }
+  .filter-chip {
+    font-size: 12px; padding: 6px 14px; border-radius: 100px;
+    background: #f4f4f4; color: #888; font-weight: 500;
+    white-space: nowrap; flex-shrink: 0;
+  }
+  .filter-chip.active { background: #0a0a0a; color: #fff; }
+
+  /* TOPIC LIST */
+  .topic-list { padding: 14px 20px 0; display: flex; flex-direction: column; gap: 10px; flex: 1; overflow: hidden; }
+
+  .topic-card {
+    padding: 14px;
+    border-radius: 18px;
+    background: #fafafa;
+    border: 1px solid #f0f0f0;
+    display: flex;
+    align-items: flex-start;
+    gap: 12px;
+    transition: background 0.15s;
+  }
+
+  .topic-state-col { display: flex; flex-direction: column; align-items: center; gap: 5px; flex-shrink: 0; padding-top: 1px; }
+  .topic-state-icon { width: 36px; height: 36px; border-radius: 10px; display: flex; align-items: center; justify-content: center; }
+  .topic-state-icon.seed { background: #f0fdf4; }
+  .topic-state-icon.exploring { background: #fff7ed; }
+  .topic-state-icon.mature { background: #eff6ff; }
+  .topic-state-label { font-size: 9px; font-weight: 600; letter-spacing: 0.5px; text-transform: uppercase; }
+  .topic-state-label.seed { color: #22c55e; }
+  .topic-state-label.exploring { color: #FF5722; }
+  .topic-state-label.mature { color: #3b82f6; }
+
+  .topic-body { flex: 1; min-width: 0; }
+  .topic-name { font-size: 13px; font-weight: 600; color: #0a0a0a; line-height: 1.35; }
+  .topic-brief { font-size: 11px; color: #bbb; margin-top: 4px; line-height: 1.4; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
+  .topic-footer { display: flex; align-items: center; gap: 8px; margin-top: 8px; }
+  .topic-pillar { font-size: 10px; padding: 2px 8px; border-radius: 100px; background: #f0f0f0; color: #888; font-weight: 500; }
+  .topic-time { font-size: 10px; color: #ccc; }
+
+  .topic-arrow { display: flex; align-items: center; color: #e0e0e0; flex-shrink: 0; padding-top: 2px; }
+
+  /* FAB */
+  .fab {
+    position: absolute;
+    bottom: 94px;
+    right: 20px;
+    width: 52px;
+    height: 52px;
+    border-radius: 16px;
+    background: #0a0a0a;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    box-shadow: 0 4px 20px rgba(0,0,0,0.2);
+    color: #fff;
+  }
+
+  /* BOTTOM NAV */
+  .bottom-nav {
+    height: 76px;
+    background: rgba(255,255,255,0.97);
+    backdrop-filter: blur(24px);
+    border-top: 1px solid #f0f0f0;
+    display: flex;
+    align-items: center;
+    justify-content: space-around;
+    padding: 0 8px 14px;
+    flex-shrink: 0;
+    position: relative;
+    z-index: 10;
+  }
+
+  .nav-item {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 4px;
+    padding: 6px 12px;
+    border-radius: 14px;
+    min-width: 64px;
+  }
+  .nav-item svg { display: block; }
+  .nav-label { font-size: 10px; color: #ccc; font-weight: 500; }
+  .nav-item.active .nav-label { color: #FF5722; font-weight: 700; }
+
+  /* ======= SUBJECT WORKSPACE ======= */
+  .ws-back-bar { padding: 10px 16px; display: flex; align-items: center; gap: 6px; flex-shrink: 0; }
+  .ws-back-btn { display: flex; align-items: center; gap: 3px; color: #FF5722; font-size: 14px; font-weight: 600; }
+
+  .ws-tab-bar {
+    display: flex;
+    margin: 0 16px;
+    background: #f4f4f4;
+    border-radius: 13px;
+    padding: 3px;
+    flex-shrink: 0;
+  }
+  .ws-tab {
+    flex: 1;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 6px;
+    padding: 8px;
+    border-radius: 10px;
+    font-size: 13px;
+    font-weight: 600;
+    color: #aaa;
+  }
+  .ws-tab.active {
+    background: #fff;
+    color: #0a0a0a;
+    box-shadow: 0 1px 6px rgba(0,0,0,0.08);
+  }
+  .ws-tab svg { display: block; }
+
+  .ws-swipe-hint { text-align: center; font-size: 10px; color: #ddd; margin: 5px 0 0; letter-spacing: 0.5px; flex-shrink: 0; }
+
+  .ws-content { flex: 1; padding: 16px 20px 0; overflow: hidden; display: flex; flex-direction: column; gap: 0; }
+
+  .ws-state-badge {
+    display: inline-flex; align-items: center; gap: 6px;
+    background: #fff7ed; color: #FF5722;
+    font-size: 11px; font-weight: 700;
+    padding: 5px 12px; border-radius: 100px;
+    border: 1px solid #ffe4d4;
+    width: fit-content;
+  }
+  .ws-title { font-size: 19px; font-weight: 800; color: #0a0a0a; margin-top: 10px; letter-spacing: -0.5px; line-height: 1.25; }
+
+  .ws-signals { display: flex; gap: 6px; margin-top: 14px; }
+  .ws-signal {
+    flex: 1; padding: 8px 4px; background: #fafafa; border-radius: 10px;
+    border: 1px solid #f0f0f0; text-align: center;
+    display: flex; flex-direction: column; align-items: center; gap: 3px;
+  }
+  .ws-signal.done { border-color: #bbf7d0; background: #f0fdf4; }
+  .ws-signal-label { font-size: 9px; color: #ccc; font-weight: 600; text-transform: uppercase; letter-spacing: 0.5px; }
+  .ws-signal.done .ws-signal-label { color: #22c55e; }
+
+  .ws-section { margin-top: 14px; padding: 13px; background: #fafafa; border-radius: 14px; border: 1px solid #f0f0f0; }
+  .ws-section-head { font-size: 9px; font-weight: 700; color: #ccc; letter-spacing: 1.5px; text-transform: uppercase; margin-bottom: 6px; }
+  .ws-section-text { font-size: 12px; color: #555; line-height: 1.6; }
+
+  .ws-cta { margin: 12px 20px 0; padding: 13px; background: #0a0a0a; color: #fff; border-radius: 14px; font-size: 14px; font-weight: 700; text-align: center; display: flex; align-items: center; justify-content: center; gap: 8px; flex-shrink: 0; }
+
+  /* CHAT */
+  .chat-area { flex: 1; padding: 16px 16px 0; display: flex; flex-direction: column; gap: 12px; overflow: hidden; }
+  .msg-kabou { display: flex; gap: 8px; align-items: flex-end; }
+  .kabou-av {
+    width: 28px; height: 28px; border-radius: 50%;
+    background: #fafafa; border: 1px solid #f0f0f0;
+    display: flex; align-items: center; justify-content: center;
+    flex-shrink: 0; color: #FF5722;
+  }
+  .bubble-kabou { background: #f4f4f4; border-radius: 18px 18px 18px 4px; padding: 10px 14px; max-width: 220px; font-size: 13px; color: #1a1a1a; line-height: 1.5; }
+  .msg-user { display: flex; justify-content: flex-end; }
+  .bubble-user { background: #0a0a0a; border-radius: 18px 18px 4px 18px; padding: 10px 14px; max-width: 200px; font-size: 13px; color: #fff; line-height: 1.5; }
+  .typing { display: flex; gap: 8px; align-items: center; }
+  .typing-dots { display: flex; gap: 4px; background: #f4f4f4; padding: 12px 14px; border-radius: 18px 18px 18px 4px; }
+  .typing-dot { width: 6px; height: 6px; border-radius: 3px; background: #ccc; animation: pulse 1.2s ease-in-out infinite; }
+  .typing-dot:nth-child(2) { animation-delay: 0.2s; }
+  .typing-dot:nth-child(3) { animation-delay: 0.4s; }
+  @keyframes pulse { 0%,100%{opacity:0.3}50%{opacity:1} }
+
+  .chat-input-area { padding: 10px 16px 10px; border-top: 1px solid #f0f0f0; display: flex; gap: 10px; align-items: center; flex-shrink: 0; }
+  .chat-input { flex: 1; background: #f4f4f4; border-radius: 22px; padding: 10px 16px; font-size: 13px; color: #bbb; }
+  .chat-send { width: 36px; height: 36px; border-radius: 50%; background: #FF5722; display: flex; align-items: center; justify-content: center; color: #fff; flex-shrink: 0; }
+
+  /* SECTION DIVIDERS */
+  .section-sep { text-align: center; padding: 60px 0 20px; }
+  .section-sep-line { display: flex; align-items: center; gap: 20px; justify-content: center; }
+  .section-sep-dash { height: 1px; width: 60px; background: #1e1e1e; }
+  .section-sep-text { font-size: 11px; color: #333; letter-spacing: 3px; text-transform: uppercase; font-weight: 600; }
+
+  /* ANNOTATION PILLS */
+  .annotations { display: flex; flex-wrap: wrap; gap: 8px; max-width: 320px; margin-top: 16px; }
+  .ann { font-size: 11px; color: #444; background: #141414; border: 1px solid #1e1e1e; padding: 5px 12px; border-radius: 100px; }
+  .ann strong { color: #888; }
+
+  /* HOME SCREEN */
+  .home-banner { margin: 14px 20px 0; padding: 18px; background: linear-gradient(135deg, #fff7ed 0%, #fff3ef 100%); border-radius: 18px; border: 1px solid #ffe4d4; }
+  .home-banner-eyebrow { font-size: 10px; font-weight: 700; color: #FF5722; letter-spacing: 1px; text-transform: uppercase; }
+  .home-banner-title { font-size: 16px; font-weight: 800; color: #0a0a0a; margin-top: 4px; letter-spacing: -0.3px; }
+  .home-banner-sub { font-size: 12px; color: #aaa; margin-top: 3px; }
+  .home-banner-cta { margin-top: 12px; display: inline-flex; align-items: center; gap: 6px; background: #FF5722; color: #fff; font-size: 12px; font-weight: 700; padding: 8px 16px; border-radius: 100px; }
+
+  .home-section { padding: 20px 20px 0; }
+  .home-section-head { font-size: 11px; font-weight: 700; color: #ccc; letter-spacing: 1.5px; text-transform: uppercase; margin-bottom: 12px; }
+  .home-quick-row { display: flex; gap: 8px; }
+  .home-quick-card { flex: 1; padding: 12px; background: #fafafa; border: 1px solid #f0f0f0; border-radius: 14px; text-align: center; }
+  .home-quick-card svg { display: block; margin: 0 auto 6px; color: #0a0a0a; }
+  .home-quick-label { font-size: 11px; font-weight: 600; color: #0a0a0a; }
+  .home-quick-sub { font-size: 10px; color: #bbb; margin-top: 2px; }
+
+  .home-recent { padding: 16px 20px 0; }
+  .home-recent-item { display: flex; align-items: center; gap: 10px; padding: 11px 0; border-bottom: 1px solid #f5f5f5; }
+  .home-recent-dot { width: 8px; height: 8px; border-radius: 4px; flex-shrink: 0; }
+  .home-recent-dot.seed { background: #22c55e; }
+  .home-recent-dot.exploring { background: #FF5722; }
+  .home-recent-dot.mature { background: #3b82f6; }
+  .home-recent-name { font-size: 13px; font-weight: 500; color: #0a0a0a; flex: 1; }
+  .home-recent-time { font-size: 11px; color: #ccc; }
+</style>
+</head>
+<body>
+
+<div class="page-header">
+  <div class="tag">Direction retenue</div>
+  <h1>Épuré & Lumineux</h1>
+  <p>Icônes Lucide · Fond blanc · Orange discret · Typographie nette</p>
+</div>
+
+<div class="phones-row">
+
+  <!-- ACCUEIL -->
+  <div class="phone-col">
+    <div class="phone-col-label">Accueil</div>
+    <div class="phone">
+      <div class="phone-inner">
+
+        <div class="status-bar">
+          <div class="status-time">9:41</div>
+          <div class="status-icons">
+            <svg width="16" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M1.05 1a11 11 0 0 1 21.9 0M5 5a7 7 0 0 1 14 0M9 9a3 3 0 0 1 6 0"/><circle cx="12" cy="20" r="1" fill="currentColor"/></svg>
+            <svg width="16" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><rect x="2" y="7" width="20" height="11" rx="2"/><path d="M22 11h2v4h-2"/></svg>
+          </div>
+        </div>
+
+        <div class="page-top">
+          <div class="page-top-title">Bonjour Antoine</div>
+          <div class="page-top-sub">Dimanche · 26 avril</div>
+        </div>
+
+        <div class="home-banner">
+          <div class="home-banner-eyebrow">Action du jour</div>
+          <div class="home-banner-title">Ton sujet est prêt à tourner</div>
+          <div class="home-banner-sub">"Comment j'ai doublé mon CA"</div>
+          <div class="home-banner-cta">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><circle cx="12" cy="12" r="10"/><polygon points="10,8 16,12 10,16" fill="currentColor" stroke="none"/></svg>
+            Préparer le tournage
+          </div>
+        </div>
+
+        <div class="home-section">
+          <div class="home-section-head">Accès rapide</div>
+          <div class="home-quick-row">
+            <div class="home-quick-card">
+              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14.5 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7.5L14.5 2z"/><polyline points="14,2 14,8 20,8"/></svg>
+              <div class="home-quick-label">Nouveau</div>
+              <div class="home-quick-sub">Sujet</div>
+            </div>
+            <div class="home-quick-card">
+              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>
+              <div class="home-quick-label">Kabou</div>
+              <div class="home-quick-sub">Chat IA</div>
+            </div>
+            <div class="home-quick-card">
+              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07A19.5 19.5 0 0 1 4.99 12 19.79 19.79 0 0 1 1.85 3.7A2 2 0 0 1 3.82 1.5h3a2 2 0 0 1 2 1.72c.127.96.361 1.903.7 2.81a2 2 0 0 1-.45 2.11L7.91 9.91a16 16 0 0 0 6.18 6.18l1.77-1.77a2 2 0 0 1 2.11-.45c.907.339 1.85.573 2.81.7A2 2 0 0 1 22 16.92z"/></svg>
+              <div class="home-quick-label">Support</div>
+              <div class="home-quick-sub">Aide</div>
+            </div>
+          </div>
+        </div>
+
+        <div class="home-recent">
+          <div class="home-section-head" style="padding-top:14px;margin-bottom:4px;">Récents</div>
+          <div class="home-recent-item">
+            <div class="home-recent-dot mature"></div>
+            <div class="home-recent-name">Comment j'ai doublé mon CA</div>
+            <div class="home-recent-time">2h</div>
+          </div>
+          <div class="home-recent-item">
+            <div class="home-recent-dot exploring"></div>
+            <div class="home-recent-name">3 erreurs du freelance</div>
+            <div class="home-recent-time">Hier</div>
+          </div>
+        </div>
+
+        <div class="bottom-nav">
+          <div class="nav-item active">
+            <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#FF5722" stroke-width="2.2"><path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><polyline points="9,22 9,12 15,12 15,22"/></svg>
+            <div class="nav-label" style="color:#FF5722;">Accueil</div>
+          </div>
+          <div class="nav-item">
+            <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#ccc" stroke-width="2"><path d="M14.5 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7.5L14.5 2z"/><polyline points="14,2 14,8 20,8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/></svg>
+            <div class="nav-label">Sujets</div>
+          </div>
+          <div class="nav-item">
+            <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#ccc" stroke-width="2"><path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"/></svg>
+            <div class="nav-label">Projets</div>
+          </div>
+          <div class="nav-item">
+            <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#ccc" stroke-width="2"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>
+            <div class="nav-label">Moi</div>
+          </div>
+        </div>
+
+      </div>
+    </div>
+    <div class="annotations">
+      <div class="ann"><strong>Banner</strong> contextuel — action du jour</div>
+      <div class="ann"><strong>Accès rapide</strong> — 3 actions max</div>
+      <div class="ann"><strong>Récents</strong> — reprendre où on était</div>
+    </div>
+  </div>
+
+  <!-- SUJETS -->
+  <div class="phone-col">
+    <div class="phone-col-label">Sujets</div>
+    <div class="phone" style="position:relative;">
+      <div class="phone-inner">
+
+        <div class="status-bar">
+          <div class="status-time">9:41</div>
+          <div class="status-icons">
+            <svg width="16" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M1.05 1a11 11 0 0 1 21.9 0M5 5a7 7 0 0 1 14 0M9 9a3 3 0 0 1 6 0"/><circle cx="12" cy="20" r="1" fill="currentColor"/></svg>
+            <svg width="16" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><rect x="2" y="7" width="20" height="11" rx="2"/><path d="M22 11h2v4h-2"/></svg>
+          </div>
+        </div>
+
+        <div class="page-top">
+          <div class="page-top-title">Mes sujets</div>
+          <div class="page-top-sub">5 sujets · 2 prêts</div>
+        </div>
+
+        <div class="filter-row">
+          <div class="filter-chip active">Tous</div>
+          <div class="filter-chip">En germination</div>
+          <div class="filter-chip">Prêts</div>
+          <div class="filter-chip">Archivés</div>
+        </div>
+
+        <div class="topic-list">
+
+          <div class="topic-card">
+            <div class="topic-state-col">
+              <div class="topic-state-icon mature">
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#3b82f6" stroke-width="2"><path d="M12 22V12M12 12C12 7 17 5 17 5s-2 5-5 7zM12 12C12 7 7 5 7 5s2 5 5 7z"/><path d="M5 19c.5-2 2-3.5 4-4.5M19 19c-.5-2-2-3.5-4-4.5"/></svg>
+              </div>
+              <div class="topic-state-label mature">Prêt</div>
+            </div>
+            <div class="topic-body">
+              <div class="topic-name">Comment j'ai doublé mon CA en 6 mois</div>
+              <div class="topic-brief">Angle solide, piliers posés, tournage prêt à lancer.</div>
+              <div class="topic-footer">
+                <div class="topic-pillar">Business</div>
+                <div class="topic-time">il y a 2h</div>
+              </div>
+            </div>
+            <div class="topic-arrow">
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="9,18 15,12 9,6"/></svg>
+            </div>
+          </div>
+
+          <div class="topic-card">
+            <div class="topic-state-col">
+              <div class="topic-state-icon exploring">
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#FF5722" stroke-width="2"><circle cx="12" cy="12" r="10"/><polygon points="16.24,7.76 14.12,14.12 7.76,16.24 9.88,9.88 16.24,7.76"/></svg>
+              </div>
+              <div class="topic-state-label exploring">Explore</div>
+            </div>
+            <div class="topic-body">
+              <div class="topic-name">3 erreurs du freelance débutant</div>
+              <div class="topic-brief">Angle en cours de définition avec Kabou.</div>
+              <div class="topic-footer">
+                <div class="topic-pillar">Freelance</div>
+                <div class="topic-time">hier</div>
+              </div>
+            </div>
+            <div class="topic-arrow">
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="9,18 15,12 9,6"/></svg>
+            </div>
+          </div>
+
+          <div class="topic-card">
+            <div class="topic-state-col">
+              <div class="topic-state-icon seed">
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#22c55e" stroke-width="2"><path d="M12 22V12M12 12C9 9 5 8 3 10c3 0 6 1 9 2zM12 12c3-3 7-4 9-2-3 0-6 1-9 2z"/></svg>
+              </div>
+              <div class="topic-state-label seed">Graine</div>
+            </div>
+            <div class="topic-body">
+              <div class="topic-name">Pourquoi j'ai arrêté LinkedIn</div>
+              <div class="topic-brief">Idée fraîche, pas encore travaillée.</div>
+              <div class="topic-footer">
+                <div class="topic-pillar">Mindset</div>
+                <div class="topic-time">il y a 3j</div>
+              </div>
+            </div>
+            <div class="topic-arrow">
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="9,18 15,12 9,6"/></svg>
+            </div>
+          </div>
+
+        </div>
+
+        <!-- FAB -->
+        <div class="fab">
+          <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+        </div>
+
+        <div class="bottom-nav">
+          <div class="nav-item">
+            <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#ccc" stroke-width="2"><path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><polyline points="9,22 9,12 15,12 15,22"/></svg>
+            <div class="nav-label">Accueil</div>
+          </div>
+          <div class="nav-item active">
+            <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#FF5722" stroke-width="2.2"><path d="M14.5 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7.5L14.5 2z"/><polyline points="14,2 14,8 20,8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/></svg>
+            <div class="nav-label" style="color:#FF5722;">Sujets</div>
+          </div>
+          <div class="nav-item">
+            <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#ccc" stroke-width="2"><path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"/></svg>
+            <div class="nav-label">Projets</div>
+          </div>
+          <div class="nav-item">
+            <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#ccc" stroke-width="2"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>
+            <div class="nav-label">Moi</div>
+          </div>
+        </div>
+
+      </div>
+    </div>
+    <div class="annotations">
+      <div class="ann"><strong>FAB</strong> — nouveau sujet, 1 tap</div>
+      <div class="ann"><strong>État créatif</strong> icône + label coloré</div>
+      <div class="ann"><strong>Pilier</strong> — pill discret</div>
+    </div>
+  </div>
+
+  <!-- SUJET WORKSPACE -->
+  <div class="phone-col">
+    <div class="phone-col-label">Workspace — Vue Sujet</div>
+    <div class="phone">
+      <div class="phone-inner">
+
+        <div class="status-bar">
+          <div class="status-time">9:41</div>
+          <div class="status-icons">
+            <svg width="16" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M1.05 1a11 11 0 0 1 21.9 0M5 5a7 7 0 0 1 14 0M9 9a3 3 0 0 1 6 0"/><circle cx="12" cy="20" r="1" fill="currentColor"/></svg>
+            <svg width="16" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><rect x="2" y="7" width="20" height="11" rx="2"/><path d="M22 11h2v4h-2"/></svg>
+          </div>
+        </div>
+
+        <div class="ws-back-bar">
+          <div class="ws-back-btn">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#FF5722" stroke-width="2.5"><polyline points="15,18 9,12 15,6"/></svg>
+            Sujets
+          </div>
+        </div>
+
+        <div class="ws-tab-bar">
+          <div class="ws-tab active">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14.5 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7.5z"/><polyline points="14,2 14,8 20,8"/></svg>
+            Sujet
+          </div>
+          <div class="ws-tab">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>
+            Kabou
+          </div>
+        </div>
+        <div class="ws-swipe-hint">← swipe →</div>
+
+        <div class="ws-content">
+          <div class="ws-state-badge">
+            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="#FF5722" stroke-width="2.5"><circle cx="12" cy="12" r="10"/><polygon points="16.24,7.76 14.12,14.12 7.76,16.24 9.88,9.88"/></svg>
+            En exploration
+          </div>
+          <div class="ws-title">Comment j'ai doublé mon CA en 6 mois</div>
+
+          <div class="ws-signals">
+            <div class="ws-signal done">
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#22c55e" stroke-width="2.5"><polyline points="20,6 9,17 4,12"/></svg>
+              <div class="ws-signal-label">Angle</div>
+            </div>
+            <div class="ws-signal done">
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#22c55e" stroke-width="2.5"><polyline points="20,6 9,17 4,12"/></svg>
+              <div class="ws-signal-label">Piliers</div>
+            </div>
+            <div class="ws-signal">
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#ddd" stroke-width="2"><circle cx="12" cy="12" r="9"/></svg>
+              <div class="ws-signal-label">Sources</div>
+            </div>
+            <div class="ws-signal">
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#ddd" stroke-width="2"><circle cx="12" cy="12" r="9"/></svg>
+              <div class="ws-signal-label">Hook</div>
+            </div>
+          </div>
+
+          <div class="ws-section">
+            <div class="ws-section-head">§01 Angle</div>
+            <div class="ws-section-text">J'ai doublé mon CA en passant de la prospection froide à une stratégie de contenu ciblée sur LinkedIn et YouTube...</div>
+          </div>
+
+          <div class="ws-section">
+            <div class="ws-section-head">§02 Piliers narratifs</div>
+            <div class="ws-section-text">· Avant/après concret · Le déclic · Les 3 changements clés</div>
+          </div>
+        </div>
+
+        <div class="ws-cta">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M12 1a3 3 0 0 0-3 3v8a3 3 0 0 0 6 0V4a3 3 0 0 0-3-3z"/><path d="M19 10v2a7 7 0 0 1-14 0v-2"/><line x1="12" y1="19" x2="12" y2="23"/><line x1="8" y1="23" x2="16" y2="23"/></svg>
+          Préparer le tournage
+        </div>
+
+        <div class="bottom-nav" style="margin-top:8px;">
+          <div class="nav-item">
+            <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#ccc" stroke-width="2"><path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><polyline points="9,22 9,12 15,12 15,22"/></svg>
+            <div class="nav-label">Accueil</div>
+          </div>
+          <div class="nav-item active">
+            <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#FF5722" stroke-width="2.2"><path d="M14.5 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7.5z"/><polyline points="14,2 14,8 20,8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/></svg>
+            <div class="nav-label" style="color:#FF5722;">Sujets</div>
+          </div>
+          <div class="nav-item">
+            <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#ccc" stroke-width="2"><path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"/></svg>
+            <div class="nav-label">Projets</div>
+          </div>
+          <div class="nav-item">
+            <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#ccc" stroke-width="2"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>
+            <div class="nav-label">Moi</div>
+          </div>
+        </div>
+
+      </div>
+    </div>
+    <div class="annotations">
+      <div class="ann"><strong>Swipe</strong> ↔ vers Kabou</div>
+      <div class="ann"><strong>Signals</strong> — 4 indicateurs</div>
+      <div class="ann"><strong>CTA</strong> ancré en bas</div>
+    </div>
+  </div>
+
+  <!-- KABOU CHAT -->
+  <div class="phone-col">
+    <div class="phone-col-label">Workspace — Vue Kabou</div>
+    <div class="phone">
+      <div class="phone-inner">
+
+        <div class="status-bar">
+          <div class="status-time">9:41</div>
+          <div class="status-icons">
+            <svg width="16" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M1.05 1a11 11 0 0 1 21.9 0M5 5a7 7 0 0 1 14 0M9 9a3 3 0 0 1 6 0"/><circle cx="12" cy="20" r="1" fill="currentColor"/></svg>
+            <svg width="16" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><rect x="2" y="7" width="20" height="11" rx="2"/><path d="M22 11h2v4h-2"/></svg>
+          </div>
+        </div>
+
+        <div class="ws-back-bar">
+          <div class="ws-back-btn">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#FF5722" stroke-width="2.5"><polyline points="15,18 9,12 15,6"/></svg>
+            Sujets
+          </div>
+        </div>
+
+        <div class="ws-tab-bar">
+          <div class="ws-tab">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14.5 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7.5z"/><polyline points="14,2 14,8 20,8"/></svg>
+            Sujet
+          </div>
+          <div class="ws-tab active">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>
+            Kabou
+          </div>
+        </div>
+        <div class="ws-swipe-hint">← swipe →</div>
+
+        <div class="chat-area">
+          <div class="msg-kabou">
+            <div class="kabou-av">
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="8" r="5"/><path d="M3 21a9 9 0 0 1 18 0"/></svg>
+            </div>
+            <div class="bubble-kabou">Ton angle est solide. Il te manque 2 sources pour bétonner l'argumentaire. Tu as des chiffres sur cette période ?</div>
+          </div>
+          <div class="msg-user">
+            <div class="bubble-user">Oui, mes stats Stripe et les analytics LinkedIn</div>
+          </div>
+          <div class="msg-kabou">
+            <div class="kabou-av">
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="8" r="5"/><path d="M3 21a9 9 0 0 1 18 0"/></svg>
+            </div>
+            <div class="bubble-kabou">Parfait. Je les ajoute comme sources ancrées. Ton pilier "avant/après" tient beaucoup mieux.</div>
+          </div>
+          <div class="typing">
+            <div class="kabou-av">
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="8" r="5"/><path d="M3 21a9 9 0 0 1 18 0"/></svg>
+            </div>
+            <div class="typing-dots">
+              <div class="typing-dot"></div>
+              <div class="typing-dot"></div>
+              <div class="typing-dot"></div>
+            </div>
+          </div>
+        </div>
+
+        <div class="chat-input-area">
+          <div class="chat-input">Dis quelque chose à Kabou…</div>
+          <div class="chat-send">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><line x1="12" y1="19" x2="12" y2="5"/><polyline points="5,12 12,5 19,12"/></svg>
+          </div>
+        </div>
+
+        <div class="bottom-nav">
+          <div class="nav-item">
+            <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#ccc" stroke-width="2"><path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><polyline points="9,22 9,12 15,12 15,22"/></svg>
+            <div class="nav-label">Accueil</div>
+          </div>
+          <div class="nav-item active">
+            <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#FF5722" stroke-width="2.2"><path d="M14.5 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7.5z"/><polyline points="14,2 14,8 20,8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/></svg>
+            <div class="nav-label" style="color:#FF5722;">Sujets</div>
+          </div>
+          <div class="nav-item">
+            <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#ccc" stroke-width="2"><path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"/></svg>
+            <div class="nav-label">Projets</div>
+          </div>
+          <div class="nav-item">
+            <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#ccc" stroke-width="2"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>
+            <div class="nav-label">Moi</div>
+          </div>
+        </div>
+
+      </div>
+    </div>
+    <div class="annotations">
+      <div class="ann"><strong>Streaming</strong> — typing dots animés</div>
+      <div class="ann"><strong>Input</strong> ancré au-dessus du clavier</div>
+      <div class="ann"><strong>Send</strong> — flèche haut Lucide</div>
+    </div>
+  </div>
+
+</div>
+
+</body>
+</html>
+    </div>
+    </div>
+  </div>
+
+</div>
+
+</body>
+</html>

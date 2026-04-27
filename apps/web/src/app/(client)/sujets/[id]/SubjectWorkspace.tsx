@@ -1,6 +1,8 @@
 'use client'
 
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState, useTransition } from 'react'
+import { AnimatePresence, motion, useReducedMotion } from 'framer-motion'
+import { useDrag } from '@use-gesture/react'
 import { useRouter } from 'next/navigation'
 import { CheckCircle2, FileText, Loader2, MessageCircle, Mic, Play, Sparkles } from 'lucide-react'
 import Link from 'next/link'
@@ -143,6 +145,17 @@ export function SubjectWorkspace({
   const [toast, setToast] = useState<string | null>(null)
   const [mobileTab, setMobileTab] = useState<'sujet' | 'kabou'>('sujet')
   const kabouInputRef = useRef<HTMLTextAreaElement | null>(null)
+  const prefersReducedMotion = useReducedMotion()
+
+  // Swipe gauche sur le sujet → ouvre Kabou ; swipe droit sur Kabou → revient au sujet
+  const bindSubjectSwipe = useDrag(
+    ({ swipe: [sx] }) => { if (sx === -1 && !isDesktop) setMobileTab('kabou') },
+    { axis: 'x', swipe: { distance: 60, velocity: [0.5, 0.5] }, filterTaps: true },
+  )
+  const bindKabouSwipe = useDrag(
+    ({ swipe: [sx] }) => { if (sx === 1 && !isDesktop) setMobileTab('sujet') },
+    { axis: 'x', swipe: { distance: 60, velocity: [0.5, 0.5] }, filterTaps: true },
+  )
 
   // Cache le bottom nav global du layout sur mobile pendant qu'on est sur cette page.
   useLayoutEffect(() => {
@@ -632,7 +645,14 @@ export function SubjectWorkspace({
         toState={activeTransition?.to ?? creativeState}
       />
 
-      <main className="mx-auto max-w-[1400px] px-4 sm:px-6 pt-6 pb-24">
+      {/* gesture wrapper séparé de la couche motion pour éviter le conflit onDrag */}
+      <div {...(!isDesktop ? bindSubjectSwipe() : {})}>
+      <motion.main
+        className="mx-auto max-w-[1400px] px-4 sm:px-6 pt-6 pb-24"
+        initial={prefersReducedMotion ? { opacity: 0 } : { opacity: 0, x: 40 }}
+        animate={prefersReducedMotion ? { opacity: 1 } : { opacity: 1, x: 0 }}
+        transition={prefersReducedMotion ? { duration: 0.15 } : { type: 'spring', stiffness: 600, damping: 40 }}
+      >
         <SubjectBreadcrumb createdAt={topic.createdAt} updatedAt={topic.updatedAt} />
 
         <div className="grid grid-cols-1 lg:grid-cols-[1fr_420px] gap-8">
@@ -787,25 +807,36 @@ export function SubjectWorkspace({
           )}
         </div>
 
-        {/* Overlay Kabou — mobile uniquement, plein écran sous le bottom nav */}
-        {!isDesktop && mobileTab === 'kabou' && (
-          <div className="fixed inset-x-0 top-0 bottom-16 z-30 bg-card flex flex-col lg:hidden">
-            <SubjectKabouPanel
-              topicId={topic.id}
-              threadId={topic.threadId}
-              subjectName={topic.name}
-              contextBrief={topic.brief}
-              contextPillarsCount={pillarsCount}
-              contextSourcesCount={sourcesCount}
-              contextSessionsSummary={sessionsSummary}
-              creativeState={creativeState}
-              narrativeAnchor={topic.narrativeAnchor}
-              hasPendingSession={Boolean(pendingSession)}
-              onTopicMutated={handleTopicMutated}
-              onBack={() => setMobileTab('sujet')}
-            />
-          </div>
-        )}
+        {/* Overlay Kabou — mobile uniquement, avec slide-in depuis la droite */}
+        <AnimatePresence>
+          {!isDesktop && mobileTab === 'kabou' && (
+            <motion.div
+              className="fixed inset-x-0 top-0 bottom-16 z-30 bg-card flex flex-col lg:hidden"
+              initial={prefersReducedMotion ? { opacity: 0 } : { x: '100%' }}
+              animate={prefersReducedMotion ? { opacity: 1 } : { x: 0 }}
+              exit={prefersReducedMotion ? { opacity: 0 } : { x: '100%' }}
+              transition={prefersReducedMotion ? { duration: 0.15 } : { type: 'spring', stiffness: 600, damping: 40 }}
+            >
+              {/* gesture wrapper séparé de motion.div pour éviter le conflit onDrag */}
+              <div className="flex flex-col flex-1 h-full" {...bindKabouSwipe()}>
+              <SubjectKabouPanel
+                topicId={topic.id}
+                threadId={topic.threadId}
+                subjectName={topic.name}
+                contextBrief={topic.brief}
+                contextPillarsCount={pillarsCount}
+                contextSourcesCount={sourcesCount}
+                contextSessionsSummary={sessionsSummary}
+                creativeState={creativeState}
+                narrativeAnchor={topic.narrativeAnchor}
+                hasPendingSession={Boolean(pendingSession)}
+                onTopicMutated={handleTopicMutated}
+                onBack={() => setMobileTab('sujet')}
+              />
+              </div>
+            </motion.div>
+          )}
+        </AnimatePresence>
 
         {/* Bottom nav 2 onglets — mobile uniquement */}
         {!isDesktop && (
@@ -815,7 +846,7 @@ export function SubjectWorkspace({
           >
             <button
               type="button"
-              onClick={() => setMobileTab('sujet')}
+              onClick={() => { navigator.vibrate?.(10); setMobileTab('sujet') }}
               className={`flex-1 flex flex-col items-center justify-center gap-1 text-[11px] font-medium transition-colors ${
                 mobileTab === 'sujet' ? 'text-primary' : 'text-muted-foreground'
               }`}
@@ -826,7 +857,7 @@ export function SubjectWorkspace({
             <div className="w-px bg-border my-3" aria-hidden />
             <button
               type="button"
-              onClick={() => setMobileTab('kabou')}
+              onClick={() => { navigator.vibrate?.(10); setMobileTab('kabou') }}
               className={`flex-1 flex flex-col items-center justify-center gap-1 text-[11px] font-medium transition-colors ${
                 mobileTab === 'kabou' ? 'text-primary' : 'text-muted-foreground'
               }`}
@@ -869,7 +900,8 @@ export function SubjectWorkspace({
             />
           )
         })()}
-      </main>
+      </motion.main>
+      </div>
     </>
   )
 }

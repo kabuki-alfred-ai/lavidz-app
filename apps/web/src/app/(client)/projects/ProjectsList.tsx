@@ -150,12 +150,12 @@ export function ProjectsList() {
                     router.push(`/projects/${project.id}`)
                   }
                 }}
-                className="w-full text-left rounded-xl bg-card border-2 border-border/50 p-4 hover:border-primary/30 hover:shadow-md transition-all hover:scale-[1.005] active:scale-[0.995] cursor-pointer focus:outline-none focus-visible:ring-2 focus-visible:ring-primary/40"
+                className="w-full overflow-hidden text-left rounded-xl bg-card border-2 border-border/50 p-4 hover:border-primary/30 hover:shadow-md transition-all hover:scale-[1.005] active:scale-[0.995] cursor-pointer focus:outline-none focus-visible:ring-2 focus-visible:ring-primary/40"
               >
                 <div className="flex items-start justify-between gap-3">
                   <div className="flex-1 min-w-0">
-                    <div className="flex items-center gap-2 mb-1.5">
-                      <h3 className="font-semibold text-foreground truncate">{project.title}</h3>
+                    <div className="flex items-center gap-2 mb-1.5 min-w-0">
+                      <h3 className="font-semibold text-foreground truncate min-w-0">{project.title}</h3>
                       <span className={`text-[10px] font-medium px-2 py-0.5 rounded-full shrink-0 ${status.class}`}>
                         {status.label}
                       </span>
