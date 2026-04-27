@@ -3,22 +3,22 @@ export const runtime = 'nodejs'
 import { getSessionUser } from '@/lib/auth'
 import { prisma } from '@lavidz/database'
 
-export async function DELETE(_req: Request, { params }: { params: Promise<{ userId: string }> }) {
+export async function DELETE(_req: Request, { params }: { params: Promise<{ id: string }> }) {
   try {
     const user = await getSessionUser()
     if (!user || user.role !== 'SUPERADMIN') {
       return new Response('Forbidden', { status: 403 })
     }
 
-    const { userId } = await params
+    const { id } = await params
 
-    if (userId === user.userId) {
+    if (id === user.userId) {
       return new Response('Impossible de supprimer son propre compte.', { status: 400 })
     }
 
     const target = await prisma.user.findUnique({
-      where: { id: userId },
-      select: { role: true, email: true },
+      where: { id },
+      select: { role: true },
     })
 
     if (!target) return new Response('Utilisateur introuvable.', { status: 404 })
@@ -27,12 +27,10 @@ export async function DELETE(_req: Request, { params }: { params: Promise<{ user
     }
 
     await prisma.$transaction(async (tx) => {
-      // Nullify FK references before deletion
-      await tx.adminInvitation.updateMany({ where: { invitedById: userId }, data: { invitedById: null } })
-      await tx.orgInvitation.updateMany({ where: { invitedById: userId }, data: { invitedById: null } })
-      // Delete user-owned profile (cascades ConversationMemory)
-      await tx.entrepreneurProfile.deleteMany({ where: { userId } })
-      await tx.user.delete({ where: { id: userId } })
+      await tx.adminInvitation.updateMany({ where: { invitedById: id }, data: { invitedById: null } })
+      await tx.orgInvitation.updateMany({ where: { invitedById: id }, data: { invitedById: null } })
+      await tx.entrepreneurProfile.deleteMany({ where: { userId: id } })
+      await tx.user.delete({ where: { id } })
     })
 
     return new Response(null, { status: 204 })
