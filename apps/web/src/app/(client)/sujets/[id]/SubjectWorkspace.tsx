@@ -8,6 +8,7 @@ import { CheckCircle2, FileText, Loader2, MessageCircle, Mic, Play, Sparkles } f
 import Link from 'next/link'
 import { Button } from '@/components/ui/button'
 import type { CreativeState } from '@/lib/creative-state'
+import { deriveCreativeState } from '@/lib/creative-state'
 import { KABOU_TOASTS } from '@/lib/kabou-voice'
 import { SubjectBreadcrumb } from '@/components/subject/SubjectBreadcrumb'
 import { SubjectHeader } from '@/components/subject/SubjectHeader'
@@ -29,6 +30,7 @@ import {
   isUpwardTransition,
 } from '@/lib/topic-transition-memory'
 import { SubjectKabouPanel } from './SubjectKabouPanel'
+import { SubjectStageTimeline } from '@/components/subject/SubjectStageTimeline'
 import { isRecordingGuide, type RecordingGuide } from '@/lib/recording-guide'
 import type { NarrativeAnchor } from '@/lib/narrative-anchor'
 import type { RecordingScript } from '@/lib/recording-script'
@@ -421,16 +423,32 @@ export function SubjectWorkspace({
     setOpenDrawerFormat(format)
   }, [])
 
+  const mobileKabouInputRef = useRef<HTMLTextAreaElement | null>(null)
+  const [kabouPulse, setKabouPulse] = useState(false)
+
   const focusKabouInput = useCallback(() => {
     if (!isDesktop) {
       setMobileTab('kabou')
+      window.setTimeout(() => mobileKabouInputRef.current?.focus(), 350)
       return
     }
-    const el = kabouInputRef.current
-    if (!el) return
-    el.focus()
-    el.scrollIntoView({ behavior: 'smooth', block: 'center' })
+    kabouInputRef.current?.focus()
+    setKabouPulse(true)
+    window.setTimeout(() => setKabouPulse(false), 1200)
   }, [isDesktop])
+
+  const hasAnyBrief = (topic.brief?.trim().length ?? 0) > 0
+
+  // Dérivé localement pour que la transition SEED→EXPLORING se déclenche
+  // immédiatement quand Kabou met à jour topic.brief, sans attendre router.refresh().
+  const localCreativeState = useMemo(() => deriveCreativeState({
+    topicStatus: topic.status,
+    brief: topic.brief,
+    narrativeAnchor: topic.narrativeAnchor,
+    recordingGuide: topic.recordingGuide,
+  }), [topic.status, topic.brief, topic.narrativeAnchor, topic.recordingGuide])
+
+  const showSeedFocus = localCreativeState === 'SEED' && !isArchived
 
   // Primary CTA context-aware
   const pendingSession = useMemo(
@@ -495,6 +513,7 @@ export function SubjectWorkspace({
 
   const primaryCta = useMemo(() => {
     if (isArchived) return null
+    if (showSeedFocus) return null
     if (pendingSession) {
       return (
         <Button asChild size="lg">
@@ -558,7 +577,7 @@ export function SubjectWorkspace({
         Explorer avec Kabou
       </Button>
     )
-  }, [allSignalsGreen, creativeState, doneSession, focusKabouInput, handleMarkReady, isArchived, isDesktop, isPending, pendingSession, topic.brief, topic.id])
+  }, [allSignalsGreen, creativeState, doneSession, focusKabouInput, handleMarkReady, isArchived, isDesktop, isPending, pendingSession, showSeedFocus, topic.brief, topic.id])
 
   // Kabou context card
   const sourcesCount = 0 // Géré côté client par SubjectSourcesSection ; le contexte Kabou côté serveur injecte le vrai count.
@@ -593,7 +612,6 @@ export function SubjectWorkspace({
   // qu'on a au moins 1 pilier. §04 & §05 sont toujours visibles pour ne pas
   // couper l'accès aux tournages déjà existants et à l'historique.
   const [forceShowAll, setForceShowAll] = useState(false)
-  const hasAnyBrief = (topic.brief?.trim().length ?? 0) > 0
   const hasAnyPillar = pillarsCount >= 1
   const showSections = {
     angle: true,
@@ -653,269 +671,333 @@ export function SubjectWorkspace({
         toState={activeTransition?.to ?? creativeState}
       />
 
-      {/* gesture wrapper séparé de la couche motion pour éviter le conflit onDrag */}
-      <div {...(!isDesktop ? bindSubjectSwipe() : {})}>
-      <motion.main
-        className="mx-auto max-w-[1400px] px-4 sm:px-6 pt-6 pb-24"
-        initial={prefersReducedMotion ? { opacity: 0 } : { opacity: 0, x: 40 }}
-        animate={prefersReducedMotion ? { opacity: 1 } : { opacity: 1, x: 0 }}
-        transition={prefersReducedMotion ? { duration: 0.15 } : { type: 'spring', stiffness: 600, damping: 40 }}
-      >
-        <SubjectBreadcrumb createdAt={topic.createdAt} updatedAt={topic.updatedAt} />
-
-        <div className="grid grid-cols-1 lg:grid-cols-[1fr_420px] gap-8">
-          <section>
-            <SubjectHeader
-              creativeState={creativeState}
-              title={topic.name}
-              pillar={topic.pillar}
-              onEditPillar={() => setEditingPillar(true)}
-              sessionsCount={sessions.length}
-              onScrollToSessions={scrollToSessions}
-              primaryCta={primaryCta}
-              onRest={handleMarkDraft}
-              restDisabled={isPending || topic.status === 'DRAFT'}
-              isArchived={isArchived}
-              signals={signals}
-              onSignalClick={handleSignalClick}
-            />
-
-            {editingPillar && (
-              <div className="mb-6 rounded-xl border border-primary/30 bg-primary/5 p-4 max-w-[680px]">
-                <label className="mb-2 block text-xs font-medium text-muted-foreground">
-                  Domaine du sujet
-                </label>
-                {availablePillars.length > 0 && (
-                  <div className="mb-3 flex flex-wrap gap-1.5">
-                    {availablePillars.map((p) => (
-                      <button
-                        key={p}
-                        type="button"
-                        onClick={() => setPillarDraft(p)}
-                        className={`rounded-full border px-2.5 py-1 text-xs transition ${
-                          pillarDraft === p
-                            ? 'border-primary bg-primary/10 text-primary'
-                            : 'border-border text-muted-foreground hover:bg-surface-raised'
-                        }`}
-                      >
-                        {p}
-                      </button>
-                    ))}
-                  </div>
-                )}
-                <input
-                  type="text"
-                  value={pillarDraft}
-                  onChange={(e) => setPillarDraft(e.target.value)}
-                  placeholder="Nom du domaine"
-                  className="w-full rounded-lg border border-border bg-background px-3 py-2 text-sm"
-                />
-                <div className="mt-3 flex gap-2">
-                  <Button size="sm" onClick={handlePillarSave}>
-                    Valider
-                  </Button>
-                  <Button
-                    size="sm"
-                    variant="ghost"
-                    onClick={() => {
-                      setEditingPillar(false)
-                      setPillarDraft(topic.pillar ?? '')
-                    }}
-                  >
-                    Annuler
-                  </Button>
-                </div>
-              </div>
-            )}
-
-            <Hairline className="mb-6" />
-
-            <div className="space-y-6">
-              <SubjectAngleSection
-                id="subject-section-angle"
-                brief={topic.brief}
-                onSave={handleAngleSave}
-                kabouProposedAt={kabouProposedBriefAt}
-                defaultOpen
-              />
-
-              {showSections.pillars && (
-                <SubjectPillarsSection
-                  id="subject-section-pillars"
-                  anchor={topic.narrativeAnchor}
-                  onSave={handlePillarsSave}
-                />
-              )}
-
-              {showSections.sources && !isArchived && (
-                <SubjectSourcesSection
-                  id="subject-section-sources"
-                  topicId={topic.id}
-                  hasBrief={Boolean(topic.brief && topic.brief.trim().length > 20)}
-                  onFlashToast={flashToast}
-                />
-              )}
-
-              {hiddenCount > 0 && !forceShowAll && (
-                <button
-                  type="button"
-                  onClick={() => setForceShowAll(true)}
-                  className="text-[12px] text-muted-foreground hover:text-foreground transition inline-flex items-center gap-1.5 px-2 py-1 ml-6"
-                >
-                  <span className="h-px w-6 bg-border" aria-hidden />
-                  Voir les {hiddenCount} autre{hiddenCount > 1 ? 's' : ''} section{hiddenCount > 1 ? 's' : ''}
-                </button>
-              )}
-
-              <SubjectSessionsSection
-                id="tournages-section"
-                groups={formatGroups}
-                missingFormats={missingFormats}
-                formatLabels={FORMAT_LABELS}
-                formatEmojis={FORMAT_EMOJIS}
-                narrativeAnchor={topic.narrativeAnchor}
-                expandedVariants={expandedVariants}
-                onToggleVariants={toggleVariants}
-                onExplore={handleExploreFormat}
-                defaultOpen
-              />
-
-              <SubjectTimelineSection events={events} />
+      <AnimatePresence mode="wait">
+        {showSeedFocus ? (
+          // ── Focus SEED : Kabou centré, plein écran ─────────────────
+          <motion.main
+            key="seed-focus"
+            className="mx-auto max-w-[640px] px-4 sm:px-6 pt-4 flex flex-col"
+            style={{ height: 'calc(100dvh - 4rem)' }}
+            initial={{ opacity: 0, y: 14 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0, scale: 0.98 }}
+            transition={{ duration: 0.35, ease: [0.22, 1, 0.36, 1] }}
+          >
+            <div className="shrink-0 mb-1">
+              <SubjectBreadcrumb createdAt={topic.createdAt} updatedAt={topic.updatedAt} />
             </div>
 
-            <SubjectFooter
-              topicId={topic.id}
-              status={topic.status}
-              onArchive={handleArchive}
-              onUnarchive={handleUnarchive}
-              onBackToExplore={handleMarkDraft}
-              disabled={isPending}
-            />
-          </section>
-
-          {isDesktop && (
-            <aside className="hidden lg:block">
-              <div className="sticky top-6 h-[calc(100vh-3rem)] max-h-[860px] min-h-[540px]">
-                <SubjectKabouPanel
-                  topicId={topic.id}
-                  threadId={topic.threadId}
-                  subjectName={topic.name}
-                  contextBrief={topic.brief}
-                  contextPillarsCount={pillarsCount}
-                  contextSourcesCount={sourcesCount}
-                  contextSessionsSummary={sessionsSummary}
-                  creativeState={creativeState}
-                  narrativeAnchor={topic.narrativeAnchor}
-                  hasPendingSession={Boolean(pendingSession)}
-                  onTopicMutated={handleTopicMutated}
-                  inputRef={kabouInputRef}
-                />
+            <div className="shrink-0 mb-4">
+              <div className="mb-2">
+                <SubjectStageTimeline state={creativeState} />
               </div>
-            </aside>
-          )}
-        </div>
+              <h1 className="text-[22px] sm:text-[26px] font-bold tracking-tight leading-[1.1]">
+                {topic.name}
+              </h1>
+            </div>
 
-        {/* Overlay Kabou — mobile uniquement, avec slide-in depuis la droite */}
-        <AnimatePresence>
-          {!isDesktop && mobileTab === 'kabou' && (
-            <motion.div
-              className="fixed inset-x-0 top-0 z-30 bg-card flex flex-col lg:hidden"
-              style={{ bottom: 'calc(4rem + env(safe-area-inset-bottom))' }}
-              initial={prefersReducedMotion ? { opacity: 0 } : { x: '100%' }}
-              animate={prefersReducedMotion ? { opacity: 1 } : { x: 0 }}
-              exit={prefersReducedMotion ? { opacity: 0 } : { x: '100%' }}
-              transition={prefersReducedMotion ? { duration: 0.15 } : { type: 'spring', stiffness: 600, damping: 40 }}
-            >
-              {/* gesture wrapper séparé de motion.div pour éviter le conflit onDrag */}
-              <div className="flex flex-col flex-1 h-full" {...bindKabouSwipe()}>
+            <div className="flex-1 min-h-0">
               <SubjectKabouPanel
                 topicId={topic.id}
                 threadId={topic.threadId}
                 subjectName={topic.name}
                 contextBrief={topic.brief}
                 contextPillarsCount={pillarsCount}
-                contextSourcesCount={sourcesCount}
-                contextSessionsSummary={sessionsSummary}
+                contextSourcesCount={0}
+                contextSessionsSummary={null}
                 creativeState={creativeState}
                 narrativeAnchor={topic.narrativeAnchor}
-                hasPendingSession={Boolean(pendingSession)}
+                hasPendingSession={false}
                 onTopicMutated={handleTopicMutated}
-                onBack={() => setMobileTab('sujet')}
+                inputRef={kabouInputRef}
               />
-              </div>
-            </motion.div>
-          )}
-        </AnimatePresence>
-
-        {/* Bottom nav 2 onglets — mobile uniquement */}
-        {!isDesktop && (
-          <nav
-            aria-label="Navigation sujet"
-            className="fixed bottom-0 inset-x-0 z-40 bg-background/95 backdrop-blur-lg border-t border-border lg:hidden"
-            style={{ paddingBottom: 'env(safe-area-inset-bottom)' }}
-          >
-            <div className="flex h-16">
-              <button
-                type="button"
-                aria-current={mobileTab === 'sujet' ? 'true' : undefined}
-                onClick={() => { navigator.vibrate?.(10); setMobileTab('sujet') }}
-                className={`flex-1 flex flex-col items-center justify-center gap-1 text-[11px] font-medium transition-colors ${
-                  mobileTab === 'sujet' ? 'text-foreground' : 'text-muted-foreground'
-                }`}
-              >
-                <FileText className={`h-5 w-5 ${mobileTab === 'sujet' ? 'text-primary' : ''}`} />
-                Sujet
-              </button>
-              <div className="w-px bg-border my-3" aria-hidden />
-              <button
-                type="button"
-                aria-current={mobileTab === 'kabou' ? 'true' : undefined}
-                onClick={() => { navigator.vibrate?.(10); setMobileTab('kabou') }}
-                className={`flex-1 flex flex-col items-center justify-center gap-1 text-[11px] font-medium transition-colors ${
-                  mobileTab === 'kabou' ? 'text-foreground' : 'text-muted-foreground'
-                }`}
-              >
-                <MessageCircle className={`h-5 w-5 ${mobileTab === 'kabou' ? 'text-primary' : ''}`} />
-                Kabou
-              </button>
             </div>
-          </nav>
-        )}
 
-        {toast && (
-          <div
-            role="status"
-            className="fixed bottom-20 left-1/2 z-[60] -translate-x-1/2 rounded-full border border-border bg-card px-4 py-2 text-xs shadow-lg lg:bottom-6"
-          >
-            {toast}
+            <div className="mt-3 mb-3 shrink-0 flex items-center justify-center gap-0">
+              {(['Angle', 'Piliers', 'Sources', 'Tournage'] as const).map((label, i) => (
+                <div key={label} className="flex items-center">
+                  <div className="flex flex-col items-center gap-1.5">
+                    <span className={`flex h-5 w-5 items-center justify-center rounded-full text-[9px] font-bold ${
+                      i === 0
+                        ? 'bg-amber-500/15 text-amber-600 dark:text-amber-400 ring-1 ring-amber-500/35'
+                        : 'bg-muted/60 text-muted-foreground/40'
+                    }`}>{i + 1}</span>
+                    <span className={`text-[11px] font-mono tracking-wide ${
+                      i === 0 ? 'text-amber-600 dark:text-amber-400' : 'text-muted-foreground/35'
+                    }`}>{label}</span>
+                  </div>
+                  {i < 3 && <div className="h-px w-8 mx-1.5 bg-border/50 mb-3.5" aria-hidden />}
+                </div>
+              ))}
+            </div>
+          </motion.main>
+        ) : (
+          // ── Full workspace ──────────────────────────────────────────
+          <div key="workspace" {...(!isDesktop ? bindSubjectSwipe() : {})}>
+            <motion.main
+              className="mx-auto max-w-[1400px] px-4 sm:px-6 pt-6 pb-24"
+              initial={prefersReducedMotion ? { opacity: 0 } : { opacity: 0, x: 40 }}
+              animate={prefersReducedMotion ? { opacity: 1 } : { opacity: 1, x: 0 }}
+              transition={prefersReducedMotion ? { duration: 0.15 } : { type: 'spring', stiffness: 600, damping: 40 }}
+            >
+              <SubjectBreadcrumb createdAt={topic.createdAt} updatedAt={topic.updatedAt} />
+
+              <div className="grid grid-cols-1 lg:grid-cols-[1fr_420px] gap-8">
+                <section>
+                  <SubjectHeader
+                    creativeState={creativeState}
+                    title={topic.name}
+                    pillar={topic.pillar}
+                    onEditPillar={() => setEditingPillar(true)}
+                    sessionsCount={sessions.length}
+                    onScrollToSessions={scrollToSessions}
+                    primaryCta={primaryCta}
+                    onRest={handleMarkDraft}
+                    restDisabled={isPending || topic.status === 'DRAFT'}
+                    isArchived={isArchived}
+                    signals={signals}
+                    onSignalClick={handleSignalClick}
+                  />
+
+                  {editingPillar && (
+                    <div className="mb-6 rounded-xl border border-primary/30 bg-primary/5 p-4 max-w-[680px]">
+                      <label className="mb-2 block text-xs font-medium text-muted-foreground">
+                        Domaine du sujet
+                      </label>
+                      {availablePillars.length > 0 && (
+                        <div className="mb-3 flex flex-wrap gap-1.5">
+                          {availablePillars.map((p) => (
+                            <button
+                              key={p}
+                              type="button"
+                              onClick={() => setPillarDraft(p)}
+                              className={`rounded-full border px-2.5 py-1 text-xs transition ${
+                                pillarDraft === p
+                                  ? 'border-primary bg-primary/10 text-primary'
+                                  : 'border-border text-muted-foreground hover:bg-surface-raised'
+                              }`}
+                            >
+                              {p}
+                            </button>
+                          ))}
+                        </div>
+                      )}
+                      <input
+                        type="text"
+                        value={pillarDraft}
+                        onChange={(e) => setPillarDraft(e.target.value)}
+                        placeholder="Nom du domaine"
+                        className="w-full rounded-lg border border-border bg-background px-3 py-2 text-sm"
+                      />
+                      <div className="mt-3 flex gap-2">
+                        <Button size="sm" onClick={handlePillarSave}>
+                          Valider
+                        </Button>
+                        <Button
+                          size="sm"
+                          variant="ghost"
+                          onClick={() => {
+                            setEditingPillar(false)
+                            setPillarDraft(topic.pillar ?? '')
+                          }}
+                        >
+                          Annuler
+                        </Button>
+                      </div>
+                    </div>
+                  )}
+
+                  <Hairline className="mb-6" />
+
+                  <div className="space-y-6">
+                    <SubjectAngleSection
+                      id="subject-section-angle"
+                      brief={topic.brief}
+                      onSave={handleAngleSave}
+                      kabouProposedAt={kabouProposedBriefAt}
+                      defaultOpen
+                    />
+
+                    {showSections.pillars && (
+                      <SubjectPillarsSection
+                        id="subject-section-pillars"
+                        anchor={topic.narrativeAnchor}
+                        onSave={handlePillarsSave}
+                      />
+                    )}
+
+                    {showSections.sources && !isArchived && (
+                      <SubjectSourcesSection
+                        id="subject-section-sources"
+                        topicId={topic.id}
+                        hasBrief={Boolean(topic.brief && topic.brief.trim().length > 20)}
+                        onFlashToast={flashToast}
+                      />
+                    )}
+
+                    {hiddenCount > 0 && !forceShowAll && (
+                      <button
+                        type="button"
+                        onClick={() => setForceShowAll(true)}
+                        className="text-[12px] text-muted-foreground hover:text-foreground transition inline-flex items-center gap-1.5 px-2 py-1 ml-6"
+                      >
+                        <span className="h-px w-6 bg-border" aria-hidden />
+                        Voir les {hiddenCount} autre{hiddenCount > 1 ? 's' : ''} section{hiddenCount > 1 ? 's' : ''}
+                      </button>
+                    )}
+
+                    <SubjectSessionsSection
+                      id="tournages-section"
+                      groups={formatGroups}
+                      missingFormats={missingFormats}
+                      formatLabels={FORMAT_LABELS}
+                      formatEmojis={FORMAT_EMOJIS}
+                      narrativeAnchor={topic.narrativeAnchor}
+                      expandedVariants={expandedVariants}
+                      onToggleVariants={toggleVariants}
+                      onExplore={handleExploreFormat}
+                      defaultOpen
+                    />
+
+                    <SubjectTimelineSection events={events} />
+                  </div>
+
+                  <SubjectFooter
+                    topicId={topic.id}
+                    status={topic.status}
+                    onArchive={handleArchive}
+                    onUnarchive={handleUnarchive}
+                    onBackToExplore={handleMarkDraft}
+                    disabled={isPending}
+                  />
+                </section>
+
+                {isDesktop && (
+                  <aside className="hidden lg:block">
+                    <div className={`sticky top-6 h-[calc(100vh-3rem)] max-h-[860px] min-h-[540px] rounded-2xl transition-shadow duration-300 ${kabouPulse ? 'shadow-[0_0_0_3px_hsl(var(--primary)/0.45)]' : ''}`}>
+                      <SubjectKabouPanel
+                        topicId={topic.id}
+                        threadId={topic.threadId}
+                        subjectName={topic.name}
+                        contextBrief={topic.brief}
+                        contextPillarsCount={pillarsCount}
+                        contextSourcesCount={sourcesCount}
+                        contextSessionsSummary={sessionsSummary}
+                        creativeState={creativeState}
+                        narrativeAnchor={topic.narrativeAnchor}
+                        hasPendingSession={Boolean(pendingSession)}
+                        onTopicMutated={handleTopicMutated}
+                        inputRef={kabouInputRef}
+                      />
+                    </div>
+                  </aside>
+                )}
+              </div>
+
+              {/* Overlay Kabou — mobile uniquement */}
+              <AnimatePresence>
+                {!isDesktop && mobileTab === 'kabou' && (
+                  <motion.div
+                    className="fixed inset-x-0 top-0 z-30 bg-card flex flex-col lg:hidden"
+                    style={{ bottom: 'calc(4rem + env(safe-area-inset-bottom))' }}
+                    initial={prefersReducedMotion ? { opacity: 0 } : { x: '100%' }}
+                    animate={prefersReducedMotion ? { opacity: 1 } : { x: 0 }}
+                    exit={prefersReducedMotion ? { opacity: 0 } : { x: '100%' }}
+                    transition={prefersReducedMotion ? { duration: 0.15 } : { type: 'spring', stiffness: 600, damping: 40 }}
+                  >
+                    <div className="flex flex-col flex-1 h-full" {...bindKabouSwipe()}>
+                      <SubjectKabouPanel
+                        topicId={topic.id}
+                        threadId={topic.threadId}
+                        subjectName={topic.name}
+                        contextBrief={topic.brief}
+                        contextPillarsCount={pillarsCount}
+                        contextSourcesCount={sourcesCount}
+                        contextSessionsSummary={sessionsSummary}
+                        creativeState={creativeState}
+                        narrativeAnchor={topic.narrativeAnchor}
+                        hasPendingSession={Boolean(pendingSession)}
+                        onTopicMutated={handleTopicMutated}
+                        inputRef={mobileKabouInputRef}
+                        onBack={() => setMobileTab('sujet')}
+                      />
+                    </div>
+                  </motion.div>
+                )}
+              </AnimatePresence>
+
+              {/* Bottom nav 2 onglets — mobile uniquement */}
+              {!isDesktop && (
+                <nav
+                  aria-label="Navigation sujet"
+                  className="fixed bottom-0 inset-x-0 z-40 bg-background/95 backdrop-blur-lg border-t border-border lg:hidden"
+                  style={{ paddingBottom: 'env(safe-area-inset-bottom)' }}
+                >
+                  <div className="flex h-16">
+                    <button
+                      type="button"
+                      aria-current={mobileTab === 'sujet' ? 'true' : undefined}
+                      onClick={() => { navigator.vibrate?.(10); setMobileTab('sujet') }}
+                      className={`flex-1 flex flex-col items-center justify-center gap-1 text-[11px] font-medium transition-colors ${
+                        mobileTab === 'sujet' ? 'text-foreground' : 'text-muted-foreground'
+                      }`}
+                    >
+                      <FileText className={`h-5 w-5 ${mobileTab === 'sujet' ? 'text-primary' : ''}`} />
+                      Sujet
+                    </button>
+                    <div className="w-px bg-border my-3" aria-hidden />
+                    <button
+                      type="button"
+                      aria-current={mobileTab === 'kabou' ? 'true' : undefined}
+                      onClick={() => { navigator.vibrate?.(10); setMobileTab('kabou') }}
+                      className={`flex-1 flex flex-col items-center justify-center gap-1 text-[11px] font-medium transition-colors ${
+                        mobileTab === 'kabou' ? 'text-foreground' : 'text-muted-foreground'
+                      }`}
+                    >
+                      <MessageCircle className={`h-5 w-5 ${mobileTab === 'kabou' ? 'text-primary' : ''}`} />
+                      Kabou
+                    </button>
+                  </div>
+                </nav>
+              )}
+            </motion.main>
           </div>
         )}
+      </AnimatePresence>
 
-        {openDrawerFormat && (() => {
-          const group = formatGroups.find((g) => g.format === openDrawerFormat)
-          const canonical = group?.canonical ?? null
-          const formatLabel = FORMAT_LABELS[openDrawerFormat] ?? openDrawerFormat
-          const formatEmoji = FORMAT_EMOJIS[openDrawerFormat] ?? '🎬'
-          return (
-            <FormatCardDrawer
-              open={openDrawerFormat !== null}
-              onOpenChange={(v) => setOpenDrawerFormat(v ? openDrawerFormat : null)}
-              formatLabel={formatLabel}
-              formatEmoji={formatEmoji}
-              topicId={topic.id}
-              format={openDrawerFormat}
-              canonical={canonical}
-              anchor={topic.narrativeAnchor}
-              isStale={computeStale(canonical?.recordingScript ?? null)}
-              onResync={() =>
-                canonical ? handleResync(openDrawerFormat, canonical.id) : Promise.resolve()
-              }
-              resyncing={resyncingFormat === openDrawerFormat}
-            />
-          )
-        })()}
-      </motion.main>
-      </div>
+      {/* Toast — hors AnimatePresence pour persister entre transitions */}
+      {toast && (
+        <div
+          role="status"
+          className="fixed bottom-20 left-1/2 z-[60] -translate-x-1/2 rounded-full border border-border bg-card px-4 py-2 text-xs shadow-lg lg:bottom-6"
+        >
+          {toast}
+        </div>
+      )}
+
+      {openDrawerFormat && (() => {
+        const group = formatGroups.find((g) => g.format === openDrawerFormat)
+        const canonical = group?.canonical ?? null
+        const formatLabel = FORMAT_LABELS[openDrawerFormat] ?? openDrawerFormat
+        const formatEmoji = FORMAT_EMOJIS[openDrawerFormat] ?? '🎬'
+        return (
+          <FormatCardDrawer
+            open={openDrawerFormat !== null}
+            onOpenChange={(v) => setOpenDrawerFormat(v ? openDrawerFormat : null)}
+            formatLabel={formatLabel}
+            formatEmoji={formatEmoji}
+            topicId={topic.id}
+            format={openDrawerFormat}
+            canonical={canonical}
+            anchor={topic.narrativeAnchor}
+            isStale={computeStale(canonical?.recordingScript ?? null)}
+            onResync={() =>
+              canonical ? handleResync(openDrawerFormat, canonical.id) : Promise.resolve()
+            }
+            resyncing={resyncingFormat === openDrawerFormat}
+          />
+        )
+      })()}
     </>
   )
 }

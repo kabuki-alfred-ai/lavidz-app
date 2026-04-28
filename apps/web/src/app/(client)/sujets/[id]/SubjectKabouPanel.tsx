@@ -263,8 +263,16 @@ export function SubjectKabouPanel({
         )}
 
         {hydrated && messages.length === 0 && (
-          <div className="rounded-xl border border-dashed border-border bg-surface-raised/30 px-4 py-3 text-[12.5px] leading-relaxed text-muted-foreground">
-            On peut creuser ce sujet ensemble — raconte-moi pourquoi tu veux en parler et à qui ça s'adresse.
+          <div className="flex gap-2.5">
+            <div className="h-7 w-7 rounded-full overflow-hidden shrink-0 mt-1">
+              {/* eslint-disable-next-line @next/next/no-img-element */}
+              <img src="/lavi-robot.png" alt="Kabou" className="w-full h-full object-cover" />
+            </div>
+            <div className="bubble-kabou rounded-2xl rounded-tl-sm px-3.5 py-2.5 max-w-[88%]">
+              <p className="text-[13.5px] leading-relaxed">
+                Raconte-moi ce que tu sais sur ce sujet — même vague, même partiel. Je pose les questions.
+              </p>
+            </div>
           </div>
         )}
 

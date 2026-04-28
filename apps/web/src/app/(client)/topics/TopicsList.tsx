@@ -109,7 +109,7 @@ export function TopicsList() {
           <p className="text-sm text-muted-foreground mt-1">{topics.length} sujet{topics.length !== 1 ? 's' : ''}</p>
         </div>
         <Link
-          href="/chat"
+          href="/chat?new=1"
           className="inline-flex items-center gap-1.5 px-4 py-2 rounded-lg bg-primary text-primary-foreground text-sm font-medium hover:bg-primary/90 transition-colors"
         >
           <Plus size={14} />

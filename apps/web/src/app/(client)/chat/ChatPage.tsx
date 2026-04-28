@@ -212,8 +212,20 @@ export function ChatPage() {
     finally { setThreadLoading(false) }
   }, [setMessages])
 
-  // On mount: load the most recent thread
+  const newParam = searchParams.get('new')
+
+  // On mount: si ?new=1 → thread vierge immédiat, sinon charge le dernier thread
   useEffect(() => {
+    if (newParam === '1') {
+      if (autoSendFired.current === 'new') return
+      autoSendFired.current = 'new'
+      setActiveThreadId(crypto.randomUUID())
+      setMessages([])
+      setHistoryLoaded(true)
+      window.history.replaceState({}, '', '/chat')
+      setTimeout(() => sendMessageRef.current({ text: 'Je veux créer un nouveau sujet.' }), 100)
+      return
+    }
     fetch('/api/chat/history', { credentials: 'include' })
       .then((res) => res.ok ? res.json() : [])
       .then(async (data: { threadId: string }[]) => {
@@ -224,7 +236,8 @@ export function ChatPage() {
         setHistoryLoaded(true)
       })
       .catch(() => setHistoryLoaded(true))
-  }, [loadThread])
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [])
 
   // New conversation
   const newConversation = useCallback(() => {
