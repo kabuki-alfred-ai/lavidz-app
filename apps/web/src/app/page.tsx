@@ -169,7 +169,14 @@ export default function Home() {
             <span className="font-semibold text-lg tracking-tight text-foreground">Lavidz</span>
           </Link>
 
-          <div className="flex items-center gap-4">
+          <div className="flex items-center gap-3">
+            <Link
+              href="/auth/login"
+              className="text-sm text-muted-foreground hover:text-foreground transition-colors px-3 py-1.5 rounded-lg hover:bg-surface-raised"
+            >
+              Se connecter
+            </Link>
+
             <div className={cn(
               "transition-all duration-500 ease-out flex items-center gap-3",
               scrolled ? "translate-x-0 opacity-100" : "translate-x-8 opacity-0 pointer-events-none"
@@ -183,7 +190,7 @@ export default function Home() {
               </Button>
             </div>
 
-            <Badge variant="outline" className="text-xs py-1 px-3 border-primary/30 bg-primary/5 text-primary animate-pulse whitespace-nowrap">
+            <Badge variant="outline" className="text-xs py-1 px-3 border-primary/30 bg-primary/5 text-primary animate-pulse whitespace-nowrap hidden sm:flex">
               Lancement bientôt
             </Badge>
           </div>
