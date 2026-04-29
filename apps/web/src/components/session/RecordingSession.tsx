@@ -41,6 +41,18 @@ const VIDEO_PRESETS: Record<VideoQuality, { label: string; width: number; height
   '1080p': { label: '1080p', width: 1920, height: 1080, bitrate: 5_000_000, hint: 'Haute qualité' },
 }
 
+type LinkedinContext = {
+  mood?: string
+  moodLabel?: string
+  format?: string
+  formatLabel?: string
+  formatDuration?: string
+  recordingMode?: 'coached' | 'pocket_script'
+  coachingTip?: string
+  coachingExample?: string
+  pocketScriptBullets?: string[]
+}
+
 interface Props {
   theme: ThemeDto
   initialSessionId?: string
@@ -56,9 +68,11 @@ interface Props {
   recordingGuide?: RecordingGuide | null
   /** Story 7 — props pour le banner reprise Kabou (3 wordings selon elapsed). */
   resumeProps?: ResumeProps
+  /** Contexte LinkedIn généré lors de la conversation d'ouverture. */
+  linkedinContext?: LinkedinContext | null
 }
 
-export function RecordingSession({ theme, initialSessionId, mode = 'default', contentFormat, teleprompterScript, topicId, narrativeAnchor, recordingScript, recordingGuide, resumeProps }: Props) {
+export function RecordingSession({ theme, initialSessionId, mode = 'default', contentFormat, teleprompterScript, topicId, narrativeAnchor, recordingScript, recordingGuide, resumeProps, linkedinContext }: Props) {
   const router = useRouter()
   const [phase, setPhase] = useState<Phase>('intro')
   const [questionIndex, setQuestionIndex] = useState(0)
@@ -801,6 +815,14 @@ export function RecordingSession({ theme, initialSessionId, mode = 'default', co
       nextQuestionNumber={resumeProps.nextQuestionNumber}
       anchorUpdatedAt={resumeProps.anchorUpdatedAt}
       scriptSyncedAt={resumeProps.scriptSyncedAt}
+      onResume={() => {
+        // Positionner sur la prochaine question non répondue (1-indexed → 0-indexed)
+        if (resumeProps.nextQuestionNumber !== null) {
+          setQuestionIndex(resumeProps.nextQuestionNumber - 1)
+        }
+        // Lancer la caméra directement — le clic garantit le geste utilisateur
+        handleStart()
+      }}
       onResetZero={async () => {
         const sid = sessionIdRef.current
         if (!sid) return
@@ -869,6 +891,17 @@ export function RecordingSession({ theme, initialSessionId, mode = 'default', co
           </div>
 
           <div className="flex flex-col items-center gap-4 z-10 w-full max-w-sm">
+            {linkedinContext?.coachingTip && (
+              <div
+                className="w-full rounded-2xl px-4 py-3 text-left"
+                style={{ background: 'rgba(0,0,0,0.04)', border: '1px solid rgba(0,0,0,0.08)' }}
+              >
+                <p className="text-sm font-semibold text-[#1A1714] mb-1">🎯 {linkedinContext.coachingTip}</p>
+                {linkedinContext.coachingExample && (
+                  <p className="text-xs italic text-[rgba(26,23,20,0.55)]">ex : « {linkedinContext.coachingExample} »</p>
+                )}
+              </div>
+            )}
             <button
               onClick={() => setIntroStep(2)}
               className="w-full py-4 rounded-2xl font-bold text-base tracking-wide transition-all active:scale-95"
@@ -1670,8 +1703,6 @@ export function RecordingSession({ theme, initialSessionId, mode = 'default', co
         </>
       )}
 
-      {/* Pre-recording quality check — now shown in check phase instead */}
-
       {/* Teleprompter overlay — shown during reading, countdown, and recording */}
       {isTeleprompter && teleprompterScript && (isReading || isCountdown || isRecording) && (
         <TeleprompterOverlay
@@ -1683,13 +1714,6 @@ export function RecordingSession({ theme, initialSessionId, mode = 'default', co
         />
       )}
 
-      {/* Task 4.1/4.2 — Ancre narrative sticky pendant la phase recording.
-         Bulle collapsible en bas de l'écran, toujours lisible. Remplace
-         progressivement l'ancien bouton "Mon fil" qui masquait le guide
-         polymorphe derrière un drawer. */}
-      {narrativeAnchor && (isReading || isRecording) && (
-        <NarrativeAnchorSticky anchor={narrativeAnchor} />
-      )}
 
       {/* Script format-specific — affiché en drawer si présent. Fallback sur
          le recordingGuide legacy si Session.recordingScript n'a pas encore
@@ -1968,7 +1992,21 @@ export function RecordingSession({ theme, initialSessionId, mode = 'default', co
       ) : null}
 
       {/* Bottom controls */}
-      <div key={phase} className="absolute inset-x-0 bottom-0 px-6 flex flex-col items-center gap-6" style={{ paddingBottom: 'max(3rem, env(safe-area-inset-bottom))', zIndex: 10, animation: 'fadeIn 0.3s ease' }}>
+      <div key={phase} className="absolute inset-x-0 bottom-0 px-6 flex flex-col items-center gap-6" style={{ paddingBottom: 'max(3rem, env(safe-area-inset-bottom))', zIndex: 30, animation: 'fadeIn 0.3s ease' }}>
+
+        {/* Narrative anchor / pocket script — mode questions : dans le flux, au-dessus des boutons */}
+        {isQuestionBox && (isReading || isRecording) && (narrativeAnchor || (linkedinContext?.recordingMode === 'pocket_script' && Array.isArray(linkedinContext.pocketScriptBullets) && linkedinContext.pocketScriptBullets.length > 0)) && (
+          <NarrativeAnchorSticky
+            anchor={narrativeAnchor}
+            pocketScriptBullets={
+              linkedinContext?.recordingMode === 'pocket_script' &&
+              Array.isArray(linkedinContext.pocketScriptBullets) &&
+              linkedinContext.pocketScriptBullets.length > 0
+                ? linkedinContext.pocketScriptBullets
+                : undefined
+            }
+          />
+        )}
 
         {/* Reading: Je suis prêt */}
         {isReading && (

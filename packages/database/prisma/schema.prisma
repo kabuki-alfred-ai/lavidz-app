@@ -398,6 +398,7 @@ model Topic {
   sources         Json?                 // [{ title, url, summary, relevance, fetchedAt }] — anchors HOT_TAKE / fact-heavy sujets
   recordingGuide  Json?                 // LEGACY dual-write — drop sprint+1
   narrativeAnchor Json?                 // { kind: 'draft', bullets: string[], updatedAt: string } — cf. apps/web/src/lib/narrative-anchor.ts
+  linkedinContext Json?                 // { mood, moodLabel, format, formatLabel, formatDuration, recordingMode, coachingTip, coachingExample, pocketScriptBullets }
   calendarEntries ContentCalendar[]
   sessions        Session[]
   generatedPosts  GeneratedPost[]

@@ -8,7 +8,7 @@ import { unauthorized, noOrg } from '@/lib/api-proxy'
 type Answers = {
   activity: string
   audience?: string
-  differentiator?: string
+  objective?: string
 }
 
 /**
@@ -39,7 +39,7 @@ export async function POST(req: Request) {
       onboarding: {
         activity: body.activity.trim(),
         audience: body.audience?.trim() ?? null,
-        differentiator: body.differentiator?.trim() ?? null,
+        objective: body.objective?.trim() ?? null,
         completedAt: new Date().toISOString(),
       },
       // Seed a soft conversationSummary so profileService.generateAndSaveSummary
@@ -50,7 +50,7 @@ export async function POST(req: Request) {
           : [
               `Activité : ${body.activity.trim()}`,
               body.audience ? `Audience : ${body.audience.trim()}` : '',
-              body.differentiator ? `Ce qui me distingue : ${body.differentiator.trim()}` : '',
+              body.objective ? `Objectif contenu : ${body.objective.trim()}` : '',
             ]
               .filter(Boolean)
               .join('\n'),

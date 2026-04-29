@@ -22,6 +22,7 @@ const KABOU_TOOL_EVENT: Record<string, { type: string; label?: string }> = {
   reshape_recording_guide_to_format: { type: 'kabou_enriched', label: 'Kabou a reshape le script' },
   create_recording_session: { type: 'session_created', label: 'Kabou a préparé un tournage' },
   commit_editorial_plan: { type: 'schedule_published', label: 'Kabou a calé le plan éditorial' },
+  propose_linkedin_video: { type: 'linkedin_proposal', label: 'Kabou a proposé une vidéo LinkedIn' },
 }
 
 export const runtime = 'nodejs'
@@ -125,7 +126,7 @@ export async function POST(req: Request) {
       : user.organizationId
     if (!orgId) return new Response('No organization', { status: 400 })
 
-    const { messages, threadId, topicId, currentSessionId, currentFormat } = await req.json()
+    const { messages, threadId, topicId, currentSessionId, currentFormat, context } = await req.json()
     const activeThreadId = threadId || messages[0]?.id || crypto.randomUUID()
 
     // Save the latest user message to DB
@@ -227,6 +228,29 @@ export async function POST(req: Request) {
     // The 10 rules, vocabulary and tonal guidance ship as a single preamble so the
     // LLM can't drift from the Kabou persona as features grow.
     systemParts.push(KABOU_SYSTEM_PREAMBLE)
+
+    if (context === 'opening') {
+      systemParts.push(`
+## Mode : Conversation d'ouverture LinkedIn
+
+Tu es en mode "ouverture créative". L'user vient de répondre à la question d'ouverture.
+
+Ton objectif : analyser sa réponse pour détecter son mood (challenger/authentique/expert),
+formuler un sujet LinkedIn accrocheur, et appeler immédiatement \`propose_linkedin_video\`.
+
+Règles :
+- Ne pose PAS de question supplémentaire avant d'appeler le tool (max 1 relance si réponse < 5 mots)
+- Le sujet formulé doit sonner comme un titre LinkedIn — pas une description neutre
+- Si l'user dit "autre chose" après la proposition : demande UNIQUEMENT "Tu veux parler d'un autre sujet, ou le même dans un style différent ?"
+- Mood challenger : mots forts, opinion, frustration → format opinion_courte
+- Mood authentique : histoire personnelle, "j'ai réalisé", "un client" → format story
+- Mood expert : explication, framework, "voilà comment" → format expertise ou thought_leadership
+
+Coaching par format :
+- opinion_courte : "Commence directement par ton opinion. La première phrase doit être la chose la plus forte."
+- story : "Commence au milieu de l'histoire — pas depuis le début."
+- expertise/thought_leadership : "Commence par le résultat, pas par l'explication."`)
+    }
 
     // F12 — Contexte session/format en tête pour que Kabou n'hallucine pas entre
     // deux formats quand un même thread Topic mélange plusieurs tournages.
@@ -1030,6 +1054,21 @@ Pour les formats HOT_TAKE, DAILY_TIP : passe 1-3 points de guidage comme questio
               return { success: false, error: err?.message ?? 'Enregistrement impossible' }
             }
           },
+        }),
+        propose_linkedin_video: tool({
+          description: "Propose une vidéo LinkedIn après avoir détecté le mood depuis la conversation d'ouverture. Appeler dès qu'on a assez de contexte (1-2 échanges max).",
+          inputSchema: z.object({
+            mood: z.enum(['challenger', 'authentique', 'expert']),
+            moodLabel: z.string().describe('ex: "🔥 Challenger"'),
+            sujet: z.string().describe('Le sujet formulé comme titre de vidéo LinkedIn accrocheur'),
+            format: z.enum(['opinion_courte', 'story', 'expertise', 'thought_leadership']),
+            formatLabel: z.string().describe('ex: "Opinion courte"'),
+            formatDuration: z.string().describe('ex: "45 secondes"'),
+            coachingTip: z.string().describe('1 instruction coaching pré-tournage'),
+            coachingExample: z.string().describe('Exemple concret généré depuis le sujet réel'),
+            pocketScriptBullets: z.array(z.string()).length(3).describe('3 bullets pour le Script de poche'),
+          }),
+          execute: async (args) => ({ ...args, status: 'pending_validation' }),
         }),
         analyze_recording: tool({
           description: "Regarde avec l'entrepreneur ce qui est sorti de son tournage : un résumé, ce qui a bien marché, et 0 à 2 pistes pour aller plus loin. À utiliser quand l'entrepreneur demande ton avis sur un tournage qu'il vient de faire OU quand il veut une analyse fraîche. Renvoie l'analyse persistée si elle existe déjà, sinon relance l'analyse en arrière-plan.",

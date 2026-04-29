@@ -797,6 +797,7 @@ export class AiController {
       pillar?: string
       recordingGuide?: unknown
       narrativeAnchor?: unknown
+      linkedinContext?: unknown
     },
   ): Promise<object> {
     if (!organizationId) throw new BadRequestException('Header x-organization-id requis')
@@ -850,6 +851,16 @@ export class AiController {
         throw new BadRequestException(
           "narrativeAnchor invalide : { kind: 'draft', bullets: string[] } requis",
         )
+      }
+    }
+
+    if (body.linkedinContext !== undefined) {
+      if (body.linkedinContext === null) {
+        data.linkedinContext = null
+      } else if (typeof body.linkedinContext === 'object' && body.linkedinContext !== null) {
+        data.linkedinContext = body.linkedinContext as Prisma.InputJsonValue
+      } else {
+        throw new BadRequestException('linkedinContext invalide : objet requis')
       }
     }
 

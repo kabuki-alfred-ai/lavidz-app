@@ -511,8 +511,8 @@ export function PostRecordingView({
           </section>
         )}
 
-        {/* Strate 4 — Improvement paths */}
-        {status === 'READY' && (
+        {/* Strate 4 — Improvement paths (masquée si analyse vide — contradictoire avec la bannière d'erreur) */}
+        {status === 'READY' && !analysisIsEmpty && (
           <section className="mb-10">
             <div className="mb-4 flex items-center gap-2">
               <div className="h-px flex-1 bg-border/40" />
@@ -588,16 +588,22 @@ export function PostRecordingView({
         {(status === 'READY' || status === 'FAILED') && (
           <section className="mt-12 border-t border-border/40 pt-8 flex flex-col gap-4">
             {/* Desktop primary CTA — hidden on mobile (sticky bar handles it) */}
-            {montageHref && (
-              <div className="hidden md:block">
+            <div className="hidden md:block">
+              {analysisIsEmpty ? (
+                <Button asChild size="lg" variant="destructive">
+                  <Link href={`/s/${sessionId}`}>
+                    <Mic className="h-4 w-4" /> Refaire les prises
+                  </Link>
+                </Button>
+              ) : montageHref ? (
                 <Button asChild size="lg">
                   <Link href={montageHref}>
                     {POST_RECORDING_COPY.nextSteps.monter}
                     <ArrowRight className="h-4 w-4" />
                   </Link>
                 </Button>
-              </div>
-            )}
+              ) : null}
+            </div>
 
             {/* Row 1: secondary navigation */}
             <div className="flex flex-wrap gap-2">
@@ -681,11 +687,19 @@ export function PostRecordingView({
                 <span className="text-xs text-muted-foreground">Analyse en cours...</span>
               </div>
             )}
-            <Button asChild size="lg" className="w-full">
-              <Link href={montageHref}>
-                {POST_RECORDING_COPY.nextSteps.monter}
-              </Link>
-            </Button>
+            {analysisIsEmpty ? (
+              <Button asChild size="lg" variant="destructive" className="w-full">
+                <Link href={`/s/${sessionId}`}>
+                  <Mic className="h-4 w-4" /> Refaire les prises
+                </Link>
+              </Button>
+            ) : (
+              <Button asChild size="lg" className="w-full">
+                <Link href={montageHref}>
+                  {POST_RECORDING_COPY.nextSteps.monter}
+                </Link>
+              </Button>
+            )}
           </div>
         </div>
       )}

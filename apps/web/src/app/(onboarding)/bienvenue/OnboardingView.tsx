@@ -9,16 +9,16 @@ type Step = 0 | 1 | 2 | 3
 type RecordState = 'idle' | 'recording' | 'transcribing' | 'done'
 type InputMode = 'voice' | 'text'
 
-const QUESTIONS: Array<{ prompt: string; key: 'activity' | 'audience' | 'differentiator' }> = [
+const QUESTIONS: Array<{ prompt: string; key: 'activity' | 'audience' | 'objective' }> = [
   { prompt: 'Raconte-moi en quelques phrases ce que tu fais.', key: 'activity' },
   { prompt: "À qui tu t'adresses en priorité ?", key: 'audience' },
-  { prompt: 'Et ce qui te distingue des 10 autres qui font pareil ?', key: 'differentiator' },
+  { prompt: 'Avec ton contenu, tu veux principalement attirer de nouveaux clients, construire une audience, ou partager ta vision ?', key: 'objective' },
 ]
 
 export function OnboardingView({ firstName }: { firstName: string | null }) {
   const router = useRouter()
   const [step, setStep] = useState<Step>(0)
-  const [answers, setAnswers] = useState({ activity: '', audience: '', differentiator: '' })
+  const [answers, setAnswers] = useState({ activity: '', audience: '', objective: '' })
   const [recordState, setRecordState] = useState<RecordState>('idle')
   const [transcript, setTranscript] = useState('')
   const [inputMode, setInputMode] = useState<InputMode>('voice')
@@ -302,10 +302,10 @@ export function OnboardingView({ firstName }: { firstName: string | null }) {
                 <p className="text-sm">{answers.audience}</p>
               </div>
             )}
-            {answers.differentiator && (
+            {answers.objective && (
               <div>
-                <p className="mb-1 text-[11px] uppercase tracking-widest text-muted-foreground">Ce qui te distingue</p>
-                <p className="text-sm">{answers.differentiator}</p>
+                <p className="mb-1 text-[11px] uppercase tracking-widest text-muted-foreground">Ton objectif contenu</p>
+                <p className="text-sm">{answers.objective}</p>
               </div>
             )}
           </div>

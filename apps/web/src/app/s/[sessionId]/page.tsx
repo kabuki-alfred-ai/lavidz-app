@@ -29,6 +29,7 @@ interface SessionWithTheme {
   topicEntity?: {
     recordingGuide?: unknown
     narrativeAnchor?: unknown
+    linkedinContext?: unknown
   } | null
 }
 
@@ -86,6 +87,11 @@ export default async function ShareableSessionPage({ params }: Props) {
     scriptSyncedAt: recordingScript?.anchorSyncedAt ?? null,
   }
 
+  const rawLinkedinContext = session.topicEntity?.linkedinContext
+  const linkedinContext = rawLinkedinContext && typeof rawLinkedinContext === 'object' && !Array.isArray(rawLinkedinContext)
+    ? rawLinkedinContext as Record<string, unknown>
+    : null
+
   return (
     <RecordingSession
       theme={session.theme}
@@ -98,6 +104,7 @@ export default async function ShareableSessionPage({ params }: Props) {
       recordingScript={recordingScript}
       recordingGuide={recordingGuide}
       resumeProps={resumeProps}
+      linkedinContext={linkedinContext as any}
     />
   )
 }

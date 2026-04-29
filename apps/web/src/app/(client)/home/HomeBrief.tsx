@@ -13,6 +13,7 @@ import {
   Waypoints,
 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
+import { HomeKabouEntry } from './HomeKabouEntry'
 
 type NextStep =
   | { kind: 'publish'; label: string; href: string; topicName: string }
@@ -97,6 +98,7 @@ function CountTile({ label, value, href }: { label: string; value: number; href?
 export function HomeBrief() {
   const [state, setState] = useState<HomeState | null>(null)
   const [loading, setLoading] = useState(true)
+  const [showKabouEntry, setShowKabouEntry] = useState(false)
 
   const fetchState = useCallback(async () => {
     try {
@@ -279,16 +281,24 @@ export function HomeBrief() {
         </section>
       )}
 
-      {/* Nouveau sujet — accès discret pour users actifs */}
+      {/* Nouvelle vidéo — CTA visible pour users actifs */}
       {!isFirstSubject && (
         <div className="flex justify-center pt-2">
-          <Link
-            href="/chat"
+          <button
+            type="button"
+            onClick={() => setShowKabouEntry(true)}
             className="inline-flex items-center gap-2 rounded-full border border-border px-4 py-2 text-sm text-muted-foreground transition hover:border-primary/30 hover:text-foreground"
           >
             <Plus className="h-3.5 w-3.5" />
-            Nouveau sujet
-          </Link>
+            Nouvelle vidéo
+          </button>
+        </div>
+      )}
+
+      {/* Overlay HomeKabouEntry */}
+      {showKabouEntry && (
+        <div className="fixed inset-0 z-50 flex flex-col bg-background">
+          <HomeKabouEntry onClose={() => setShowKabouEntry(false)} />
         </div>
       )}
 
