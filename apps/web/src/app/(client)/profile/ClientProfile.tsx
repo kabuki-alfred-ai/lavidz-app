@@ -4,6 +4,7 @@ import { useCallback, useEffect, useRef, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import Link from 'next/link'
 import {
+  ArrowLeft,
   ArrowRight,
   Brain,
   Camera,
@@ -161,6 +162,15 @@ export function ClientProfile() {
 
   return (
     <div className="mx-auto max-w-2xl space-y-6 px-4 py-8">
+      <button
+        type="button"
+        onClick={() => router.back()}
+        className="inline-flex items-center gap-1.5 text-sm text-muted-foreground hover:text-foreground transition-colors"
+      >
+        <ArrowLeft className="h-4 w-4" />
+        Retour
+      </button>
+
       <div>
         <h1 className="text-xl font-bold tracking-tight text-foreground">Mon compte</h1>
         <p className="mt-1 text-sm text-muted-foreground">
