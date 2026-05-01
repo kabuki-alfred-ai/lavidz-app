@@ -6,7 +6,7 @@ import { z } from 'zod'
 import { getSessionUser } from '@/lib/auth'
 
 const google = createGoogleGenerativeAI({ apiKey: process.env.GOOGLE_GENERATIVE_AI_API_KEY ?? '' })
-const model = google(process.env.AI_MODEL ?? 'gemini-3.1-flash-lite-preview')
+const model = google(process.env.AI_MODEL ?? 'gemini-2.5-flash')
 
 export async function POST(req: Request) {
   try {

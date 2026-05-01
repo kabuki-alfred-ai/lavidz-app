@@ -57,7 +57,7 @@ ${transcript.slice(0, 4000)}
 `
 
   try {
-    const model = google(process.env.AI_MODEL ?? 'gemini-3.1-flash-lite-preview')
+    const model = google(process.env.AI_MODEL ?? 'gemini-2.5-flash')
     const { object } = await generateObject({
       model,
       schema: IntroHooksSchema,

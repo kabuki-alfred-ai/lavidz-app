@@ -380,6 +380,8 @@ enum ContentCalendarStatus {
 enum TopicStatus {
   DRAFT
   READY
+  FILMING
+  DONE
   ARCHIVED
 }
 
@@ -391,6 +393,8 @@ model Topic {
   slug            String
   brief           String?               // AI-generated summary, enriched over conversations
   status          TopicStatus           @default(DRAFT)
+  format          ContentFormat?        // chosen recording format
+  script          Json?                 // { scriptType: 'bullets'|'teleprompter', bullets?: string[], teleprompterScript?: string }
   threadId        String                @unique @default(cuid()) // dedicated chat thread
   pillar          String?               // linked editorial pillar
   hooks           Json?                 // LEGACY dual-write — drop sprint+1

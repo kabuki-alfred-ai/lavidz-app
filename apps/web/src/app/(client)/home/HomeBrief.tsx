@@ -87,9 +87,9 @@ function formatRelativeDate(iso: string): string {
 
 function CountTile({ label, value, href }: { label: string; value: number; href?: string }) {
   const inner = (
-    <div className="rounded-2xl border border-border/50 bg-surface-raised/30 p-4 transition hover:bg-surface-raised/50">
-      <p className="text-xs uppercase tracking-wider text-muted-foreground">{label}</p>
-      <p className="mt-1 text-2xl font-bold text-foreground">{value}</p>
+    <div className="rounded-2xl bg-surface p-5 min-h-[88px] flex flex-col justify-between transition hover:bg-surface-raised/50 active:scale-[0.98]">
+      <p className="text-xs uppercase tracking-wider text-muted-foreground font-semibold">{label}</p>
+      <p className="text-3xl font-bold text-foreground leading-none">{value}</p>
     </div>
   )
   return href ? <Link href={href}>{inner}</Link> : inner
@@ -163,7 +163,7 @@ export function HomeBrief() {
       {/* Greeting */}
       <header className="flex items-start justify-between gap-4">
         <div>
-          <h1 className="text-2xl font-bold tracking-tight text-foreground sm:text-3xl">
+          <h1 className="text-3xl font-black tracking-tight text-foreground sm:text-4xl">
             {getGreeting()} {state.userName}
           </h1>
           <p className="mt-1 text-sm text-muted-foreground">
@@ -176,7 +176,7 @@ export function HomeBrief() {
         <Link
           href="/moi"
           aria-label="Mon profil"
-          className="md:hidden shrink-0 w-10 h-10 rounded-full bg-primary/10 flex items-center justify-center text-sm font-bold text-primary hover:bg-primary/20 transition-colors"
+          className="md:hidden shrink-0 w-12 h-12 rounded-full bg-primary/10 flex items-center justify-center text-base font-bold text-primary hover:bg-primary/20 transition-colors active:scale-95"
         >
           {state.userName[0]?.toUpperCase() ?? '?'}
         </Link>
@@ -185,7 +185,7 @@ export function HomeBrief() {
       {/* Mon Univers */}
       <Link
         href="/mon-univers"
-        className="group block rounded-2xl border border-border/60 bg-surface/50 px-4 py-4 transition-colors hover:bg-surface-raised/60"
+        className="group block rounded-2xl bg-surface px-5 py-5 transition-colors hover:bg-surface-raised/60 active:scale-[0.99] min-h-[80px]"
       >
         <div className="mb-3 flex items-center justify-between">
           <div className="flex items-center gap-2 text-xs font-semibold uppercase tracking-widest text-muted-foreground">
@@ -214,14 +214,22 @@ export function HomeBrief() {
             )}
           </div>
         ) : (
-          <p className="text-sm text-muted-foreground">
-            Définis ta thèse et tes piliers de contenu avec Kabou.
-          </p>
+          <div className="flex items-start gap-3">
+            <div className="mt-0.5 rounded-lg bg-primary/10 p-2 shrink-0">
+              <Sparkles className="h-3.5 w-3.5 text-primary" />
+            </div>
+            <div>
+              <p className="text-sm font-medium text-foreground">Kabou te connaît peu pour l'instant</p>
+              <p className="text-xs text-muted-foreground mt-0.5">
+                Définis ta thèse et tes piliers — ses propositions seront bien plus précises.
+              </p>
+            </div>
+          </div>
         )}
       </Link>
 
       {/* Next step — dominant tile */}
-      <section className="rounded-3xl border border-primary/30 bg-gradient-to-br from-primary/10 via-primary/5 to-transparent p-6 sm:p-8">
+      <section className="rounded-3xl bg-primary/8 p-6 sm:p-8">
         <p className="mb-2 text-xs font-semibold uppercase tracking-widest text-primary">
           🎯 Ton prochain pas
         </p>
@@ -250,9 +258,9 @@ export function HomeBrief() {
               <Link
                 key={prompt}
                 href={`/chat?topic=${encodeURIComponent(prompt)}`}
-                className="inline-flex items-center gap-1.5 rounded-full border border-primary/20 bg-background/60 px-3 py-1.5 text-xs text-muted-foreground transition hover:border-primary/40 hover:text-foreground"
+                className="inline-flex items-center gap-2 rounded-full bg-primary/8 px-4 py-3 text-sm text-muted-foreground transition hover:text-foreground active:scale-95 min-h-[44px]"
               >
-                <Sparkles className="h-3 w-3 text-primary" />
+                <Sparkles className="h-4 w-4 text-primary shrink-0" />
                 {prompt}
               </Link>
             ))}
@@ -287,9 +295,9 @@ export function HomeBrief() {
           <button
             type="button"
             onClick={() => setShowKabouEntry(true)}
-            className="inline-flex items-center gap-2 rounded-full border border-border px-4 py-2 text-sm text-muted-foreground transition hover:border-primary/30 hover:text-foreground"
+            className="inline-flex items-center gap-2.5 rounded-full bg-surface px-6 py-3.5 text-sm font-semibold text-muted-foreground transition hover:text-foreground active:scale-95 min-h-[52px]"
           >
-            <Plus className="h-3.5 w-3.5" />
+            <Plus className="h-4 w-4" />
             Nouvelle vidéo
           </button>
         </div>
@@ -298,7 +306,7 @@ export function HomeBrief() {
       {/* Overlay HomeKabouEntry */}
       {showKabouEntry && (
         <div className="fixed inset-0 z-50 flex flex-col bg-background">
-          <HomeKabouEntry onClose={() => setShowKabouEntry(false)} />
+          <HomeKabouEntry />
         </div>
       )}
 

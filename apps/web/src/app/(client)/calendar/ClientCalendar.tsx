@@ -189,20 +189,20 @@ function EntryCard({
 
   return (
     <div
-      className={`group w-full rounded-xl border-2 ${topicHalo} bg-card p-3 text-left transition-all hover:shadow-md`}
+      className={`group w-full rounded-2xl border-2 ${topicHalo} bg-card p-3 text-left transition-all hover:shadow-sm`}
     >
       <button
         type="button"
         onClick={onClick}
-        className="mb-2 flex w-full items-center gap-1.5 text-left"
+        className="mb-2 flex w-full items-center gap-1.5 text-left min-h-[36px]"
       >
-        <span className="shrink-0 text-sm">{fmt?.icon ?? '📋'}</span>
-        <span className="truncate text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">
+        <span className="shrink-0 text-base">{fmt?.icon ?? '📋'}</span>
+        <span className="truncate text-[10px] font-bold uppercase tracking-wide text-muted-foreground">
           {fmt?.label ?? entry.format}
         </span>
       </button>
       <p
-        className="mb-2 line-clamp-2 cursor-pointer text-xs font-semibold leading-relaxed text-foreground"
+        className="mb-3 line-clamp-2 cursor-pointer text-xs font-semibold leading-relaxed text-foreground"
         onClick={onClick}
       >
         {entry.topic}
@@ -214,12 +214,12 @@ function EntryCard({
           onAction(entry)
         }}
         disabled={actionPending || action.kind === 'processing'}
-        className={`inline-flex w-full items-center justify-center gap-1 rounded-lg px-2 py-1.5 text-[11px] font-medium transition-colors disabled:opacity-60 ${meta.tone}`}
+        className={`inline-flex w-full items-center justify-center gap-1.5 rounded-xl px-3 py-2.5 text-xs font-bold transition-colors disabled:opacity-60 min-h-[40px] ${meta.tone}`}
       >
         {actionPending ? (
-          <Loader2 className="h-3 w-3 animate-spin" />
+          <Loader2 className="h-3.5 w-3.5 animate-spin" />
         ) : (
-          <Icon className="h-3 w-3" />
+          <Icon className="h-3.5 w-3.5" />
         )}
         {meta.label}
       </button>
@@ -285,9 +285,9 @@ function EntryDetail({
             </div>
             <button
               onClick={onClose}
-              className="-mr-2 rounded-lg p-2 text-muted-foreground transition-colors hover:bg-muted/50 hover:text-foreground"
+              className="-mr-1 rounded-xl p-3 text-muted-foreground transition-colors hover:bg-muted/50 hover:text-foreground min-h-[44px] min-w-[44px] flex items-center justify-center"
             >
-              <X size={16} />
+              <X size={18} />
             </button>
           </div>
         </div>

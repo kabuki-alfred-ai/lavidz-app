@@ -6,24 +6,27 @@
 
 @layer base {
   :root {
-    --nav-height: 64px;
-    --background: 0 0% 100%;
+    --nav-height: 72px;
+
+    /* Warm cream base — unified with inline-style pages (#FAFAF7) */
+    --background: 60 20% 97%;
     --foreground: 0 0% 4%;
 
+    /* Pure white for cards/surfaces that sit ON the background */
     --card: 0 0% 100%;
     --card-foreground: 0 0% 4%;
 
-    --surface: 0 0% 98%;
-    --surface-raised: 0 0% 96%;
+    --surface: 0 0% 100%;
+    --surface-raised: 60 10% 95%;
 
     --primary: 14 100% 55%;
     --primary-foreground: 0 0% 100%;
 
-    --secondary: 0 0% 96%;
+    --secondary: 60 10% 95%;
     --secondary-foreground: 0 0% 4%;
 
-    --muted: 0 0% 96%;
-    --muted-foreground: 0 0% 25%;
+    --muted: 60 10% 95%;
+    --muted-foreground: 0 0% 45%;
 
     --accent: 14 100% 55%;
     --accent-foreground: 0 0% 100%;
@@ -31,11 +34,12 @@
     --destructive: 0 84% 60%;
     --destructive-foreground: 0 0% 100%;
 
-    --border: 0 0% 90%;
-    --input: 0 0% 90%;
+    /* Warm border — matches rgba(0,0,0,0.08) on cream bg */
+    --border: 60 5% 90%;
+    --input: 60 5% 90%;
     --ring: 14 100% 55%;
 
-    --radius: 0.75rem;
+    --radius: 1rem;
   }
 
   .dark {
@@ -72,15 +76,25 @@
 @layer base {
   * {
     @apply border-border box-border;
+    /* Remove native tap flash — critical for native-app feel */
+    -webkit-tap-highlight-color: transparent;
   }
 
   html {
     -webkit-font-smoothing: antialiased;
     -moz-osx-font-smoothing: grayscale;
+    /* Prevent rubber-band overscroll bleed on the page shell */
+    overscroll-behavior: none;
   }
 
   body {
     @apply bg-background text-foreground font-sans;
+  }
+
+  /* All interactive elements get instant touch response */
+  button, a, [role="button"] {
+    touch-action: manipulation;
+    cursor: pointer;
   }
 
   ::selection {
@@ -124,6 +138,25 @@
   }
   .custom-scrollbar::-webkit-scrollbar-thumb:hover {
     background: hsl(var(--primary) / 0.3);
+  }
+
+  /* ── Kabou flow animations ── */
+  @keyframes fadeIn {
+    from { opacity: 0; transform: translateY(6px); }
+    to   { opacity: 1; transform: translateY(0); }
+  }
+  @keyframes slideUp {
+    from { opacity: 0; transform: translateY(20px); }
+    to   { opacity: 1; transform: translateY(0); }
+  }
+  @keyframes pop {
+    0%   { transform: scale(0.6); opacity: 0; }
+    60%  { transform: scale(1.08); opacity: 1; }
+    100% { transform: scale(1); }
+  }
+  @keyframes dot {
+    0%, 60%, 100% { opacity: 0.3; }
+    30% { opacity: 1; }
   }
 
   @keyframes logo-morph {
@@ -204,6 +237,27 @@
   .animate-wind-gust-delayed {
     animation: wind-gust 2.6s ease-in-out infinite;
     animation-delay: 1.1s;
+  }
+
+  /* ── Standard page container — consistent across all content pages ── */
+  .page-col {
+    @apply mx-auto w-full max-w-2xl px-4;
+  }
+
+  /* ── Card elevation — white card on cream background ── */
+  .card-lift {
+    box-shadow: 0 1px 2px rgba(0,0,0,0.04), 0 2px 8px rgba(0,0,0,0.04);
+  }
+
+  /* ── Touch-first utilities (Uber-style 56px CTA, 44px minimum) ── */
+  .touch-target {
+    min-height: 44px;
+    min-width: 44px;
+  }
+  .icon-btn {
+    @apply flex items-center justify-center rounded-xl transition-all active:scale-95;
+    min-height: 48px;
+    min-width: 48px;
   }
 
   .hairline {

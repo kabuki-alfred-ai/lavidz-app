@@ -698,7 +698,7 @@ export class AiController {
   @Post('topics')
   async createTopic(
     @Headers('x-organization-id') organizationId: string,
-    @Body() body: { name: string; brief?: string; pillar?: string; sourceThreadId?: string; calendarEntryId?: string },
+    @Body() body: { name: string; brief?: string; pillar?: string; sourceThreadId?: string; calendarEntryId?: string; format?: string; script?: unknown },
   ): Promise<object> {
     if (!organizationId) throw new BadRequestException('Header x-organization-id requis')
     if (!body.name?.trim()) throw new BadRequestException('name requis')
@@ -736,6 +736,9 @@ export class AiController {
         slug,
         brief: body.brief ?? null,
         pillar: body.pillar ?? null,
+        format: body.format ? (body.format as any) : undefined,
+        script: body.script ? (body.script as any) : undefined,
+        status: body.format ? 'READY' : 'DRAFT',
       },
     })
 
@@ -795,6 +798,8 @@ export class AiController {
       brief?: string
       status?: string
       pillar?: string
+      format?: string
+      script?: unknown
       recordingGuide?: unknown
       narrativeAnchor?: unknown
       linkedinContext?: unknown
@@ -809,6 +814,8 @@ export class AiController {
     if (body.brief !== undefined) data.brief = body.brief
     if (body.status !== undefined) data.status = body.status
     if (body.pillar !== undefined) data.pillar = body.pillar
+    if (body.format !== undefined) data.format = body.format
+    if (body.script !== undefined) data.script = body.script
 
     const now = new Date().toISOString()
 

@@ -1,12 +1,7 @@
 import { notFound, redirect } from 'next/navigation'
 import { prisma } from '@lavidz/database'
 import { getSessionUser } from '@/lib/auth'
-import { deriveCreativeState } from '@/lib/creative-state'
-import { isRecordingGuide } from '@/lib/recording-guide'
-import { isNarrativeAnchor } from '@/lib/narrative-anchor'
-import { isRecordingScript } from '@/lib/recording-script'
-import { readSubjectEvents } from '@/lib/subject-events'
-import { SubjectWorkspace } from './SubjectWorkspace'
+import { SubjectDetail } from './SubjectDetail'
 
 export const dynamic = 'force-dynamic'
 
@@ -27,129 +22,36 @@ export default async function SubjectPage({ params }: PageProps) {
 
   const topic = await prisma.topic.findFirst({
     where: { id, organizationId: orgId },
-    include: {
-      calendarEntries: {
-        orderBy: { scheduledDate: 'asc' },
-        select: {
-          id: true,
-          scheduledDate: true,
-          format: true,
-          status: true,
-          aiSuggestions: true,
-        },
-      },
+    select: {
+      id: true,
+      name: true,
+      status: true,
+      format: true,
+      script: true,
+      threadId: true,
+      brief: true,
       sessions: {
         orderBy: { createdAt: 'desc' },
-        include: {
-          theme: { select: { name: true, questions: { where: { active: true }, orderBy: { order: 'asc' }, select: { id: true, text: true } } } },
-        },
+        take: 1,
+        select: { id: true, status: true },
       },
     },
   })
 
   if (!topic) notFound()
 
-  const recordingGuide = isRecordingGuide(topic.recordingGuide) ? topic.recordingGuide : null
-  const narrativeAnchor = isNarrativeAnchor(topic.narrativeAnchor) ? topic.narrativeAnchor : null
-
-  const creativeState = deriveCreativeState({
-    topicStatus: topic.status,
-    brief: topic.brief ?? null,
-    narrativeAnchor,
-    recordingGuide,
-  })
-
-  // Pull profile pillars for contextual dropdown
-  const profile = await prisma.entrepreneurProfile.findUnique({
-    where: { organizationId: orgId },
-    select: { editorialPillars: true },
-  })
-
-  const nextScheduled = topic.calendarEntries[0] ?? null
-
-  // Counts pour MatureMatterSummary — calculés côté server pour que le
-  // bandeau dise la vérité sur la densité éditoriale du sujet.
-  // - hooks : Topic.hooks legacy = { native, marketing, chosen? } ; on compte
-  //   les phrases non-vides (max 2).
-  // - sources : Topic.sources = { sources: [...] } ; array length.
-  // - hookDraft : present dès que Topic.hookDraft existe et non-vide.
-  const hooksRaw = topic.hooks as
-    | {
-        native?: { phrase?: string }
-        marketing?: { phrase?: string }
-      }
-    | null
-  const hookCount =
-    (typeof hooksRaw?.native?.phrase === 'string' && hooksRaw.native.phrase.trim() ? 1 : 0) +
-    (typeof hooksRaw?.marketing?.phrase === 'string' && hooksRaw.marketing.phrase.trim() ? 1 : 0)
-  const sourcesRaw = topic.sources as { sources?: unknown[] } | null
-  const sourcesCount = Array.isArray(sourcesRaw?.sources) ? sourcesRaw!.sources!.length : 0
-  const hookDraftHasContent = (() => {
-    if (!topic.hookDraft || typeof topic.hookDraft !== 'object') return false
-    const notes = (topic.hookDraft as { notes?: string }).notes
-    return typeof notes === 'string' && notes.trim().length > 0
-  })()
-
-  // Task 11.5 — on résout côté server le Project auto-créé par session pour
-  // que SessionRow linke directement vers `/projects/[projectId]/publier`
-  // sans passer par le legacy redirect. Project.sessionId étant @unique (F5),
-  // la map est 1-à-1.
-  const sessionIds = topic.sessions.map((s) => s.id)
-  const projectsForSessions = sessionIds.length
-    ? await prisma.project.findMany({
-        where: { sessionId: { in: sessionIds } },
-        select: { id: true, sessionId: true },
-      })
-    : []
-  const projectBySessionId = new Map<string, string>()
-  for (const p of projectsForSessions) {
-    if (p.sessionId) projectBySessionId.set(p.sessionId, p.id)
-  }
-
-  // §05 Fil du sujet — on charge les events SSR pour éviter un round-trip.
-  // Dégradation gracieuse : si la table n'existe pas encore (migration pas
-  // jouée), la fonction attrape et on passe un tableau vide.
-  const events = await readSubjectEvents(topic.id, 50).catch(() => [])
+  const latestSession = topic.sessions[0] ?? null
 
   return (
-    <SubjectWorkspace
-      initial={{
-        id: topic.id,
-        name: topic.name,
-        brief: topic.brief,
-        pillar: topic.pillar,
-        status: topic.status,
-        threadId: topic.threadId,
-        createdAt: topic.createdAt.toISOString(),
-        updatedAt: topic.updatedAt.toISOString(),
-        recordingGuide,
-        narrativeAnchor,
-      }}
-      creativeState={creativeState}
-      availablePillars={profile?.editorialPillars ?? []}
-      nextScheduled={
-        nextScheduled
-          ? {
-              id: nextScheduled.id,
-              scheduledDate: nextScheduled.scheduledDate.toISOString(),
-              format: nextScheduled.format,
-              aiSuggestions: (nextScheduled.aiSuggestions as Record<string, unknown> | null) ?? null,
-            }
-          : null
-      }
-      calendarCount={topic.calendarEntries.length}
-      matterCounts={{ hookCount, sourcesCount, hookDraftHasContent }}
-      sessions={topic.sessions.map((s) => ({
-        id: s.id,
-        status: s.status,
-        contentFormat: s.contentFormat,
-        createdAt: s.createdAt.toISOString(),
-        themeName: s.theme?.name ?? null,
-        questionsCount: s.theme?.questions?.length ?? 0,
-        projectId: projectBySessionId.get(s.id) ?? null,
-        recordingScript: isRecordingScript(s.recordingScript) ? s.recordingScript : null,
-      }))}
-      events={events}
+    <SubjectDetail
+      id={topic.id}
+      name={topic.name}
+      status={topic.status as any}
+      format={topic.format as any}
+      script={topic.script as any}
+      threadId={topic.threadId}
+      brief={topic.brief ?? null}
+      latestSessionId={latestSession?.id ?? null}
     />
   )
 }

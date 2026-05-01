@@ -69,7 +69,7 @@ IMPORTANT : Toutes tes reponses textuelles (reason, suggestion, etc.) doivent et
 Reponds uniquement avec le JSON structure demande.`
 
     const { object } = await generateObject({
-      model: google('gemini-3.1-flash-lite-preview'),
+      model: google('gemini-2.5-flash'),
       schema: SuggestionsSchema,
       prompt,
     })

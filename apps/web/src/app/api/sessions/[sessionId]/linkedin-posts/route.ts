@@ -102,7 +102,7 @@ RÈGLES ABSOLUES :
 - Ne déforme pas mon propos, ne rajoute pas d'affirmations non présentes
 - Sauts de ligne (\\n), émojis parcimonieux (max 3), 2-4 hashtags à la fin`
 
-    const model = google(process.env.AI_MODEL ?? 'gemini-3.1-flash-lite-preview')
+    const model = google(process.env.AI_MODEL ?? 'gemini-2.5-flash')
     const { object } = await generateObject({
       model,
       schema: SessionLinkedInPostsSchema,

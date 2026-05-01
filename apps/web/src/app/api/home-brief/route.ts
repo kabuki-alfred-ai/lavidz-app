@@ -148,7 +148,7 @@ export async function GET() {
               try {
                 const rawContent = results.map((r, i) => `[${i + 1}] ${r.title}\n${r.content}`).join('\n\n')
                 const { text } = await generateText({
-                  model: google(process.env.AI_MODEL ?? 'gemini-3.1-flash-lite-preview'),
+                  model: google(process.env.AI_MODEL ?? 'gemini-2.5-flash'),
                   prompt: `Tu es un assistant pour un entrepreneur dont l'activite est : "${sector}".
 Voici des articles d'actualite trouves aujourd'hui :
 

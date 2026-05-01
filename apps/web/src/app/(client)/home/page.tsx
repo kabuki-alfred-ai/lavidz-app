@@ -1,7 +1,6 @@
 import { redirect } from 'next/navigation'
 import { prisma } from '@lavidz/database'
 import { getSessionUser } from '@/lib/auth'
-import { HomeBrief } from './HomeBrief'
 import { HomeKabouEntry } from './HomeKabouEntry'
 
 export const dynamic = 'force-dynamic'
@@ -19,20 +18,10 @@ export default async function HomePage() {
     if (!ctx.onboarding) {
       redirect('/bienvenue')
     }
-
-    const totalActiveSubjects = orgId
-      ? await prisma.topic.count({
-          where: { organizationId: orgId, status: { not: 'ARCHIVED' } },
-        })
-      : 0
-
-    if (totalActiveSubjects === 0) {
-      return (
-        <div className="mx-auto flex min-h-[80vh] max-w-lg flex-col px-4 py-8">
-          <HomeKabouEntry />
-        </div>
-      )
-    }
   }
-  return <HomeBrief />
+  return (
+    <div className="md:max-w-2xl md:mx-auto md:h-full">
+      <HomeKabouEntry />
+    </div>
+  )
 }

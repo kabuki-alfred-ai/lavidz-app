@@ -5,7 +5,7 @@ import { useRouter } from 'next/navigation'
 import { Check, Loader2, Mic, PenLine, RefreshCw, Sparkles, Square } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 
-type Step = 0 | 1 | 2 | 3
+type Step = 0 | 1 | 2 | 3 | 4
 type RecordState = 'idle' | 'recording' | 'transcribing' | 'done'
 type InputMode = 'voice' | 'text'
 
@@ -118,16 +118,15 @@ export function OnboardingView({ firstName }: { firstName: string | null }) {
         headers: { 'content-type': 'application/json' },
         body: JSON.stringify(answers),
       })
-      if (res.ok) {
-        router.push('/home')
-        router.refresh()
-      }
+      if (res.ok) setStep(4)
     } finally {
       setSaving(false)
     }
-  }, [answers, router])
+  }, [answers])
 
-  const isDone = step === 3
+  const isSummary = step === 3
+  const isReveal = step === 4
+  const isDone = isSummary || isReveal
 
   return (
     <div className="mx-auto flex min-h-screen w-full max-w-lg flex-col px-6 py-10 md:py-16">
@@ -282,7 +281,7 @@ export function OnboardingView({ firstName }: { firstName: string | null }) {
       )}
 
       {/* Récap final */}
-      {isDone && (
+      {isSummary && (
         <section className="flex-1">
           <div className="mb-5 inline-flex items-center gap-1.5 rounded-full bg-primary/10 px-3 py-1 text-xs font-medium text-primary">
             <Sparkles className="h-3 w-3" /> Voilà ce que j'ai compris
@@ -322,6 +321,62 @@ export function OnboardingView({ firstName }: { firstName: string | null }) {
               disabled={saving}
             >
               Je recommence
+            </Button>
+          </div>
+        </section>
+      )}
+
+      {/* Reveal — ton espace t'attend */}
+      {isReveal && (
+        <section className="flex-1 flex flex-col">
+          <div className="mb-4 inline-flex items-center gap-1.5 rounded-full bg-emerald-500/10 px-3 py-1 text-xs font-medium text-emerald-700">
+            <Check className="h-3 w-3" /> Parfait, ton espace est prêt
+          </div>
+          <h1 className="text-2xl font-black tracking-tight text-foreground mb-2">
+            Voici ce que tu vas trouver ici.
+          </h1>
+          <p className="text-sm text-muted-foreground mb-8">
+            Trois zones, un seul objectif : créer du contenu qui te ressemble.
+          </p>
+
+          <div className="space-y-3 flex-1">
+            <div className="rounded-2xl border border-border/50 bg-surface-raised/30 p-5 flex items-start gap-4">
+              <span className="text-2xl mt-0.5">🎙️</span>
+              <div>
+                <p className="font-semibold text-foreground text-sm">Parle à Kabou</p>
+                <p className="text-xs text-muted-foreground mt-1 leading-relaxed">
+                  Dis-lui sur quoi tu veux tourner — il prépare ton script et tes questions en quelques secondes.
+                </p>
+              </div>
+            </div>
+            <div className="rounded-2xl border border-border/50 bg-surface-raised/30 p-5 flex items-start gap-4">
+              <span className="text-2xl mt-0.5">📋</span>
+              <div>
+                <p className="font-semibold text-foreground text-sm">Mes sujets</p>
+                <p className="text-xs text-muted-foreground mt-1 leading-relaxed">
+                  Retrouve tes idées en cours, tes scripts prêts à tourner et tes vidéos publiées.
+                </p>
+              </div>
+            </div>
+            <div className="rounded-2xl border border-border/50 bg-surface-raised/30 p-5 flex items-start gap-4">
+              <span className="text-2xl mt-0.5">🌍</span>
+              <div>
+                <p className="font-semibold text-foreground text-sm">Mon Univers</p>
+                <p className="text-xs text-muted-foreground mt-1 leading-relaxed">
+                  Ta thèse, ton style, tes piliers. Plus Kabou te connaît, plus ses propositions sont taillées pour toi.
+                </p>
+              </div>
+            </div>
+          </div>
+
+          <div className="mt-8">
+            <Button
+              size="lg"
+              className="w-full"
+              onClick={() => { router.push('/home'); router.refresh() }}
+            >
+              <Sparkles className="h-4 w-4" />
+              Découvrir mon espace
             </Button>
           </div>
         </section>

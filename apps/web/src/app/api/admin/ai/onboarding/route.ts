@@ -4,7 +4,7 @@ import { streamText } from 'ai'
 import { google } from '@ai-sdk/google'
 import { getFreshUser } from '@/lib/get-fresh-user'
 
-const MODEL_ID = process.env.AI_MODEL ?? 'gemini-3.1-flash-lite-preview'
+const MODEL_ID = process.env.AI_MODEL ?? 'gemini-2.5-flash'
 
 const SYSTEM_PROMPT = `Tu es un assistant expert en création de contenu vidéo pour entrepreneurs.
 Ton rôle est de découvrir le business de l'entrepreneur à travers une conversation naturelle et bienveillante.

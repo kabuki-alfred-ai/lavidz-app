@@ -83,7 +83,7 @@ RÈGLES ABSOLUES :
 - Ne mens pas, ne cite pas de chiffres inventés
 - Chaque variante doit avoir un ANGLE différent`
 
-    const model = google(process.env.AI_MODEL ?? 'gemini-3.1-flash-lite-preview')
+    const model = google(process.env.AI_MODEL ?? 'gemini-2.5-flash')
     const { object } = await generateObject({
       model,
       schema: LinkedInPostsSchema,

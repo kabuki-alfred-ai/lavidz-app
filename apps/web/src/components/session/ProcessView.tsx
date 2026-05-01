@@ -3,7 +3,7 @@
 import { useEffect, useRef, useMemo, useCallback, useState } from 'react'
 import dynamic from 'next/dynamic'
 import Link from 'next/link'
-import { ArrowLeft, Play, RefreshCw, Loader2, ChevronRight, Mic2, Palette, Type, Music, Film, Sparkles, MessageSquare, Upload, Zap, SlidersHorizontal, Wand2 } from 'lucide-react'
+import { ArrowLeft, Play, RefreshCw, Loader2, ChevronRight, Mic2, Palette, Type, Music, Film, Sparkles, MessageSquare, Upload, Zap } from 'lucide-react'
 import type { LucideIcon } from 'lucide-react'
 import type { CompositionSegment } from '@/remotion/LavidzComposition'
 import { END_CARD_FRAMES } from '@/remotion/LavidzComposition'
@@ -155,7 +155,7 @@ export function ProcessView({ recordings, themeName, sessionId, themeSlug, monta
   } = state
 
   // ── Easy mode state ───────────────────────────────────────────────────────
-  const [easyMode, setEasyMode] = useState(!montageSettings)
+  const [easyMode] = useState(true)
   const [energyLevel, setEnergyLevel] = useState<EnergyLevel>('dynamique')
   const [autoApplying, setAutoApplying] = useState(false)
   const [brandKitApplied, setBrandKitApplied] = useState(false)
@@ -414,7 +414,7 @@ export function ProcessView({ recordings, themeName, sessionId, themeSlug, monta
 
     if (montageSettings) {
       const s = montageSettings
-      if (typeof s.easyMode === 'boolean') setEasyMode(s.easyMode)
+
       if (s.energyLevel) setEnergyLevel(s.energyLevel)
       if (s.selectedVoiceId) setSelectedVoiceId(s.selectedVoiceId)
       if (typeof s.voiceEnabled === 'boolean') setVoiceEnabled(s.voiceEnabled)
@@ -729,12 +729,12 @@ export function ProcessView({ recordings, themeName, sessionId, themeSlug, monta
 
   // Auto-apply on mount for easy mode (first visit only)
   useEffect(() => {
-    if (easyMode && !montageSettings && !autoAppliedRef.current) {
+    if (!montageSettings && !autoAppliedRef.current) {
       // Small delay to let segments init
       const t = setTimeout(() => runAutoApply(), 500)
       return () => clearTimeout(t)
     }
-  }, [easyMode]) // eslint-disable-line react-hooks/exhaustive-deps
+  }, []) // eslint-disable-line react-hooks/exhaustive-deps
 
   // ── Handlers ───────────────────────────────────────────────────────────────
 
@@ -1092,8 +1092,8 @@ export function ProcessView({ recordings, themeName, sessionId, themeSlug, monta
   return (
     <div style={{
       position: 'fixed', inset: 0, display: 'flex', flexDirection: 'column',
-      background: easyMode ? '#F8F8FA' : '#0a0a0a',
-      color: easyMode ? '#1A1A1A' : '#fff',
+      background: '#F8F8FA',
+      color: '#1A1A1A',
       transition: 'background 0.2s, color 0.2s',
     }}>
 
@@ -1101,9 +1101,9 @@ export function ProcessView({ recordings, themeName, sessionId, themeSlug, monta
       <header style={{
         display: 'flex', alignItems: 'center',
         height: 52, paddingLeft: 14, paddingRight: 16,
-        borderBottom: easyMode ? '1px solid #EBEBEF' : `1px solid ${S.border}`,
+        borderBottom: '1px solid #EBEBEF',
         flexShrink: 0,
-        background: easyMode ? '#FFFFFF' : 'rgba(10,10,10,0.98)',
+        background: '#FFFFFF',
       }}>
         {/* Left: back + logo + session name */}
         <div style={{ display: 'flex', alignItems: 'center', gap: 10, flex: 1 }}>
@@ -1111,10 +1111,10 @@ export function ProcessView({ recordings, themeName, sessionId, themeSlug, monta
             <button style={{
               display: 'flex', alignItems: 'center', justifyContent: 'center',
               width: 32, height: 32, borderRadius: 8,
-              color: easyMode ? '#6B7280' : S.muted,
+              color: '#6B7280',
               background: 'transparent', border: 'none', cursor: 'pointer', transition: 'background 0.15s',
             }}
-              onMouseEnter={e => (e.currentTarget.style.background = easyMode ? '#F3F4F6' : S.surface)}
+              onMouseEnter={e => (e.currentTarget.style.background = '#F3F4F6')}
               onMouseLeave={e => (e.currentTarget.style.background = 'transparent')}
             >
               <ArrowLeft size={15} />
@@ -1124,9 +1124,9 @@ export function ProcessView({ recordings, themeName, sessionId, themeSlug, monta
             <div className="relative w-4 h-4 flex items-center justify-center">
               <span className="block w-2 h-2 bg-primary animate-logo-morph" />
             </div>
-            <span className="font-sans font-black text-[12px] tracking-tighter uppercase" style={{ color: easyMode ? '#1A1A1A' : '#fff' }}>LAVIDZ</span>
-            <span style={{ color: easyMode ? '#D1D5DB' : S.border, fontSize: 13, margin: '0 2px' }}>/</span>
-            <span style={{ color: easyMode ? '#6B7280' : S.muted, fontSize: 12, maxWidth: 200, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' as const }}>{themeName}</span>
+            <span className="font-sans font-black text-[12px] tracking-tighter uppercase" style={{ color: '#1A1A1A' }}>LAVIDZ</span>
+            <span style={{ color: '#D1D5DB', fontSize: 13, margin: '0 2px' }}>/</span>
+            <span style={{ color: '#6B7280', fontSize: 12, maxWidth: 200, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' as const }}>{themeName}</span>
           </div>
           {contentFormat && (
             <span style={{ fontSize: 10, padding: '2px 8px', borderRadius: 4, background: 'rgba(255,255,255,0.08)', color: S.dim, fontWeight: 600 }}>
@@ -1137,49 +1137,13 @@ export function ProcessView({ recordings, themeName, sessionId, themeSlug, monta
 
         {/* Right: mode toggle + save status */}
         <div style={{ display: 'flex', alignItems: 'center', gap: 10, flexShrink: 0 }}>
-          {/* Easy / Expert toggle */}
-          <div style={{
-            display: 'flex', borderRadius: 8, overflow: 'hidden',
-            border: easyMode ? '1px solid #E5E7EB' : '1px solid rgba(255,255,255,0.1)',
-            background: easyMode ? '#F3F4F6' : 'transparent',
-          }}>
-            <button
-              onClick={() => setEasyMode(true)}
-              style={{
-                display: 'flex', alignItems: 'center', gap: 4,
-                padding: '5px 12px', border: 'none', cursor: 'pointer',
-                fontSize: 11, fontWeight: 600, transition: 'all 0.15s',
-                background: easyMode ? '#FFFFFF' : 'transparent',
-                color: easyMode ? '#FF4D1C' : (easyMode ? '#9CA3AF' : 'rgba(255,255,255,0.4)'),
-                boxShadow: easyMode ? '0 1px 2px rgba(0,0,0,0.06)' : 'none',
-                borderRadius: 6,
-              }}
-            >
-              <Wand2 size={12} /> Facile
-            </button>
-            <button
-              onClick={() => setEasyMode(false)}
-              style={{
-                display: 'flex', alignItems: 'center', gap: 4,
-                padding: '5px 12px', border: 'none', cursor: 'pointer',
-                fontSize: 11, fontWeight: 600, transition: 'all 0.15s',
-                background: !easyMode ? (easyMode ? '#FFFFFF' : 'rgba(255,255,255,0.1)') : 'transparent',
-                color: !easyMode ? (easyMode ? '#1A1A1A' : '#fff') : (easyMode ? '#9CA3AF' : 'rgba(255,255,255,0.4)'),
-                boxShadow: !easyMode && !easyMode ? 'none' : 'none',
-                borderRadius: 6,
-              }}
-            >
-              <SlidersHorizontal size={12} /> Expert
-            </button>
-          </div>
 
-          {saveStatus === 'saving' && <span style={{ fontSize: 10, fontFamily: 'monospace', color: easyMode ? '#9CA3AF' : S.dim }}>Sauvegarde...</span>}
+          {saveStatus === 'saving' && <span style={{ fontSize: 10, fontFamily: 'monospace', color: '#9CA3AF' }}>Sauvegarde...</span>}
           {saveStatus === 'saved' && <span style={{ fontSize: 10, fontFamily: 'monospace', color: 'rgba(52,211,153,0.8)' }}>Sauvegarde</span>}
           {saveStatus === 'error' && <span style={{ fontSize: 10, fontFamily: 'monospace', color: S.error }}>Erreur</span>}
 
           {/* Apply changes button (header, right) */}
-          {easyMode && (
-            <button
+          <button
               onClick={applyVoice}
               disabled={regenerating}
               style={{
@@ -1199,12 +1163,10 @@ export function ProcessView({ recordings, themeName, sessionId, themeSlug, monta
                 : <><RefreshCw size={12} /> Appliquer</>
               }
             </button>
-          )}
 
           {/* Export button (header, right) */}
-          {easyMode && (
-            <button
-              onClick={() => { setEasyMode(false); setActiveModule('export') }}
+          <button
+              onClick={() => setActiveModule('export')}
               style={{
                 display: 'flex', alignItems: 'center', gap: 6,
                 padding: '7px 14px', borderRadius: 8, border: 'none', cursor: 'pointer',
@@ -1216,7 +1178,6 @@ export function ProcessView({ recordings, themeName, sessionId, themeSlug, monta
             >
               <Upload size={13} /> Exporter
             </button>
-          )}
           {!ready && saveStatus === 'idle' && <div style={{ width: 5, height: 5, borderRadius: '50%', background: '#f59e0b', animation: 'pulse 1.5s ease infinite' }} />}
         </div>
       </header>
@@ -1280,13 +1241,10 @@ export function ProcessView({ recordings, themeName, sessionId, themeSlug, monta
         /* Desktop: icon sidebar + content panel + canvas right */
         <div style={{
           flex: 1, display: 'flex', overflow: 'hidden',
-          ...(easyMode ? {
-            maxWidth: 1400, margin: '0 auto', padding: '16px 24px', gap: 16, width: '100%',
-          } : {}),
+          maxWidth: 1400, margin: '0 auto', padding: '16px 24px', gap: 16, width: '100%',
         }}>
 
-          {/* LEFT SIDEBAR: Easy mode panel OR Icon bar + Content panel */}
-          {easyMode ? (
+          {/* LEFT SIDEBAR: Easy mode panel */}
             <div style={{
               width: 560, flexShrink: 0, overflow: 'auto',
               padding: '20px 24px', background: '#FFFFFF',
@@ -1773,136 +1731,16 @@ export function ProcessView({ recordings, themeName, sessionId, themeSlug, monta
               />
 
             </div>
-          ) : (
-          <div style={{ display: 'flex', width: 480, flexShrink: 0, borderRight: `1px solid ${S.border}`, overflow: 'hidden' }}>
-
-            {/* Vertical icon bar */}
-            <div style={{
-              width: 48, background: '#0a0a0a',
-              borderRight: `1px solid ${S.border}`,
-              display: 'flex', flexDirection: 'column',
-              flexShrink: 0,
-            }}>
-              {visibleModules.map((m, idx) => {
-                const isActive = activeModule === m.id
-                const isExport = m.id === 'export'
-                const IconComponent = m.icon
-                return (
-                  <button
-                    key={m.id}
-                    title={m.label}
-                    onClick={() => setActiveModule(m.id)}
-                    style={{
-                      position: 'relative',
-                      width: 48,
-                      height: 40,
-                      display: 'flex',
-                      alignItems: 'center',
-                      justifyContent: 'center',
-                      background: isActive ? 'rgba(255,255,255,0.06)' : 'transparent',
-                      border: 'none',
-                      cursor: 'pointer',
-                      color: isActive ? '#ffffff' : S.dim,
-                      transition: 'all 0.15s',
-                      marginTop: isExport ? 'auto' : 0,
-                      borderTop: isExport ? `1px solid ${S.border}` : 'none',
-                    }}
-                    onMouseEnter={e => {
-                      if (!isActive) e.currentTarget.style.color = S.muted
-                    }}
-                    onMouseLeave={e => {
-                      if (!isActive) e.currentTarget.style.color = S.dim
-                    }}
-                  >
-                    {/* Active left accent */}
-                    {isActive && (
-                      <div style={{
-                        position: 'absolute',
-                        left: 0,
-                        top: 8,
-                        bottom: 8,
-                        width: 2,
-                        borderRadius: 1,
-                        background: S.accent,
-                      }} />
-                    )}
-                    <IconComponent size={16} />
-                  </button>
-                )
-              })}
-            </div>
-
-            {/* Content panel */}
-            <div style={{ flex: 1, display: 'flex', flexDirection: 'column', overflow: 'hidden', background: '#111111' }}>
-
-              {/* Scrollable module content */}
-              <div style={{ flex: 1, overflowY: 'auto', padding: '16px' }}>
-                {moduleContent}
-              </div>
-
-              {/* Generate CTA -- pinned bottom */}
-              <div style={{ padding: '12px 16px', borderTop: `1px solid ${!regenerating ? S.border : 'rgba(255,255,255,0.12)'}`, flexShrink: 0, background: regenerating ? 'rgba(255,255,255,0.03)' : 'transparent' }}>
-                <button
-                  onClick={applyVoice}
-                  disabled={regenerating}
-                  style={{
-                    width: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 9,
-                    padding: '13px 0',
-                    borderRadius: 12,
-                    background: regenerating ? 'rgba(255,255,255,0.07)' : S.surface,
-                    border: `1px solid ${S.borderHover}`,
-                    color: S.text,
-                    fontSize: 12, fontWeight: 700,
-                    cursor: regenerating ? 'not-allowed' : 'pointer',
-                    opacity: regenerating ? 0.6 : 1,
-                    transition: 'all 0.2s',
-                  }}
-                >
-                  {regenerating
-                    ? <><Loader2 size={14} style={{ animation: 'spin 0.8s linear infinite' }} /> G\u00e9n\u00e9ration en cours...</>
-                    : <><RefreshCw size={12} /> Appliquer les changements</>
-                  }
-                </button>
-              </div>
-
-              {/* Deliver action */}
-              {renderOutputUrl && sessionId && (
-                <div style={{ padding: '10px 16px', borderTop: `1px solid ${S.border}`, flexShrink: 0 }}>
-                  {delivered ? (
-                    <p style={{ textAlign: 'center', fontSize: 11, color: 'rgb(52,211,153)', fontFamily: 'monospace' }}>Email envoy\u00e9 au client</p>
-                  ) : (
-                    <button disabled={delivering} onClick={async () => {
-                      setDelivering(true); setDeliverError('')
-                      try {
-                        const res = await fetch(`/api/admin/sessions/${sessionId}/deliver`, { method: 'POST' })
-                        if (!res.ok) throw new Error(await res.text())
-                        setDelivered(true)
-                      } catch (err) { setDeliverError(String(err)) } finally { setDelivering(false) }
-                    }}
-                      style={{ width: '100%', padding: '10px', borderRadius: 10, fontSize: 12, fontWeight: 600, cursor: delivering ? 'not-allowed' : 'pointer', background: 'rgba(52,211,153,0.1)', border: '1px solid rgba(52,211,153,0.22)', color: 'rgb(52,211,153)', transition: 'all 0.15s' }}>
-                      {delivering ? 'Envoi...' : 'Confirmer et envoyer au client'}
-                    </button>
-                  )}
-                  {deliverError && <p style={{ fontSize: 11, color: S.error, fontFamily: 'monospace', marginTop: 6, textAlign: 'center' }}>{deliverError}</p>}
-                </div>
-              )}
-            </div>
-          </div>
-
-          )}
 
           {/* RIGHT: CANVAS + TIMELINE */}
           <div style={{
             flex: 1, display: 'flex', flexDirection: 'column', overflow: 'hidden',
-            background: easyMode ? '#FFFFFF' : '#050505',
-            ...(easyMode ? {
-              borderRadius: 12, border: '1px solid #EBEBEF',
-            } : {}),
+            background: '#FFFFFF',
+            borderRadius: 12, border: '1px solid #EBEBEF',
           }}>
 
             {/* Submagic-style top pills (easy mode only) */}
-            {easyMode && (
-              <div style={{ padding: '12px 16px 0 16px', flexShrink: 0 }}>
+            <div style={{ padding: '12px 16px 0 16px', flexShrink: 0 }}>
                 <div style={{ display: 'flex', alignItems: 'center', gap: 8, position: 'relative' }}>
                   {([
                     { label: 'Audio', onClick: () => { setShowAudioPopover(v => !v); setShowAiToolsPopover(false) } },
@@ -2162,18 +2000,17 @@ export function ProcessView({ recordings, themeName, sessionId, themeSlug, monta
                   </button>
                 </div>
               </div>
-            )}
 
             {/* Canvas area */}
             <div style={{
               flex: 1, minHeight: 0, position: 'relative',
               display: 'flex', alignItems: 'center', justifyContent: 'center',
               overflow: 'hidden',
-              padding: easyMode ? '16px 24px' : 0,
+              padding: '16px 24px',
             }}>
 
               {/* Format selector -- floating top-left (hidden in easy mode — it's in the panel) */}
-              <div style={{ position: 'absolute', top: 12, left: 14, zIndex: 10, display: easyMode ? 'none' : 'flex', gap: 3 }}>
+              <div style={{ position: 'absolute', top: 12, left: 14, zIndex: 10, display: 'none', gap: 3 }}>
                 {(Object.entries(FORMATS) as [FormatKey, typeof FORMATS[FormatKey]][]).map(([key, f]) => (
                   <button key={key} onClick={() => setFormat(key)}
                     style={{
@@ -2189,13 +2026,7 @@ export function ProcessView({ recordings, themeName, sessionId, themeSlug, monta
                 ))}
               </div>
 
-              {/* Ready badge -- floating top-right (hidden in easy mode) */}
-              {ready && !easyMode && (
-                <div style={{ position: 'absolute', top: 12, right: 14, zIndex: 10, display: 'flex', alignItems: 'center', gap: 6, padding: '4px 10px', borderRadius: 6, background: 'rgba(52,211,153,0.1)', border: '1px solid rgba(52,211,153,0.2)', backdropFilter: 'blur(8px)' }}>
-                  <div style={{ width: 5, height: 5, borderRadius: '50%', background: 'rgb(52,211,153)' }} />
-                  <span style={{ fontSize: 10, fontFamily: 'monospace', color: 'rgb(52,211,153)' }}>Preview</span>
-                </div>
-              )}
+
 
               {/* Video player */}
               {ready && segments ? (
@@ -2221,20 +2052,17 @@ export function ProcessView({ recordings, themeName, sessionId, themeSlug, monta
                       style={{
                         width: '100%', height: '100%',
                         display: 'block',
-                        borderRadius: easyMode ? 6 : 0,
-                        boxShadow: easyMode
-                          ? 'none'
-                          : '0 8px 48px rgba(0,0,0,0.6), 0 2px 8px rgba(0,0,0,0.4)',
+                        borderRadius: 6,
+                        boxShadow: 'none',
                         overflow: 'hidden',
                       }}
                       playbackRate={playbackRate}
-                      showPlaybackRateControl={!easyMode}
-                      controls={!easyMode}
+                      showPlaybackRateControl={false}
+                      controls={false}
                       clickToPlay
                     />
                     {/* "Low res preview" badge on top of player — easy mode only */}
-                    {easyMode && (
-                      <div style={{
+                    <div style={{
                         position: 'absolute', top: 8, right: 8, zIndex: 5,
                         padding: '3px 8px', borderRadius: 5,
                         background: 'rgba(0,0,0,0.55)', color: '#fff',
@@ -2243,7 +2071,6 @@ export function ProcessView({ recordings, themeName, sessionId, themeSlug, monta
                       }}>
                         Low res preview
                       </div>
-                    )}
                   </div>
                 </div>
               ) : regenerating ? (
@@ -2265,7 +2092,7 @@ export function ProcessView({ recordings, themeName, sessionId, themeSlug, monta
             </div>
 
             {/* Toolbar below player (easy mode only) — Submagic-style */}
-            {easyMode && ready && (
+            {ready && (
               <div style={{
                 display: 'flex', alignItems: 'center', justifyContent: 'center',
                 gap: 10, padding: '8px 16px', flexShrink: 0,
@@ -2320,41 +2147,19 @@ export function ProcessView({ recordings, themeName, sessionId, themeSlug, monta
             )}
 
             {/* Submagic-style player controls (easy mode only) */}
-            {easyMode && ready && <PlayerControls playerRef={playerRef} totalFrames={totalFrames} fps={FPS} />}
+            {ready && <PlayerControls playerRef={playerRef} totalFrames={totalFrames} fps={FPS} />}
 
-            {/* Timeline (hidden in easy mode) */}
-            {!easyMode && ready && effectiveSegments && timelineVisible && (
-              <div style={{ flexShrink: 0, borderTop: `1px solid ${S.border}` }}>
-                <Timeline
-                  segments={segments!}
-                  coldOpenFrames={coldOpenFrames}
-                  introFrames={introFrames}
-                  outroFrames={outroFrames}
-                  questionCardFrames={questionCardFrames}
-                  fps={FPS}
-                  playerRef={playerRef}
-                  playerFrameRef={playerFrameRef}
-                  clipEdits={clipEdits}
-                  onSplit={handleTimelineSplit}
-                  onDeleteRange={deleteRange}
-                  onResetClip={resetClip}
-                  onUndo={undoClipEdit}
-                  playbackRate={playbackRate}
-                  onPlaybackRateChange={setPlaybackRate}
-                />
-              </div>
-            )}
+
 
             {/* Bottom bar */}
             <div style={{
               display: 'flex', alignItems: 'center', justifyContent: 'space-between',
-              padding: easyMode ? '8px 16px' : '6px 14px',
-              borderTop: easyMode ? '1px solid #EBEBEF' : `1px solid ${S.border}`,
-              background: easyMode ? '#FFFFFF' : '#0a0a0a',
+              padding: '8px 16px',
+              borderTop: '1px solid #EBEBEF',
+              background: '#FFFFFF',
               flexShrink: 0,
             }}>
-              {easyMode ? (
-                <>
+              <>
                   <span style={{ fontSize: 11, color: '#9CA3AF' }}>
                     {ready ? `${(totalFrames / FPS).toFixed(1)}s` : ''}
                   </span>
@@ -2362,25 +2167,6 @@ export function ProcessView({ recordings, themeName, sessionId, themeSlug, monta
                     {fmt.label}
                   </span>
                 </>
-              ) : (
-                <>
-                  <button
-                    onClick={() => setTimelineVisible(v => !v)}
-                    style={{
-                      display: 'flex', alignItems: 'center', gap: 5,
-                      padding: '4px 10px', borderRadius: 6, fontSize: 10, fontFamily: 'monospace',
-                      background: timelineVisible ? S.surface : 'transparent',
-                      border: `1px solid ${timelineVisible ? S.border : 'transparent'}`,
-                      color: timelineVisible ? S.muted : S.dim, cursor: 'pointer', transition: 'all 0.15s',
-                    }}>
-                    <ChevronRight size={10} style={{ transform: timelineVisible ? 'rotate(90deg)' : 'rotate(-90deg)', transition: 'transform 0.2s' }} />
-                    Timeline
-                  </button>
-                  <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                    {ready && <span style={{ fontSize: 10, fontFamily: 'monospace', color: S.dim }}>{(totalFrames / FPS).toFixed(1)}s | {FPS}fps</span>}
-                  </div>
-                </>
-              )}
             </div>
 
           </div>{/* end right */}
@@ -2388,7 +2174,7 @@ export function ProcessView({ recordings, themeName, sessionId, themeSlug, monta
       )}
 
       {/* Full-width trim timeline below both panels */}
-      {easyMode && easyEditSubView === 'trim' && !isMobile && (
+      {easyEditSubView === 'trim' && !isMobile && (
         <div style={{
           padding: '0 24px 16px', background: '#F8F8FA', flexShrink: 0,
         }}>

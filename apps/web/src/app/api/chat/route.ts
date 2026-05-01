@@ -22,6 +22,7 @@ const KABOU_TOOL_EVENT: Record<string, { type: string; label?: string }> = {
   reshape_recording_guide_to_format: { type: 'kabou_enriched', label: 'Kabou a reshape le script' },
   create_recording_session: { type: 'session_created', label: 'Kabou a préparé un tournage' },
   commit_editorial_plan: { type: 'schedule_published', label: 'Kabou a calé le plan éditorial' },
+  propose_kabou: { type: 'kabou_proposal', label: 'Kabou a proposé une vidéo' },
   propose_linkedin_video: { type: 'linkedin_proposal', label: 'Kabou a proposé une vidéo LinkedIn' },
 }
 
@@ -126,7 +127,7 @@ export async function POST(req: Request) {
       : user.organizationId
     if (!orgId) return new Response('No organization', { status: 400 })
 
-    const { messages, threadId, topicId, currentSessionId, currentFormat, context } = await req.json()
+    const { messages, threadId, topicId, currentSessionId, currentFormat, context, selectedFormat, pendingSubject } = await req.json()
     const activeThreadId = threadId || messages[0]?.id || crypto.randomUUID()
 
     // Save the latest user message to DB
@@ -231,25 +232,53 @@ export async function POST(req: Request) {
 
     if (context === 'opening') {
       systemParts.push(`
-## Mode : Conversation d'ouverture LinkedIn
+## MODE OUVERTURE — Coach éditorial
 
-Tu es en mode "ouverture créative". L'user vient de répondre à la question d'ouverture.
+Tu es un coach éditorial. Ton rôle : creuser le sujet avec l'entrepreneur pour en extraire LA matière brute d'une vraie vidéo. Tu appelles propose_kabou() seulement quand tu as assez de substance — jamais avant 3 échanges réels.
 
-Ton objectif : analyser sa réponse pour détecter son mood (challenger/authentique/expert),
-formuler un sujet LinkedIn accrocheur, et appeler immédiatement \`propose_linkedin_video\`.
+### Phase 1 — Comprendre le sujet (messages 1-2)
+- Reformule le sujet tel que tu l'entends, en 1 phrase percutante.
+- Pose UNE seule question ouverte pour trouver l'ANGLE : "C'est quoi ton point de vue là-dessus ?" / "Tu défends quoi exactement ?" / "Tu parles de quelle situation concrète ?"
+- Réponse courte : 2-3 lignes max. Pas de liste.
 
-Règles :
-- Ne pose PAS de question supplémentaire avant d'appeler le tool (max 1 relance si réponse < 5 mots)
-- Le sujet formulé doit sonner comme un titre LinkedIn — pas une description neutre
-- Si l'user dit "autre chose" après la proposition : demande UNIQUEMENT "Tu veux parler d'un autre sujet, ou le même dans un style différent ?"
-- Mood challenger : mots forts, opinion, frustration → format opinion_courte
-- Mood authentique : histoire personnelle, "j'ai réalisé", "un client" → format story
-- Mood expert : explication, framework, "voilà comment" → format expertise ou thought_leadership
+### Phase 2 — Extraire la substance (messages 3-5)
+Selon ce qu'il répond, creuse une des pistes suivantes (PAS toutes à la fois) :
+- **L'histoire concrète** : "Tu as un exemple précis qui t'a fait réaliser ça ?"
+- **L'ennemi** : "C'est quoi l'idée reçue que tu veux démolir ?"
+- **Le truc contre-intuitif** : "Qu'est-ce que la plupart des gens font de travers sur ce sujet ?"
+- **La transformation** : "Qu'est-ce qui change concrètement pour quelqu'un qui applique ça ?"
 
-Coaching par format :
-- opinion_courte : "Commence directement par ton opinion. La première phrase doit être la chose la plus forte."
-- story : "Commence au milieu de l'histoire — pas depuis le début."
-- expertise/thought_leadership : "Commence par le résultat, pas par l'explication."`)
+Challenge ce qui est trop vague : "C'est encore large — t'as un moment précis où t'as vécu ça ?" Ne valide pas une idée faible, pointe ce qui manque.
+
+### Phase 3 — Proposer (après 3+ échanges substantiels)
+Quand tu as : un angle clair + au moins un élément concret (histoire, exemple, chiffre, conviction forte)
+→ Dis : "Ok, j'ai ce qu'il me faut." puis APPELLE propose_kabou() SANS écrire le script dans le texte.
+
+### Raccourcis — APPELLE propose_kabou() immédiatement si :
+- L'user dit "go", "génère", "c'est bon", "propose" ou équivalent après avoir eu une vraie conversation
+- L'user a fourni dès le départ un sujet très détaillé (angle + exemple + conviction en 1 message)
+
+### JAMAIS :
+- Proposer avant 3 échanges réels sauf raccourci explicite
+- Écrire un script, des bullets ou une structure dans le texte
+- Poser plusieurs questions dans le même message
+- Demander si l'user est "prêt" ou "d'accord" après la Phase 2
+
+### Mapping pour propose_kabou() :
+- Opinion forte / idée reçue à démolir / prise de position → mood: "challenger", formatKind: "reaction" ou "mythe"
+- Histoire perso / victoire client / anecdote vécue      → mood: "authentique", formatKind: "histoire"
+- Framework / tip / explication de mécanisme             → mood: "expert",      formatKind: "conseil" ou "interview"
+
+beats : 3 bullets percutants style parlé, issus de la conversation. beatLabels : ["Hook", <label2>, <label3>].
+coachingTip : 1 instruction filmage basée sur CE QUE L'USER A DIT (ex: "Commence par l'anecdote du client, pas l'explication.").`)
+    }
+
+    if (context === 'rework') {
+      systemParts.push(`
+## MODE RETRAVAIL
+
+L'entrepreneur veut ajuster la proposition (format, ton, angle).
+→ Appelle IMMÉDIATEMENT propose_kabou() avec la version corrigée. Aucun texte avant l'appel.`)
     }
 
     // F12 — Contexte session/format en tête pour que Kabou n'hallucine pas entre
@@ -408,8 +437,10 @@ Coaching par format :
 Quand un sujet interessant emerge dans la conversation et que l'entrepreneur semble vouloir en faire un contenu video, propose-lui de creer un Topic en disant quelque chose comme "Tu veux que j'en fasse un sujet de contenu ?". S'il accepte, appelle create_topic avec un nom et un brief resume. Ne force jamais la creation, c'est une proposition naturelle.`)
     }
 
-    // Recording instructions
-    systemParts.push(`\nENREGISTREMENT VIDEO :
+    // Recording instructions — uniquement hors du contexte home/rework
+    // où le flow est géré par l'UI (propose_kabou → boutons UI → /api/sessions direct)
+    if (context !== 'opening' && context !== 'rework') {
+      systemParts.push(`\nENREGISTREMENT VIDEO :
 Quand l'utilisateur veut enregistrer une video :
 - Si le message contient deja un sujet ET un format precis (ex: "Je veux enregistrer la video X (format: STORYTELLING)"), appelle DIRECTEMENT create_recording_session sans poser de questions supplementaires. Genere les questions/script toi-meme et cree la session.
 - Sinon, prepare les questions, presente-les et demande validation avant d'appeler create_recording_session.
@@ -417,12 +448,17 @@ Quand l'utilisateur veut enregistrer une video :
 Formats et leurs donnees :
 - QUESTION_BOX / STORYTELLING / MYTH_VS_REALITY → passe des questions avec hints
 - TELEPROMPTER → passe un teleprompterScript structure en POINTS CLES. Format : sections [HOOK], [CONTENU], [CTA] avec des bullet points concis
-- HOT_TAKE / DAILY_TIP → passe 1-3 points de guidage comme questions
+- HOT_TAKE / DAILY_TIP → passe 1-3 points de guidage comme questions`)
+    }
 
-Le lien d'enregistrement s'affiche automatiquement dans le chat apres l'appel.`)
+    // In home flow (opening/rework), expose ONLY propose_kabou.
+    // All other tools are noise that cause the LLM to call the wrong thing.
+    // Mission/onboarding blocks are also excluded — MODE OUVERTURE is self-contained.
+    const isHomeFlow = context === 'opening' || context === 'rework'
 
-    if (!profile?.editorialValidated) {
-      systemParts.push(`\nMISSION : ONBOARDING
+    if (!isHomeFlow) {
+      if (!profile?.editorialValidated) {
+        systemParts.push(`\nMISSION : ONBOARDING
 L'utilisateur n'a pas de ligne editoriale. Collecte progressivement :
 1. Metier / expertise
 2. Plateformes cibles
@@ -431,15 +467,16 @@ L'utilisateur n'a pas de ligne editoriale. Collecte progressivement :
 5. 3-5 piliers de contenu
 Puis appelle set_editorial_line, puis generate_calendar.
 IMPORTANT : Si l'utilisateur demande quand meme a enregistrer une video, fais-le directement meme sans onboarding termine.`)
-    } else {
-      systemParts.push(`\nMISSION : MODE LIBRE
+      } else {
+        systemParts.push(`\nMISSION : MODE LIBRE
 Aide a modifier le calendrier, ajuster la ligne, trouver des idees, preparer des videos.`)
+      }
     }
 
     const modelMessages = await convertToModelMessages(messages)
     const tavilyKey = process.env.TAVILY_API_KEY ?? ''
 
-    if (tavilyKey) {
+    if (!isHomeFlow && tavilyKey) {
       systemParts.push(`\nRECHERCHE WEB :
 Tu as acces a un outil de recherche web (webSearch). Utilise-le quand c'est pertinent :
 - Quand l'utilisateur pose une question factuelle
@@ -449,7 +486,7 @@ Tu as acces a un outil de recherche web (webSearch). Utilise-le quand c'est pert
     }
 
     const result = streamText({
-      model: google('gemini-3.1-flash-lite-preview'),
+      model: isHomeFlow ? google('gemini-2.5-pro') : google('gemini-2.5-flash'),
       system: systemParts.join('\n'),
       messages: modelMessages,
       stopWhen: stepCountIs(3),
@@ -472,6 +509,7 @@ Tu as acces a un outil de recherche web (webSearch). Utilise-le quand c'est pert
         // sujet au fil des tools) : on lit le topicId DANS l'input du tool.
         if (toolCalls?.length) {
           for (const call of toolCalls) {
+            if (!call) continue
             const meta = KABOU_TOOL_EVENT[call.toolName]
             if (!meta) continue
             const input = call.input as Record<string, unknown> | undefined
@@ -491,6 +529,28 @@ Tu as acces a un outil de recherche web (webSearch). Utilise-le quand c'est pert
         }
       },
       tools: {
+        // ── Home flow ──────────────────────────────────────────────────────────
+        // Only propose_kabou is needed — all other tools are excluded to prevent
+        // the LLM from calling propose_linkedin_video or unrelated tools.
+        propose_kabou: tool({
+          description: "Propose une vidéo complète après avoir compris le sujet : format choisi, script de poche (3 beats), coaching tip. Appeler dès qu'on a compris le sujet (1-2 échanges max). Peut être rappelé pour retravail.",
+          inputSchema: z.object({
+            sujet: z.string().describe("Le sujet formulé comme titre accrocheur court"),
+            mood: z.enum(['challenger', 'authentique', 'expert']),
+            moodLabel: z.string().describe('ex: "❤️ Authentique"'),
+            contentFormat: z.enum(['QUESTION_BOX', 'TELEPROMPTER', 'HOT_TAKE', 'STORYTELLING', 'DAILY_TIP', 'MYTH_VS_REALITY']).describe("Format technique à utiliser pour la session"),
+            formatKind: z.enum(['histoire', 'reaction', 'interview', 'conseil', 'mythe', 'guide']).describe("Catégorie visuelle : histoire=STORYTELLING, reaction=HOT_TAKE, interview=QUESTION_BOX, conseil=DAILY_TIP, mythe=MYTH_VS_REALITY, guide=TELEPROMPTER"),
+            duration: z.string().describe('ex: "~75 sec"'),
+            beatLabels: z.array(z.string()).length(3).describe('Labels des 3 beats, ex: ["Hook", "Le truc tout con", "Le résultat"]'),
+            beats: z.array(z.string()).length(3).describe("3 bullets courts du script de poche — percutants, en style parlé"),
+            coachingTip: z.string().describe("1 instruction concrète sur comment commencer le tournage"),
+          }),
+          execute: async (args) => ({ ...args, status: 'pending_validation' }),
+        }),
+
+        // ── Full tools — excluded in home flow ─────────────────────────────────
+        ...(isHomeFlow ? {} : {
+
         ...(tavilyKey ? {
           webSearch: tool({
             description: "Recherche sur le web pour trouver des informations actuelles et pertinentes.",
@@ -792,7 +852,7 @@ Tu as acces a un outil de recherche web (webSearch). Utilise-le quand c'est pert
             }
           },
         },
-        create_recording_session: {
+        ...(context !== 'opening' && context !== 'rework' ? { create_recording_session: {
           description: `Cree une session d'enregistrement video et retourne le lien. Appeler quand l'utilisateur a valide les questions ou le script et veut enregistrer.
 Pour le format TELEPROMPTER : passe un script structure avec des sections [HOOK], [CONTENU], [CTA].
 Pour les formats QUESTION_BOX, STORYTELLING, MYTH_VS_REALITY : passe des questions avec hints.
@@ -874,7 +934,7 @@ Pour les formats HOT_TAKE, DAILY_TIP : passe 1-3 points de guidage comme questio
               return { success: false, error: err.message ?? 'Erreur lors de la creation de la session' }
             }
           },
-        },
+        } } : {}),
         weekly_creative_review: tool({
           description: "Produit une revue hebdomadaire chaleureuse des 7 derniers jours de l'entrepreneur — patterns observés, forces, 1-3 invitations pour la suite. Utilise cet outil quand l'entrepreneur demande 'fais-moi un bilan', 'où j'en suis', 'qu'est-ce qui marche' — ou quand tu veux prendre la parole toi-même pour marquer une semaine. Retourne null si la semaine est vide (dans ce cas, dis-le doucement sans culpabiliser).",
           inputSchema: z.object({}),
@@ -1130,6 +1190,8 @@ Pour les formats HOT_TAKE, DAILY_TIP : passe 1-3 points de guidage comme questio
             }
           },
         }),
+
+        }), // end isHomeFlow ? {} : { ... }
       },
     })
 

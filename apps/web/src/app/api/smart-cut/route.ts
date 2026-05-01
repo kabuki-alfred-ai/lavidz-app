@@ -117,7 +117,7 @@ RÈGLES ABSOLUES :
 - En cas de doute, conserve la phrase`
 
   try {
-    const model = google(process.env.AI_MODEL ?? 'gemini-3.1-flash-lite-preview')
+    const model = google(process.env.AI_MODEL ?? 'gemini-2.5-flash')
     const { object } = await generateObject({
       model,
       schema: SelectionSchema,

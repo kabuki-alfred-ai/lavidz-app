@@ -19,7 +19,7 @@ export type CreativeState =
   | 'ARCHIVED'
 
 export type SubjectStateInput = {
-  topicStatus: 'DRAFT' | 'READY' | 'ARCHIVED'
+  topicStatus: 'DRAFT' | 'READY' | 'FILMING' | 'DONE' | 'ARCHIVED'
   brief: string | null
   narrativeAnchor?: NarrativeAnchor | null
   /** @deprecated utiliser `narrativeAnchor` — conservé pour dual-write pendant 1 sprint */
@@ -42,7 +42,7 @@ function briefLooksRefined(brief: string | null): boolean {
 
 export function deriveCreativeState(input: SubjectStateInput): CreativeState {
   if (input.topicStatus === 'ARCHIVED') return 'ARCHIVED'
-  if (input.topicStatus === 'READY') return 'MATURE'
+  if (input.topicStatus === 'READY' || input.topicStatus === 'FILMING' || input.topicStatus === 'DONE') return 'MATURE'
 
   // DRAFT : un narrativeAnchor avec ≥ 3 bullets (ou le legacy recordingGuide
   // en pur draft) est un signal fort qu'un vrai travail éditorial a eu lieu.

@@ -335,14 +335,14 @@ export function ChatPage() {
     <div className="flex h-full">
       <div className="flex-1 flex flex-col min-w-0">
         {/* Mobile header */}
-        <div className="h-12 flex items-center px-3 shrink-0 md:hidden">
-          <Link href="/topics" className="w-9 h-9 rounded-lg hover:bg-muted flex items-center justify-center text-muted-foreground">
-            <ChevronLeft size={20} />
+        <div className="h-14 flex items-center px-3 shrink-0 md:hidden">
+          <Link href="/topics" className="w-11 h-11 rounded-xl hover:bg-muted flex items-center justify-center text-muted-foreground">
+            <ChevronLeft size={22} />
           </Link>
-          <span className="text-sm font-medium text-foreground ml-1">Kabou</span>
+          <span className="text-sm font-semibold text-foreground ml-1">Kabou</span>
         </div>
 
-        <div className="flex flex-col h-full max-w-[700px] mx-auto w-full">
+        <div className="flex flex-col h-full max-w-2xl mx-auto w-full">
           {/* Messages */}
           <div ref={scrollRef} className="flex-1 overflow-y-auto px-4 pt-4 pb-4 space-y-4 scrollbar-hide">
             {(threadLoading || (!historyLoaded && messages.length === 0)) && (
@@ -356,7 +356,7 @@ export function ChatPage() {
             {messages.length === 0 && historyLoaded && !threadLoading && (
               <div className="flex flex-col items-center justify-center h-full px-4 py-8 gap-8">
                 <div className="flex flex-col items-center text-center gap-3">
-                  <div className="w-12 h-12 rounded-full overflow-hidden shadow-lg">
+                  <div className="w-12 h-12 rounded-full overflow-hidden">
                     {/* eslint-disable-next-line @next/next/no-img-element */}
                     <img src="/lavi-robot.png" alt="Kabou" className="w-full h-full object-cover" />
                   </div>
@@ -372,10 +372,10 @@ export function ChatPage() {
                       <button
                         key={action.label}
                         onClick={() => handleSend(action.label)}
-                        className="flex items-start gap-2.5 px-4 py-3 rounded-xl bg-surface border border-border text-left text-sm text-foreground/80 hover:text-foreground hover:border-primary/30 hover:bg-primary/5 transition-all"
+                        className="flex items-start gap-3 px-4 py-4 rounded-2xl bg-surface text-left text-sm text-foreground/80 hover:text-foreground hover:bg-primary/5 transition-all active:scale-[0.98] min-h-[64px]"
                       >
-                        <Icon size={14} className="text-primary shrink-0 mt-0.5" />
-                        <span className="leading-snug">{action.label}</span>
+                        <Icon size={16} className="text-primary shrink-0 mt-0.5" />
+                        <span className="leading-snug font-medium">{action.label}</span>
                       </button>
                     )
                   })}
@@ -410,11 +410,12 @@ export function ChatPage() {
                         </div>
                       )
                     }
-                    if (part.type === 'tool-invocation') {
-                      const toolPart = part as unknown as { toolInvocation: { toolName: string; state: string; args?: Record<string, unknown>; result?: Record<string, unknown> } }
-                      const inv = toolPart.toolInvocation
-                      if (inv.state === 'result' && inv.result) return <ToolResultCard key={idx} toolName={inv.toolName} result={inv.result} />
-                      return <ToolCallingCard key={idx} toolName={inv.toolName} args={inv.args} state={inv.state} />
+                    // AI SDK v6: part.type is `tool-${toolName}`, result in part.output
+                    if (part.type?.startsWith('tool-')) {
+                      const p = part as any
+                      const toolName: string = p.toolName ?? p.type.replace(/^tool-/, '')
+                      if (p.state === 'output-available' && p.output) return <ToolResultCard key={idx} toolName={toolName} result={p.output} />
+                      return <ToolCallingCard key={idx} toolName={toolName} args={p.input} state={p.state} />
                     }
                     return null
                   })}
@@ -441,27 +442,27 @@ export function ChatPage() {
                   const Icon = action.icon
                   return (
                     <button key={action.label} onClick={() => handleSend(action.label)} disabled={isLoading}
-                      className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-medium border border-border text-muted-foreground hover:text-foreground hover:border-primary/30 hover:bg-primary/5 transition-all disabled:opacity-50">
-                      <Icon size={12} />{action.label}
+                      className="inline-flex items-center gap-2 px-4 py-3 rounded-full text-sm font-medium bg-surface text-muted-foreground hover:text-foreground hover:bg-primary/5 transition-all disabled:opacity-50 active:scale-95 min-h-[44px]">
+                      <Icon size={14} />{action.label}
                     </button>
                   )
                 })}
               </div>
             )}
 
-            <form ref={formRef} onSubmit={handleFormSubmit} className="flex items-center gap-2">
+            <form ref={formRef} onSubmit={handleFormSubmit} className="flex items-center gap-2.5">
               {transcribing ? (
-                <div className="shrink-0 w-10 h-10 rounded-full bg-muted flex items-center justify-center"><Loader size={16} className="text-primary animate-spin" /></div>
+                <div className="shrink-0 w-12 h-12 rounded-full bg-muted flex items-center justify-center"><Loader size={18} className="text-primary animate-spin" /></div>
               ) : recording ? (
-                <button type="button" onClick={stopRecording} className="shrink-0 w-10 h-10 rounded-full bg-red-500 text-white flex items-center justify-center hover:bg-red-600 transition-colors animate-pulse"><Square size={14} /></button>
+                <button type="button" onClick={stopRecording} className="shrink-0 w-12 h-12 rounded-full bg-red-500 text-white flex items-center justify-center hover:bg-red-600 transition-colors animate-pulse"><Square size={16} /></button>
               ) : (
-                <button type="button" onClick={startRecording} disabled={isLoading || transcribing} className="shrink-0 w-10 h-10 rounded-full bg-surface-raised text-muted-foreground flex items-center justify-center hover:text-foreground hover:bg-muted transition-colors disabled:opacity-30"><Mic size={16} /></button>
+                <button type="button" onClick={startRecording} disabled={isLoading || transcribing} className="shrink-0 w-12 h-12 rounded-full bg-surface-raised text-muted-foreground flex items-center justify-center hover:text-foreground hover:bg-muted transition-colors disabled:opacity-30"><Mic size={20} /></button>
               )}
               <input ref={inputRef} value={inputValue} onChange={(e) => setInputValue(e.target.value)}
-                placeholder={recording ? 'Ecoute en cours...' : 'Ecris ton message...'} disabled={isLoading || recording || transcribing}
-                className="flex-1 rounded-full bg-surface border border-border px-4 py-2.5 text-sm text-foreground placeholder:text-muted-foreground/50 focus:outline-none focus:border-primary/40 focus:ring-1 focus:ring-primary/20 transition-colors disabled:opacity-50" />
+                placeholder={recording ? 'Écoute en cours...' : 'Écris ton message...'} disabled={isLoading || recording || transcribing}
+                className="flex-1 rounded-full bg-surface px-5 py-3.5 text-sm text-foreground placeholder:text-muted-foreground/50 focus:outline-none focus:ring-2 focus:ring-primary/20 transition-colors disabled:opacity-50 min-h-[48px]" />
               <button type="submit" disabled={isLoading || !inputValue.trim() || recording || transcribing}
-                className="shrink-0 w-10 h-10 rounded-full bg-primary text-primary-foreground flex items-center justify-center hover:bg-primary/90 transition-colors disabled:opacity-30"><Send size={16} /></button>
+                className="shrink-0 w-12 h-12 rounded-full bg-primary text-primary-foreground flex items-center justify-center hover:bg-primary/90 transition-colors disabled:opacity-30 active:scale-95"><Send size={18} /></button>
             </form>
           </div>
         </div>

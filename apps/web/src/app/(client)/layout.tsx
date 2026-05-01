@@ -13,14 +13,14 @@ export default async function ClientLayout({ children }: { children: React.React
   return (
     <div className="flex h-screen bg-background">
       {/* Sidebar — desktop only */}
-      <aside className="hidden md:flex w-[240px] shrink-0 flex-col bg-surface/50">
+      <aside className="hidden md:flex w-[240px] shrink-0 flex-col">
         {/* Logo */}
-        <div className="h-16 flex items-center px-6">
-          <Link href="/home" className="flex items-center gap-2">
+        <div className="h-[72px] flex items-center px-5 border-b border-border/40">
+          <Link href="/home" className="flex items-center gap-2.5 hover:opacity-80 transition-opacity">
             <div className="relative w-7 h-7 flex items-center justify-center">
               <span className="block w-3.5 h-3.5 bg-primary rounded-md shadow-sm" />
             </div>
-            <span className="font-semibold text-lg tracking-tight text-foreground">
+            <span className="font-bold text-lg tracking-tight text-foreground">
               Lavidz
             </span>
           </Link>
@@ -30,12 +30,12 @@ export default async function ClientLayout({ children }: { children: React.React
         <ClientNav variant="sidebar" userRole={user.role} />
 
         {/* User footer */}
-        <div className="p-3 mx-3 mb-3 bg-background rounded-xl flex flex-col gap-3">
-          <Link href="/profile" className="flex items-center gap-3 px-2 py-1.5 rounded-lg hover:bg-surface-raised transition-colors">
-            <div className="w-8 h-8 rounded-full bg-primary/10 flex items-center justify-center text-xs font-semibold text-primary shrink-0">
+        <div className="p-3 mx-3 mb-3 bg-surface rounded-2xl flex flex-col gap-2">
+          <Link href="/profile" className="flex items-center gap-3 px-3 min-h-[48px] rounded-xl hover:bg-muted transition-colors">
+            <div className="w-9 h-9 rounded-full bg-primary/10 flex items-center justify-center text-sm font-bold text-primary shrink-0">
               {displayName[0]?.toUpperCase()}
             </div>
-            <span className="text-sm font-medium text-foreground truncate">{displayName}</span>
+            <span className="text-sm font-semibold text-foreground truncate">{displayName}</span>
           </Link>
           <LogoutButton />
         </div>
@@ -48,14 +48,8 @@ export default async function ClientLayout({ children }: { children: React.React
         </main>
       </div>
 
-      {/* Bottom nav — mobile only */}
-      <div
-        data-bottom-nav
-        className="md:hidden fixed bottom-0 inset-x-0 bg-background/95 backdrop-blur-lg z-40"
-        style={{ paddingBottom: 'env(safe-area-inset-bottom)' }}
-      >
-        <ClientNav variant="bottom" userRole={user.role} />
-      </div>
+      {/* Bottom nav — mobile only, self-positioned with auto-hide on scroll */}
+      <ClientNav variant="bottom" userRole={user.role} />
     </div>
   )
 }

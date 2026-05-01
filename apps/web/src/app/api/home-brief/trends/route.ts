@@ -85,7 +85,7 @@ export async function GET() {
     let trendsRecap: string | null = null
     try {
       const { text } = await generateText({
-        model: google(process.env.AI_MODEL ?? 'gemini-3.1-flash-lite-preview'),
+        model: google(process.env.AI_MODEL ?? 'gemini-2.5-flash'),
         prompt: `Tu es un assistant pour un entrepreneur dont l'activite est : "${sector}".
 Voici des articles d'actualite trouves aujourd'hui :
 

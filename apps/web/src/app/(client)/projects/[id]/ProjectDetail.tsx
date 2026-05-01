@@ -3,10 +3,10 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import {
-  ArrowLeft, Plus, X, GripVertical, Search, Film,
-  Check, ChevronDown, ChevronRight, Play, Pause, Clapperboard, Star,
+  ArrowLeft, Plus, X, GripVertical, Film,
+  Check, ChevronDown, ChevronRight, Play, Pause, Clapperboard, Star, Search,
 } from 'lucide-react'
-import { Button } from '@/components/ui/button'
+import { Drawer } from 'vaul'
 import { FORMAT_CONFIGS, type ContentFormat } from '@lavidz/types'
 
 /* ------------------------------------------------------------------ */
@@ -19,74 +19,34 @@ interface Rush {
   transcript: string | null
   status: string
   createdAt: string
-  /** F10 — posé quand un retake canonique sur la même (sessionId, questionId) arrive. */
   supersededAt?: string | null
-  /** Story 10 — recommandation Kabou posée par `take-analysis.service`. */
-  kabouRecommendation?: {
-    score: number
-    reason: string
-    criteria?: { tempo: number; clarity: number; energy: number; tone: number }
-  } | null
+  kabouRecommendation?: { score: number; reason: string } | null
   question: { id: string; text: string } | null
-  session: {
-    id: string
-    createdAt: string
-    contentFormat: ContentFormat | null
-    theme: { id: string; name: string } | null
-  }
+  session: { id: string; createdAt: string; contentFormat: ContentFormat | null; theme: { id: string; name: string } | null }
 }
 
-interface ProjectClip {
-  id: string
-  order: number
-  recording: Rush
-}
-
-interface Project {
-  id: string
-  title: string
-  status: string
-  clips: ProjectClip[]
-}
+interface ProjectClip { id: string; order: number; recording: Rush }
+interface Project { id: string; title: string; status: string; clips: ProjectClip[] }
 
 /* ------------------------------------------------------------------ */
-/* Video preview player                                                */
+/* Video preview                                                       */
 /* ------------------------------------------------------------------ */
 
 function RushPreview({ recordingId, sessionId }: { recordingId: string; sessionId: string }) {
   const videoRef = useRef<HTMLVideoElement>(null)
   const [playing, setPlaying] = useState(false)
-
-  const src = `/api/video/${recordingId}?sessionId=${sessionId}`
-
-  function togglePlay() {
-    const el = videoRef.current
-    if (!el) return
-    if (el.paused) { el.play(); setPlaying(true) }
-    else { el.pause(); setPlaying(false) }
+  function toggle() {
+    const el = videoRef.current; if (!el) return
+    if (el.paused) { el.play(); setPlaying(true) } else { el.pause(); setPlaying(false) }
   }
-
   return (
-    <div className="relative group rounded-lg overflow-hidden bg-black/90 aspect-video mt-2">
-      <video
-        ref={videoRef}
-        src={src}
-        preload="metadata"
-        playsInline
-        className="w-full h-full object-contain"
-        onEnded={() => setPlaying(false)}
-        onPause={() => setPlaying(false)}
-        onPlay={() => setPlaying(true)}
-      />
-      <button
-        onClick={togglePlay}
-        className="absolute inset-0 flex items-center justify-center bg-black/20 opacity-0 group-hover:opacity-100 transition-opacity"
-      >
-        <div className="w-10 h-10 rounded-full bg-white/90 flex items-center justify-center shadow-lg">
-          {playing
-            ? <Pause size={16} className="text-black" />
-            : <Play size={16} className="text-black ml-0.5" />
-          }
+    <div className="relative group rounded-2xl overflow-hidden bg-black aspect-video mt-3">
+      <video ref={videoRef} src={`/api/video/${recordingId}?sessionId=${sessionId}`}
+        preload="metadata" playsInline className="w-full h-full object-contain"
+        onEnded={() => setPlaying(false)} onPause={() => setPlaying(false)} onPlay={() => setPlaying(true)} />
+      <button onClick={toggle} className="absolute inset-0 flex items-center justify-center bg-black/20 opacity-0 group-hover:opacity-100 transition-opacity">
+        <div className="w-12 h-12 rounded-full bg-white/90 flex items-center justify-center">
+          {playing ? <Pause size={18} className="text-black" /> : <Play size={18} className="text-black ml-0.5" />}
         </div>
       </button>
     </div>
@@ -94,196 +54,269 @@ function RushPreview({ recordingId, sessionId }: { recordingId: string; sessionI
 }
 
 /* ------------------------------------------------------------------ */
-/* Rush card (library)                                                  */
+/* Rush row — compact, library style                                   */
 /* ------------------------------------------------------------------ */
 
-function RushCard({
-  rush,
-  isAdded,
-  onAdd,
-  variant = 'canonical',
-}: {
-  rush: Rush
-  isAdded: boolean
-  onAdd: () => void
-  /** canonical = carte principale (candidat par défaut au montage). superseded = accordion variantes. */
-  variant?: 'canonical' | 'superseded'
-}) {
+function RushRow({ rush, isAdded, onAdd }: { rush: Rush; isAdded: boolean; onAdd: () => void }) {
   const [showPreview, setShowPreview] = useState(false)
   const fmt = rush.session.contentFormat ? FORMAT_CONFIGS[rush.session.contentFormat] : null
-  const preview = rush.transcript?.slice(0, 120) ?? rush.question?.text ?? 'Pas de transcription'
   const hasVideo = !!rush.rawVideoKey
-  const isSuperseded = variant === 'superseded'
-  const hasRecommendation = !!rush.kabouRecommendation
+  const label = rush.question?.text ?? rush.transcript?.slice(0, 80) ?? 'Rush'
 
   return (
-    <div className={`rounded-xl border-2 p-3 transition-all ${
-      isAdded
-        ? 'border-primary/30 bg-primary/5'
-        : isSuperseded
-          ? 'border-border/30 bg-muted/5 opacity-80'
-          : 'border-border/50 bg-card hover:border-primary/20'
-    }`}>
-      <div className="flex items-start gap-3">
-        {/* Play thumbnail button */}
-        {hasVideo && (
-          <button
-            onClick={() => setShowPreview(!showPreview)}
-            className="shrink-0 w-16 h-10 rounded-lg bg-black/80 flex items-center justify-center hover:bg-black/60 transition-colors relative overflow-hidden"
-          >
-            {showPreview
-              ? <Pause size={14} className="text-white" />
-              : <Play size={14} className="text-white ml-0.5" />
-            }
-          </button>
-        )}
-
-        <div className="flex-1 min-w-0">
-          {/* Format badge + theme + ⭐ (Story 10) */}
-          <div className="flex items-center gap-1.5 mb-1.5 flex-wrap">
-            {fmt && (
-              <span className="inline-flex items-center gap-1 text-[10px] font-semibold text-muted-foreground uppercase tracking-wide">
-                <span>{fmt.icon}</span>
-                <span>{fmt.label}</span>
-              </span>
-            )}
-            {rush.session.theme && (
-              <span className="text-[10px] text-muted-foreground/60 truncate">
-                {rush.session.theme.name}
-              </span>
-            )}
-            {hasRecommendation && !isSuperseded && (
-              <span
-                className="inline-flex items-center gap-0.5 rounded-full bg-amber-500/15 px-1.5 py-0.5 text-[10px] font-semibold text-amber-700 dark:text-amber-300"
-                title={rush.kabouRecommendation?.reason ?? 'Prise recommandée par Kabou'}
-              >
-                <Star size={9} className="fill-current" />
-                Kabou
-              </span>
-            )}
-            {isSuperseded && (
-              <span className="text-[10px] italic text-muted-foreground/60">Variante</span>
-            )}
-          </div>
-
-          {/* Question */}
-          {rush.question && (
-            <p className="text-xs font-semibold text-foreground mb-1 leading-relaxed line-clamp-1">
-              {rush.question.text}
-            </p>
-          )}
-          {/* Reason de la reco Kabou — seulement sur canonical pour éviter bruit */}
-          {hasRecommendation && !isSuperseded && rush.kabouRecommendation?.reason && (
-            <p className="mb-1 text-[11px] italic text-amber-700/80 dark:text-amber-300/80 line-clamp-2">
-              {rush.kabouRecommendation.reason}
-            </p>
-          )}
-
-          {/* Transcript preview */}
-          <p className="text-[11px] text-muted-foreground leading-relaxed line-clamp-2">
-            {preview}
-          </p>
-
-          <p className="text-[10px] text-muted-foreground/40 mt-1.5">
-            {new Date(rush.createdAt).toLocaleDateString('fr-FR', { day: 'numeric', month: 'short', year: 'numeric' })}
-          </p>
-        </div>
-
-        <button
-          onClick={onAdd}
-          disabled={isAdded}
-          className={`shrink-0 w-8 h-8 rounded-lg flex items-center justify-center transition-colors ${
-            isAdded
-              ? 'bg-primary/10 text-primary cursor-default'
-              : 'bg-muted/30 text-muted-foreground hover:bg-primary hover:text-primary-foreground'
-          }`}
-        >
-          {isAdded ? <Check size={14} /> : <Plus size={14} />}
+    <div className={`px-4 py-3 flex items-center gap-3 ${isAdded ? 'opacity-50' : ''}`}>
+      {/* Play */}
+      {hasVideo ? (
+        <button onClick={() => setShowPreview(v => !v)}
+          className="shrink-0 w-10 h-10 rounded-xl bg-black flex items-center justify-center active:opacity-70">
+          {showPreview ? <Pause size={12} className="text-white" /> : <Play size={12} className="text-white ml-0.5" />}
         </button>
+      ) : (
+        <div className="shrink-0 w-10 h-10 rounded-xl bg-muted/30 flex items-center justify-center">
+          <Film size={14} className="text-muted-foreground/40" />
+        </div>
+      )}
+
+      {/* Text */}
+      <div className="flex-1 min-w-0">
+        <div className="flex items-center gap-1.5">
+          {fmt && <span className="text-[11px] text-muted-foreground shrink-0">{fmt.icon}</span>}
+          {rush.kabouRecommendation && (
+            <Star size={10} className="text-amber-500 fill-current shrink-0" />
+          )}
+          <p className="text-[14px] font-semibold text-foreground truncate">{label}</p>
+        </div>
+        {rush.kabouRecommendation?.reason && (
+          <p className="text-[11px] text-amber-700/70 truncate mt-0.5">{rush.kabouRecommendation.reason}</p>
+        )}
       </div>
 
-      {/* Video preview */}
+      {/* Add */}
+      <button onClick={onAdd} disabled={isAdded}
+        className={`shrink-0 w-10 h-10 rounded-2xl flex items-center justify-center transition-colors ${
+          isAdded ? 'bg-primary/10 text-primary' : 'bg-primary text-white active:opacity-70'
+        }`}>
+        {isAdded ? <Check size={14} /> : <Plus size={16} />}
+      </button>
+
       {showPreview && hasVideo && (
-        <RushPreview recordingId={rush.id} sessionId={rush.session.id} />
+        <div className="col-span-full w-full">
+          <RushPreview recordingId={rush.id} sessionId={rush.session.id} />
+        </div>
       )}
     </div>
   )
 }
 
 /* ------------------------------------------------------------------ */
-/* Timeline clip (project)                                             */
+/* Timeline clip row                                                   */
 /* ------------------------------------------------------------------ */
 
-function TimelineClip({
-  clip,
-  onRemove,
-  onDragStart,
-  onDragOver,
-  onDrop,
-}: {
-  clip: ProjectClip
-  onRemove: () => void
+function TimelineRow({ clip, onRemove, onDragStart, onDragOver, onDrop }: {
+  clip: ProjectClip; onRemove: () => void
   onDragStart: (e: React.DragEvent) => void
   onDragOver: (e: React.DragEvent) => void
   onDrop: (e: React.DragEvent) => void
 }) {
-  const [showPreview, setShowPreview] = useState(false)
   const fmt = clip.recording.session.contentFormat ? FORMAT_CONFIGS[clip.recording.session.contentFormat] : null
-  const hasVideo = !!clip.recording.rawVideoKey
+  const label = clip.recording.question?.text ?? 'Rush'
 
   return (
-    <div
-      draggable
-      onDragStart={onDragStart}
-      onDragOver={onDragOver}
-      onDrop={onDrop}
-      className="rounded-xl border-2 border-border/50 bg-card p-3 hover:border-primary/20 transition-all cursor-grab active:cursor-grabbing"
-    >
-      <div className="flex items-center gap-2">
-        <GripVertical size={14} className="text-muted-foreground/30 shrink-0" />
-
-        <div className="w-6 h-6 rounded-lg bg-primary/10 flex items-center justify-center text-xs font-bold text-primary shrink-0">
-          {clip.order + 1}
-        </div>
-
-        {/* Play button */}
-        {hasVideo && (
-          <button
-            onClick={(e) => { e.stopPropagation(); setShowPreview(!showPreview) }}
-            className="shrink-0 w-8 h-8 rounded-lg bg-black/80 flex items-center justify-center hover:bg-black/60 transition-colors"
-          >
-            {showPreview
-              ? <Pause size={10} className="text-white" />
-              : <Play size={10} className="text-white ml-0.5" />
-            }
-          </button>
-        )}
-
-        <div className="flex-1 min-w-0">
-          <div className="flex items-center gap-1.5">
-            {fmt && <span className="text-xs">{fmt.icon}</span>}
-            <span className="text-xs font-semibold text-foreground truncate">
-              {clip.recording.question?.text ?? 'Rush'}
-            </span>
-          </div>
-          {clip.recording.session.theme && (
-            <p className="text-[10px] text-muted-foreground/60 truncate">{clip.recording.session.theme.name}</p>
-          )}
-        </div>
-
-        <button
-          onClick={onRemove}
-          className="shrink-0 p-1.5 text-muted-foreground/30 hover:text-red-500 hover:bg-red-500/10 rounded-lg transition-colors"
-        >
-          <X size={12} />
-        </button>
+    <div draggable onDragStart={onDragStart} onDragOver={onDragOver} onDrop={onDrop}
+      className="flex items-center gap-3 px-4 py-4 cursor-grab active:cursor-grabbing active:opacity-60">
+      <GripVertical size={16} className="text-muted-foreground/25 shrink-0" />
+      <div className="w-6 h-6 rounded-lg bg-primary/10 flex items-center justify-center text-[11px] font-black text-primary shrink-0">
+        {clip.order + 1}
       </div>
-
-      {/* Video preview */}
-      {showPreview && hasVideo && (
-        <RushPreview recordingId={clip.recording.id} sessionId={clip.recording.session.id} />
-      )}
+      {fmt && <span className="text-base shrink-0">{fmt.icon}</span>}
+      <p className="flex-1 text-[15px] font-semibold text-foreground truncate">{label}</p>
+      <button onClick={onRemove}
+        className="shrink-0 w-10 h-10 flex items-center justify-center text-muted-foreground/30 hover:text-red-500 rounded-xl transition-colors">
+        <X size={16} />
+      </button>
     </div>
+  )
+}
+
+/* ------------------------------------------------------------------ */
+/* Library bottom sheet                                                */
+/* ------------------------------------------------------------------ */
+
+function LibrarySheet({
+  open, onClose,
+  rushes, rushesLoading, addedIds,
+  formatFilter, setFormatFilter,
+  searchQuery, setSearchQuery,
+  availableFormats, groupedRushes,
+  collapsedSessions, toggleSession,
+  expandedVariants, toggleVariants,
+  onAdd, onAddMany,
+}: {
+  open: boolean; onClose: () => void
+  rushes: Rush[]; rushesLoading: boolean; addedIds: Set<string>
+  formatFilter: string; setFormatFilter: (v: string) => void
+  searchQuery: string; setSearchQuery: (v: string) => void
+  availableFormats: ContentFormat[]
+  groupedRushes: { session: Rush['session']; rushes: Rush[] }[]
+  collapsedSessions: Set<string>; toggleSession: (id: string) => void
+  expandedVariants: Set<string>; toggleVariants: (k: string) => void
+  onAdd: (id: string) => void; onAddMany: (ids: string[]) => void
+}) {
+  return (
+    <Drawer.Root open={open} onOpenChange={(v) => !v && onClose()}>
+      <Drawer.Portal>
+        <Drawer.Overlay className="fixed inset-0 bg-black/40 z-40" />
+        <Drawer.Content className="fixed bottom-0 left-0 right-0 z-50 flex flex-col bg-background rounded-t-3xl"
+          style={{ maxHeight: '92dvh' }}>
+          {/* Handle */}
+          <div className="flex justify-center pt-3 pb-1 shrink-0">
+            <div className="w-10 h-1 rounded-full bg-muted-foreground/20" />
+          </div>
+
+          {/* Header */}
+          <div className="flex items-center justify-between px-5 py-3 shrink-0">
+            <div>
+              <h2 className="text-[19px] font-black tracking-tight">Ajouter des rushes</h2>
+              <p className="text-[13px] text-muted-foreground">
+                {rushes.length} rush{rushes.length > 1 ? 'es' : ''} disponibles
+              </p>
+            </div>
+            <button onClick={onClose}
+              className="w-9 h-9 rounded-full bg-muted/40 flex items-center justify-center active:opacity-60">
+              <X size={18} className="text-muted-foreground" />
+            </button>
+          </div>
+
+          {/* Search */}
+          <div className="px-4 pb-3 shrink-0">
+            <div className="relative">
+              <Search size={15} className="absolute left-4 top-1/2 -translate-y-1/2 text-muted-foreground/40" />
+              <input
+                type="text"
+                placeholder="Rechercher…"
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                className="w-full h-11 pl-10 pr-4 rounded-2xl bg-surface text-[14px] outline-none focus:ring-2 focus:ring-primary/20"
+              />
+            </div>
+          </div>
+
+          {/* Format chips */}
+          {availableFormats.length > 0 && (
+            <div className="flex gap-2 px-4 pb-3 overflow-x-auto scrollbar-hide shrink-0">
+              <button
+                onClick={() => setFormatFilter('')}
+                className={`shrink-0 h-8 px-4 rounded-full text-[12px] font-semibold transition-colors ${
+                  formatFilter === '' ? 'bg-primary text-white' : 'bg-muted/40 text-muted-foreground'
+                }`}>
+                Tous
+              </button>
+              {availableFormats.map((f) => (
+                <button key={f}
+                  onClick={() => setFormatFilter(formatFilter === f ? '' : f)}
+                  className={`shrink-0 h-8 px-4 rounded-full text-[12px] font-semibold transition-colors ${
+                    formatFilter === f ? 'bg-primary text-white' : 'bg-muted/40 text-muted-foreground'
+                  }`}>
+                  {FORMAT_CONFIGS[f]?.icon} {FORMAT_CONFIGS[f]?.label}
+                </button>
+              ))}
+            </div>
+          )}
+
+          {/* List */}
+          <div className="flex-1 overflow-y-auto">
+            {rushesLoading ? (
+              <div className="space-y-3 px-4 py-2">
+                {Array.from({ length: 5 }).map((_, i) => (
+                  <div key={i} className="h-14 bg-muted/20 animate-pulse rounded-2xl" />
+                ))}
+              </div>
+            ) : rushes.length === 0 ? (
+              <div className="flex flex-col items-center justify-center py-16 gap-3 text-center px-6">
+                <Film size={32} className="text-muted-foreground/25" />
+                <p className="text-[15px] font-bold">Aucun rush disponible</p>
+                <p className="text-[13px] text-muted-foreground">Enregistre des sessions pour alimenter ta bibliothèque.</p>
+              </div>
+            ) : (
+              <div className="space-y-3 px-4 pb-6">
+                {groupedRushes.map(({ session, rushes: sr }) => {
+                  const fmt = session.contentFormat ? FORMAT_CONFIGS[session.contentFormat] : null
+                  const collapsed = collapsedSessions.has(session.id)
+                  const notAdded = sr.filter(r => !addedIds.has(r.id))
+                  const allAdded = notAdded.length === 0
+
+                  return (
+                    <div key={session.id} className="bg-surface rounded-3xl overflow-hidden">
+                      {/* Session header */}
+                      <div className="flex items-center gap-2 px-4 py-3 bg-muted/15">
+                        <button onClick={() => toggleSession(session.id)}
+                          className="w-8 h-8 flex items-center justify-center text-muted-foreground shrink-0">
+                          {collapsed ? <ChevronRight size={15} /> : <ChevronDown size={15} />}
+                        </button>
+                        <div className="flex-1 min-w-0">
+                          <div className="flex items-center gap-2">
+                            {fmt && <span className="text-[11px] font-bold text-muted-foreground uppercase">{fmt.icon} {fmt.label}</span>}
+                            {session.theme && <span className="text-[13px] font-bold text-foreground truncate">{session.theme.name}</span>}
+                          </div>
+                          <p className="text-[11px] text-muted-foreground/60">
+                            {sr.length} rush{sr.length > 1 ? 'es' : ''} · {sr.length - notAdded.length} ajouté{sr.length - notAdded.length > 1 ? 's' : ''}
+                          </p>
+                        </div>
+                        {!allAdded && (
+                          <button onClick={() => onAddMany(notAdded.map(r => r.id))}
+                            className="shrink-0 text-[12px] font-bold text-primary px-3 py-1.5 rounded-xl active:opacity-60 min-h-[36px]">
+                            Tout ajouter
+                          </button>
+                        )}
+                      </div>
+
+                      {!collapsed && (
+                        <div className="flex flex-col divide-y divide-muted/15">
+                          {(() => {
+                            const byQ = new Map<string, Rush[]>()
+                            for (const r of sr) {
+                              const qid = r.question?.id ?? '__noq__'
+                              byQ.set(qid, [...(byQ.get(qid) ?? []), r])
+                            }
+                            return Array.from(byQ.entries()).map(([qid, rushesForQ]) => {
+                              const canonical = rushesForQ.find(r => !r.supersededAt) ?? rushesForQ[0]
+                              const variants = rushesForQ.filter(r => r.id !== canonical.id)
+                              const qKey = `${session.id}::${qid}`
+                              const expanded = expandedVariants.has(qKey)
+                              return (
+                                <div key={qKey}>
+                                  <RushRow rush={canonical} isAdded={addedIds.has(canonical.id)} onAdd={() => onAdd(canonical.id)} />
+                                  {variants.length > 0 && (
+                                    <div className="px-4 pb-2">
+                                      <button onClick={() => toggleVariants(qKey)}
+                                        className="flex items-center gap-1 text-[11px] text-muted-foreground font-semibold active:opacity-60">
+                                        {expanded ? <ChevronDown size={11} /> : <ChevronRight size={11} />}
+                                        {variants.length} prise{variants.length > 1 ? 's' : ''} précédente{variants.length > 1 ? 's' : ''}
+                                      </button>
+                                      {expanded && (
+                                        <div className="mt-2 rounded-2xl overflow-hidden bg-muted/10 flex flex-col divide-y divide-muted/15">
+                                          {variants.map(r => (
+                                            <RushRow key={r.id} rush={r} isAdded={addedIds.has(r.id)} onAdd={() => onAdd(r.id)} />
+                                          ))}
+                                        </div>
+                                      )}
+                                    </div>
+                                  )}
+                                </div>
+                              )
+                            })
+                          })()}
+                        </div>
+                      )}
+                    </div>
+                  )
+                })}
+              </div>
+            )}
+          </div>
+        </Drawer.Content>
+      </Drawer.Portal>
+    </Drawer.Root>
   )
 }
 
@@ -297,18 +330,14 @@ export function ProjectDetail({ projectId }: { projectId: string }) {
   const [rushes, setRushes] = useState<Rush[]>([])
   const [loading, setLoading] = useState(true)
   const [rushesLoading, setRushesLoading] = useState(true)
-  const [adding, setAdding] = useState<string | null>(null)
-
-  // Filters
-  const [formatFilter, setFormatFilter] = useState<string>('')
+  const [libraryOpen, setLibraryOpen] = useState(false)
+  const [formatFilter, setFormatFilter] = useState('')
   const [searchQuery, setSearchQuery] = useState('')
-
-  // Title editing
   const [editingTitle, setEditingTitle] = useState(false)
   const [titleDraft, setTitleDraft] = useState('')
-
-  // Drag state
   const [dragIdx, setDragIdx] = useState<number | null>(null)
+  const [collapsedSessions, setCollapsedSessions] = useState<Set<string>>(new Set())
+  const [expandedVariants, setExpandedVariants] = useState<Set<string>>(new Set())
 
   const fetchProject = useCallback(async () => {
     try {
@@ -318,8 +347,7 @@ export function ProjectDetail({ projectId }: { projectId: string }) {
         const found = (Array.isArray(data) ? data : []).find((p: Project) => p.id === projectId)
         if (found) setProject(found)
       }
-    } catch { /* */ }
-    finally { setLoading(false) }
+    } catch { /* */ } finally { setLoading(false) }
   }, [projectId])
 
   const fetchRushes = useCallback(async () => {
@@ -329,42 +357,31 @@ export function ProjectDetail({ projectId }: { projectId: string }) {
       if (formatFilter) params.set('format', formatFilter)
       if (searchQuery) params.set('search', searchQuery)
       const res = await fetch(`/api/projects/rushes?${params}`, { credentials: 'include' })
-      if (res.ok) {
-        const data = await res.json()
-        setRushes(Array.isArray(data) ? data : [])
-      }
-    } catch { /* */ }
-    finally { setRushesLoading(false) }
+      if (res.ok) { const data = await res.json(); setRushes(Array.isArray(data) ? data : []) }
+    } catch { /* */ } finally { setRushesLoading(false) }
   }, [formatFilter, searchQuery])
 
   useEffect(() => { fetchProject() }, [fetchProject])
-  useEffect(() => { fetchRushes() }, [fetchRushes])
+  useEffect(() => { if (libraryOpen) fetchRushes() }, [fetchRushes, libraryOpen])
 
-  const addedIds = useMemo(
-    () => new Set(project?.clips.map((c) => c.recording.id) ?? []),
-    [project],
-  )
+  const addedIds = useMemo(() => new Set(project?.clips.map(c => c.recording.id) ?? []), [project])
 
   async function handleAddRush(recordingId: string) {
-    setAdding(recordingId)
     try {
-      const res = await fetch('/api/projects/clips', {
-        method: 'POST',
-        credentials: 'include',
+      await fetch('/api/projects/clips', {
+        method: 'POST', credentials: 'include',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ projectId, recordingId }),
       })
-      if (res.ok) await fetchProject()
+      await fetchProject()
     } catch { /* */ }
-    finally { setAdding(null) }
   }
 
-  async function handleAddManyRushes(recordingIds: string[]) {
-    for (const id of recordingIds) {
+  async function handleAddMany(ids: string[]) {
+    for (const id of ids) {
       try {
         await fetch('/api/projects/clips', {
-          method: 'POST',
-          credentials: 'include',
+          method: 'POST', credentials: 'include',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ projectId, recordingId: id }),
         })
@@ -376,8 +393,7 @@ export function ProjectDetail({ projectId }: { projectId: string }) {
   async function handleRemoveClip(clipId: string) {
     try {
       await fetch('/api/projects/clips', {
-        method: 'DELETE',
-        credentials: 'include',
+        method: 'DELETE', credentials: 'include',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ projectId, clipId }),
       })
@@ -392,13 +408,11 @@ export function ProjectDetail({ projectId }: { projectId: string }) {
     clips.splice(toIdx, 0, moved)
     const reordered = clips.map((c, i) => ({ ...c, order: i }))
     setProject({ ...project, clips: reordered })
-
     try {
       await fetch('/api/projects/clips', {
-        method: 'PATCH',
-        credentials: 'include',
+        method: 'PATCH', credentials: 'include',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ projectId, clipIds: reordered.map((c) => c.id) }),
+        body: JSON.stringify({ projectId, clipIds: reordered.map(c => c.id) }),
       })
     } catch { await fetchProject() }
   }
@@ -409,347 +423,190 @@ export function ProjectDetail({ projectId }: { projectId: string }) {
     setProject({ ...project, title: titleDraft.trim() })
     try {
       await fetch('/api/projects', {
-        method: 'PATCH',
-        credentials: 'include',
+        method: 'PATCH', credentials: 'include',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ id: projectId, title: titleDraft.trim() }),
       })
     } catch { /* */ }
   }
 
-  // Available formats for filter dropdown
   const availableFormats = useMemo(() => {
-    const fmts = new Set(rushes.map((r) => r.session.contentFormat).filter(Boolean))
+    const fmts = new Set(rushes.map(r => r.session.contentFormat).filter(Boolean))
     return [...fmts] as ContentFormat[]
   }, [rushes])
 
-  // Group rushes by session, ordered by most recent session first
   const groupedRushes = useMemo(() => {
     const map = new Map<string, { session: Rush['session']; rushes: Rush[] }>()
     for (const r of rushes) {
-      const entry = map.get(r.session.id)
-      if (entry) entry.rushes.push(r)
+      const e = map.get(r.session.id)
+      if (e) e.rushes.push(r)
       else map.set(r.session.id, { session: r.session, rushes: [r] })
     }
-    return Array.from(map.values()).sort(
-      (a, b) => new Date(b.session.createdAt).getTime() - new Date(a.session.createdAt).getTime(),
+    return Array.from(map.values()).sort((a, b) =>
+      new Date(b.session.createdAt).getTime() - new Date(a.session.createdAt).getTime()
     )
   }, [rushes])
 
-  // Expanded-session state (defaults to all expanded)
-  const [collapsedSessions, setCollapsedSessions] = useState<Set<string>>(new Set())
-  const toggleSession = (sid: string) => {
-    setCollapsedSessions(prev => {
-      const next = new Set(prev)
-      if (next.has(sid)) next.delete(sid)
-      else next.add(sid)
-      return next
-    })
-  }
-
-  // Story 9 — variants accordion par questionId (superseded collapsed).
-  const [expandedQuestionVariants, setExpandedQuestionVariants] = useState<Set<string>>(new Set())
-  const toggleQuestionVariants = (qKey: string) => {
-    setExpandedQuestionVariants(prev => {
-      const next = new Set(prev)
-      if (next.has(qKey)) next.delete(qKey)
-      else next.add(qKey)
-      return next
-    })
-  }
+  const toggleSession = (id: string) =>
+    setCollapsedSessions(prev => { const n = new Set(prev); n.has(id) ? n.delete(id) : n.add(id); return n })
+  const toggleVariants = (k: string) =>
+    setExpandedVariants(prev => { const n = new Set(prev); n.has(k) ? n.delete(k) : n.add(k); return n })
 
   if (loading) {
     return (
-      <div className="max-w-7xl mx-auto px-4 py-6 md:py-8 space-y-6">
-        {/* Header skeleton */}
-        <div className="flex items-center gap-3">
-          <div className="w-9 h-9 rounded-xl bg-muted animate-pulse" />
-          <div className="flex-1 min-w-0 space-y-2">
-            <div className="h-6 w-56 bg-muted animate-pulse rounded-lg" />
-            <div className="h-3.5 w-32 bg-muted animate-pulse rounded-md" />
-          </div>
-          <div className="h-9 w-28 bg-muted animate-pulse rounded-lg" />
-        </div>
-
-        {/* Two-column skeleton */}
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-          {/* LEFT: Timeline skeleton */}
-          <div className="space-y-3">
-            <div className="h-4 w-24 bg-muted animate-pulse rounded-md" />
-            <div className="space-y-2">
-              {Array.from({ length: 3 }).map((_, i) => (
-                <div key={i} className="h-16 bg-muted animate-pulse rounded-xl" />
-              ))}
-            </div>
-          </div>
-
-          {/* RIGHT: Library skeleton */}
-          <div className="space-y-3">
-            <div className="h-4 w-40 bg-muted animate-pulse rounded-md" />
-            <div className="flex items-center gap-2">
-              <div className="h-9 flex-1 bg-muted animate-pulse rounded-xl" />
-              <div className="h-9 w-36 bg-muted animate-pulse rounded-xl" />
-            </div>
-            <div className="space-y-2">
-              {Array.from({ length: 4 }).map((_, i) => (
-                <div key={i} className="h-20 bg-muted animate-pulse rounded-xl" />
-              ))}
-            </div>
-          </div>
-        </div>
+      <div className="max-w-2xl mx-auto px-4 py-6 space-y-4">
+        <div className="w-24 h-8 bg-muted/30 animate-pulse rounded-xl" />
+        <div className="w-48 h-9 bg-muted/30 animate-pulse rounded-xl" />
+        {Array.from({ length: 4 }).map((_, i) => (
+          <div key={i} className="h-16 bg-muted/20 animate-pulse rounded-2xl" />
+        ))}
       </div>
     )
   }
 
   if (!project) {
     return (
-      <div className="flex flex-col items-center justify-center min-h-[60vh] gap-3 text-center">
-        <p className="text-muted-foreground">Projet introuvable</p>
-        <Button onClick={() => router.push('/projects')} variant="outline" size="sm">
-          <ArrowLeft size={14} className="mr-2" /> Retour
-        </Button>
+      <div className="flex flex-col items-center justify-center min-h-[60vh] gap-4 px-6 text-center">
+        <p className="text-lg font-bold">Projet introuvable</p>
+        <button onClick={() => router.push('/projects')}
+          className="flex items-center gap-2 text-primary font-bold text-[15px] active:opacity-60">
+          <ArrowLeft size={18} strokeWidth={2.5} /> Retour
+        </button>
       </div>
     )
   }
 
   const sortedClips = [...project.clips].sort((a, b) => a.order - b.order)
+  const hasMontage = sortedClips.length > 0
 
   return (
-    <div className="max-w-7xl mx-auto px-4 py-6 md:py-8 space-y-6">
-      {/* Header */}
-      <div className="flex items-center gap-3">
-        <button
-          onClick={() => router.push('/projects')}
-          className="p-2 rounded-xl text-muted-foreground hover:text-foreground hover:bg-muted/50 transition-colors"
+    <>
+      <div
+        className="max-w-2xl mx-auto"
+        style={{ paddingBottom: 'calc(88px + env(safe-area-inset-bottom, 0px))' }}
+      >
+        {/* ── Back header ── */}
+        <div
+          className="sticky top-0 z-20 flex items-center justify-between px-4 py-2"
+          style={{ background: 'rgba(250,250,247,0.94)', backdropFilter: 'blur(16px)', WebkitBackdropFilter: 'blur(16px)' }}
         >
-          <ArrowLeft size={18} />
-        </button>
-        <div className="flex-1 min-w-0">
+          <button
+            onClick={() => router.push('/projects')}
+            className="flex items-center gap-1 text-primary font-bold text-[16px] min-h-[44px] active:opacity-60 select-none"
+          >
+            <ArrowLeft size={22} strokeWidth={2.5} /> Studio
+          </button>
+          {hasMontage && (
+            <button
+              onClick={() => router.push(`/process/project/${projectId}`)}
+              className="hidden md:flex items-center gap-2 h-11 px-5 bg-primary text-white rounded-2xl text-[14px] font-bold active:opacity-80"
+            >
+              <Clapperboard size={16} /> Monter
+            </button>
+          )}
+        </div>
+
+        {/* ── Title ── */}
+        <div className="px-4 pt-3 pb-6">
           {editingTitle ? (
-            <input
-              autoFocus
-              value={titleDraft}
-              onChange={(e) => setTitleDraft(e.target.value)}
+            <input autoFocus value={titleDraft}
+              onChange={e => setTitleDraft(e.target.value)}
               onBlur={handleTitleSave}
-              onKeyDown={(e) => e.key === 'Enter' && handleTitleSave()}
-              className="text-xl font-bold tracking-tight text-foreground bg-transparent border-b-2 border-primary outline-none w-full"
-            />
+              onKeyDown={e => e.key === 'Enter' && handleTitleSave()}
+              className="text-3xl font-black tracking-tight text-foreground bg-transparent outline-none w-full border-b-2 border-primary pb-1" />
           ) : (
             <h1
               onClick={() => { setEditingTitle(true); setTitleDraft(project.title) }}
-              className="text-xl font-bold tracking-tight text-foreground cursor-text hover:text-primary transition-colors"
+              className="text-3xl font-black tracking-tight text-foreground cursor-text"
             >
               {project.title}
             </h1>
           )}
-          <p className="text-sm text-muted-foreground mt-0.5">
-            {sortedClips.length} rush{sortedClips.length > 1 ? 'es' : ''} dans le projet
+          <p className="text-[14px] text-muted-foreground mt-1">
+            {sortedClips.length} rush{sortedClips.length > 1 ? 'es' : ''} sélectionné{sortedClips.length > 1 ? 's' : ''}
           </p>
         </div>
 
-        {sortedClips.length > 0 && (
-          <Button
-            onClick={() => router.push(`/process/project/${projectId}`)}
-            className="gap-2 shrink-0"
-          >
-            <Clapperboard size={16} />
-            Monter
-          </Button>
+        {/* ── Timeline ── */}
+        <p className="text-[11px] font-black uppercase tracking-[0.8px] text-muted-foreground px-4 pb-3">
+          Sélection
+        </p>
+
+        {sortedClips.length === 0 ? (
+          <div className="mx-4 bg-surface rounded-3xl px-6 py-12 text-center flex flex-col items-center gap-3">
+            <Film size={36} className="text-muted-foreground/20" />
+            <p className="text-[17px] font-bold text-foreground">Aucun rush sélectionné</p>
+            <p className="text-[14px] text-muted-foreground leading-relaxed max-w-[220px]">
+              Ajoute des rushes depuis ta bibliothèque pour composer ta vidéo.
+            </p>
+          </div>
+        ) : (
+          <div className="mx-4 bg-surface rounded-3xl overflow-hidden flex flex-col divide-y divide-muted/15">
+            {sortedClips.map((clip, idx) => (
+              <TimelineRow
+                key={clip.id}
+                clip={clip}
+                onRemove={() => handleRemoveClip(clip.id)}
+                onDragStart={() => setDragIdx(idx)}
+                onDragOver={e => e.preventDefault()}
+                onDrop={() => { if (dragIdx !== null) handleReorder(dragIdx, idx); setDragIdx(null) }}
+              />
+            ))}
+          </div>
         )}
       </div>
 
-      {/* Two-column layout */}
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-        {/* LEFT: Project timeline */}
-        <div className="space-y-3">
-          <div className="flex items-center justify-between">
-            <h2 className="text-sm font-semibold text-foreground uppercase tracking-wider">Timeline</h2>
-          </div>
-
-          {sortedClips.length === 0 ? (
-            <div className="rounded-xl border-2 border-dashed border-border/50 p-8 text-center">
-              <Film size={24} className="mx-auto text-muted-foreground/30 mb-2" />
-              <p className="text-sm text-muted-foreground">
-                Ajoute des rushes depuis la bibliotheque
-              </p>
-            </div>
-          ) : (
-            <div className="space-y-2">
-              {sortedClips.map((clip, idx) => (
-                <TimelineClip
-                  key={clip.id}
-                  clip={clip}
-                  onRemove={() => handleRemoveClip(clip.id)}
-                  onDragStart={() => setDragIdx(idx)}
-                  onDragOver={(e) => e.preventDefault()}
-                  onDrop={() => {
-                    if (dragIdx !== null) handleReorder(dragIdx, idx)
-                    setDragIdx(null)
-                  }}
-                />
-              ))}
-            </div>
-          )}
-        </div>
-
-        {/* RIGHT: Rush library */}
-        <div className="space-y-3">
-          <h2 className="text-sm font-semibold text-foreground uppercase tracking-wider">Bibliotheque de rushes</h2>
-
-          {/* Filters */}
-          <div className="flex items-center gap-2">
-            <div className="relative flex-1">
-              <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground/40" />
-              <input
-                type="text"
-                placeholder="Rechercher..."
-                value={searchQuery}
-                onChange={(e) => setSearchQuery(e.target.value)}
-                className="w-full h-9 pl-9 pr-3 rounded-xl bg-muted/20 border border-border/50 text-sm text-foreground placeholder:text-muted-foreground/40 outline-none focus:ring-1 focus:ring-primary/30"
-              />
-            </div>
-            <div className="relative">
-              <select
-                value={formatFilter}
-                onChange={(e) => setFormatFilter(e.target.value)}
-                className="h-9 pl-3 pr-8 rounded-xl bg-muted/20 border border-border/50 text-xs text-foreground outline-none focus:ring-1 focus:ring-primary/30 appearance-none cursor-pointer"
-              >
-                <option value="">Tous les formats</option>
-                {availableFormats.map((f) => (
-                  <option key={f} value={f}>{FORMAT_CONFIGS[f]?.icon} {FORMAT_CONFIGS[f]?.label}</option>
-                ))}
-              </select>
-              <ChevronDown size={12} className="absolute right-2.5 top-1/2 -translate-y-1/2 text-muted-foreground/40 pointer-events-none" />
-            </div>
-          </div>
-
-          {/* Rush list */}
-          {rushesLoading ? (
-            <div className="space-y-2">
-              {Array.from({ length: 4 }).map((_, i) => (
-                <div key={i} className="h-20 bg-muted/20 animate-pulse rounded-xl" />
-              ))}
-            </div>
-          ) : rushes.length === 0 ? (
-            <div className="rounded-xl border-2 border-dashed border-border/50 p-8 text-center">
-              <Film size={24} className="mx-auto text-muted-foreground/30 mb-2" />
-              <p className="text-sm text-muted-foreground">
-                Aucun rush disponible. Enregistre des sessions pour alimenter ta bibliotheque.
-              </p>
-            </div>
-          ) : (
-            <div className="space-y-3 max-h-[65vh] overflow-y-auto custom-scrollbar pr-1">
-              {groupedRushes.map(({ session, rushes: sessionRushes }) => {
-                const collapsed = collapsedSessions.has(session.id)
-                const fmt = session.contentFormat ? FORMAT_CONFIGS[session.contentFormat] : null
-                const notAddedInSession = sessionRushes.filter(r => !addedIds.has(r.id))
-                const allAdded = notAddedInSession.length === 0
-                return (
-                  <div key={session.id} className="rounded-xl border border-border/50 bg-muted/10 overflow-hidden">
-                    <div className="flex items-center gap-2 px-3 py-2 bg-muted/20">
-                      <button
-                        onClick={() => toggleSession(session.id)}
-                        className="shrink-0 text-muted-foreground/60 hover:text-foreground transition-colors"
-                      >
-                        {collapsed ? <ChevronRight size={14} /> : <ChevronDown size={14} />}
-                      </button>
-                      <div className="flex-1 min-w-0">
-                        <div className="flex items-center gap-2 flex-wrap">
-                          {fmt && (
-                            <span className="inline-flex items-center gap-1 text-[10px] font-semibold text-muted-foreground uppercase tracking-wide">
-                              <span>{fmt.icon}</span>
-                              <span>{fmt.label}</span>
-                            </span>
-                          )}
-                          {session.theme && (
-                            <span className="text-xs font-semibold text-foreground truncate">
-                              {session.theme.name}
-                            </span>
-                          )}
-                          <span className="text-[10px] text-muted-foreground/60">
-                            {new Date(session.createdAt).toLocaleDateString('fr-FR', { day: 'numeric', month: 'short', year: 'numeric' })}
-                          </span>
-                        </div>
-                        <p className="text-[10px] text-muted-foreground/60 mt-0.5">
-                          {sessionRushes.length} rush{sessionRushes.length > 1 ? 'es' : ''} · {sessionRushes.length - notAddedInSession.length} ajouté{sessionRushes.length - notAddedInSession.length > 1 ? 's' : ''}
-                        </p>
-                      </div>
-                      <button
-                        onClick={() => !allAdded && handleAddManyRushes(notAddedInSession.map(r => r.id))}
-                        disabled={allAdded}
-                        className={`shrink-0 text-[11px] font-semibold px-2 py-1 rounded-lg transition-colors ${
-                          allAdded
-                            ? 'text-muted-foreground/40 cursor-default'
-                            : 'text-primary hover:bg-primary/10'
-                        }`}
-                      >
-                        {allAdded ? 'Tous ajoutés' : 'Tout ajouter'}
-                      </button>
-                    </div>
-                    {!collapsed && (
-                      <div className="p-2 space-y-2">
-                        {/* Story 9 — sub-grouping par questionId avec canonical
-                           en haut + accordion "Prises précédentes" (superseded). */}
-                        {(() => {
-                          const byQuestion = new Map<string, Rush[]>()
-                          // rushes triés createdAt DESC par le backend → first = canonical naturelle
-                          for (const r of sessionRushes) {
-                            const qid = r.question?.id ?? '__no_question__'
-                            const list = byQuestion.get(qid) ?? []
-                            list.push(r)
-                            byQuestion.set(qid, list)
-                          }
-                          return Array.from(byQuestion.entries()).map(([qid, rushesForQ]) => {
-                            const canonical = rushesForQ.find((r) => !r.supersededAt) ?? rushesForQ[0]
-                            const variants = rushesForQ.filter((r) => r.id !== canonical.id)
-                            const qKey = `${session.id}::${qid}`
-                            const expanded = expandedQuestionVariants.has(qKey)
-                            return (
-                              <div key={qKey} className="space-y-1.5">
-                                <RushCard
-                                  rush={canonical}
-                                  isAdded={addedIds.has(canonical.id)}
-                                  onAdd={() => handleAddRush(canonical.id)}
-                                  variant="canonical"
-                                />
-                                {variants.length > 0 && (
-                                  <div className="pl-3">
-                                    <button
-                                      type="button"
-                                      onClick={() => toggleQuestionVariants(qKey)}
-                                      className="flex items-center gap-1 text-[10px] text-muted-foreground hover:text-foreground transition-colors"
-                                    >
-                                      {expanded ? <ChevronDown size={10} /> : <ChevronRight size={10} />}
-                                      Prises précédentes ({variants.length})
-                                    </button>
-                                    {expanded && (
-                                      <div className="mt-1.5 space-y-1.5">
-                                        {variants.map((r) => (
-                                          <RushCard
-                                            key={r.id}
-                                            rush={r}
-                                            isAdded={addedIds.has(r.id)}
-                                            onAdd={() => handleAddRush(r.id)}
-                                            variant="superseded"
-                                          />
-                                        ))}
-                                      </div>
-                                    )}
-                                  </div>
-                                )}
-                              </div>
-                            )
-                          })
-                        })()}
-                      </div>
-                    )}
-                  </div>
-                )
-              })}
-            </div>
-          )}
-        </div>
+      {/* ── Fixed bottom bar ── */}
+      <div
+        className="fixed bottom-0 inset-x-0 z-30 flex flex-col gap-2 px-4 pt-3"
+        style={{
+          maxWidth: 672, margin: '0 auto',
+          background: 'rgba(250,250,247,0.96)',
+          backdropFilter: 'blur(20px)',
+          WebkitBackdropFilter: 'blur(20px)',
+          paddingBottom: 'calc(16px + env(safe-area-inset-bottom, 0px))',
+        }}
+      >
+        {hasMontage && (
+          <button
+            onClick={() => router.push(`/process/project/${projectId}`)}
+            className="md:hidden w-full h-14 bg-primary text-white rounded-2xl text-[15px] font-bold flex items-center justify-center gap-2.5 active:opacity-80"
+          >
+            <Clapperboard size={18} /> Lancer le montage
+          </button>
+        )}
+        <button
+          onClick={() => setLibraryOpen(true)}
+          className={`w-full h-12 rounded-2xl text-[14px] font-bold flex items-center justify-center gap-2 active:opacity-80 transition-colors ${
+            hasMontage
+              ? 'bg-surface text-foreground'
+              : 'bg-primary text-white'
+          }`}
+        >
+          <Plus size={18} strokeWidth={2.5} /> Ajouter des rushes
+        </button>
       </div>
-    </div>
+
+      {/* ── Library bottom sheet ── */}
+      <LibrarySheet
+        open={libraryOpen}
+        onClose={() => setLibraryOpen(false)}
+        rushes={rushes}
+        rushesLoading={rushesLoading}
+        addedIds={addedIds}
+        formatFilter={formatFilter}
+        setFormatFilter={setFormatFilter}
+        searchQuery={searchQuery}
+        setSearchQuery={setSearchQuery}
+        availableFormats={availableFormats}
+        groupedRushes={groupedRushes}
+        collapsedSessions={collapsedSessions}
+        toggleSession={toggleSession}
+        expandedVariants={expandedVariants}
+        toggleVariants={toggleVariants}
+        onAdd={handleAddRush}
+        onAddMany={handleAddMany}
+      />
+    </>
   )
 }
