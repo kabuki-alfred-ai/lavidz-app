@@ -1087,6 +1087,488 @@ export function ProcessView({ recordings, themeName, sessionId, themeSlug, monta
     </div>
   )
 
+
+  const easyPanelProps = ({
+                energyLevel: energyLevel,
+                silenceCutEnabled: silenceCutEnabled,
+                silenceCutDone: silenceCutDone,
+                silenceRemovedSec: silenceRemovedSec,
+                brandKitApplied: brandKitApplied,
+                subtitleSettings: subtitleSettings,
+                audioSettings: audioSettings,
+                motionSettings: motionSettings,
+                coldOpenEnabled: coldOpenEnabled,
+                coldOpenPhrase: coldOpenData?.hookPhrase ?? null,
+                coldOpenCandidates: coldOpenCandidates,
+                coldOpenSelectedPhrase: coldOpenData?.hookPhrase ?? null,
+                coldOpenLoading: coldOpenLoading,
+                onSelectColdOpenCandidate: (idx: number) => {
+                  const c = coldOpenCandidates[idx]
+                  if (!c) return
+                  setColdOpenData({
+                    hookPhrase: c.hookPhrase,
+                    startInSeconds: c.startInSeconds,
+                    endInSeconds: c.endInSeconds,
+                    segmentId: c.segmentId,
+                  })
+                  setColdOpenEnabled(true)
+                },
+                onRegenerateColdOpen: () => { try { runColdOpenBound() } catch {} },
+                coldOpenStart: coldOpenData?.startInSeconds,
+                coldOpenEnd: coldOpenData?.endInSeconds,
+                coldOpenFontSize: coldOpenFontSize,
+                coldOpenTextPosition: coldOpenTextPosition,
+                coldOpenTextColor: coldOpenTextColor,
+                onColdOpenPhraseChange: (newPhrase: string) => {
+                  setColdOpenData(prev => prev ? { ...prev, hookPhrase: newPhrase } : prev)
+                },
+                onColdOpenFontSizeChange: setColdOpenFontSize,
+                onColdOpenTextPositionChange: setColdOpenTextPosition,
+                onColdOpenTextColorChange: setColdOpenTextColor,
+                onColdOpenDurationChange: (sec: number) => {
+                  setColdOpenData(prev => prev
+                    ? { ...prev, endInSeconds: prev.startInSeconds + sec }
+                    : prev
+                  )
+                },
+                bRollSuggestions: bRollSuggestions,
+                bRollItems: bRollItems,
+                autoApplying: autoApplying,
+                format: format,
+                animatedEmojis: !!subtitleSettings.animatedEmojis,
+                inlaysEnabled: inlaysEnabled,
+                regenerating: regenerating,
+                ready: ready,
+                onEnergyChange: handleEnergyChange,
+                onSubtitleStyleChange: handleEasySubtitleStyle,
+                onMusicChange: handleEasyMusic,
+                onColdOpenToggle: () => setColdOpenEnabled(prev => !prev),
+                onBRollSelect: handleBRollSelect,
+                onBRollRemove: handleBRollRemove,
+                onFormatChange: (f: string) => setFormat(f as FormatKey),
+                onMotionToggle: (key: keyof import('@/remotion/themeTypes').MotionSettings) => setMotionSettings(prev => ({ ...prev, [key]: !prev[key] })),
+                onTransitionChange: (style: string) => setMotionSettings(prev => ({ ...prev, transitionStyle: style as any })),
+                onAnimatedEmojisToggle: async () => {
+                  // The visual toggle considers both flags — align the logic with what the user sees
+                  const isCurrentlyOn = !!subtitleSettings.animatedEmojis && inlaysEnabled
+                  const enabling = !isCurrentlyOn
+                  setSubtitleSettings(prev => ({ ...prev, animatedEmojis: enabling }))
+                  setInlaysEnabled(enabling)
+                  if (!enabling) return
+                  // Re-use existing emoji data if present; only fetch when empty
+                  if (Object.keys(wordEmojisBySegmentId).length > 0) return
+                  const newMap: Record<string, { word: string; emoji: string }[]> = {}
+                  for (const rec of recordings) {
+                    if (!rec.transcript || rec.transcript.length < 10) continue
+                    const wts = rec.wordTimestamps ?? []
+                    try {
+                      const res = await fetch('/api/cold-open', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({
+                          transcript: rec.transcript,
+                          wordTimestamps: wts,
+                          segmentId: rec.id,
+                          videoDurationSeconds: wts.length > 0 ? (wts[wts.length - 1] as any).end + 1 : 60,
+                        }),
+                      })
+                      if (res.ok) {
+                        const data = await res.json()
+                        if (data.wordEmojis?.length) newMap[rec.id] = data.wordEmojis
+                      } else {
+                        console.warn(`[emoji] cold-open failed for ${rec.id}:`, res.status, await res.text())
+                      }
+                    } catch (e) {
+                      console.warn(`[emoji] cold-open error for ${rec.id}:`, e)
+                    }
+                  }
+                  if (Object.keys(newMap).length) {
+                    setWordEmojisBySegmentId(newMap)
+                  }
+                },
+                onInlaysToggle: () => setInlaysEnabled(prev => !prev),
+                onApplyChanges: applyVoice,
+                onRunAiSuggestions: fetchBRollSuggestions,
+                badTakesEnabled: badTakesEnabled,
+                badTakesRemovedCount: badTakesRemovedCount,
+                onBadTakesToggle: () => {
+                  const nextEnabled = !badTakesEnabled
+                  setBadTakesEnabled(nextEnabled)
+
+                  if (nextEnabled) {
+                    // Snapshot original timestamps for undo
+                    const snapshot: Record<string, WordTimestamp[]> = {}
+                    const cleaned: Record<string, WordTimestamp[]> = {}
+                    let totalRemoved = 0
+
+                    // French fillers & hesitations
+                    const FILLER_PATTERN = /^(euh|heu|hmm|bah|ben|hein|quoi|genre|voila|voilà|du coup|en fait|tu vois|tu sais)[.,!?;:]?$/i
+
+                    for (const rec of recordings) {
+                      let words = wordTimestampsMap[rec.id] ?? []
+                      if (!words.length && rec.wordTimestamps) {
+                        words = rec.wordTimestamps as WordTimestamp[]
+                      }
+                      if (!words.length) continue
+
+                      snapshot[rec.id] = words.map(w => ({ ...w }))
+
+                      const filtered: WordTimestamp[] = []
+                      let lastKept: WordTimestamp | null = null
+
+                      for (let i = 0; i < words.length; i++) {
+                        const w = words[i]
+                        const normalized = w.word.trim().toLowerCase().replace(/[.,!?;:]/g, '')
+
+                        // Skip if filler word
+                        if (FILLER_PATTERN.test(w.word.trim().toLowerCase())) {
+                          totalRemoved++
+                          continue
+                        }
+
+                        // Skip if same word as the previous kept one AND close in time (< 0.6s gap) → repetition
+                        if (lastKept
+                          && lastKept.word.trim().toLowerCase().replace(/[.,!?;:]/g, '') === normalized
+                          && w.start - lastKept.end < 0.6
+                          && normalized.length > 1
+                        ) {
+                          totalRemoved++
+                          continue
+                        }
+
+                        // Skip if consecutive 2-3 word phrase repetition (false start)
+                        // Check if the next 2 words repeat what came before
+                        if (i + 2 < words.length && filtered.length >= 2) {
+                          const a = filtered[filtered.length - 1].word.trim().toLowerCase().replace(/[.,!?;:]/g, '')
+                          const b = filtered[filtered.length - 2].word.trim().toLowerCase().replace(/[.,!?;:]/g, '')
+                          const x = words[i].word.trim().toLowerCase().replace(/[.,!?;:]/g, '')
+                          const y = words[i + 1].word.trim().toLowerCase().replace(/[.,!?;:]/g, '')
+                          if (a === y && b === x && x.length > 1 && y.length > 1) {
+                            // False start like "je vais faire je vais faire"
+                            totalRemoved += 2
+                            i += 1 // skip next one too
+                            continue
+                          }
+                        }
+
+                        filtered.push(w)
+                        lastKept = w
+                      }
+
+                      cleaned[rec.id] = filtered
+                    }
+
+                    badTakesSnapshotRef.current = snapshot
+                    setWordTimestampsMap(prev => ({ ...prev, ...cleaned }))
+                    setBadTakesRemovedCount(totalRemoved)
+                  } else {
+                    // Restore from snapshot, or fall back to source timestamps after reload
+                    if (badTakesSnapshotRef.current) {
+                      const snap = badTakesSnapshotRef.current
+                      setWordTimestampsMap(prev => ({ ...prev, ...snap }))
+                      badTakesSnapshotRef.current = null
+                    } else if (Object.keys(sourceWordTimestampsRef.current).length) {
+                      const src: Record<string, WordTimestamp[]> = {}
+                      for (const rec of recordings) {
+                        const s = sourceWordTimestampsRef.current[rec.id]
+                        if (s?.length) src[rec.id] = s.map(w => ({ ...w }))
+                      }
+                      if (Object.keys(src).length) {
+                        setWordTimestampsMap(prev => ({ ...prev, ...src }))
+                      }
+                    }
+                    setBadTakesRemovedCount(0)
+                  }
+                },
+                onBRollReplace: (itemId: string, replacement: Partial<import('@/remotion/themeTypes').BRollItem>) => {
+                  if ((replacement as any).videoUrl === '__REMOVE__') {
+                    setBRollItems(prev => prev.filter(b => b.id !== itemId))
+                    return
+                  }
+                  setBRollItems(prev => prev.map(b => b.id === itemId ? { ...b, ...replacement } : b))
+                  setBRollEnabled(true)
+                },
+                onBRollAddAtTime: (timestampSec: number, durationSec: number, data: Partial<import('@/remotion/themeTypes').BRollItem>) => {
+                  const newItem: import('@/remotion/themeTypes').BRollItem = {
+                    id: `manual-${Date.now()}`,
+                    timestampSeconds: timestampSec,
+                    durationSeconds: durationSec,
+                    videoUrl: data.videoUrl ?? '',
+                    thumbnailUrl: data.thumbnailUrl ?? '',
+                    pexelsId: data.pexelsId,
+                    searchQuery: data.searchQuery ?? '',
+                  }
+                  setBRollItems(prev => [...prev, newItem])
+                  setBRollEnabled(true)
+                },
+                onBRollReAsk: async (itemId: string) => {
+                  const item = bRollItems.find(b => b.id === itemId)
+                  if (!item) return
+                  // Re-search with a different query hint (use the searchQuery plus "alternative")
+                  try {
+                    const q = item.searchQuery ? `${item.searchQuery} alternative` : 'professional footage'
+                    const res = await fetch(`/api/admin/broll/search?q=${encodeURIComponent(q)}&perPage=8`, { credentials: 'include' })
+                    if (!res.ok) return
+                    const results = await res.json()
+                    // Pick a random result different from the current one
+                    const alt = results.find((r: any) => r.url !== item.videoUrl) ?? results[0]
+                    if (alt) {
+                      setBRollItems(prev => prev.map(b => b.id === itemId ? {
+                        ...b,
+                        videoUrl: alt.url,
+                        thumbnailUrl: alt.thumbnailUrl,
+                        pexelsId: alt.pexelsId,
+                        searchQuery: q,
+                      } : b))
+                    }
+                  } catch { /* */ }
+                },
+                onBRollsAutoToggle: async () => {
+                  if (bRollItems.length > 0) {
+                    // Clear all B-rolls
+                    setBRollEnabled(false)
+                    setBRollItems([])
+                    return
+                  }
+                  // Fetch suggestions and auto-apply first result of each
+                  let withResults = bRollSuggestions
+                  if (withResults.length === 0) {
+                    withResults = await fetchBRollSuggestions()
+                  }
+                  const autoItems: import('@/remotion/themeTypes').BRollItem[] = withResults
+                    .filter((s: any) => s.results?.length > 0)
+                    .map((s: any) => ({
+                      id: `auto-${s.timestamp}`,
+                      timestampSeconds: s.timestamp,
+                      durationSeconds: s.duration || 3,
+                      videoUrl: s.results[0].url,
+                      thumbnailUrl: s.results[0].thumbnailUrl,
+                      pexelsId: s.results[0].pexelsId,
+                      searchQuery: s.searchQuery,
+                    }))
+                  if (autoItems.length > 0) {
+                    setBRollEnabled(true)
+                    setBRollItems(autoItems)
+                  }
+                },
+                onSilenceCutToggle: () => {
+                  const nextEnabled = !silenceCutEnabled
+                  setSilenceCutEnabled(nextEnabled)
+                  setFillerCutEnabled(nextEnabled)
+
+                  // Display-only: count detected silences. Actual cutting happens on "Appliquer".
+                  if (nextEnabled) {
+                    const SILENCE_THRESHOLD = 0.5
+                    let totalSilence = 0
+                    for (const rec of recordings) {
+                      let words = wordTimestampsMap[rec.id] ?? []
+                      if (!words.length && rec.wordTimestamps) {
+                        words = rec.wordTimestamps as WordTimestamp[]
+                      }
+                      for (let i = 1; i < words.length; i++) {
+                        const gap = words[i].start - words[i - 1].end
+                        if (gap >= SILENCE_THRESHOLD) totalSilence += gap
+                      }
+                    }
+                    setSilenceRemovedSec(totalSilence)
+                    setSilenceCutDone(false) // not actually done until user clicks Apply
+                  } else {
+                    setSilenceCutDone(false)
+                    setSilenceRemovedSec(0)
+                  }
+                },
+                cleanAudioEnabled: denoiseEnabled && denoiseStrength === 'isolate',
+                onCleanAudioToggle: () => {
+                  if (denoiseEnabled && denoiseStrength === 'isolate') {
+                    setDenoiseEnabled(false)
+                  } else {
+                    setDenoiseEnabled(true)
+                    setDenoiseStrength('isolate')
+                  }
+                },
+                wordsByRecording: wordTimestampsMap,
+                recordingsList: recordings.map(r => ({ id: r.id, questionText: r.questionText })),
+                onSubtitleSettingsPartial: (partial: Partial<import('@/remotion/subtitleTypes').SubtitleSettings>) => setSubtitleSettings(prev => ({ ...prev, ...partial })),
+                onWordEdit: (recordingId: string, wordIndex: number, newWord: string) => {
+                  setWordTimestampsMap(prev => {
+                    const words = [...(prev[recordingId] ?? [])]
+                    if (words[wordIndex]) words[wordIndex] = { ...words[wordIndex], word: newWord }
+                    return { ...prev, [recordingId]: words }
+                  })
+                  setLocalTranscripts(prev => {
+                    const words = wordTimestampsMap[recordingId] ?? []
+                    const updated = words.map((w, i) => i === wordIndex ? newWord : w.word).join(' ')
+                    return { ...prev, [recordingId]: updated }
+                  })
+                },
+                getActiveRecordingTime: () => {
+                  const tl = segmentTimelineRef.current
+                  const f = playerFrameRef.current
+                  for (const seg of tl) {
+                    if (f >= seg.startFrame && f < seg.endFrame) {
+                      return { recordingId: seg.id, timeSec: (f - seg.startFrame) / FPS }
+                    }
+                  }
+                  return null
+                },
+                onSeek: (recordingId: string, timeSec: number) => {
+                  const segInfo = segmentTimelineRef.current.find(s => s.id === recordingId)
+                  if (!segInfo) return
+                  const frame = segInfo.startFrame + Math.round(timeSec * FPS)
+                  ;(playerRef.current as any)?.seekTo?.(frame)
+                },
+                onDeleteWord: (recordingId: string, wordIndex: number) => {
+                  setWordTimestampsMap(prev => {
+                    const words = [...(prev[recordingId] ?? [])]
+                    words.splice(wordIndex, 1)
+                    return { ...prev, [recordingId]: words }
+                  })
+                },
+                onAddWord: (recordingId: string, afterWordIndex: number) => {
+                  setWordTimestampsMap(prev => {
+                    const words = [...(prev[recordingId] ?? [])]
+                    const prevWord = words[afterWordIndex]
+                    const nextWord = words[afterWordIndex + 1]
+                    const start = prevWord?.end ?? 0
+                    const end = nextWord?.start ?? start + 0.3
+                    const newWord = { word: 'nouveau', start, end: Math.min(end, start + 0.3) }
+                    words.splice(afterWordIndex + 1, 0, newWord)
+                    return { ...prev, [recordingId]: words }
+                  })
+                },
+                onDeleteChunk: (recordingId: string, startIdx: number, endIdx: number) => {
+                  setWordTimestampsMap(prev => {
+                    const words = [...(prev[recordingId] ?? [])]
+                    words.splice(startIdx, endIdx - startIdx + 1)
+                    return { ...prev, [recordingId]: words }
+                  })
+                },
+                wordEmojisBySegmentId: wordEmojisBySegmentId,
+                onEmojiSet: (recordingId: string, word: string, emoji: string) => {
+                  setWordEmojisBySegmentId(prev => {
+                    const list = [...(prev[recordingId] ?? [])]
+                    const existing = list.findIndex(e => e.word.toLowerCase() === word.toLowerCase())
+                    if (existing >= 0) {
+                      list[existing] = { word, emoji }
+                    } else {
+                      list.push({ word, emoji })
+                    }
+                    return { ...prev, [recordingId]: list }
+                  })
+                  // Make sure animated emojis are enabled when user adds one
+                  setInlaysEnabled(true)
+                  setSubtitleSettings(prev => ({ ...prev, animatedEmojis: true }))
+                },
+                onEmojiRemove: (recordingId: string, word: string) => {
+                  setWordEmojisBySegmentId(prev => {
+                    const list = (prev[recordingId] ?? []).filter(e => e.word.toLowerCase() !== word.toLowerCase())
+                    return { ...prev, [recordingId]: list }
+                  })
+                },
+                trimSelected: trimSelected,
+                setTrimSelected: setTrimSelected,
+                trimDeleted: trimDeleted,
+                setTrimDeleted: setTrimDeleted,
+                onEditSubViewChange: setEasyEditSubView,
+                intro: intro,
+                setIntro: setIntro,
+                outro: outro,
+                setOutro: setOutro,
+                theme: theme,
+                setAudioSettings: setAudioSettings,
+                soundLibrary: soundLibrary,
+                soundPreviewAudioRef: soundPreviewAudioRef,
+                onBRollsAutoApply: async (percent: number) => {
+                  let withResults = bRollSuggestions
+                  if (withResults.length === 0) {
+                    withResults = await fetchBRollSuggestions()
+                  }
+                  const eligible = withResults.filter((s: any) => s.results?.length > 0)
+                  const count = Math.max(1, Math.round(eligible.length * (percent / 100)))
+                  const picked = eligible.slice(0, count)
+                  const autoItems: import('@/remotion/themeTypes').BRollItem[] = picked.map((s: any) => ({
+                    id: `auto-${s.timestamp}`,
+                    timestampSeconds: s.timestamp,
+                    durationSeconds: s.duration || 3,
+                    videoUrl: s.results[0].url,
+                    thumbnailUrl: s.results[0].thumbnailUrl,
+                    pexelsId: s.results[0].pexelsId,
+                    searchQuery: s.searchQuery,
+                  }))
+                  if (autoItems.length > 0) {
+                    setBRollEnabled(true)
+                    setBRollItems(autoItems)
+                  }
+                },
+                onBRollsClear: () => {
+                  setBRollEnabled(false)
+                  setBRollItems([])
+                },
+                onApplyBrandKitToSlide: async (target: 'intro' | 'outro') => {
+                  try {
+                    const res = await fetch('/api/admin/brand-kit', { credentials: 'include' })
+                    if (!res.ok) {
+                      const text = await res.text().catch(() => '')
+                      return { ok: false, message: `${res.status} ${text.slice(0, 200) || 'Brand kit inaccessible'}` }
+                    }
+                    const bk = await res.json()
+                    if (!bk) return { ok: false, message: 'Aucun brand kit configuré' }
+
+                    const hasAnything =
+                      bk.logoUrl || bk.primaryColor || bk.secondaryColor || bk.accentColor || bk.fontTitle
+                    if (!hasAnything) return { ok: false, message: 'Brand kit vide' }
+
+                    const bgColor = target === 'outro'
+                      ? (bk.secondaryColor || bk.primaryColor)
+                      : bk.primaryColor
+                    const accentColor = bk.accentColor || bk.secondaryColor
+                    const fontFamily = bk.fontTitle
+
+                    const patch = (p: any) => ({
+                      ...p,
+                      ...(bk.logoUrl ? { logoUrl: bk.logoUrl } : {}),
+                      ...(bgColor ? { bgColor } : {}),
+                      ...(accentColor ? { accentColor } : {}),
+                      ...(fontFamily ? { fontFamily } : {}),
+                      preset: 'custom',
+                    })
+
+                    if (target === 'intro') setIntro(patch)
+                    else setOutro(patch)
+
+                    return { ok: true }
+                  } catch (e: any) {
+                    return { ok: false, message: e?.message ?? 'Erreur réseau' }
+                  }
+                },
+                onRequestIntroHookSuggestions: async () => {
+                  const aggregated = recordings
+                    .map(r => r.transcript)
+                    .filter((t): t is string => !!t && t.length > 0)
+                    .join('\n\n')
+                  if (aggregated.length < 40) {
+                    throw new Error('Transcription insuffisante pour générer des suggestions')
+                  }
+                  const res = await fetch('/api/intro-hooks', {
+                    method: 'POST',
+                    credentials: 'include',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                      transcript: aggregated,
+                      topic: themeName,
+                      format,
+                    }),
+                  })
+                  if (!res.ok) {
+                    const msg = await res.text()
+                    throw new Error(msg || `Erreur ${res.status}`)
+                  }
+                  const data = await res.json()
+                  return (data.hooks ?? []).map((h: { phrase: string }) => h.phrase).filter(Boolean)
+                },
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  })
+
   // ── Render ─────────────────────────────────────────────────────────────────
 
   return (
@@ -1201,41 +1683,20 @@ export function ProcessView({ recordings, themeName, sessionId, themeSlug, monta
       {/* MAIN BODY */}
       {isMobile ? (
         <div style={{ flex: 1, display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
-          <div style={{ flex: 1, minHeight: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', background: '#000', overflow: 'hidden' }}>
-            {ready && segments ? (
+          {/* Mobile player preview (compact) */}
+          {ready && segments && (
+            <div style={{ flexShrink: 0, background: '#000', display: 'flex', alignItems: 'center', justifyContent: 'center', maxHeight: '35dvh', overflow: 'hidden' }}>
               <Player ref={playerRef as any} component={LavidzComposition as any}
                 inputProps={{ segments: effectiveSegments, questionCardFrames: effectiveQuestionCardFrames, subtitleSettings, theme, intro, outro, fps: FPS, motionSettings: effectiveMotionSettings, audioSettings }}
                 durationInFrames={totalFrames} fps={FPS} compositionWidth={fmt.width} compositionHeight={fmt.height}
-                style={{ maxWidth: '100%', maxHeight: '100%', aspectRatio: `${fmt.width} / ${fmt.height}`, display: 'block' }}
-                playbackRate={playbackRate} showPlaybackRateControl controls clickToPlay />
-            ) : (
-              <p style={{ color: S.dim, fontSize: 11, fontFamily: 'monospace', textAlign: 'center', lineHeight: 1.7 }}>
-                Configurez vos param\u00e8tres<br />puis cliquez sur <strong style={{ color: S.muted }}>G\u00e9n\u00e9rer</strong>
-              </p>
-            )}
-          </div>
-          {/* Mobile phase tabs */}
-          <div style={{ display: 'flex', borderBottom: `1px solid ${S.border}`, flexShrink: 0 }}>
-            {PHASES.map((phase, i) => (
-              <button key={phase.id} onClick={() => setCurrentPhase(i)}
-                style={{ flex: 1, padding: '10px 4px', fontSize: 11, fontWeight: currentPhase === i ? 700 : 500, background: 'transparent', border: 'none', borderBottom: currentPhase === i ? '2px solid #fff' : '2px solid transparent', color: currentPhase === i ? S.text : S.muted }}>
-                {phase.label}
-              </button>
-            ))}
-          </div>
-          <div style={{ flex: 1, overflowY: 'auto', padding: '14px 16px 24px' }}>
-            {moduleContent}
-          </div>
-          {renderOutputUrl && sessionId && (
-            <div style={{ padding: '8px 16px', borderTop: `1px solid ${S.border}`, flexShrink: 0 }}>
-              {delivered ? <p style={{ textAlign: 'center', fontSize: 12, color: 'rgb(52,211,153)', fontFamily: 'monospace' }}>Email envoy\u00e9</p> : (
-                <button disabled={delivering} onClick={async () => { setDelivering(true); setDeliverError(''); try { const r = await fetch(`/api/admin/sessions/${sessionId}/deliver`, { method: 'POST' }); if (!r.ok) throw new Error(await r.text()); setDelivered(true) } catch (e) { setDeliverError(String(e)) } finally { setDelivering(false) } }}
-                  style={{ width: '100%', padding: '10px', borderRadius: 10, fontSize: 12, fontWeight: 600, cursor: 'pointer', background: 'rgba(52,211,153,0.12)', border: '1px solid rgba(52,211,153,0.25)', color: 'rgb(52,211,153)' }}>
-                  {delivering ? 'Envoi...' : 'Envoyer au client'}
-                </button>
-              )}
+                style={{ maxWidth: '100%', maxHeight: '35dvh', aspectRatio: `${fmt.width} / ${fmt.height}`, display: 'block' }}
+                playbackRate={playbackRate} showPlaybackRateControl={false} controls={false} clickToPlay />
             </div>
           )}
+          {/* Mobile easy mode panel */}
+          <div style={{ flex: 1, overflowY: 'auto', padding: '16px 16px 24px', background: '#F8F8FA' }}>
+            <EasyModePanel {...easyPanelProps} />
+          </div>
         </div>
       ) : (
         /* Desktop: icon sidebar + content panel + canvas right */
@@ -1250,485 +1711,7 @@ export function ProcessView({ recordings, themeName, sessionId, themeSlug, monta
               padding: '20px 24px', background: '#FFFFFF',
               borderRadius: 12, border: '1px solid #EBEBEF',
             }}>
-              <EasyModePanel
-                energyLevel={energyLevel}
-                silenceCutEnabled={silenceCutEnabled}
-                silenceCutDone={silenceCutDone}
-                silenceRemovedSec={silenceRemovedSec}
-                brandKitApplied={brandKitApplied}
-                subtitleSettings={subtitleSettings}
-                audioSettings={audioSettings}
-                motionSettings={motionSettings}
-                coldOpenEnabled={coldOpenEnabled}
-                coldOpenPhrase={coldOpenData?.hookPhrase ?? null}
-                coldOpenCandidates={coldOpenCandidates}
-                coldOpenSelectedPhrase={coldOpenData?.hookPhrase ?? null}
-                coldOpenLoading={coldOpenLoading}
-                onSelectColdOpenCandidate={(idx: number) => {
-                  const c = coldOpenCandidates[idx]
-                  if (!c) return
-                  setColdOpenData({
-                    hookPhrase: c.hookPhrase,
-                    startInSeconds: c.startInSeconds,
-                    endInSeconds: c.endInSeconds,
-                    segmentId: c.segmentId,
-                  })
-                  setColdOpenEnabled(true)
-                }}
-                onRegenerateColdOpen={() => { try { runColdOpenBound() } catch {} }}
-                coldOpenStart={coldOpenData?.startInSeconds}
-                coldOpenEnd={coldOpenData?.endInSeconds}
-                coldOpenFontSize={coldOpenFontSize}
-                coldOpenTextPosition={coldOpenTextPosition}
-                coldOpenTextColor={coldOpenTextColor}
-                onColdOpenPhraseChange={(newPhrase) => {
-                  setColdOpenData(prev => prev ? { ...prev, hookPhrase: newPhrase } : prev)
-                }}
-                onColdOpenFontSizeChange={setColdOpenFontSize}
-                onColdOpenTextPositionChange={setColdOpenTextPosition}
-                onColdOpenTextColorChange={setColdOpenTextColor}
-                onColdOpenDurationChange={(sec) => {
-                  setColdOpenData(prev => prev
-                    ? { ...prev, endInSeconds: prev.startInSeconds + sec }
-                    : prev
-                  )
-                }}
-                bRollSuggestions={bRollSuggestions}
-                bRollItems={bRollItems}
-                autoApplying={autoApplying}
-                format={format}
-                animatedEmojis={!!subtitleSettings.animatedEmojis}
-                inlaysEnabled={inlaysEnabled}
-                regenerating={regenerating}
-                ready={ready}
-                onEnergyChange={handleEnergyChange}
-                onSubtitleStyleChange={handleEasySubtitleStyle}
-                onMusicChange={handleEasyMusic}
-                onColdOpenToggle={() => setColdOpenEnabled(prev => !prev)}
-                onBRollSelect={handleBRollSelect}
-                onBRollRemove={handleBRollRemove}
-                onFormatChange={(f) => setFormat(f as FormatKey)}
-                onMotionToggle={(key) => setMotionSettings(prev => ({ ...prev, [key]: !prev[key] }))}
-                onTransitionChange={(style) => setMotionSettings(prev => ({ ...prev, transitionStyle: style as any }))}
-                onAnimatedEmojisToggle={async () => {
-                  // The visual toggle considers both flags — align the logic with what the user sees
-                  const isCurrentlyOn = !!subtitleSettings.animatedEmojis && inlaysEnabled
-                  const enabling = !isCurrentlyOn
-                  setSubtitleSettings(prev => ({ ...prev, animatedEmojis: enabling }))
-                  setInlaysEnabled(enabling)
-                  if (!enabling) return
-                  // Re-use existing emoji data if present; only fetch when empty
-                  if (Object.keys(wordEmojisBySegmentId).length > 0) return
-                  const newMap: Record<string, { word: string; emoji: string }[]> = {}
-                  for (const rec of recordings) {
-                    if (!rec.transcript || rec.transcript.length < 10) continue
-                    const wts = rec.wordTimestamps ?? []
-                    try {
-                      const res = await fetch('/api/cold-open', {
-                        method: 'POST',
-                        headers: { 'Content-Type': 'application/json' },
-                        body: JSON.stringify({
-                          transcript: rec.transcript,
-                          wordTimestamps: wts,
-                          segmentId: rec.id,
-                          videoDurationSeconds: wts.length > 0 ? (wts[wts.length - 1] as any).end + 1 : 60,
-                        }),
-                      })
-                      if (res.ok) {
-                        const data = await res.json()
-                        if (data.wordEmojis?.length) newMap[rec.id] = data.wordEmojis
-                      } else {
-                        console.warn(`[emoji] cold-open failed for ${rec.id}:`, res.status, await res.text())
-                      }
-                    } catch (e) {
-                      console.warn(`[emoji] cold-open error for ${rec.id}:`, e)
-                    }
-                  }
-                  if (Object.keys(newMap).length) {
-                    setWordEmojisBySegmentId(newMap)
-                  }
-                }}
-                onInlaysToggle={() => setInlaysEnabled(prev => !prev)}
-                onApplyChanges={applyVoice}
-                onRunAiSuggestions={fetchBRollSuggestions}
-                badTakesEnabled={badTakesEnabled}
-                badTakesRemovedCount={badTakesRemovedCount}
-                onBadTakesToggle={() => {
-                  const nextEnabled = !badTakesEnabled
-                  setBadTakesEnabled(nextEnabled)
-
-                  if (nextEnabled) {
-                    // Snapshot original timestamps for undo
-                    const snapshot: Record<string, WordTimestamp[]> = {}
-                    const cleaned: Record<string, WordTimestamp[]> = {}
-                    let totalRemoved = 0
-
-                    // French fillers & hesitations
-                    const FILLER_PATTERN = /^(euh|heu|hmm|bah|ben|hein|quoi|genre|voila|voilà|du coup|en fait|tu vois|tu sais)[.,!?;:]?$/i
-
-                    for (const rec of recordings) {
-                      let words = wordTimestampsMap[rec.id] ?? []
-                      if (!words.length && rec.wordTimestamps) {
-                        words = rec.wordTimestamps as WordTimestamp[]
-                      }
-                      if (!words.length) continue
-
-                      snapshot[rec.id] = words.map(w => ({ ...w }))
-
-                      const filtered: WordTimestamp[] = []
-                      let lastKept: WordTimestamp | null = null
-
-                      for (let i = 0; i < words.length; i++) {
-                        const w = words[i]
-                        const normalized = w.word.trim().toLowerCase().replace(/[.,!?;:]/g, '')
-
-                        // Skip if filler word
-                        if (FILLER_PATTERN.test(w.word.trim().toLowerCase())) {
-                          totalRemoved++
-                          continue
-                        }
-
-                        // Skip if same word as the previous kept one AND close in time (< 0.6s gap) → repetition
-                        if (lastKept
-                          && lastKept.word.trim().toLowerCase().replace(/[.,!?;:]/g, '') === normalized
-                          && w.start - lastKept.end < 0.6
-                          && normalized.length > 1
-                        ) {
-                          totalRemoved++
-                          continue
-                        }
-
-                        // Skip if consecutive 2-3 word phrase repetition (false start)
-                        // Check if the next 2 words repeat what came before
-                        if (i + 2 < words.length && filtered.length >= 2) {
-                          const a = filtered[filtered.length - 1].word.trim().toLowerCase().replace(/[.,!?;:]/g, '')
-                          const b = filtered[filtered.length - 2].word.trim().toLowerCase().replace(/[.,!?;:]/g, '')
-                          const x = words[i].word.trim().toLowerCase().replace(/[.,!?;:]/g, '')
-                          const y = words[i + 1].word.trim().toLowerCase().replace(/[.,!?;:]/g, '')
-                          if (a === y && b === x && x.length > 1 && y.length > 1) {
-                            // False start like "je vais faire je vais faire"
-                            totalRemoved += 2
-                            i += 1 // skip next one too
-                            continue
-                          }
-                        }
-
-                        filtered.push(w)
-                        lastKept = w
-                      }
-
-                      cleaned[rec.id] = filtered
-                    }
-
-                    badTakesSnapshotRef.current = snapshot
-                    setWordTimestampsMap(prev => ({ ...prev, ...cleaned }))
-                    setBadTakesRemovedCount(totalRemoved)
-                  } else {
-                    // Restore from snapshot, or fall back to source timestamps after reload
-                    if (badTakesSnapshotRef.current) {
-                      const snap = badTakesSnapshotRef.current
-                      setWordTimestampsMap(prev => ({ ...prev, ...snap }))
-                      badTakesSnapshotRef.current = null
-                    } else if (Object.keys(sourceWordTimestampsRef.current).length) {
-                      const src: Record<string, WordTimestamp[]> = {}
-                      for (const rec of recordings) {
-                        const s = sourceWordTimestampsRef.current[rec.id]
-                        if (s?.length) src[rec.id] = s.map(w => ({ ...w }))
-                      }
-                      if (Object.keys(src).length) {
-                        setWordTimestampsMap(prev => ({ ...prev, ...src }))
-                      }
-                    }
-                    setBadTakesRemovedCount(0)
-                  }
-                }}
-                onBRollReplace={(itemId, replacement) => {
-                  if ((replacement as any).videoUrl === '__REMOVE__') {
-                    setBRollItems(prev => prev.filter(b => b.id !== itemId))
-                    return
-                  }
-                  setBRollItems(prev => prev.map(b => b.id === itemId ? { ...b, ...replacement } : b))
-                  setBRollEnabled(true)
-                }}
-                onBRollAddAtTime={(timestampSec, durationSec, data) => {
-                  const newItem: import('@/remotion/themeTypes').BRollItem = {
-                    id: `manual-${Date.now()}`,
-                    timestampSeconds: timestampSec,
-                    durationSeconds: durationSec,
-                    videoUrl: data.videoUrl ?? '',
-                    thumbnailUrl: data.thumbnailUrl ?? '',
-                    pexelsId: data.pexelsId,
-                    searchQuery: data.searchQuery ?? '',
-                  }
-                  setBRollItems(prev => [...prev, newItem])
-                  setBRollEnabled(true)
-                }}
-                onBRollReAsk={async (itemId) => {
-                  const item = bRollItems.find(b => b.id === itemId)
-                  if (!item) return
-                  // Re-search with a different query hint (use the searchQuery plus "alternative")
-                  try {
-                    const q = item.searchQuery ? `${item.searchQuery} alternative` : 'professional footage'
-                    const res = await fetch(`/api/admin/broll/search?q=${encodeURIComponent(q)}&perPage=8`, { credentials: 'include' })
-                    if (!res.ok) return
-                    const results = await res.json()
-                    // Pick a random result different from the current one
-                    const alt = results.find((r: any) => r.url !== item.videoUrl) ?? results[0]
-                    if (alt) {
-                      setBRollItems(prev => prev.map(b => b.id === itemId ? {
-                        ...b,
-                        videoUrl: alt.url,
-                        thumbnailUrl: alt.thumbnailUrl,
-                        pexelsId: alt.pexelsId,
-                        searchQuery: q,
-                      } : b))
-                    }
-                  } catch { /* */ }
-                }}
-                onBRollsAutoToggle={async () => {
-                  if (bRollItems.length > 0) {
-                    // Clear all B-rolls
-                    setBRollEnabled(false)
-                    setBRollItems([])
-                    return
-                  }
-                  // Fetch suggestions and auto-apply first result of each
-                  let withResults = bRollSuggestions
-                  if (withResults.length === 0) {
-                    withResults = await fetchBRollSuggestions()
-                  }
-                  const autoItems: import('@/remotion/themeTypes').BRollItem[] = withResults
-                    .filter((s: any) => s.results?.length > 0)
-                    .map((s: any) => ({
-                      id: `auto-${s.timestamp}`,
-                      timestampSeconds: s.timestamp,
-                      durationSeconds: s.duration || 3,
-                      videoUrl: s.results[0].url,
-                      thumbnailUrl: s.results[0].thumbnailUrl,
-                      pexelsId: s.results[0].pexelsId,
-                      searchQuery: s.searchQuery,
-                    }))
-                  if (autoItems.length > 0) {
-                    setBRollEnabled(true)
-                    setBRollItems(autoItems)
-                  }
-                }}
-                onSilenceCutToggle={() => {
-                  const nextEnabled = !silenceCutEnabled
-                  setSilenceCutEnabled(nextEnabled)
-                  setFillerCutEnabled(nextEnabled)
-
-                  // Display-only: count detected silences. Actual cutting happens on "Appliquer".
-                  if (nextEnabled) {
-                    const SILENCE_THRESHOLD = 0.5
-                    let totalSilence = 0
-                    for (const rec of recordings) {
-                      let words = wordTimestampsMap[rec.id] ?? []
-                      if (!words.length && rec.wordTimestamps) {
-                        words = rec.wordTimestamps as WordTimestamp[]
-                      }
-                      for (let i = 1; i < words.length; i++) {
-                        const gap = words[i].start - words[i - 1].end
-                        if (gap >= SILENCE_THRESHOLD) totalSilence += gap
-                      }
-                    }
-                    setSilenceRemovedSec(totalSilence)
-                    setSilenceCutDone(false) // not actually done until user clicks Apply
-                  } else {
-                    setSilenceCutDone(false)
-                    setSilenceRemovedSec(0)
-                  }
-                }}
-                cleanAudioEnabled={denoiseEnabled && denoiseStrength === 'isolate'}
-                onCleanAudioToggle={() => {
-                  if (denoiseEnabled && denoiseStrength === 'isolate') {
-                    setDenoiseEnabled(false)
-                  } else {
-                    setDenoiseEnabled(true)
-                    setDenoiseStrength('isolate')
-                  }
-                }}
-                wordsByRecording={wordTimestampsMap}
-                recordingsList={recordings.map(r => ({ id: r.id, questionText: r.questionText }))}
-                onSubtitleSettingsPartial={(partial) => setSubtitleSettings(prev => ({ ...prev, ...partial }))}
-                onWordEdit={(recordingId, wordIndex, newWord) => {
-                  setWordTimestampsMap(prev => {
-                    const words = [...(prev[recordingId] ?? [])]
-                    if (words[wordIndex]) words[wordIndex] = { ...words[wordIndex], word: newWord }
-                    return { ...prev, [recordingId]: words }
-                  })
-                  setLocalTranscripts(prev => {
-                    const words = wordTimestampsMap[recordingId] ?? []
-                    const updated = words.map((w, i) => i === wordIndex ? newWord : w.word).join(' ')
-                    return { ...prev, [recordingId]: updated }
-                  })
-                }}
-                getActiveRecordingTime={() => {
-                  const tl = segmentTimelineRef.current
-                  const f = playerFrameRef.current
-                  for (const seg of tl) {
-                    if (f >= seg.startFrame && f < seg.endFrame) {
-                      return { recordingId: seg.id, timeSec: (f - seg.startFrame) / FPS }
-                    }
-                  }
-                  return null
-                }}
-                onSeek={(recordingId, timeSec) => {
-                  const segInfo = segmentTimelineRef.current.find(s => s.id === recordingId)
-                  if (!segInfo) return
-                  const frame = segInfo.startFrame + Math.round(timeSec * FPS)
-                  ;(playerRef.current as any)?.seekTo?.(frame)
-                }}
-                onDeleteWord={(recordingId, wordIndex) => {
-                  setWordTimestampsMap(prev => {
-                    const words = [...(prev[recordingId] ?? [])]
-                    words.splice(wordIndex, 1)
-                    return { ...prev, [recordingId]: words }
-                  })
-                }}
-                onAddWord={(recordingId, afterWordIndex) => {
-                  setWordTimestampsMap(prev => {
-                    const words = [...(prev[recordingId] ?? [])]
-                    const prevWord = words[afterWordIndex]
-                    const nextWord = words[afterWordIndex + 1]
-                    const start = prevWord?.end ?? 0
-                    const end = nextWord?.start ?? start + 0.3
-                    const newWord = { word: 'nouveau', start, end: Math.min(end, start + 0.3) }
-                    words.splice(afterWordIndex + 1, 0, newWord)
-                    return { ...prev, [recordingId]: words }
-                  })
-                }}
-                onDeleteChunk={(recordingId, startIdx, endIdx) => {
-                  setWordTimestampsMap(prev => {
-                    const words = [...(prev[recordingId] ?? [])]
-                    words.splice(startIdx, endIdx - startIdx + 1)
-                    return { ...prev, [recordingId]: words }
-                  })
-                }}
-                wordEmojisBySegmentId={wordEmojisBySegmentId}
-                onEmojiSet={(recordingId, word, emoji) => {
-                  setWordEmojisBySegmentId(prev => {
-                    const list = [...(prev[recordingId] ?? [])]
-                    const existing = list.findIndex(e => e.word.toLowerCase() === word.toLowerCase())
-                    if (existing >= 0) {
-                      list[existing] = { word, emoji }
-                    } else {
-                      list.push({ word, emoji })
-                    }
-                    return { ...prev, [recordingId]: list }
-                  })
-                  // Make sure animated emojis are enabled when user adds one
-                  setInlaysEnabled(true)
-                  setSubtitleSettings(prev => ({ ...prev, animatedEmojis: true }))
-                }}
-                onEmojiRemove={(recordingId, word) => {
-                  setWordEmojisBySegmentId(prev => {
-                    const list = (prev[recordingId] ?? []).filter(e => e.word.toLowerCase() !== word.toLowerCase())
-                    return { ...prev, [recordingId]: list }
-                  })
-                }}
-                trimSelected={trimSelected}
-                setTrimSelected={setTrimSelected}
-                trimDeleted={trimDeleted}
-                setTrimDeleted={setTrimDeleted}
-                onEditSubViewChange={setEasyEditSubView}
-                intro={intro}
-                setIntro={setIntro}
-                outro={outro}
-                setOutro={setOutro}
-                theme={theme}
-                setAudioSettings={setAudioSettings}
-                soundLibrary={soundLibrary}
-                soundPreviewAudioRef={soundPreviewAudioRef}
-                onBRollsAutoApply={async (percent) => {
-                  let withResults = bRollSuggestions
-                  if (withResults.length === 0) {
-                    withResults = await fetchBRollSuggestions()
-                  }
-                  const eligible = withResults.filter((s: any) => s.results?.length > 0)
-                  const count = Math.max(1, Math.round(eligible.length * (percent / 100)))
-                  const picked = eligible.slice(0, count)
-                  const autoItems: import('@/remotion/themeTypes').BRollItem[] = picked.map((s: any) => ({
-                    id: `auto-${s.timestamp}`,
-                    timestampSeconds: s.timestamp,
-                    durationSeconds: s.duration || 3,
-                    videoUrl: s.results[0].url,
-                    thumbnailUrl: s.results[0].thumbnailUrl,
-                    pexelsId: s.results[0].pexelsId,
-                    searchQuery: s.searchQuery,
-                  }))
-                  if (autoItems.length > 0) {
-                    setBRollEnabled(true)
-                    setBRollItems(autoItems)
-                  }
-                }}
-                onBRollsClear={() => {
-                  setBRollEnabled(false)
-                  setBRollItems([])
-                }}
-                onApplyBrandKitToSlide={async (target) => {
-                  try {
-                    const res = await fetch('/api/admin/brand-kit', { credentials: 'include' })
-                    if (!res.ok) {
-                      const text = await res.text().catch(() => '')
-                      return { ok: false, message: `${res.status} ${text.slice(0, 200) || 'Brand kit inaccessible'}` }
-                    }
-                    const bk = await res.json()
-                    if (!bk) return { ok: false, message: 'Aucun brand kit configuré' }
-
-                    const hasAnything =
-                      bk.logoUrl || bk.primaryColor || bk.secondaryColor || bk.accentColor || bk.fontTitle
-                    if (!hasAnything) return { ok: false, message: 'Brand kit vide' }
-
-                    const bgColor = target === 'outro'
-                      ? (bk.secondaryColor || bk.primaryColor)
-                      : bk.primaryColor
-                    const accentColor = bk.accentColor || bk.secondaryColor
-                    const fontFamily = bk.fontTitle
-
-                    const patch = (p: any) => ({
-                      ...p,
-                      ...(bk.logoUrl ? { logoUrl: bk.logoUrl } : {}),
-                      ...(bgColor ? { bgColor } : {}),
-                      ...(accentColor ? { accentColor } : {}),
-                      ...(fontFamily ? { fontFamily } : {}),
-                      preset: 'custom',
-                    })
-
-                    if (target === 'intro') setIntro(patch)
-                    else setOutro(patch)
-
-                    return { ok: true }
-                  } catch (e: any) {
-                    return { ok: false, message: e?.message ?? 'Erreur réseau' }
-                  }
-                }}
-                onRequestIntroHookSuggestions={async () => {
-                  const aggregated = recordings
-                    .map(r => r.transcript)
-                    .filter((t): t is string => !!t && t.length > 0)
-                    .join('\n\n')
-                  if (aggregated.length < 40) {
-                    throw new Error('Transcription insuffisante pour générer des suggestions')
-                  }
-                  const res = await fetch('/api/intro-hooks', {
-                    method: 'POST',
-                    credentials: 'include',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({
-                      transcript: aggregated,
-                      topic: themeName,
-                      format,
-                    }),
-                  })
-                  if (!res.ok) {
-                    const msg = await res.text()
-                    throw new Error(msg || `Erreur ${res.status}`)
-                  }
-                  const data = await res.json()
-                  return (data.hooks ?? []).map((h: { phrase: string }) => h.phrase).filter(Boolean)
-                }}
-              />
+              <EasyModePanel {...easyPanelProps} />
 
             </div>
 
