@@ -455,11 +455,12 @@ function ScreenConversation({
 // ─── Screen: Proposal card ────────────────────────────────────────────────────
 
 function ScreenProposal({
-  proposal, saving,
+  proposal, saving, error,
   onAccept, onLater, onRework,
 }: {
   proposal: KabouProposal
   saving: boolean
+  error: string | null
   onAccept: () => void
   onLater: () => void
   onRework: () => void
@@ -542,6 +543,14 @@ function ScreenProposal({
 
       {/* CTAs */}
       <div style={{ display: 'flex', flexDirection: 'column', gap: 8, marginTop: 14 }}>
+        {error && (
+          <div style={{
+            background: '#FEF2F2', border: '1px solid #FECACA', borderRadius: 12,
+            padding: '10px 14px', fontSize: 13, color: '#DC2626', fontWeight: 500,
+          }}>
+            {error}
+          </div>
+        )}
         <button
           type="button"
           onClick={onAccept}
@@ -917,6 +926,7 @@ export function HomeKabouEntry() {
   const [flowPhase, setFlowPhase] = useState<FlowPhase>('home')
   const [proposal, setProposal] = useState<KabouProposal | null>(null)
   const [saving, setSaving] = useState(false)
+  const [saveError, setSaveError] = useState<string | null>(null)
   const [createdSession, setCreatedSession] = useState<{ topicId: string; sessionId: string } | null>(null)
   const [showHistory, setShowHistory] = useState(false)
 
@@ -1038,7 +1048,10 @@ export function HomeKabouEntry() {
       credentials: 'include',
       body: JSON.stringify({ name: p.sujet, brief: p.sujet }),
     })
-    if (!createRes.ok) return null
+    if (!createRes.ok) {
+      console.error('[createTopicOnly] POST /api/topics', createRes.status, await createRes.text().catch(() => ''))
+      return null
+    }
     const topic = await createRes.json()
 
     await fetch(`/api/topics/${topic.id}`, {
@@ -1059,9 +1072,13 @@ export function HomeKabouEntry() {
   const handleAccept = useCallback(async () => {
     if (!proposal) return
     setSaving(true)
+    setSaveError(null)
     try {
       const topicResult = await createTopicOnly(proposal)
-      if (!topicResult) return
+      if (!topicResult) {
+        setSaveError('Impossible de créer le sujet — réessaie.')
+        return
+      }
       const sessionRes = await fetch('/api/sessions', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -1075,10 +1092,18 @@ export function HomeKabouEntry() {
             : undefined,
         }),
       })
-      if (!sessionRes.ok) return
+      if (!sessionRes.ok) {
+        const errText = await sessionRes.text().catch(() => '')
+        console.error('[handleAccept] /api/sessions', sessionRes.status, errText)
+        setSaveError('Impossible de créer la session — réessaie.')
+        return
+      }
       const session = await sessionRes.json()
       setCreatedSession({ topicId: topicResult.topicId, sessionId: session.id })
       router.push(`/s/${session.id}`)
+    } catch (e) {
+      console.error('[handleAccept]', e)
+      setSaveError('Une erreur est survenue — réessaie.')
     } finally {
       setSaving(false)
     }
@@ -1087,9 +1112,17 @@ export function HomeKabouEntry() {
   const handleLater = useCallback(async () => {
     if (!proposal) return
     setSaving(true)
+    setSaveError(null)
     try {
       const topicResult = await createTopicOnly(proposal)
-      if (topicResult) setFlowPhase('later')
+      if (!topicResult) {
+        setSaveError('Impossible de créer le sujet — réessaie.')
+        return
+      }
+      setFlowPhase('later')
+    } catch (e) {
+      console.error('[handleLater]', e)
+      setSaveError('Une erreur est survenue — réessaie.')
     } finally {
       setSaving(false)
     }
@@ -1129,6 +1162,7 @@ export function HomeKabouEntry() {
         <ScreenProposal
           proposal={proposal}
           saving={saving}
+          error={saveError}
           onAccept={handleAccept}
           onLater={handleLater}
           onRework={handleRework}

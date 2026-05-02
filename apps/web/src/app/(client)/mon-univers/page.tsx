@@ -1,6 +1,6 @@
 import Link from 'next/link'
 import { redirect } from 'next/navigation'
-import { ArrowRight, Brain, Waypoints } from 'lucide-react'
+import { ArrowRight, Brain, Waypoints, User, Palette } from 'lucide-react'
 import { getSessionUser } from '@/lib/auth'
 
 export const dynamic = 'force-dynamic'
@@ -53,6 +53,20 @@ export default async function MonUniversPage() {
           title="Mon arche"
           subtitle="3 mois glissants"
           description="Ta trajectoire éditoriale : ce qui revient, ce qui s'affirme, ce qui manque."
+        />
+        <Card
+          href="/profile"
+          icon={User}
+          title="Mon profil"
+          subtitle="Informations personnelles"
+          description="Nom, email, préférences de compte et paramètres utilisateur."
+        />
+        <Card
+          href="/brand-kit"
+          icon={Palette}
+          title="Brand Kit"
+          subtitle="Identité visuelle"
+          description="Couleurs, polices, logo et éléments visuels appliqués à tes vidéos."
         />
       </div>
     </div>
