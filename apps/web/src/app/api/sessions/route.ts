@@ -13,7 +13,7 @@ export async function POST(req: Request) {
       : user.organizationId
     if (!orgId) return new Response('No organization', { status: 400 })
 
-    const { topicId, format, title, questions, teleprompterScript } = await req.json()
+    const { topicId, format, title, questions, teleprompterScript, recordingScript } = await req.json()
     if (!format || !title) return new Response('Missing format or title', { status: 400 })
 
     const slug = `${title
@@ -48,6 +48,7 @@ export async function POST(req: Request) {
         contentFormat: format as any,
         targetPlatforms: ['linkedin'],
         teleprompterScript: format === 'TELEPROMPTER' ? (teleprompterScript ?? null) : null,
+        recordingScript: recordingScript ?? null,
         topicId: topicId ?? null,
       },
     })
